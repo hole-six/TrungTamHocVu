@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-07-29T10:36:18.149885",
+  "source_sha256": "cec84ae238fd82b22dfadbdb063c5c2e7af3357fd9933b27905519e47c96d6f1",
+  "sheets": 14,
+  "tables": 16,
+  "fields": 322,
+  "formula_patterns": 149,
+  "files": [
+    "Data_Dictionary_Excel.csv",
+    "Formula_Catalog.csv",
+    "Sheet_Dependencies.csv",
+    "00_Master_Specification_V2.md",
+    "00_Master_Specification_V2.docx"
+  ]
+}

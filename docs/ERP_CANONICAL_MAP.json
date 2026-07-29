@@ -1,0 +1,246 @@
+{
+  "sourceWorkbook": {
+    "path": "docs/File Quan ly tong 2026.xlsx",
+    "sheets": 14,
+    "tables": 16,
+    "fields": 322,
+    "formulaPatterns": 149
+  },
+  "modules": [
+    {
+      "name": "crm",
+      "sourceSheets": ["DSTest"],
+      "canonicalEntities": ["lead", "guardian", "placement_test"],
+      "primaryPurpose": "Tuyển sinh, test đầu vào, chuyển đổi sang học viên"
+    },
+    {
+      "name": "student_lifecycle",
+      "sourceSheets": ["DSHV"],
+      "canonicalEntities": ["student", "student_enrollment", "student_status_snapshot"],
+      "primaryPurpose": "Master học viên, trạng thái học, tồn học phí"
+    },
+    {
+      "name": "class_management",
+      "sourceSheets": ["DSLop", "MucLuc"],
+      "canonicalEntities": ["class", "class_task_rule", "lookup_program", "lookup_time_slot", "lookup_weekday"],
+      "primaryPurpose": "Mở lớp, cấu hình lớp, học phí/buổi, buổi học/tuần"
+    },
+    {
+      "name": "class_operations",
+      "sourceSheets": ["ChiTietLopHoc"],
+      "canonicalEntities": ["class_session", "teaching_assignment", "timesheet_entry"],
+      "primaryPurpose": "Nhật ký buổi học, giáo viên, trợ giảng, giờ công"
+    },
+    {
+      "name": "tuition",
+      "sourceSheets": ["TheoDoiHP"],
+      "canonicalEntities": ["tuition_ledger", "tuition_charge", "tuition_payment", "student_balance"],
+      "primaryPurpose": "Công nợ học phí, tiền nộp, số dư mang sang"
+    },
+    {
+      "name": "inventory",
+      "sourceSheets": ["XuatNhapSach"],
+      "canonicalEntities": ["inventory_item", "inventory_receipt", "inventory_issue", "inventory_balance"],
+      "primaryPurpose": "Nhập xuất tồn giáo trình"
+    },
+    {
+      "name": "cashbook",
+      "sourceSheets": ["Thu-Chi"],
+      "canonicalEntities": ["cash_receipt", "cash_payment", "cash_category"],
+      "primaryPurpose": "Sổ quỹ tiền mặt"
+    },
+    {
+      "name": "hr_payroll",
+      "sourceSheets": ["NhanSu", "Report_Cong_Luong"],
+      "canonicalEntities": ["employee", "employee_contract", "pay_rate", "payroll_entry"],
+      "primaryPurpose": "Nhân sự, đơn giá lương, tổng hợp công lương"
+    },
+    {
+      "name": "reporting",
+      "sourceSheets": ["Report_HS", "Report_HP", "Report_Cong_Luong", "SinhNhatHV"],
+      "canonicalEntities": ["report_materialization"],
+      "primaryPurpose": "Báo cáo quản trị"
+    }
+  ],
+  "entities": [
+    {
+      "name": "lead",
+      "source": [{"sheet": "DSTest", "table": "T_DSTest"}],
+      "businessKeys": ["MaSo", "TenHV&MaSo"],
+      "importantFields": ["HoTenHV", "DoB", "HoTenPH", "Sdt", "NgayTest", "Tinh trang test", "TenLop", "Ngay nhap hoc"],
+      "confidence": "high"
+    },
+    {
+      "name": "student",
+      "source": [{"sheet": "DSHV", "table": "T_HV"}],
+      "businessKeys": ["MaSo", "MaHV", "TenHV&MaSo", "TenHV&MaHV"],
+      "importantFields": ["TenHV", "MaLop", "TenLop", "Ngay nhap", "Ngay nghi", "Tinh trang hoc", "HP ton"],
+      "confidence": "high"
+    },
+    {
+      "name": "class",
+      "source": [{"sheet": "DSLop", "table": "T_DSLop"}],
+      "businessKeys": ["MaLop", "Ten lop"],
+      "importantFields": ["SLBuoiHoc", "NgayBD", "NgayKTDuKien", "So buoi nghi", "Con lai", "HocPhi/Buoi", "BuoiHoc/Tuan"],
+      "confidence": "high"
+    },
+    {
+      "name": "class_session",
+      "source": [{"sheet": "ChiTietLopHoc", "table": "T_ChiTietLop"}],
+      "businessKeys": ["Ngay thang", "TenLop", "ThoiGian", "Buoi so"],
+      "importantFields": ["Giao vien", "Tro giang", "TTHoc", "So_Gio", "Tien_GV", "Tien_TG", "Cong NV"],
+      "confidence": "high"
+    },
+    {
+      "name": "employee",
+      "source": [{"sheet": "NhanSu", "table": "T_NS"}],
+      "businessKeys": ["Mã NV", "Tên ngắn"],
+      "importantFields": ["Họ và tên", "Vị trí", "SĐT", "Ngày ký HĐ", "Hạn HĐ"],
+      "confidence": "high"
+    },
+    {
+      "name": "tuition_ledger",
+      "source": [{"sheet": "TheoDoiHP", "table": "T_HP"}],
+      "businessKeys": ["MaSo", "HP Tháng", "Ten HV"],
+      "importantFields": ["TongHP", "TienNop", "Con lai", "HP ton thang truoc", "TienGiaoTrinh", "Tinh trang dong hoc phi"],
+      "confidence": "high"
+    },
+    {
+      "name": "inventory_item",
+      "source": [{"sheet": "XuatNhapSach", "table": "T_SachTon"}],
+      "businessKeys": ["TenSach"],
+      "importantFields": ["DonGia", "Số Lượng"],
+      "confidence": "medium"
+    },
+    {
+      "name": "inventory_receipt",
+      "source": [{"sheet": "XuatNhapSach", "table": "T_SachNhap"}],
+      "businessKeys": ["Ngày tháng", "TenSach", "Người nhập"],
+      "importantFields": ["SL nhập", "Tổng tiền", "Đơn giá"],
+      "confidence": "high"
+    },
+    {
+      "name": "inventory_issue",
+      "source": [{"sheet": "XuatNhapSach", "table": "T_SachXuat"}],
+      "businessKeys": ["NgàyThang", "TenSach", "TenHV&MaHV"],
+      "importantFields": ["SL", "DonGia", "TienGiaoTrinh", "Tháng xuất"],
+      "confidence": "high"
+    },
+    {
+      "name": "cash_receipt",
+      "source": [{"sheet": "Thu-Chi", "table": "T_Thu"}],
+      "businessKeys": ["Ngày tháng", "Loại thu", "Diễn giải"],
+      "importantFields": ["Số tiền", "Người thu"],
+      "confidence": "high"
+    },
+    {
+      "name": "cash_payment",
+      "source": [{"sheet": "Thu-Chi", "table": "T_Chi"}],
+      "businessKeys": ["Ngày tháng", "Loại chi", "Diễn giải"],
+      "importantFields": ["Số tiền", "Người chi"],
+      "confidence": "high"
+    }
+  ],
+  "relationships": [
+    {
+      "from": "lead",
+      "to": "student",
+      "joinKeys": ["MaSo", "TenHV&MaSo", "TenHV"],
+      "cardinality": "1-to-0..1",
+      "relationshipType": "conversion",
+      "confidence": "high"
+    },
+    {
+      "from": "student",
+      "to": "class",
+      "joinKeys": ["MaLop", "TenLop"],
+      "cardinality": "many-to-1",
+      "relationshipType": "enrollment",
+      "confidence": "high"
+    },
+    {
+      "from": "class_session",
+      "to": "class",
+      "joinKeys": ["MaLop", "TenLop"],
+      "cardinality": "many-to-1",
+      "relationshipType": "operates_on",
+      "confidence": "high"
+    },
+    {
+      "from": "class_session",
+      "to": "employee",
+      "joinKeys": ["Giáo viên = Tên ngắn", "Trợ giảng = Tên ngắn"],
+      "cardinality": "many-to-1",
+      "relationshipType": "staff_assignment",
+      "confidence": "high"
+    },
+    {
+      "from": "tuition_ledger",
+      "to": "student",
+      "joinKeys": ["MaSo", "Ten HV", "TenHV&MaHV"],
+      "cardinality": "many-to-1",
+      "relationshipType": "billing_for",
+      "confidence": "high"
+    },
+    {
+      "from": "tuition_ledger",
+      "to": "class_session",
+      "joinKeys": ["TenLop", "HP Tháng -> Tháng", "TTHoc"],
+      "cardinality": "many-to-many",
+      "relationshipType": "consumes_attendance",
+      "confidence": "high"
+    },
+    {
+      "from": "inventory_issue",
+      "to": "student",
+      "joinKeys": ["TenHV&MaHV"],
+      "cardinality": "many-to-1",
+      "relationshipType": "issued_to",
+      "confidence": "medium"
+    },
+    {
+      "from": "inventory_issue",
+      "to": "tuition_ledger",
+      "joinKeys": ["TenHV&MaHV / Ten HV", "Tháng xuất = HP Tháng"],
+      "cardinality": "many-to-1",
+      "relationshipType": "charges_material_fee",
+      "confidence": "medium"
+    },
+    {
+      "from": "inventory_receipt",
+      "to": "inventory_item",
+      "joinKeys": ["TenSach"],
+      "cardinality": "many-to-1",
+      "relationshipType": "adds_stock",
+      "confidence": "high"
+    },
+    {
+      "from": "inventory_issue",
+      "to": "inventory_item",
+      "joinKeys": ["TenSach"],
+      "cardinality": "many-to-1",
+      "relationshipType": "reduces_stock",
+      "confidence": "high"
+    },
+    {
+      "from": "cash_receipt",
+      "to": "tuition_ledger",
+      "joinKeys": ["proposed: payment_id / student_id / period"],
+      "cardinality": "many-to-1",
+      "relationshipType": "should_post_from",
+      "confidence": "inferred"
+    }
+  ],
+  "migrationPriorities": [
+    "lookups",
+    "employees",
+    "classes",
+    "leads",
+    "students",
+    "class_sessions",
+    "tuition",
+    "inventory",
+    "cashbook",
+    "reports"
+  ]
+}

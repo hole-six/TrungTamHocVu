@@ -1,0 +1,51 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/server/current-user";
+import { computeStockBalance } from "@/lib/server/inventory-rules";
+
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+
+  const book = await prisma.book.findUnique({
+    where: { id: params.id },
+    include: {
+      stockTransactions: { orderBy: { txnDate: "desc" }, take: 30 },
+      bookIssues: { include: { student: true, class: true }, orderBy: { issueDate: "desc" }, take: 30 },
+    },
+  });
+  if (!book) return NextResponse.json({ error: "Không tìm thấy sách" }, { status: 404 });
+
+  const balance = await computeStockBalance(book.id);
+  return NextResponse.json({ item: book, balance });
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+
+  const body = await req.json();
+  const data: Record<string, unknown> = {};
+  if ("name" in body) data.name = String(body.name).trim();
+  if ("unitPrice" in body) data.unitPrice = Number(body.unitPrice);
+  if ("usageStatus" in body) data.usageStatus = body.usageStatus || null;
+  if ("notes" in body) data.notes = body.notes || null;
+
+  const book = await prisma.book.update({ where: { id: params.id }, data });
+  return NextResponse.json({ item: book });
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+
+  const [txnCount, issueCount] = await Promise.all([
+    prisma.stockTransaction.count({ where: { bookId: params.id } }),
+    prisma.bookIssue.count({ where: { bookId: params.id } }),
+  ]);
+  if (txnCount > 0 || issueCount > 0) {
+    return NextResponse.json({ error: "Sách đã có giao dịch kho, không thể xóa." }, { status: 409 });
+  }
+  await prisma.book.delete({ where: { id: params.id } });
+  return NextResponse.json({ ok: true });
+}

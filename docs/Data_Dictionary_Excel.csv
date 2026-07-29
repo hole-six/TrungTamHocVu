@@ -1,0 +1,323 @@
+﻿sheet,table,range,column_index,excel_column,field_name,classification,inferred_type,formula_count,value_count,error_count,sample_values,formula_signatures,confidence,required,web_mapping,validation,source_status
+Home,Table19,A4:D20,1,A,STT,CALCULATED,number/Excel serial,16,16,0,1 | 2 | 3,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Home,Table19,A4:D20,2,B,Nội dung,INPUT/MASTER,text,0,16,0,"Thời khóa biểu, lịch làm việc CS4 | Báo cáo tình trạng học phí CS4 | Theo dõi sinh nhật học viên theo tháng",0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Home,Table19,A4:D20,3,C,Tên sheet,INPUT/MASTER,text,0,16,0,Schedule | Report_HP!A1 | SinhNhatHV!A1,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Home,Table19,A4:D20,4,D,Ghi chú,INPUT/MASTER,text,0,1,0,Sheet này đã được hide.,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,1,E,Ngay thang,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,2,F,TenThu,CALCULATED,text,4851,4851,0,T7,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,3,G,Ten NV,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,4,H,Đến S,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,5,I,Về S,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,6,J,Đến C,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,7,K,Về C,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,8,L,Column4,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,9,M,ThoiGian,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,10,N,MaLop,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,11,O,TenLop,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,12,P,Giáo viên,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,13,Q,Trợ giảng,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,14,R,Trợ giảng 2,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,15,S,Buoi so,CALCULATED,text,4851,4851,0,N,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,16,T,TTHoc,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,17,U,Column42,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,18,V,Them (h),INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,19,W,Đi muộn TG,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,20,X,Cộng giờ TG,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,21,Y,DG TG,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,22,Z,Column6,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,23,AA,GhiChu,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,24,AB,Column5,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,25,AC,Nhac viec 1,CALCULATED,text,4838,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,26,AD,Nhac viec 2,CALCULATED,text,4838,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,27,AE,Phat sinh,CALCULATED,text,4838,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,28,AF,Ngay HT,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,29,AG,Ket qua,CALCULATED,text,4838,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,30,AH,Column2,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,31,AI,So_Gio,CALCULATED,number/Excel serial,4851,4851,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,32,AJ,So_gio_GV,CALCULATED,number/Excel serial,4851,4851,0,1,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,33,AK,Luongh_GV,CALCULATED,number/Excel serial,4851,4851,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,34,AL,Ca_Gio,CALCULATED,number/Excel serial,4851,4851,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,35,AM,Tien_GV,CALCULATED,number/Excel serial,4851,4851,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,36,AN,So_gio_TG,CALCULATED,number/Excel serial,4851,4851,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,37,AO,Luongh_TG,CALCULATED,number/Excel serial,4851,4851,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,38,AP,Tien_TG,CALCULATED,number/Excel serial,4851,4851,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,39,AQ,Gio NV,CALCULATED,number/Excel serial,4851,4851,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,40,AR,Cong NV,CALCULATED,number/Excel serial,4851,4851,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,41,AS,TenLop2,CALCULATED,text,4851,4851,0, (+),1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,42,AT,TenLop3,CALCULATED,number/Excel serial,4851,4851,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,43,AU,am/pm,CALCULATED,text,4851,4851,0, (,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,44,AV,Column1,CALCULATED,number/Excel serial,4851,4851,0,11900,1,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,45,AW,Thu&Buoi&Lop,CALCULATED,text,4851,4851,0,011900 (,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,46,AX,Tháng,CALCULATED,date/datetime (xác minh),4851,4851,0,1,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,47,AY,Time và buoi,CALCULATED,text,4851,4851,0, (Room N),1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,48,AZ,So buoi hoc,CALCULATED,text,4851,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,49,BA,So buoi nghi,CALCULATED,text,4851,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,50,BB,Tuần,CALCULATED,text,4851,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,51,BC,HomNay,CALCULATED,text,4851,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+ChiTietLopHoc,T_ChiTietLop,E5:BD4856,52,BD,Column3,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,1,E,NgayGap,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,2,F,HoTenHV,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,3,G,GioiTinh,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,4,H,DoB,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,5,I,tuoi,CALCULATED,text,502,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,6,J,LopHoc,CALCULATED,text,502,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,7,K,HoTenPH,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,8,L,Sdt,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,9,M,Column4,INPUT/MASTER,text,0,3,0,A.Phương | A.Long ,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,10,N,DiaChiNha,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,11,O,NgayTest,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,12,P,Tình trạng test,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,13,Q,TenLop,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,14,R,Ngày dự kiến đi học,INPUT/MASTER,date/datetime (xác minh),0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,15,S,Ngày nhập học,INPUT/MASTER,date/datetime (xác minh),0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,16,T,MaSo,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,17,U,Column3,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,18,V,GhiChu,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,19,W,Column32,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,20,X,GhiChu2,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,21,Y,Column1,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,22,Z,Tình trạng cần liên hệ,CALCULATED,text,502,502,0,Liên hệ ngay,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,23,AA,TenHV&MaSo,CALCULATED,text,502,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,24,AB,TinhTrangHoc,CALCULATED,text,502,502,0,Chưa đi học,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,25,AC,Tháng nhập học,CALCULATED,date/datetime (xác minh),502,502,0,1900-1,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,26,AD,Tình trạng nhập DSHV,CALCULATED,text,502,502,0,Đã nhập DSHV,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,27,AE,Tuần ĐK,CALCULATED,text,502,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,28,AF,Tháng ĐK,CALCULATED,date/datetime (xác minh),502,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,29,AG,Ten&Sdt,CALCULATED,text,502,502,0, - ,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSTest,T_DSTest,E6:AH508,30,AH,Column2,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,1,E,MaLop,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,2,F,TenLop,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,3,G,TenHV,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,4,H,Ngay nhap,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,5,I,Ngay nghi,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,6,J,Lí do nghỉ,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,7,K,DanhGia,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,8,L,HP tồn,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,9,M,Column4,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,10,N,Column5,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,11,O,Column3,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,12,P,MaSo,CALCULATED,text,423,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,13,Q,Tình trạng học,CALCULATED,text,423,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,14,R,Sđt,CALCULATED,text,423,423,423,#N/A,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,15,S,Column2,CALCULATED,text,423,423,423,#N/A,1,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,16,T,TenHV&MaSo,CALCULATED,text,423,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,17,U,Ho ten,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,18,V,MaHV,CALCULATED,text,423,423,0,3-,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,19,W,TenHV&MaHV,CALCULATED,text,423,423,0,.3-,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,20,X,Tháng sinh nhật,CALCULATED,date/datetime (xác minh),423,423,0,1,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,21,Y,HocPhi/Buoi,CALCULATED,text,423,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,22,Z,Tinh trang HP,CALCULATED,text,423,423,0,Đóng đủ,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,23,AA,Tháng học,CALCULATED,date/datetime (xác minh),423,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,24,AB,Tuần học,CALCULATED,number/Excel serial,423,423,0,1,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,25,AC,Tuần nghỉ,CALCULATED,text,423,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,26,AD,Tháng nghỉ học,CALCULATED,date/datetime (xác minh),423,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,27,AE,Column1,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,28,AF,12,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,29,AG,11,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,30,AH,10,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,31,AI,9,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,32,AJ,8,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,33,AK,7,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,34,AL,6,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,35,AM,5,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,36,AN,4,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,37,AO,3,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,38,AP,2,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,39,AQ,1,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,40,AR,13,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,41,AS,T1,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,42,AT,T2,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,43,AU,T3,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,44,AV,T4,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,45,AW,T5,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,46,AX,T6,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,47,AY,T7,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,48,AZ,T8,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,49,BA,T9,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,50,BB,T10,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,51,BC,T11,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,52,BD,T12,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,53,BE,T13,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,54,BF,T14,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,55,BG,T15,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,56,BH,T16,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,57,BI,T17,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,58,BJ,T18,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,59,BK,T19,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,60,BL,T20,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,61,BM,T21,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,62,BN,T22,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,63,BO,T23,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,64,BP,T24,CALCULATED,number/Excel serial,423,423,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,65,BQ,14,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,66,BR,15,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,67,BS,16,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,68,BT,17,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSHV,T_HV,E4:BU427,69,BU,18,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,1,E,STT,MIXED,number/Excel serial,3903,5967,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,2,F,MaLop,MIXED,text,3903,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,3,G,TenLop,MIXED,text,3903,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,4,H,Ten HV,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,5,I,HP Tháng,INPUT/MASTER,date/datetime (xác minh),0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,6,J,Buoi tru,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,7,K,HP dau ky,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,8,L,HB dieu chinh,INPUT/MASTER,number/Excel serial,0,4,0,0.3 | 0.05,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,9,M,HP thang hien tai,MIXED,text,3903,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,10,N,TienGiaoTrinh,MIXED,number/Excel serial,3903,5967,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,11,O,TongHP,MIXED,text,3903,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,12,P,TienNop,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,13,Q,Con lai,MIXED,text,3903,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,14,R,HP ton thang truoc,MIXED,text,3903,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,15,S,NgayNopTien,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,16,T,HinhThucTT,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,17,U,Người nhận,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,18,V,GhiChu,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,19,W,Tình trạng đóng học phí,MIXED,decimal/currency,3902,5967,0,Đã TT đủ,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,20,X,Ten&Sdt,MIXED,text,3902,5967,5967,#N/A,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,21,Y,Column1,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,22,Z,MaSo,MIXED,text,3902,5967,5967,#N/A,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,23,AA,TT học,MIXED,text,3902,5967,5967,#N/A,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,24,AB,Thang va ho ten,CALCULATED,text,5967,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,25,AC,Ho ten,MIXED,text,3902,5967,5967,#N/A,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,26,AD,Ngay NH,MIXED,text,3902,5967,5967,#N/A,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,27,AE,Ngay KT,MIXED,text,3902,5967,5967,#N/A,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,28,AF,ĐG,MIXED,text,3902,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,29,AG,So buoi,MIXED,text,3902,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,30,AH,Buoi nghi,MIXED,text,3902,5967,5967,#N/A,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,31,AI,Hoc bong,MIXED,text,3902,5967,5967,#N/A,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,32,AJ,Cong don,MIXED,number/Excel serial,3902,5967,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,33,AK,Tuan TT,MIXED,text,3902,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,34,AL,Thang thanh toan,MIXED,text,3902,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,35,AM,Column4,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,36,AN,Thang (1),CALCULATED,number/Excel serial,5967,5967,0,1,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,37,AO,Số buổi (1),MIXED,text,3902,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,38,AP,Học phí (1),CALCULATED,decimal/currency,5967,5967,5967,#VALUE!,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,39,AQ,Thang (2),CALCULATED,number/Excel serial,5967,5967,0,2,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,40,AR,Số buổi (2),MIXED,text,3902,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,41,AS,Học phí (2),CALCULATED,decimal/currency,5967,5967,5967,#VALUE!,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,42,AT,Cộng dồn (2),CALCULATED,text,5967,5967,5967,#VALUE!,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,43,AU,cghj,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+TheoDoiHP,T_HP,E3:AV5971,44,AV,Column2,MIXED,text,3902,5967,5967,#REF! | #N/A,1,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachTon,AI6:AR176,1,AI,STT,CALCULATED,number/Excel serial,170,170,0,1 | 2 | 3,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachTon,AI6:AR176,2,AJ,MaLop,INPUT/MASTER,text,0,104,0,FF | UP | VINS,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachTon,AI6:AR176,3,AK,TenSach,INPUT/MASTER,text,0,104,0,First Friends 2 - Activity | First Friends 2 - Classbook | Bài tập tô màu FF2,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachTon,AI6:AR176,4,AL,Column4,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachTon,AI6:AR176,5,AM,DonGia,INPUT/MASTER,number/Excel serial,0,104,0,40000 | 60000 | 50000,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachTon,AI6:AR176,6,AN,Column3,CALCULATED,number/Excel serial,170,170,0,0,1,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachTon,AI6:AR176,7,AO,Column1,CALCULATED,number/Excel serial,170,170,0,0,1,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachTon,AI6:AR176,8,AP,Column2,CALCULATED,number/Excel serial,170,170,0,0,2,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachTon,AI6:AR176,9,AQ,Số Lượng,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachTon,AI6:AR176,10,AR,GhiChu,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachNhap,U6:AG169,1,U,Ngày tháng,INPUT/MASTER,date/datetime (xác minh),0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachNhap,U6:AG169,2,V,Malop,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachNhap,U6:AG169,3,W,TenSach,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachNhap,U6:AG169,4,X,SL nhập,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachNhap,U6:AG169,5,Y,Người nhập,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachNhap,U6:AG169,6,Z,Người giao,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachNhap,U6:AG169,7,AA,Tổng tiền,CALCULATED,decimal/currency,163,163,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachNhap,U6:AG169,8,AB,Ghi chú,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachNhap,U6:AG169,9,AC,Đơn giá,INPUT/MASTER,decimal/currency,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachNhap,U6:AG169,10,AD,Tình trạng sử dụng,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachNhap,U6:AG169,11,AE,Column1,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachNhap,U6:AG169,12,AF,Tháng nhập,CALCULATED,date/datetime (xác minh),163,163,0,1,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachNhap,U6:AG169,13,AG,Column2,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachXuat,E6:S2483,1,E,STT,CALCULATED,number/Excel serial,2477,2477,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachXuat,E6:S2483,2,F,MaLop,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachXuat,E6:S2483,3,G,TenLop,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachXuat,E6:S2483,4,H,TenHV&MaHV,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachXuat,E6:S2483,5,I,TenSach,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachXuat,E6:S2483,6,J,NgayThang,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachXuat,E6:S2483,7,K,Column3,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachXuat,E6:S2483,8,L,SL,INPUT/MASTER,number/Excel serial,0,2472,0,1,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachXuat,E6:S2483,9,M,DonGia,CALCULATED,text,2477,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachXuat,E6:S2483,10,N,TienGiaoTrinh,CALCULATED,text,2477,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachXuat,E6:S2483,11,O,TTTien,CALCULATED,text,2477,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachXuat,E6:S2483,12,P,GhiChu,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachXuat,E6:S2483,13,Q,Column1,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachXuat,E6:S2483,14,R,Tháng xuất,CALCULATED,date/datetime (xác minh),2477,2477,0,1,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+XuatNhapSach,T_SachXuat,E6:S2483,15,S,Column2,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Chi,O5:X322,1,O,Ngày tháng,INPUT/MASTER,date/datetime (xác minh),0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Chi,O5:X322,2,P,Loại chi,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Chi,O5:X322,3,Q,Chi tiết các loại,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Chi,O5:X322,4,R,Diễn giải,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Chi,O5:X322,5,S,Column2,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Chi,O5:X322,6,T,Số tiền,INPUT/MASTER,decimal/currency,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Chi,O5:X322,7,U,Người thu/chi,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Chi,O5:X322,8,V,Ghi chú,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Chi,O5:X322,9,W,Tháng chi,CALCULATED,date/datetime (xác minh),317,317,0,1900-1,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Chi,O5:X322,10,X,Tuan chi,CALCULATED,text,317,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_PhanLoai,AL4:AQ26,1,AL,LoaiHinh,INPUT/MASTER,text,0,22,0,Chi | Thu,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_PhanLoai,AL4:AQ26,2,AM,TenThuChi,INPUT/MASTER,text,0,22,0,"Văn phòng | Giáo trình | Điện, nước, internet",0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_PhanLoai,AL4:AQ26,3,AN,ChiTietLoai,INPUT/MASTER,text,0,20,0,"Văn phòng phẩm, dồ dùng | Tiền mua giáo trình | Tiền Internet, tiền điện, nước",0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_PhanLoai,AL4:AQ26,4,AO,GhiChu,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_PhanLoai,AL4:AQ26,5,AP,nguoi chi,INPUT/MASTER,text,0,4,0,C.Hằng | A.Đạo | C.Trang,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_PhanLoai,AL4:AQ26,6,AQ,nguoi Thu,INPUT/MASTER,text,0,1,0,Tạm ứng,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Thu,Z5:AJ153,1,Z,Ngày tháng,INPUT/MASTER,date/datetime (xác minh),0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Thu,Z5:AJ153,2,AA,Loại thu,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Thu,Z5:AJ153,3,AB,Chi tiết các loại,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Thu,Z5:AJ153,4,AC,Diễn giải,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Thu,Z5:AJ153,5,AD,Column1,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Thu,Z5:AJ153,6,AE,Column2,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Thu,Z5:AJ153,7,AF,Số tiền,INPUT/MASTER,decimal/currency,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Thu,Z5:AJ153,8,AG,Người thu/chi,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Thu,Z5:AJ153,9,AH,Ghi chú,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Thu,Z5:AJ153,10,AI,Tháng thu,CALCULATED,date/datetime (xác minh),148,148,0,1900-1,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+Thu-Chi,T_Thu,Z5:AJ153,11,AJ,Tuan thu,CALCULATED,text,148,0,0,,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,1,A,MaLop,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,2,B,Lop,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,3,C,Ten lop,CALCULATED,text,34,34,0,-,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,4,D,SLBuoiHoc,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,5,E,NgayBD,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,6,F,NgayKTDuKien,CALCULATED,number/Excel serial,34,34,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,7,G,Column5,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,8,H,Buoi so,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,9,I,So buoi nghi,CALCULATED,number/Excel serial,34,34,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,10,J,Column4,CALCULATED,number/Excel serial,34,34,0,0,1,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,11,K,Con lai,CALCULATED,number/Excel serial,34,34,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,12,L,GhiChu,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,13,M,Column7,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,14,N,Ngay CĐ,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,15,O,Thu,INPUT/MASTER,text,0,1,0,T4,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,16,P,Cong viec,INPUT/MASTER,text,0,1,0,Update file quản lí lên drive,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,17,Q,Ngay phat sinh,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,18,R,Cong viec PS,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,19,S,ghi chu,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,20,T,Column2,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,21,U,TenLop,CALCULATED,text,34,34,0,-,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,22,V,BuoiHoc/Tuan,CALCULATED,text,34,34,34,#N/A,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,23,W,HocPhi/Buoi,CALCULATED,text,34,34,34,#N/A,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,24,X,Column1,CALCULATED,text,34,34,34,#N/A,1,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,25,Y,SLHVNow,CALCULATED,number/Excel serial,34,34,0,0,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+DSLop,T_DSLop,A5:Z39,26,Z,Column3,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,1,D,STT,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,2,E,Mã NV,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,3,F,Họ và tên,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,4,G,Tên ngắn,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,5,H,Ngày sinh,INPUT/MASTER,date/datetime (xác minh),0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,6,I,Vị trí,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,7,J,Column3,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,8,K,Column4,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,9,L,SĐT,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,10,M,Mail,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,11,N,Quê quán,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,12,O,Địa chỉ thường trú,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,13,P,Số CMT,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,14,Q,Ngày cấp,INPUT/MASTER,date/datetime (xác minh),0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,15,R,Nơi cấp,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,16,S,Column6,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,17,T,Column5,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,18,U,Ngày ký HĐ,INPUT/MASTER,date/datetime (xác minh),0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,19,V,Hạn HĐ,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,20,W,Ngày nghỉ,INPUT/MASTER,date/datetime (xác minh),0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,21,X,Column1,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,22,Y,Tình trạng làm việc,CALCULATED,text,53,53,0,Chưa có info,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,23,Z,Tháng năm nhận việc,CALCULATED,date/datetime (xác minh),53,53,0,1/1900,1,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+NhanSu,T_NS,D5:AA58,24,AA,Column2,INPUT/MASTER,text,0,0,0,,0,Thấp,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+MucLuc,Table1,A1:B10,1,A,KhungTG,INPUT/MASTER,text,0,0,0,,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+MucLuc,Table1,A1:B10,2,B,ThoiGian,INPUT/MASTER,text,0,6,0,9:30 - 11:00 | 16:00 - 17:30 | 17:30 - 19:00,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+MucLuc,Table2,D1:G13,1,D,MaLop,INPUT/MASTER,text,0,12,0,BT | FF | LTĐH,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+MucLuc,Table2,D1:G13,2,E,TenLop,INPUT/MASTER,text,0,12,0,Bổ trợ | First friend  | Luyện thi đại học,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+MucLuc,Table2,D1:G13,3,F,HocPhi/Buoi,INPUT/MASTER,number/Excel serial,0,12,0,0 | 170000 | 200000,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+MucLuc,Table2,D1:G13,4,G,BuoiHoc/Tuan,INPUT/MASTER,number/Excel serial,0,12,0,1 | 2 | 3,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+MucLuc,Table3,I1:J8,1,I,MaThu,INPUT/MASTER,text,0,7,0,M | T | W,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
+MucLuc,Table3,I1:J8,2,J,TenThu,INPUT/MASTER,text,0,7,0,Monday | Tuesday | Wenesday,0,Cao,Chưa xác nhận,Cần mapping entity/field,Cần workshop xác nhận,EXCEL-CONFIRMED structure
