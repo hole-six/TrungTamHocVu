@@ -16,7 +16,7 @@ type StatCardProps = {
 };
 
 const colorClasses = {
-  primary: "from-blue-500 to-indigo-600",
+  primary: "from-sky-400 to-blue-600",
   success: "from-emerald-500 to-teal-600",
   warning: "from-amber-500 to-orange-600",
   danger: "from-red-500 to-rose-600",

@@ -7,9 +7,12 @@ type Props = {
   studentId: string;
   initial: {
     status: string;
+    gender: string;
+    dob: string;
     phone: string;
     address: string;
     leaveReason: string;
+    evaluation: string;
     referredBy: string;
     notes: string;
   };
@@ -37,6 +40,7 @@ export default function StudentEditForm({ studentId, initial }: Props) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
+        dob: form.dob || null,
         leaveDate: form.status === "LEFT" ? new Date().toISOString() : null,
       }),
     });
@@ -85,6 +89,22 @@ export default function StudentEditForm({ studentId, initial }: Props) {
                 {opt.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Gender + DOB */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="form-group">
+            <label className="label">Giới tính</label>
+            <select className="input" value={form.gender} onChange={(e) => update("gender", e.target.value)}>
+              <option value="">— Chọn —</option>
+              <option value="Nam">Nam</option>
+              <option value="Nữ">Nữ</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="label">Ngày sinh</label>
+            <input type="date" className="input" value={form.dob} onChange={(e) => update("dob", e.target.value)} />
           </div>
         </div>
 
@@ -144,6 +164,18 @@ export default function StudentEditForm({ studentId, initial }: Props) {
             placeholder="Tên người giới thiệu (nếu có)"
             value={form.referredBy}
             onChange={(e) => update("referredBy", e.target.value)}
+          />
+        </div>
+
+        {/* Evaluation */}
+        <div className="form-group">
+          <label className="label">Đánh giá học viên</label>
+          <textarea
+            className="input resize-none"
+            rows={2}
+            placeholder="Nhận xét năng lực, thái độ học tập..."
+            value={form.evaluation}
+            onChange={(e) => update("evaluation", e.target.value)}
           />
         </div>
 

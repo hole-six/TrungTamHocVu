@@ -1,17 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { getUserRole } from "@/lib/permissions";
-import { canCreate } from "@/lib/server/role-matrix";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canCreateWithOverride } from "@/lib/server/role-matrix";
+import { computeContractStatus } from "@/lib/server/payroll-rules";
+import { getBranchWhereClause } from "@/lib/branch-filter";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
-  const items = await prisma.employee.findMany({
-    where: user.branchId ? { branchId: user.branchId } : {},
+  const { searchParams } = new URL(req.url);
+  const employees = await prisma.employee.findMany({
+    where: await getBranchWhereClause(searchParams.get("branchId")),
     orderBy: { fullName: "asc" },
+    include: { contracts: { orderBy: { signDate: "desc" }, take: 1 } },
   });
+
+  // FR-0148: gắn cảnh báo hợp đồng ngay trên danh sách — giống cột "Tình trạng làm
+  // việc" hiển thị cho mọi dòng cùng lúc trong NhanSu gốc, thay vì phải mở từng hồ sơ.
+  const items = employees.map(({ contracts, ...employee }) => ({
+    ...employee,
+    contractStatus: computeContractStatus(employee.resignDate, contracts[0]?.expiryDate ?? null),
+  }));
+
   return NextResponse.json({ items });
 }
 
@@ -19,8 +31,8 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   if (!user.branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
-  const role = await getUserRole(user.id);
-  if (!canCreate("hr", role)) {
+  const { role, override } = await getUserRoleAndOverride(user.id, "hr");
+  if (!canCreateWithOverride("hr", role, override)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền tạo hồ sơ nhân viên" }, { status: 403 });
   }
 
@@ -43,6 +55,12 @@ export async function POST(req: NextRequest) {
       position: body.position || null,
       phone: body.phone || null,
       email: body.email || null,
+      dob: body.dob ? new Date(body.dob) : null,
+      hometown: body.hometown || null,
+      permanentAddress: body.permanentAddress || null,
+      idNumber: body.idNumber || null,
+      idIssueDate: body.idIssueDate ? new Date(body.idIssueDate) : null,
+      idIssuePlace: body.idIssuePlace || null,
       teachingHourlyRate: body.teachingHourlyRate ? Number(body.teachingHourlyRate) : null,
       assistantHourlyRate: body.assistantHourlyRate ? Number(body.assistantHourlyRate) : null,
       payMode: body.payMode || "HOURLY",

@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { SESSION_ROLE_LABEL } from "@/lib/server/payroll-rules";
+import { SESSION_ROLE_LABEL, computeContractStatus } from "@/lib/server/payroll-rules";
 import TimesheetQuickAddForm from "@/components/payroll/TimesheetQuickAddForm";
+import EmployeeProfileEditor from "@/components/payroll/EmployeeProfileEditor";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
-import { canView, canUpdate } from "@/lib/server/role-matrix";
+import { canCreate, canView, canUpdate } from "@/lib/server/role-matrix";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -18,18 +19,19 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
   const currentUser = await getCurrentUser();
   const role = currentUser ? await getUserRole(currentUser.id) : null;
   const isSelf = currentUser?.employeeId === params.id;
-  // GV/TG chỉ xem được hồ sơ của chính mình (lương/giờ công đồng nghiệp không được lộ ra) —
-  // vai trò khác cần canView("hr") mới được xem hồ sơ nhân viên bất kỳ.
   if (!isSelf && !canView("hr", role)) notFound();
 
   const employee = await prisma.employee.findUnique({
     where: { id: params.id },
     include: {
-      sessionAssignments: { include: { session: { include: { class: true } } }, orderBy: { id: "desc" }, take: 20 },
-      timesheetEntries: { orderBy: { workDate: "desc" }, take: 30 },
+      sessionAssignments: { include: { session: { include: { class: true } } }, orderBy: { id: "desc" } },
+      timesheetEntries: { orderBy: { workDate: "desc" } },
+      contracts: { orderBy: { signDate: "desc" }, take: 1 },
     },
   });
   if (!employee) notFound();
+
+  const contractStatus = computeContractStatus(employee.resignDate, employee.contracts[0]?.expiryDate ?? null);
 
   return (
     <div className="space-y-6">
@@ -41,12 +43,14 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
         <p className="mt-1 text-sm text-ink-muted48">
           Mã NV: {employee.employeeCode} · Tên ngắn: {employee.shortName} · {employee.position ?? "—"}
         </p>
+        {contractStatus === "Đã hết hạn HĐ" && <span className="badge-red mt-2 inline-flex">Đã hết hạn HĐ</span>}
+        {contractStatus === "Sắp hết hạn HĐ" && <span className="badge-amber mt-2 inline-flex">Sắp hết hạn HĐ</span>}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <div className="card overflow-x-auto">
-            <h2 className="font-display text-lg font-semibold tracking-tight">Buổi dạy/trợ giảng gần đây</h2>
+            <h2 className="font-display text-lg font-semibold tracking-tight">Tất cả buổi dạy/trợ giảng ({employee.sessionAssignments.length})</h2>
             <table className="mt-3 w-full text-left text-sm">
               <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
                 <tr>
@@ -58,13 +62,13 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
                 </tr>
               </thead>
               <tbody>
-                {employee.sessionAssignments.map((a) => (
-                  <tr key={a.id} className="border-b border-hairline last:border-0">
-                    <td className="py-2">{formatDate(a.session.sessionDate)}</td>
-                    <td className="py-2 text-ink-muted80">{a.session.class.className}</td>
-                    <td className="py-2 text-ink-muted80">{SESSION_ROLE_LABEL[a.role] ?? a.role}</td>
-                    <td className="py-2 text-ink-muted80">{a.hours}</td>
-                    <td className="py-2 font-medium">{formatVnd(a.amount ?? 0)}</td>
+                {employee.sessionAssignments.map((assignment) => (
+                  <tr key={assignment.id} className="border-b border-hairline last:border-0">
+                    <td className="py-2">{formatDate(assignment.session.sessionDate)}</td>
+                    <td className="py-2 text-ink-muted80">{assignment.session.class.className}</td>
+                    <td className="py-2 text-ink-muted80">{SESSION_ROLE_LABEL[assignment.role] ?? assignment.role}</td>
+                    <td className="py-2 text-ink-muted80">{assignment.hours}</td>
+                    <td className="py-2 font-medium">{formatVnd(assignment.amount ?? 0)}</td>
                   </tr>
                 ))}
                 {employee.sessionAssignments.length === 0 && (
@@ -79,7 +83,7 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
           </div>
 
           <div className="card overflow-x-auto">
-            <h2 className="font-display text-lg font-semibold tracking-tight">Chấm công gần đây</h2>
+            <h2 className="font-display text-lg font-semibold tracking-tight">Tất cả chấm công ngày ({employee.timesheetEntries.length})</h2>
             <table className="mt-3 w-full text-left text-sm">
               <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
                 <tr>
@@ -89,11 +93,11 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
                 </tr>
               </thead>
               <tbody>
-                {employee.timesheetEntries.map((t) => (
-                  <tr key={t.id} className="border-b border-hairline last:border-0">
-                    <td className="py-2">{formatDate(t.workDate)}</td>
-                    <td className="py-2 text-ink-muted80">{t.hours}</td>
-                    <td className="py-2 font-medium">{t.days}</td>
+                {employee.timesheetEntries.map((entry) => (
+                  <tr key={entry.id} className="border-b border-hairline last:border-0">
+                    <td className="py-2">{formatDate(entry.workDate)}</td>
+                    <td className="py-2 text-ink-muted80">{entry.hours}</td>
+                    <td className="py-2 font-medium">{entry.days}</td>
                   </tr>
                 ))}
                 {employee.timesheetEntries.length === 0 && (
@@ -108,7 +112,59 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
           </div>
         </div>
 
-        {(isSelf || canUpdate("hr", role)) && <TimesheetQuickAddForm employeeId={employee.id} />}
+        <div className="space-y-6">
+          <div className="card">
+            <h2 className="font-display text-lg font-semibold tracking-tight">Công việc & Lương</h2>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between border-b border-hairline/60 py-1">
+                <dt className="text-ink-muted48">Trạng thái làm việc</dt>
+                <dd>
+                  <span className={`badge ${employee.workStatus === "ACTIVE" ? "bg-primary/10 text-primary" : "bg-ink/5 text-ink-muted48"}`}>
+                    {employee.workStatus === "ACTIVE" ? "Đang làm" : "Đã nghỉ"}
+                  </span>
+                </dd>
+              </div>
+              <div className="flex justify-between border-b border-hairline/60 py-1">
+                <dt className="text-ink-muted48">Ngày ký HĐ</dt>
+                <dd className="font-medium">{employee.contracts[0]?.signDate ? formatDate(employee.contracts[0].signDate) : "—"}</dd>
+              </div>
+              <div className="flex justify-between border-b border-hairline/60 py-1">
+                <dt className="text-ink-muted48">Hạn HĐ</dt>
+                <dd className="font-medium">{employee.contracts[0]?.expiryDate ? formatDate(employee.contracts[0].expiryDate) : "—"}</dd>
+              </div>
+              <div className="flex justify-between border-b border-hairline/60 py-1">
+                <dt className="text-ink-muted48">Hình thức lương</dt>
+                <dd className="font-medium">{employee.payMode === "SESSION" ? "Theo ca" : "Theo giờ"}</dd>
+              </div>
+              <div className="flex justify-between border-b border-hairline/60 py-1">
+                <dt className="text-ink-muted48">Lương/giờ dạy</dt>
+                <dd className="font-medium">{employee.teachingHourlyRate != null ? formatVnd(employee.teachingHourlyRate) : "—"}</dd>
+              </div>
+              <div className="flex justify-between py-1">
+                <dt className="text-ink-muted48">Lương/giờ trợ giảng</dt>
+                <dd className="font-medium">{employee.assistantHourlyRate != null ? formatVnd(employee.assistantHourlyRate) : "—"}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <EmployeeProfileEditor
+            employee={{
+              id: employee.id,
+              dob: employee.dob ? employee.dob.toISOString() : null,
+              phone: employee.phone,
+              email: employee.email,
+              hometown: employee.hometown,
+              permanentAddress: employee.permanentAddress,
+              idNumber: employee.idNumber,
+              idIssueDate: employee.idIssueDate ? employee.idIssueDate.toISOString() : null,
+              idIssuePlace: employee.idIssuePlace,
+              resignDate: employee.resignDate ? employee.resignDate.toISOString() : null,
+            }}
+            canEdit={canUpdate("hr", role)}
+          />
+
+          {canCreate("timesheet", role) && (isSelf || canUpdate("hr", role)) && <TimesheetQuickAddForm employeeId={employee.id} />}
+        </div>
       </div>
     </div>
   );

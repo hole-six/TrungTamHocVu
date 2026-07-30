@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate, canDelete } from "@/lib/server/role-matrix";
+import { estimateEndDate } from "@/lib/server/class-rules";
+import { syncClassDerivedFields } from "@/lib/server/database-sync";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -33,11 +35,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "Vai trò của bạn không có quyền sửa lớp" }, { status: 403 });
   }
 
+  const existing = await prisma.class.findUnique({
+    where: { id: params.id },
+    include: { course: true },
+  });
+  if (!existing) return NextResponse.json({ error: "Không tìm thấy lớp" }, { status: 404 });
+
   const body = await req.json();
   const data: Record<string, unknown> = {};
   for (const field of ["className", "classGroup", "status", "notes"]) {
     if (field in body) data[field] = body[field] || null;
   }
+  if ("courseId" in body) data.courseId = body.courseId || null;
   for (const field of ["totalSessions", "sessionsPerWeek", "tuitionPerSession"]) {
     if (field in body) data[field] = body[field] === "" || body[field] === null ? null : Number(body[field]);
   }
@@ -45,8 +54,37 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (field in body) data[field] = body[field] ? new Date(body[field]) : null;
   }
 
+  const nextCourse =
+    "courseId" in body
+      ? body.courseId
+        ? await prisma.course.findUnique({ where: { id: body.courseId } })
+        : null
+      : existing.course;
+  const nextSessionsPerWeek =
+    "sessionsPerWeek" in body
+      ? body.sessionsPerWeek === "" || body.sessionsPerWeek === null
+        ? nextCourse?.sessionsPerWeek ?? null
+        : Number(body.sessionsPerWeek)
+      : existing.sessionsPerWeek ?? nextCourse?.sessionsPerWeek ?? null;
+  const nextTotalSessions =
+    "totalSessions" in body
+      ? body.totalSessions === "" || body.totalSessions === null
+        ? null
+        : Number(body.totalSessions)
+      : existing.totalSessions;
+  const nextStartDate =
+    "startDate" in body ? (body.startDate ? new Date(body.startDate) : null) : existing.startDate;
+
+  if (!("expectedEndDate" in body)) {
+    const previousDerived = estimateEndDate(existing.startDate, existing.totalSessions, existing.sessionsPerWeek);
+    if (!existing.expectedEndDate || existing.expectedEndDate.getTime() === previousDerived?.getTime()) {
+      data.expectedEndDate = estimateEndDate(nextStartDate, nextTotalSessions, nextSessionsPerWeek);
+    }
+  }
+
   const updated = await prisma.class.update({ where: { id: params.id }, data });
-  return NextResponse.json({ item: updated });
+  const synced = await syncClassDerivedFields(updated.id);
+  return NextResponse.json({ item: synced ?? updated });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {

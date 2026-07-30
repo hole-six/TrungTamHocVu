@@ -67,7 +67,7 @@ export const ROLE_MATRIX: Record<ModuleKey, Record<RoleCode, AccessLevel>> = {
   },
   timesheet: {
     SUPER_ADMIN: "FULL", BOARD: "VIEW", BRANCH_MANAGER: "APPROVE_VIEW", REGISTRAR: "CREATE_VIEW", ADMISSIONS: "NONE", ACCOUNTANT: "VIEW",
-    HR: "FULL", TEACHER: "CREATE_VIEW", TEACHING_ASSISTANT: "CREATE_VIEW", DIRECTOR: "APPROVE_VIEW", RECEPTIONIST: "NONE",
+    HR: "FULL", TEACHER: "NONE", TEACHING_ASSISTANT: "NONE", DIRECTOR: "APPROVE_VIEW", RECEPTIONIST: "NONE",
   },
   leads: {
     SUPER_ADMIN: "FULL", BOARD: "VIEW", BRANCH_MANAGER: "FULL", REGISTRAR: "UPDATE_VIEW", ADMISSIONS: "FULL", ACCOUNTANT: "VIEW",
@@ -121,21 +121,128 @@ function levelOf(module: ModuleKey, role: string | null | undefined): AccessLeve
   return ROLE_MATRIX[module][role as RoleCode] ?? "NONE";
 }
 
+// Predicate riêng cho từng capability theo AccessLevel — tách ra để canX() và
+// canXWithOverride() dùng chung, tránh lặp lại mảng điều kiện ở 2 chỗ.
+function levelAllowsView(level: AccessLevel): boolean {
+  return level !== "NONE";
+}
+function levelAllowsViewFull(level: AccessLevel): boolean {
+  return !["NONE", "VIEW_LIMITED"].includes(level);
+}
+function levelAllowsCreate(level: AccessLevel): boolean {
+  return ["FULL", "CREATE_VIEW"].includes(level);
+}
+function levelAllowsUpdate(level: AccessLevel): boolean {
+  return ["FULL", "UPDATE_VIEW", "APPROVE_VIEW"].includes(level);
+}
+function levelAllowsDelete(level: AccessLevel): boolean {
+  return level === "FULL";
+}
+function levelAllowsApprove(level: AccessLevel): boolean {
+  return ["FULL", "APPROVE_VIEW"].includes(level);
+}
+
 export function canView(module: ModuleKey, role: string | null | undefined): boolean {
-  return levelOf(module, role) !== "NONE";
+  return levelAllowsView(levelOf(module, role));
 }
 export function canViewFull(module: ModuleKey, role: string | null | undefined): boolean {
-  return !["NONE", "VIEW_LIMITED"].includes(levelOf(module, role));
+  return levelAllowsViewFull(levelOf(module, role));
 }
 export function canCreate(module: ModuleKey, role: string | null | undefined): boolean {
-  return ["FULL", "CREATE_VIEW"].includes(levelOf(module, role));
+  return levelAllowsCreate(levelOf(module, role));
 }
 export function canUpdate(module: ModuleKey, role: string | null | undefined): boolean {
-  return ["FULL", "UPDATE_VIEW", "APPROVE_VIEW"].includes(levelOf(module, role));
+  return levelAllowsUpdate(levelOf(module, role));
 }
 export function canDelete(module: ModuleKey, role: string | null | undefined): boolean {
-  return levelOf(module, role) === "FULL";
+  return levelAllowsDelete(levelOf(module, role));
 }
 export function canApprove(module: ModuleKey, role: string | null | undefined): boolean {
-  return ["FULL", "APPROVE_VIEW"].includes(levelOf(module, role));
+  return levelAllowsApprove(levelOf(module, role));
 }
+
+// --- Biến thể có tính thêm UserModuleOverride ---------------------------------
+// Override CHỈ CỘNG THÊM quyền, không bao giờ bớt: merge theo OR từng capability
+// với quyền của role, không so sánh "level nào cao hơn" vì AccessLevel không phải
+// thang đo tuyến tính (CREATE_VIEW và UPDATE_VIEW không so sánh được với nhau —
+// nếu rank rồi chọn 1 bên có thể vô tình MẤT quyền mà role gốc đang có).
+//
+// Module đã chuyển sang dùng override ở các API route: tuition, cashbook, hr,
+// inventory, assets, reports, students. Các module còn lại (leads, schedule,
+// timesheet, branches, usersRoles, auditLog, backup) vẫn chỉ dùng canX(module, role)
+// thuần — override cho các module đó chưa có tác dụng ở API, đây là ranh giới cố ý
+// của đợt triển khai này, không phải thiếu sót.
+export function canViewWithOverride(
+  module: ModuleKey,
+  role: string | null | undefined,
+  overrideLevel: AccessLevel | null | undefined
+): boolean {
+  return canView(module, role) || (!!overrideLevel && levelAllowsView(overrideLevel));
+}
+export function canViewFullWithOverride(
+  module: ModuleKey,
+  role: string | null | undefined,
+  overrideLevel: AccessLevel | null | undefined
+): boolean {
+  return canViewFull(module, role) || (!!overrideLevel && levelAllowsViewFull(overrideLevel));
+}
+export function canCreateWithOverride(
+  module: ModuleKey,
+  role: string | null | undefined,
+  overrideLevel: AccessLevel | null | undefined
+): boolean {
+  return canCreate(module, role) || (!!overrideLevel && levelAllowsCreate(overrideLevel));
+}
+export function canUpdateWithOverride(
+  module: ModuleKey,
+  role: string | null | undefined,
+  overrideLevel: AccessLevel | null | undefined
+): boolean {
+  return canUpdate(module, role) || (!!overrideLevel && levelAllowsUpdate(overrideLevel));
+}
+export function canDeleteWithOverride(
+  module: ModuleKey,
+  role: string | null | undefined,
+  overrideLevel: AccessLevel | null | undefined
+): boolean {
+  return canDelete(module, role) || (!!overrideLevel && levelAllowsDelete(overrideLevel));
+}
+export function canApproveWithOverride(
+  module: ModuleKey,
+  role: string | null | undefined,
+  overrideLevel: AccessLevel | null | undefined
+): boolean {
+  return canApprove(module, role) || (!!overrideLevel && levelAllowsApprove(overrideLevel));
+}
+
+// Nhãn tiếng Việt cho từng module — dùng ở UI cấp quyền bổ sung (admin/users/[id]).
+export const MODULE_LABEL: Record<ModuleKey, string> = {
+  branches: "Chi nhánh",
+  usersRoles: "Người dùng & phân quyền",
+  schedule: "Lịch học",
+  timesheet: "Chấm công",
+  leads: "CRM tuyển sinh",
+  students: "Học viên",
+  tuition: "Học phí",
+  cashbook: "Thu chi",
+  hr: "Nhân sự & Lương",
+  reports: "Báo cáo",
+  auditLog: "Nhật ký hệ thống",
+  backup: "Sao lưu",
+  inventory: "Kho giáo trình",
+  assets: "Tài sản & Trang thiết bị",
+};
+
+export const ACCESS_LEVEL_LABEL: Record<AccessLevel, string> = {
+  NONE: "Không có quyền",
+  VIEW_LIMITED: "Xem (giới hạn)",
+  VIEW: "Chỉ xem",
+  CREATE_VIEW: "Xem + tạo mới",
+  UPDATE_VIEW: "Xem + sửa",
+  APPROVE_VIEW: "Xem + duyệt",
+  FULL: "Toàn quyền",
+};
+
+// Module đã wire override ở API (giữ đồng bộ với comment phía trên) — dùng để UI
+// cảnh báo khi Giám đốc set override cho module CHƯA có tác dụng thật.
+export const OVERRIDE_AWARE_MODULES: ModuleKey[] = ["tuition", "cashbook", "hr", "inventory", "assets", "reports", "students"];

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { CLASS_TASK_RECURRENCES, isTaskDueOn, computeTaskLogStatus } from "@/lib/server/class-task-rules";
+import { getUserRole } from "@/lib/permissions";
+import { canCreate } from "@/lib/server/role-matrix";
 
 // Nhắc việc theo lớp — nguồn DSLop!N:S. Trả kèm trạng thái "hôm nay" của từng việc lặp lại
 // (đến hạn hôm nay chưa, đã hoàn thành chưa) để trang chi tiết lớp không phải tự tính lại.
@@ -36,6 +38,10 @@ function sameDay(a: Date, b: Date): boolean {
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const role = await getUserRole(user.id);
+  if (!canCreate("schedule", role)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền tạo việc nhắc" }, { status: 403 });
+  }
 
   const cls = await prisma.class.findUnique({ where: { id: params.id } });
   if (!cls) return NextResponse.json({ error: "Không tìm thấy lớp" }, { status: 404 });

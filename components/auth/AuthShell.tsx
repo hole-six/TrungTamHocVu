@@ -48,7 +48,7 @@ export default function AuthShell({
           <div className="space-y-8">
             <div className="flex items-center justify-between gap-4">
               <Link href="/" className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#4facfe_0%,#667eea_100%)] text-lg font-black text-white shadow-[0_16px_40px_-18px_rgba(79,172,254,0.9)]">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#7dd3fc_0%,#0284c7_100%)] text-lg font-black text-white shadow-[0_16px_40px_-18px_rgba(14,165,233,0.9)]">
                   T
                 </div>
                 <div>

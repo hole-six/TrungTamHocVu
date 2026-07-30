@@ -21,7 +21,7 @@ type QuickActionsProps = {
 };
 
 const colorClasses = {
-  primary: "from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700",
+  primary: "from-sky-400 to-blue-600 hover:from-sky-500 hover:to-blue-700",
   success: "from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700",
   warning: "from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700",
   danger: "from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700",

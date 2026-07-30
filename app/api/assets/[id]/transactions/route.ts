@@ -2,16 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeAssetQuantity } from "@/lib/server/asset-rules";
-import { getUserRole } from "@/lib/permissions";
-import { canUpdate } from "@/lib/server/role-matrix";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canUpdateWithOverride } from "@/lib/server/role-matrix";
 
 const VALID_TYPES = ["RECEIPT", "TRANSFER", "ADJUSTMENT", "DISPOSAL"];
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  const role = await getUserRole(user.id);
-  if (!canUpdate("assets", role)) {
+  const { role, override } = await getUserRoleAndOverride(user.id, "assets");
+  if (!canUpdateWithOverride("assets", role, override)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền ghi nhận giao dịch tài sản" }, { status: 403 });
   }
 

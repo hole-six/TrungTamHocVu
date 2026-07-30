@@ -4,6 +4,21 @@
  * Functions để export data ra Excel, CSV, và PDF
  */
 
+type ExportSection = {
+  title: string;
+  columns: Array<{ key: string; label: string }>;
+  rows: Array<Record<string, unknown>>;
+};
+
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /**
  * Export data to CSV
  */
@@ -98,6 +113,82 @@ export function exportToExcel<T>(
   link.setAttribute("download", `${filename}.xls`);
   link.style.visibility = "hidden";
   
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+/**
+ * Export many sections to one Excel-readable file
+ */
+export function exportSectionsToExcel(
+  sections: ExportSection[],
+  filename: string,
+  sheetName: string = "Sheet1"
+) {
+  const html = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+      <head>
+        <meta charset="UTF-8">
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>${escapeHtml(sheetName)}</x:Name>
+                <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <style>
+          body { font-family: Arial, sans-serif; }
+          .section-title { font-size: 18px; font-weight: bold; margin: 20px 0 8px; }
+          table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+          th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+          th { background-color: #dff2df; font-weight: bold; }
+          .meta-table th { background-color: #fef3c7; }
+        </style>
+      </head>
+      <body>
+        ${sections
+          .map((section) => {
+            const hasRows = section.rows.length > 0;
+            return `
+              <div class="section-title">${escapeHtml(section.title)}</div>
+              <table class="${section.columns.length <= 2 ? "meta-table" : ""}">
+                <thead>
+                  <tr>${section.columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}</tr>
+                </thead>
+                <tbody>
+                  ${
+                    hasRows
+                      ? section.rows
+                          .map(
+                            (row) =>
+                              `<tr>${section.columns
+                                .map((column) => `<td>${escapeHtml(row[column.key])}</td>`)
+                                .join("")}</tr>`
+                          )
+                          .join("")
+                      : `<tr><td colspan="${section.columns.length}">Không có dữ liệu</td></tr>`
+                  }
+                </tbody>
+              </table>
+            `;
+          })
+          .join("")}
+      </body>
+    </html>
+  `;
+
+  const blob = new Blob([html], { type: "application/vnd.ms-excel" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+
+  link.setAttribute("href", url);
+  link.setAttribute("download", `${filename}.xls`);
+  link.style.visibility = "hidden";
+
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

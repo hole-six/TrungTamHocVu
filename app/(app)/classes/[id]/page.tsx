@@ -9,6 +9,7 @@ import EnrollStudentForm from "@/components/classes/EnrollStudentForm";
 import EnrollmentRowActions from "@/components/classes/EnrollmentRowActions";
 import ClassTaskManager from "@/components/classes/ClassTaskManager";
 import ClassRecurringTaskManager from "@/components/classes/ClassRecurringTaskManager";
+import ClassEditForm from "@/components/classes/ClassEditForm";
 import { isTaskDueOn, computeTaskLogStatus } from "@/lib/server/class-task-rules";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
@@ -24,8 +25,22 @@ export default async function ClassDetailPage({ params }: { params: { id: string
     include: {
       course: true,
       scheduleRules: { orderBy: { weekday: "asc" } },
-      sessions: { orderBy: { sessionDate: "desc" }, take: 30 },
-      enrollments: { include: { student: true }, orderBy: { enrollDate: "desc" } },
+      sessions: { orderBy: { sessionDate: "desc" } },
+      enrollments: {
+        include: {
+          student: {
+            include: {
+              lead: true,
+              guardians: {
+                include: { guardian: { include: { user: true } } },
+                orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
+              },
+              charges: { include: { allocations: true } },
+            },
+          },
+        },
+        orderBy: { enrollDate: "desc" },
+      },
     },
   });
   if (!cls) notFound();
@@ -55,6 +70,8 @@ export default async function ClassDetailPage({ params }: { params: { id: string
     );
     return { ...t, dueToday, todayStatus: dueToday ? computeTaskLogStatus(today, todayLog?.completedAt ?? null, today) : null };
   });
+
+  const courses = await prisma.course.findMany({ where: { branchId: cls.branchId }, orderBy: { name: "asc" } });
 
   const completedSessions = cls.sessions.filter((s) => s.status === "COMPLETED").length;
   const activeEnrollments = cls.enrollments.filter((e) => e.status === "ACTIVE");
@@ -111,7 +128,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
           )}
 
           <div className="card overflow-x-auto">
-            <h2 className="font-display text-lg font-semibold tracking-tight">Buổi học gần đây</h2>
+            <h2 className="font-display text-lg font-semibold tracking-tight">Tất cả buổi học ({cls.sessions.length})</h2>
             <table className="mt-3 w-full text-left text-sm">
               <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
                 <tr>
@@ -153,28 +170,64 @@ export default async function ClassDetailPage({ params }: { params: { id: string
         </div>
 
         <div className="space-y-6">
-          {canManageClass && <EnrollStudentForm classId={cls.id} />}
+          {canManageClass && (
+            <ClassEditForm
+              cls={{
+                id: cls.id,
+                className: cls.className,
+                classGroup: cls.classGroup,
+                courseId: cls.courseId,
+                tuitionPerSession: cls.tuitionPerSession,
+                sessionsPerWeek: cls.sessionsPerWeek,
+                totalSessions: cls.totalSessions,
+                startDate: cls.startDate ? cls.startDate.toISOString() : null,
+                expectedEndDate: cls.expectedEndDate ? cls.expectedEndDate.toISOString() : null,
+                notes: cls.notes,
+              }}
+              courses={courses}
+            />
+          )}
 
+          {canManageClass && <EnrollStudentForm classId={cls.id} />}
           <div className="card">
-            <h2 className="font-display text-lg font-semibold tracking-tight">Danh sách ghi danh</h2>
+            <h2 className="font-display text-lg font-semibold tracking-tight">Danh s?ch ghi danh</h2>
             <div className="mt-3 space-y-2">
-              {cls.enrollments.map((e) => (
-                <div key={e.id} className="rounded-lg border border-hairline px-3 py-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <Link href={`/students/${e.studentId}`} className="font-medium text-primary">
-                      {e.student.fullName}
-                    </Link>
-                    <span className="badge bg-ink/5 text-ink-muted80">
-                      {ENROLLMENT_STATUS_LABEL[e.status as keyof typeof ENROLLMENT_STATUS_LABEL] ?? e.status}
-                    </span>
+              {cls.enrollments.map((e) => {
+                const primaryGuardian = e.student.guardians.find((item) => item.isPrimary)?.guardian ?? e.student.guardians[0]?.guardian ?? null;
+                const outstanding =
+                  e.student.charges.reduce((sum, charge) => sum + charge.totalAmount, 0) -
+                  e.student.charges.reduce(
+                    (sum, charge) => sum + charge.allocations.reduce((allocationSum, allocation) => allocationSum + allocation.amount, 0),
+                    0
+                  );
+
+                return (
+                  <div key={e.id} className="rounded-lg border border-hairline px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <Link href={`/students/${e.studentId}`} className="font-medium text-primary">
+                        {e.student.fullName} <span className="text-ink-muted48">({e.student.studentDisplayId ?? e.student.studentCode})</span>
+                      </Link>
+                      <div className="flex items-center gap-2">
+                        {e.student.lead?.leadCode ? <span className="badge bg-sky-50 text-sky-700">{e.student.lead.leadCode}</span> : null}
+                        <span className="badge bg-ink/5 text-ink-muted80">
+                          {ENROLLMENT_STATUS_LABEL[e.status as keyof typeof ENROLLMENT_STATUS_LABEL] ?? e.status}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-1 text-ink-muted48">
+                      PH ch?nh: {primaryGuardian?.fullName ?? "Ch?a g?n"} ? {primaryGuardian?.phone ?? "Ch?a c? S?T"}
+                    </div>
+                    <div className="mt-1 text-ink-muted48">
+                      Portal: {primaryGuardian?.user?.email ?? "Ch?a t?o t?i kho?n"} ? C?ng n?: {outstanding.toLocaleString("vi-VN")}?
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-ink-muted48">
+                      <span>T? {formatDate(e.enrollDate)}</span>
+                      {canManageClass && <EnrollmentRowActions enrollmentId={e.id} status={e.status} />}
+                    </div>
                   </div>
-                  <div className="mt-1 flex items-center justify-between text-ink-muted48">
-                    <span>Từ {formatDate(e.enrollDate)}</span>
-                    {canManageClass && <EnrollmentRowActions enrollmentId={e.id} status={e.status} />}
-                  </div>
-                </div>
-              ))}
-              {cls.enrollments.length === 0 && <p className="text-sm text-ink-muted48">Chưa có học viên ghi danh.</p>}
+                );
+              })}
+              {cls.enrollments.length === 0 && <p className="text-sm text-ink-muted48">Ch?a c? h?c vi?n ghi danh.</p>}
             </div>
           </div>
 

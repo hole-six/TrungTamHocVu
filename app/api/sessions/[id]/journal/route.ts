@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate } from "@/lib/server/role-matrix";
+
+// Ghi nhật ký vẫn cho phép GV/TG (canUpdate("schedule")=false với 2 vai trò này) vì đây
+// là việc dạy học hàng ngày — cùng lý do/pattern với app/api/sessions/[id]/attendance/route.ts.
+async function canWriteJournal(userId: string): Promise<boolean> {
+  const role = await getUserRole(userId);
+  return canUpdate("schedule", role) || role === "TEACHER" || role === "TEACHING_ASSISTANT";
+}
 
 // Nhật ký lớp học sau mỗi buổi — 1 journal / buổi, nhiều học viên, mỗi học viên nhiều
 // điểm (nhãn tự do). Ghi đè toàn bộ entries+scores mỗi lần lưu vì giáo viên luôn sửa lại
@@ -30,6 +39,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  if (!(await canWriteJournal(user.id))) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền ghi nhật ký lớp học" }, { status: 403 });
+  }
 
   const session = await prisma.classSession.findUnique({ where: { id: params.id } });
   if (!session) return NextResponse.json({ error: "Không tìm thấy buổi học" }, { status: 404 });

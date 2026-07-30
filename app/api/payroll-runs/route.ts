@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { getUserRole } from "@/lib/permissions";
-import { canUpdate } from "@/lib/server/role-matrix";
+import { ensurePayrollRun } from "@/lib/server/payroll-generation";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canUpdateWithOverride } from "@/lib/server/role-matrix";
+import { getBranchWhereClause } from "@/lib/branch-filter";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
+  const { searchParams } = new URL(req.url);
   const items = await prisma.payrollRun.findMany({
-    where: user.branchId ? { branchId: user.branchId } : {},
+    where: await getBranchWhereClause(searchParams.get("branchId")),
     orderBy: { periodName: "desc" },
     include: { _count: { select: { lines: true } } },
   });
@@ -20,8 +23,8 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   if (!user.branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
-  const role = await getUserRole(user.id);
-  if (!canUpdate("hr", role)) {
+  const { role, override } = await getUserRoleAndOverride(user.id, "hr");
+  if (!canUpdateWithOverride("hr", role, override)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền tạo kỳ lương" }, { status: 403 });
   }
 
@@ -36,6 +39,6 @@ export async function POST(req: NextRequest) {
   });
   if (existing) return NextResponse.json({ error: "Kỳ lương này đã tồn tại" }, { status: 409 });
 
-  const run = await prisma.payrollRun.create({ data: { branchId: user.branchId, periodName } });
+  const run = await ensurePayrollRun(user.branchId, periodName);
   return NextResponse.json({ item: run }, { status: 201 });
 }

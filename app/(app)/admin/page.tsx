@@ -141,6 +141,7 @@ export default async function AdminPage({
               <th className="px-4 py-3 font-medium">Email</th>
               <th className="px-4 py-3 font-medium">Đăng nhập gần nhất</th>
               <th className="px-4 py-3 font-medium">Vai trò / Chi nhánh / Trạng thái</th>
+              <th className="px-4 py-3 font-medium"></th>
             </tr>
           </thead>
           <tbody>
@@ -162,11 +163,16 @@ export default async function AdminPage({
                     isSelf={u.id === currentUser?.id}
                   />
                 </td>
+                <td className="px-4 py-3 text-right">
+                  <Link href={`/admin/users/${u.id}`} className="text-xs text-primary">
+                    Chi tiết →
+                  </Link>
+                </td>
               </tr>
             ))}
             {users.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-ink-muted48">
+                <td colSpan={5} className="px-4 py-10 text-center text-ink-muted48">
                   Không tìm thấy người dùng nào.
                 </td>
               </tr>
@@ -227,7 +233,7 @@ export default async function AdminPage({
             {auditLogs.map((log) => (
               <tr key={log.id} className="border-b border-hairline last:border-0">
                 <td className="px-4 py-3 text-ink-muted80">{formatDateTime(log.createdAt)}</td>
-                <td className="px-4 py-3 text-ink-muted80">{log.user?.fullName ?? "—"}</td>
+                <td className="px-4 py-3 text-ink-muted80">{log.user?.fullName ?? "Hệ thống (tự động)"}</td>
                 <td className="px-4 py-3">
                   <span className="badge bg-ink/5 text-ink-muted80">{log.action}</span>
                 </td>

@@ -7,6 +7,10 @@ export type SessionPayload = {
   userId: string;
   role: "admin" | "user";
   fullName: string;
+  // Chỉ set khi đây là tài khoản cổng phụ huynh (User.guardianId) — middleware
+  // dùng để tách phụ huynh sang /portal, không cho vào các route nghiệp vụ nhân
+  // viên (student/tuition/admin...) dù cookie vẫn hợp lệ.
+  guardianId?: string;
 };
 
 type TokenType = "access" | "refresh";

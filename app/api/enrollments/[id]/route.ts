@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { canTransitionEnrollment } from "@/lib/server/class-rules";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
+import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -43,8 +44,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         changedById: user.id,
       },
     });
+    await syncStudentDerivedFields(existing.studentId, tx);
     return enrollment;
   });
 
-  return NextResponse.json({ item: updated });
+  const syncedStudent = await syncStudentDerivedFields(existing.studentId);
+  return NextResponse.json({ item: updated, student: syncedStudent });
 }

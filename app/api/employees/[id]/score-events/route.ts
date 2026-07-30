@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canUpdateWithOverride } from "@/lib/server/role-matrix";
 
+// Dùng canUpdate("hr") để khớp với điều kiện hiện link "Đánh giá điểm trợ giảng" ở
+// app/(app)/payroll/page.tsx (canManagePayrollRuns = canUpdate("hr", role)).
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const { role, override } = await getUserRoleAndOverride(user.id, "hr");
+  if (!canUpdateWithOverride("hr", role, override)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền chấm điểm trợ giảng" }, { status: 403 });
+  }
 
   const employee = await prisma.employee.findUnique({ where: { id: params.id } });
   if (!employee) return NextResponse.json({ error: "Không tìm thấy nhân viên" }, { status: 404 });

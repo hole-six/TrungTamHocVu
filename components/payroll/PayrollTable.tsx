@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
 import { isManagementRole, isFinanceRole } from "@/lib/client-roles";
+import { exportToExcel } from "@/lib/export-utils";
 
 type PayrollRun = {
   id: string;
@@ -48,7 +49,24 @@ export default function PayrollTable({
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
 
-  // Define columns
+  const exportRows = (rows: PayrollRun[]) => {
+    exportToExcel(
+      rows.map((row) => ({
+        periodName: row.periodName,
+        employeeCount: row._count.lines,
+        totalAmount: row.lines.reduce((sum, line) => sum + line.totalAmount, 0),
+        status: PAYROLL_STATUS_CONFIG[row.status]?.label ?? row.status,
+      })),
+      [
+        { key: "periodName", label: "Kỳ lương" },
+        { key: "employeeCount", label: "Số nhân viên" },
+        { key: "totalAmount", label: "Tổng lương", format: (value) => formatVnd(Number(value ?? 0)) },
+        { key: "status", label: "Trạng thái" },
+      ],
+      "ky_luong"
+    );
+  };
+
   const columns: Column<PayrollRun>[] = [
     {
       key: "periodName",
@@ -74,8 +92,8 @@ export default function PayrollTable({
       label: "Tổng lương",
       align: "right",
       render: (lines) => {
-        const total = lines.reduce((s: number, l: any) => s + l.totalAmount, 0);
-        return <span className="font-mono text-sm font-semibold text-ink">{formatVnd(total)}</span>;
+        const totalAmount = lines.reduce((sum: number, line: { totalAmount: number }) => sum + line.totalAmount, 0);
+        return <span className="font-mono text-sm font-semibold text-ink">{formatVnd(totalAmount)}</span>;
       },
     },
     {
@@ -110,14 +128,13 @@ export default function PayrollTable({
     },
   ];
 
-  // Define actions based on role
   const actions: Action<PayrollRun>[] = [
     {
       label: "Xem",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
         </svg>
       ),
       onClick: (row) => router.push(`/payroll/${row.id}`),
@@ -125,15 +142,14 @@ export default function PayrollTable({
     },
   ];
 
-  // Add compute action for ACCOUNTANT, DIRECTOR, BRANCH_MANAGER on DRAFT
   if (isFinanceRole(userRole)) {
     actions.push({
       label: "Tính lương",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2"/>
-          <path d="M3 9h18"/>
-          <path d="M9 21V9"/>
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18" />
+          <path d="M9 21V9" />
         </svg>
       ),
       onClick: async (row) => {
@@ -150,8 +166,8 @@ export default function PayrollTable({
       label: "Duyệt",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="9 11 12 14 22 4"/>
-          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          <polyline points="9 11 12 14 22 4" />
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
         </svg>
       ),
       onClick: async (row) => {
@@ -165,14 +181,13 @@ export default function PayrollTable({
     });
   }
 
-  // Add delete action only for DIRECTOR and BRANCH_MANAGER on DRAFT
   if (isManagementRole(userRole)) {
     actions.push({
       label: "Xóa",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </svg>
       ),
       onClick: async (row) => {
@@ -186,7 +201,6 @@ export default function PayrollTable({
     });
   }
 
-  // Define bulk actions
   const bulkActions: BulkAction<PayrollRun>[] = [];
 
   if (isFinanceRole(userRole)) {
@@ -194,14 +208,13 @@ export default function PayrollTable({
       label: "Xuất báo cáo Excel",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
         </svg>
       ),
       onClick: async (rows) => {
-        console.log("Xuất báo cáo Excel", rows);
-        // TODO: Implement export
+        exportRows(rows);
       },
       variant: "primary",
     });
@@ -212,14 +225,12 @@ export default function PayrollTable({
       label: "Xóa",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </svg>
       ),
       onClick: async (rows) => {
-        await Promise.all(
-          rows.map((row) => fetch(`/api/payroll-runs/${row.id}`, { method: "DELETE" }))
-        );
+        await Promise.all(rows.map((row) => fetch(`/api/payroll-runs/${row.id}`, { method: "DELETE" })));
         router.refresh();
       },
       variant: "danger",
@@ -265,10 +276,12 @@ export default function PayrollTable({
       emptyState={{
         title: "Chưa có kỳ lương",
         description: "Bắt đầu bằng cách tạo kỳ lương đầu tiên để quản lý bảng lương.",
-        action: (isFinanceRole(userRole)) ? {
-          label: "Tạo kỳ lương",
-          onClick: () => router.push("/payroll/new"),
-        } : undefined,
+        action: isFinanceRole(userRole)
+          ? {
+              label: "Tạo kỳ lương",
+              onClick: () => router.push("/payroll/new"),
+            }
+          : undefined,
       }}
       loading={loading}
       stickyHeader

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { CASH_TXN_TYPE_LABEL } from "@/lib/server/cash-rules";
 
 type Category = { id: string; type: string; name: string; detail: string | null };
 
@@ -43,7 +44,7 @@ export default function CategoryManager({ categories }: { categories: Category[]
       <div className="mt-3 flex flex-wrap gap-2">
         {categories.map((c) => (
           <span key={c.id} className={`badge ${c.type === "THU" ? "bg-primary/10 text-primary" : "bg-ink/5 text-ink-muted80"}`}>
-            [{c.type}] {c.name}
+            [{CASH_TXN_TYPE_LABEL[c.type] ?? c.type}] {c.name}
           </span>
         ))}
         {categories.length === 0 && <p className="text-sm text-ink-muted48">Chưa có danh mục nào.</p>}

@@ -2,21 +2,17 @@
 
 import { useRouter } from "next/navigation";
 import SmartForm, { FormSection } from "@/components/ui/SmartForm/SmartForm";
+import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
 
 type LeadFormProps = {
   initialData?: any;
   leadId?: string;
 };
 
-const LEAD_STATUSES = [
-  { value: "NEW", label: "Mới" },
-  { value: "CONTACTED", label: "Đã liên hệ" },
-  { value: "SCHEDULED_TEST", label: "Đã hẹn test" },
-  { value: "TESTED", label: "Đã test" },
-  { value: "AWAITING_START", label: "Chờ khai giảng" },
-  { value: "ENROLLED", label: "Đã nhập học" },
-  { value: "LOST", label: "Thất bại" },
-];
+const LEAD_STATUS_OPTIONS = LEAD_STATUSES.map((value) => ({
+  value,
+  label: LEAD_STATUS_LABEL[value],
+}));
 
 export default function LeadForm({ initialData, leadId }: LeadFormProps) {
   const router = useRouter();
@@ -81,9 +77,7 @@ export default function LeadForm({ initialData, leadId }: LeadFormProps) {
           name: "dob",
           label: "Ngày sinh",
           type: "date",
-          defaultValue: initialData?.dob
-            ? new Date(initialData.dob).toISOString().split("T")[0]
-            : "",
+          defaultValue: initialData?.dob ? new Date(initialData.dob).toISOString().split("T")[0] : "",
           icon: (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -122,7 +116,7 @@ export default function LeadForm({ initialData, leadId }: LeadFormProps) {
           label: "Tên phụ huynh",
           type: "text",
           placeholder: "Họ tên bố/mẹ",
-          defaultValue: initialData?.guardianName || "",
+          defaultValue: initialData?.guardianName || initialData?.guardian?.fullName || "",
           icon: (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -207,7 +201,7 @@ export default function LeadForm({ initialData, leadId }: LeadFormProps) {
           type: "select",
           defaultValue: initialData?.status || "NEW",
           required: true,
-          options: LEAD_STATUSES,
+          options: LEAD_STATUS_OPTIONS,
         },
         {
           name: "meetDate",
@@ -238,9 +232,7 @@ export default function LeadForm({ initialData, leadId }: LeadFormProps) {
           name: "expectedStartDate",
           label: "Ngày dự kiến nhập học",
           type: "date",
-          defaultValue: initialData?.expectedStartDate
-            ? new Date(initialData.expectedStartDate).toISOString().split("T")[0]
-            : "",
+          defaultValue: initialData?.expectedStartDate ? new Date(initialData.expectedStartDate).toISOString().split("T")[0] : "",
         },
       ],
     },

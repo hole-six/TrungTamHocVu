@@ -18,7 +18,19 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
     where: { id: params.id },
     include: {
       charges: {
-        include: { student: true, class: true, allocations: true },
+        include: {
+          student: {
+            include: {
+              lead: true,
+              guardians: {
+                include: { guardian: { include: { user: true } } },
+                orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
+              },
+            },
+          },
+          class: true,
+          allocations: true,
+        },
         orderBy: { createdAt: "asc" },
       },
     },
@@ -69,6 +81,7 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
           <thead className="border-b border-hairline bg-canvas-parchment/60 text-xs uppercase tracking-wide text-ink-muted48">
             <tr>
               <th className="px-4 py-3 font-medium">Học viên</th>
+              <th className="px-4 py-3 font-medium">Phụ huynh chính</th>
               <th className="px-4 py-3 font-medium">Lớp</th>
               <th className="px-4 py-3 font-medium">Số buổi</th>
               <th className="px-4 py-3 font-medium">Nghỉ</th>
@@ -86,12 +99,21 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
             {period.charges.map((c) => {
               const paid = c.allocations.reduce((s, a) => s + a.amount, 0);
               const status = chargePaymentStatus(c.totalAmount, paid);
+              const primaryGuardian = c.student.guardians.find((item) => item.isPrimary)?.guardian ?? c.student.guardians[0]?.guardian ?? null;
               return (
                 <tr key={c.id} className="border-b border-hairline last:border-0 hover:bg-canvas-parchment/40">
                   <td className="px-4 py-3">
                     <Link href={`/students/${c.studentId}`} className="font-medium text-primary">
-                      {c.student.fullName}
+                      {c.student.fullName} <span className="text-ink-muted48">({c.student.studentDisplayId ?? c.student.studentCode})</span>
                     </Link>
+                    {c.student.lead?.leadCode ? <p className="mt-1 text-xs text-ink-muted48">Lead: {c.student.lead.leadCode}</p> : null}
+                  </td>
+                  <td className="px-4 py-3 text-ink-muted80">
+                    <div>{primaryGuardian?.fullName ?? "Chưa gắn phụ huynh"}</div>
+                    <div className="text-xs text-ink-muted48">
+                      {primaryGuardian?.phone ?? "Chưa có SĐT"}
+                      {primaryGuardian?.user?.email ? ` · ${primaryGuardian.user.email}` : ""}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-ink-muted80">{c.class.className}</td>
                   <td className="px-4 py-3 text-ink-muted80">{c.sessionCount}</td>
@@ -124,7 +146,7 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
             })}
             {period.charges.length === 0 && (
               <tr>
-                <td colSpan={12} className="px-4 py-10 text-center text-ink-muted48">
+                <td colSpan={13} className="px-4 py-10 text-center text-ink-muted48">
                   Chưa có khoản thu nào — dùng nút &quot;Sinh học phí&quot; phía trên.
                 </td>
               </tr>

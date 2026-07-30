@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { monthRange } from "@/lib/server/tuition-rules";
-import { getUserRole } from "@/lib/permissions";
-import { canUpdate } from "@/lib/server/role-matrix";
+import { ensureBillingPeriod } from "@/lib/server/billing-generation";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canUpdateWithOverride } from "@/lib/server/role-matrix";
+import { getBranchWhereClause } from "@/lib/branch-filter";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
+  const { searchParams } = new URL(req.url);
   const periods = await prisma.billingPeriod.findMany({
-    where: user.branchId ? { branchId: user.branchId } : {},
+    where: await getBranchWhereClause(searchParams.get("branchId")),
     orderBy: { periodName: "desc" },
     include: { _count: { select: { charges: true } } },
   });
@@ -22,8 +24,8 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   if (!user.branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
-  const role = await getUserRole(user.id);
-  if (!canUpdate("tuition", role)) {
+  const { role, override } = await getUserRoleAndOverride(user.id, "tuition");
+  if (!canUpdateWithOverride("tuition", role, override)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền tạo kỳ thu học phí" }, { status: 403 });
   }
 
@@ -38,10 +40,6 @@ export async function POST(req: NextRequest) {
   });
   if (existing) return NextResponse.json({ error: "Kỳ thu này đã tồn tại" }, { status: 409 });
 
-  const { start, end } = monthRange(periodName);
-  const period = await prisma.billingPeriod.create({
-    data: { branchId: user.branchId, periodName, startDate: start, endDate: end },
-  });
-
+  const period = await ensureBillingPeriod(user.branchId, periodName);
   return NextResponse.json({ item: period }, { status: 201 });
 }

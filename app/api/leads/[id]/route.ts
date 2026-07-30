@@ -56,6 +56,29 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
   if ("interestedClassId" in body) data.interestedClassId = body.interestedClassId || null;
 
+  if ("guardianName" in body || "phone" in body) {
+    const guardianName = String(body.guardianName ?? "").trim();
+    const phone = String(body.phone ?? data.phone ?? existing.phone ?? "").trim();
+
+    if (existing.guardianId) {
+      await prisma.guardian.update({
+        where: { id: existing.guardianId },
+        data: {
+          fullName: guardianName || "Chưa rõ",
+          phone: phone || null,
+        },
+      });
+    } else if (guardianName || phone) {
+      const guardian = await prisma.guardian.create({
+        data: {
+          fullName: guardianName || "Chưa rõ",
+          phone: phone || null,
+        },
+      });
+      data.guardianId = guardian.id;
+    }
+  }
+
   const updated = await prisma.lead.update({ where: { id: params.id }, data });
 
   await prisma.auditLog.create({

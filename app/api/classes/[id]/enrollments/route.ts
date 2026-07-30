@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
+import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -41,8 +42,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     await tx.enrollmentStatusHistory.create({
       data: { studentId, enrollmentId: created.id, toStatus: "ACTIVE", changedById: user.id },
     });
+    await syncStudentDerivedFields(studentId, tx);
     return created;
   });
 
-  return NextResponse.json({ item: enrollment }, { status: 201 });
+  const syncedStudent = await syncStudentDerivedFields(studentId);
+  return NextResponse.json({ item: enrollment, student: syncedStudent }, { status: 201 });
 }

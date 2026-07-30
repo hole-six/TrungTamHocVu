@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 export default function NewAssetForm() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", category: "", room: "", quantity: "1", unitValue: "" });
+  const [form, setForm] = useState({ name: "", assetCode: "", category: "", room: "", quantity: "1", unitValue: "" });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -39,6 +39,7 @@ export default function NewAssetForm() {
   return (
     <form onSubmit={submit} className="card grid grid-cols-2 gap-3 sm:grid-cols-3">
       <input required placeholder="Tên thiết bị *" className="input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+      <input placeholder="Mã tài sản" className="input" value={form.assetCode} onChange={(e) => setForm((f) => ({ ...f, assetCode: e.target.value }))} />
       <input placeholder="Loại (điện lạnh, nội thất...)" className="input" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
       <input placeholder="Phòng/vị trí" className="input" value={form.room} onChange={(e) => setForm((f) => ({ ...f, room: e.target.value }))} />
       <input type="number" placeholder="Số lượng" className="input" value={form.quantity} onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))} />

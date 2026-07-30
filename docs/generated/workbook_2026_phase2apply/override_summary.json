@@ -1,0 +1,15 @@
+{
+  "loaded": {
+    "filesRead": 0,
+    "rowsApplied": 0,
+    "tablesTouched": 0
+  },
+  "applied": {
+    "rowsApplied": 0,
+    "tablesTouched": 0
+  },
+  "remediationTemplates": {
+    "filesWritten": 11,
+    "tablesPrepared": 11
+  }
+}

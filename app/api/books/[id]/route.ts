@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeStockBalance } from "@/lib/server/inventory-rules";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canUpdateWithOverride, canDeleteWithOverride } from "@/lib/server/role-matrix";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -15,6 +17,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     },
   });
   if (!book) return NextResponse.json({ error: "Không tìm thấy sách" }, { status: 404 });
+  if (user.branchId && book.branchId !== user.branchId) {
+    return NextResponse.json({ error: "Sách không thuộc chi nhánh của bạn" }, { status: 403 });
+  }
 
   const balance = await computeStockBalance(book.id);
   return NextResponse.json({ item: book, balance });
@@ -23,6 +28,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const { role, override } = await getUserRoleAndOverride(user.id, "inventory");
+  if (!canUpdateWithOverride("inventory", role, override)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền sửa sách" }, { status: 403 });
+  }
 
   const body = await req.json();
   const data: Record<string, unknown> = {};
@@ -38,6 +47,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const { role, override } = await getUserRoleAndOverride(user.id, "inventory");
+  if (!canDeleteWithOverride("inventory", role, override)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền xóa sách" }, { status: 403 });
+  }
 
   const [txnCount, issueCount] = await Promise.all([
     prisma.stockTransaction.count({ where: { bookId: params.id } }),

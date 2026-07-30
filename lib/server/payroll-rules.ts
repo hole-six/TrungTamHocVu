@@ -16,6 +16,38 @@ export function computeAdjustedHours(baseHours: number, deductedHours: number, a
   return Math.max(0, baseHours - (deductedHours || 0) + (addedHours || 0));
 }
 
+// FR-0009: So_gio_GV = giờ thực của buổi CHỈ khi nhân viên trả lương theo Giờ
+// (Ca_Gio="Giờ"); ngược lại tính cố định 1 đơn vị/buổi vì đơn giá lúc đó là tiền/ca,
+// không phải tiền/giờ — nhân theo giờ thực sẽ trả sai (thiếu/dư) mỗi khi buổi học
+// dài/ngắn hơn khung chuẩn. payMode="SESSION" tương ứng Ca_Gio khác "Giờ" trong Excel.
+export function computeSessionBaseHours(
+  payMode: string | null | undefined,
+  startTime: string | null | undefined,
+  endTime: string | null | undefined
+): number {
+  if (payMode === "SESSION") return 1;
+  return startTime && endTime ? computeHoursFromTimeRange(startTime, endTime) : 0;
+}
+
+// FR-0148: Tình trạng làm việc suy ra từ ngày nghỉ + hạn hợp đồng hiện hành (hợp đồng
+// mới nhất theo signDate) — "Nghỉ ngang" ưu tiên cao nhất, sau đó cảnh báo hợp đồng
+// sắp/đã hết hạn để nhân sự chủ động gia hạn, đúng tinh thần cảnh báo của bản Excel gốc.
+export type EmployeeContractStatus = "Nghỉ ngang" | "Chưa có info" | "Sắp hết hạn HĐ" | "Đã hết hạn HĐ" | "";
+const CONTRACT_WARNING_WINDOW_DAYS = 40;
+
+export function computeContractStatus(
+  resignDate: Date | null,
+  contractExpiryDate: Date | null,
+  now: Date = new Date()
+): EmployeeContractStatus {
+  if (resignDate) return "Nghỉ ngang";
+  if (!contractExpiryDate) return "Chưa có info";
+  const daysLeft = (contractExpiryDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000);
+  if (daysLeft < 0) return "Đã hết hạn HĐ";
+  if (daysLeft < CONTRACT_WARNING_WINDOW_DAYS) return "Sắp hết hạn HĐ";
+  return "";
+}
+
 export const SESSION_ROLE_LABEL: Record<string, string> = {
   TEACHER: "Giáo viên",
   ASSISTANT: "Trợ giảng",

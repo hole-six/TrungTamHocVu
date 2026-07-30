@@ -34,5 +34,37 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ item: updated });
   }
 
-  return NextResponse.json({ error: "Chỉ hỗ trợ hủy phiếu qua endpoint này" }, { status: 400 });
+  // Sửa mô tả/danh mục/ghi chú — chỉ cho phiếu tự tạo thủ công (không sinh từ thu học
+  // phí/hoàn tiền/nhập kho) và chưa bị hủy. Số tiền/ngày/loại phiếu KHÔNG sửa trực
+  // tiếp ở đây — muốn sửa số tiền thì hủy phiếu và tạo phiếu mới, để giữ log kiểm toán.
+  // Chỉ có "cashbook.create.branch" và "cashbook.approve.branch" được seed — không có
+  // permission "update" riêng, nên dùng "approve" (cùng quyền với hủy phiếu ở trên)
+  // cho hành động sửa/correction, nhất quán với mức độ tin cậy đã áp dụng cho VOID.
+  if (!(await hasPermission(user, "cashbook", "approve"))) {
+    return NextResponse.json({ error: "Bạn không có quyền sửa phiếu thu/chi" }, { status: 403 });
+  }
+  if (existing.status === "VOIDED") {
+    return NextResponse.json({ error: "Phiếu đã bị hủy, không thể sửa" }, { status: 409 });
+  }
+  const [paymentPosting, refundPosting, stockPosting] = await Promise.all([
+    prisma.paymentCashPosting.findUnique({ where: { cashTransactionId: params.id } }),
+    prisma.refundCashPosting.findUnique({ where: { cashTransactionId: params.id } }),
+    prisma.stockCashPosting.findUnique({ where: { cashTransactionId: params.id } }),
+  ]);
+  if (paymentPosting || refundPosting || stockPosting) {
+    return NextResponse.json({ error: "Phiếu này sinh từ nghiệp vụ khác, hãy sửa ở nghiệp vụ gốc." }, { status: 409 });
+  }
+
+  const data: Record<string, unknown> = {};
+  for (const field of ["description", "detail", "notes"]) {
+    if (field in body) data[field] = body[field] || null;
+  }
+  if ("categoryId" in body) data.categoryId = body.categoryId || null;
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: "Không có thay đổi nào để lưu" }, { status: 400 });
+  }
+
+  const updated = await prisma.cashTransaction.update({ where: { id: params.id }, data });
+  return NextResponse.json({ item: updated });
 }

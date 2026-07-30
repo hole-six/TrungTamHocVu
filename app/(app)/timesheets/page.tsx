@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canView } from "@/lib/server/role-matrix";
 
 function formatDate(d: Date) {
   return new Date(d).toLocaleDateString("vi-VN");
@@ -15,20 +18,28 @@ function currentMonthRange() {
 
 export default async function TimesheetsPage() {
   const user = await getCurrentUser();
+  const role = user ? await getUserRole(user.id) : null;
+  if (!canView("timesheet", role)) notFound();
+
   const { start, end } = currentMonthRange();
 
   const employees = await prisma.employee.findMany({
     where: user?.branchId ? { branchId: user.branchId } : {},
-    include: { timesheetEntries: { where: { workDate: { gte: start, lte: end } }, orderBy: { workDate: "desc" } } },
+    include: {
+      timesheetEntries: {
+        where: { workDate: { gte: start, lte: end } },
+        orderBy: { workDate: "desc" },
+      },
+    },
     orderBy: { fullName: "asc" },
   });
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Chấm công</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Chấm công ngày</h1>
         <p className="mt-1 text-sm text-ink-muted48">
-          Tháng {start.getUTCMonth() + 1}/{start.getUTCFullYear()} · Chấm công theo ngày được thêm ở trang chi tiết từng nhân viên.
+          Tháng {start.getUTCMonth() + 1}/{start.getUTCFullYear()} · Dùng cho nhân sự hành chính/văn phòng. Công dạy của giáo viên lấy từ buổi học đã phân công.
         </p>
       </div>
 
@@ -43,20 +54,18 @@ export default async function TimesheetsPage() {
             </tr>
           </thead>
           <tbody>
-            {employees.map((e) => {
-              const totalDays = e.timesheetEntries.reduce((s, t) => s + (t.days ?? 0), 0);
+            {employees.map((employee) => {
+              const totalDays = employee.timesheetEntries.reduce((sum, entry) => sum + (entry.days ?? 0), 0);
               return (
-                <tr key={e.id} className="border-b border-hairline last:border-0 hover:bg-canvas-parchment/40">
+                <tr key={employee.id} className="border-b border-hairline last:border-0 hover:bg-canvas-parchment/40">
                   <td className="px-4 py-3">
-                    <Link href={`/payroll/employees/${e.id}`} className="font-medium text-primary">
-                      {e.fullName}
+                    <Link href={`/payroll/employees/${employee.id}`} className="font-medium text-primary">
+                      {employee.fullName}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-ink-muted80">{e.timesheetEntries.length}</td>
+                  <td className="px-4 py-3 text-ink-muted80">{employee.timesheetEntries.length}</td>
                   <td className="px-4 py-3 font-medium">{totalDays}</td>
-                  <td className="px-4 py-3 text-ink-muted80">
-                    {e.timesheetEntries[0] ? formatDate(e.timesheetEntries[0].workDate) : "—"}
-                  </td>
+                  <td className="px-4 py-3 text-ink-muted80">{employee.timesheetEntries[0] ? formatDate(employee.timesheetEntries[0].workDate) : "—"}</td>
                 </tr>
               );
             })}

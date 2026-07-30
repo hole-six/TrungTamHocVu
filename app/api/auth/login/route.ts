@@ -16,8 +16,19 @@ export async function POST(req: NextRequest) {
   if (!user || !verifyPassword(password, user.passwordHash)) {
     return NextResponse.json({ error: "Email hoặc mật khẩu không đúng." }, { status: 401 });
   }
+  // Tài khoản đã bị khóa (vd thu hồi quyền cổng phụ huynh, hoặc khóa nhân viên nghỉ
+  // việc) — chặn ngay tại đây, nếu không thì việc "khóa tài khoản" ở nơi khác chỉ
+  // mang tính hình thức vì mật khẩu cũ vẫn đăng nhập được bình thường.
+  if (!user.isActive) {
+    return NextResponse.json({ error: "Tài khoản đã bị khóa. Liên hệ quản trị viên để được hỗ trợ." }, { status: 403 });
+  }
 
-  await setSessionCookie({ userId: user.id, role: user.role as "admin" | "user", fullName: user.fullName });
+  await setSessionCookie({
+    userId: user.id,
+    role: user.role as "admin" | "user",
+    fullName: user.fullName,
+    guardianId: user.guardianId ?? undefined,
+  });
 
   return NextResponse.json({ ok: true });
 }

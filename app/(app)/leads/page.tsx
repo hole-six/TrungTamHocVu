@@ -5,6 +5,7 @@ import { getUserRole } from "@/lib/permissions";
 import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
 import { canCreate } from "@/lib/server/role-matrix";
 import LeadsTable from "@/components/leads/LeadsTable";
+import ModuleActionHub from "@/components/navigation/ModuleActionHub";
 
 const PAGE_SIZE = 20;
 
@@ -24,7 +25,17 @@ export default async function LeadsPage({
   const where = {
     ...(user?.branchId ? { branchId: user.branchId } : {}),
     ...(status ? { status } : {}),
-    ...(q ? { OR: [{ fullName: { contains: q } }, { leadCode: { contains: q } }, { phone: { contains: q } }] } : {}),
+    ...(q
+      ? {
+          OR: [
+            { fullName: { contains: q } },
+            { leadCode: { contains: q } },
+            { phone: { contains: q } },
+            { guardian: { fullName: { contains: q } } },
+            { student: { studentCode: { contains: q } } },
+          ],
+        }
+      : {}),
   };
 
   const [items, total, byStatus] = await Promise.all([
@@ -33,6 +44,16 @@ export default async function LeadsPage({
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
+      include: {
+        guardian: { include: { user: true } },
+        interestedClass: true,
+        placementTests: { orderBy: { testDate: "desc" }, take: 1 },
+        student: {
+          include: {
+            enrollments: { include: { class: true }, orderBy: { enrollDate: "desc" }, take: 1 },
+          },
+        },
+      },
     }),
     prisma.lead.count({ where }),
     prisma.lead.groupBy({
@@ -42,24 +63,71 @@ export default async function LeadsPage({
     }),
   ]);
 
+  const studentIds = items.flatMap((item) => (item.student ? [item.student.id] : []));
+  const charges = studentIds.length
+    ? await prisma.charge.findMany({
+        where: { studentId: { in: studentIds } },
+        select: { id: true, studentId: true, totalAmount: true },
+      })
+    : [];
+  const allocations = charges.length
+    ? await prisma.paymentAllocation.findMany({
+        where: { chargeId: { in: charges.map((charge) => charge.id) } },
+        select: { chargeId: true, amount: true },
+      })
+    : [];
+
+  const chargeOwner = new Map(charges.map((charge) => [charge.id, charge.studentId]));
+  const chargeByStudent = new Map<string, number>();
+  for (const charge of charges) {
+    chargeByStudent.set(charge.studentId, (chargeByStudent.get(charge.studentId) ?? 0) + charge.totalAmount);
+  }
+  const paidByStudent = new Map<string, number>();
+  for (const allocation of allocations) {
+    const studentId = chargeOwner.get(allocation.chargeId);
+    if (!studentId) continue;
+    paidByStudent.set(studentId, (paidByStudent.get(studentId) ?? 0) + allocation.amount);
+  }
+
+  const normalizedItems = items.map((item) => ({
+    ...item,
+    guardianName: item.guardian?.fullName ?? null,
+    guardianPortalEmail: item.guardian?.user?.email ?? null,
+    guardianPortalActive: item.guardian?.user?.isActive ?? false,
+    convertedStudentCode: item.student?.studentDisplayId ?? item.student?.studentCode ?? null,
+    convertedClassName: item.student?.enrollments[0]?.class.className ?? null,
+    outstanding: item.student ? (chargeByStudent.get(item.student.id) ?? 0) - (paidByStudent.get(item.student.id) ?? 0) : null,
+  }));
+
   const pipeline = Object.fromEntries(LEAD_STATUSES.map((item) => [item, 0])) as Record<string, number>;
   for (const row of byStatus) pipeline[row.status] = row._count._all;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="page-title">Quản lý CRM tuyển sinh</h1>
           <p className="page-subtitle">Theo dõi và chuyển đổi {total} lead thành học viên</p>
         </div>
         {canCreate("leads", userRole) ? (
-          <Link href="/leads/new" className="btn-primary">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Thêm lead
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/leads/intake" className="btn-ghost">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M19 8h4" />
+                <path d="M21 6v4" />
+              </svg>
+              Đăng ký nhập học
+            </Link>
+            <Link href="/leads/new" className="btn-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Thêm lead
+            </Link>
+          </div>
         ) : null}
       </div>
 
@@ -78,8 +146,24 @@ export default async function LeadsPage({
         ))}
       </div>
 
+      <ModuleActionHub
+        title="CRM tuyển sinh dùng để nhận nhu cầu và đẩy sang nhập học thật"
+        subtitle="Bấm đúng hành động theo vai trò: tạo lead mới, intake ghi danh, hoặc quay lại danh sách để xử lý pipeline và phụ huynh."
+        actions={[
+          { label: "Đăng ký nhập học", description: "Luồng mạnh nhất: tạo phụ huynh, học viên, lớp và portal trong một mạch.", href: "/leads/intake", tone: "primary" },
+          { label: "Thêm lead mới", description: "Ghi nhận nhu cầu ban đầu khi phụ huynh vừa liên hệ trung tâm.", href: "/leads/new", tone: "success" },
+          { label: "Xem phụ huynh", description: "Mở danh sách phụ huynh để nối lead với người nhận hóa đơn và portal.", href: "/guardians", tone: "info" },
+        ]}
+        metrics={[
+          { label: "Tổng lead", value: total, hint: "Toàn bộ đầu mối đang theo dõi" },
+          { label: "Đủ điều kiện", value: pipeline.QUALIFIED ?? 0, hint: "Có thể đẩy sang ghi danh", tone: "warning" },
+          { label: "Đã nhập học", value: pipeline.ENROLLED ?? 0, hint: "Đã convert thành học viên", tone: "success" },
+          { label: "Mất lead", value: pipeline.LOST ?? 0, hint: "Cần đọc lại lý do thất thoát", tone: "danger" },
+        ]}
+      />
+
       <LeadsTable
-        initialData={items}
+        initialData={normalizedItems}
         total={total}
         page={page}
         pageSize={pageSize}

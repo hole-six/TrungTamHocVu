@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { getUserRole } from "@/lib/permissions";
-import { canUpdate } from "@/lib/server/role-matrix";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canUpdateWithOverride } from "@/lib/server/role-matrix";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -15,8 +15,8 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  const role = await getUserRole(user.id);
-  if (!canUpdate("cashbook", role)) {
+  const { role, override } = await getUserRoleAndOverride(user.id, "cashbook");
+  if (!canUpdateWithOverride("cashbook", role, override)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền tạo danh mục thu/chi" }, { status: 403 });
   }
 

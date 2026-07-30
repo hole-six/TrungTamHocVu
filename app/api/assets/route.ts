@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { getUserRole } from "@/lib/permissions";
-import { canCreate } from "@/lib/server/role-matrix";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canCreateWithOverride } from "@/lib/server/role-matrix";
+import { getBranchWhereClause } from "@/lib/branch-filter";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   const items = await prisma.asset.findMany({
     where: {
-      ...(user.branchId ? { branchId: user.branchId } : {}),
+      ...(await getBranchWhereClause(searchParams.get("branchId"))),
       ...(q ? { OR: [{ name: { contains: q } }, { category: { contains: q } }, { room: { contains: q } }] } : {}),
     },
     orderBy: { name: "asc" },
@@ -27,8 +28,8 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   if (!user.branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
-  const role = await getUserRole(user.id);
-  if (!canCreate("assets", role)) {
+  const { role, override } = await getUserRoleAndOverride(user.id, "assets");
+  if (!canCreateWithOverride("assets", role, override)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền thêm tài sản mới" }, { status: 403 });
   }
 

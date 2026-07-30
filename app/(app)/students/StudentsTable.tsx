@@ -4,19 +4,32 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
-import { canCreate, canUpdate, canDelete } from "@/lib/server/role-matrix";
+import { canUpdate, canDelete } from "@/lib/server/role-matrix";
+import { exportToExcel } from "@/lib/export-utils";
 
 type Student = {
   id: string;
   studentCode: string;
+  studentDisplayId?: string | null;
   fullName: string;
   phone?: string | null;
   status: string;
   branchId: string;
   enrollDate?: string | Date | null;
-  _count?: {
-    enrollments: number;
-  };
+  leadCode?: string | null;
+  currentClassName?: string | null;
+  currentClassCode?: string | null;
+  outstanding?: number;
+  enrollmentsCount?: number;
+  primaryGuardian?: {
+    id: string;
+    fullName: string;
+    phone?: string | null;
+    user?: {
+      email: string;
+      isActive: boolean;
+    } | null;
+  } | null;
 };
 
 type StudentsTableProps = {
@@ -27,6 +40,10 @@ type StudentsTableProps = {
   userRole: string;
   searchQuery?: string;
 };
+
+function formatVnd(value: number | undefined) {
+  return `${(value ?? 0).toLocaleString("vi-VN")}đ`;
+}
 
 export default function StudentsTable({
   initialData,
@@ -40,19 +57,58 @@ export default function StudentsTable({
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
 
+  const exportRows = (rows: Student[]) => {
+    exportToExcel(
+      rows.map((row) => ({
+        studentCode: row.studentCode,
+        studentDisplayId: row.studentDisplayId ?? "",
+        fullName: row.fullName,
+        leadCode: row.leadCode ?? "",
+        guardianName: row.primaryGuardian?.fullName ?? "",
+        guardianPortal: row.primaryGuardian?.user?.email ?? "",
+        currentClass: row.currentClassName ?? "",
+        phone: row.phone ?? "",
+        outstanding: formatVnd(row.outstanding),
+        enrollments: row.enrollmentsCount ?? 0,
+        enrollDate: row.enrollDate ? new Date(row.enrollDate).toLocaleDateString("vi-VN") : "",
+        status: row.status === "ACTIVE" ? "Đang học" : "Đã nghỉ",
+      })),
+      [
+        { key: "studentCode", label: "Mã học viên" },
+        { key: "studentDisplayId", label: "Mã hiển thị" },
+        { key: "fullName", label: "Họ và tên" },
+        { key: "leadCode", label: "Lead gốc" },
+        { key: "guardianName", label: "Phụ huynh chính" },
+        { key: "guardianPortal", label: "Portal phụ huynh" },
+        { key: "currentClass", label: "Lớp hiện tại" },
+        { key: "phone", label: "Số điện thoại" },
+        { key: "outstanding", label: "Công nợ" },
+        { key: "enrollments", label: "Số lớp" },
+        { key: "enrollDate", label: "Ngày nhập học" },
+        { key: "status", label: "Trạng thái" },
+      ],
+      "hoc-vien",
+      "HocVien"
+    );
+  };
+
   const columns: Column<Student>[] = [
     {
       key: "studentCode",
       label: "Mã HV",
       sortable: true,
-      width: "120px",
-      render: (value) => (
-        <span className="font-mono text-sm font-semibold text-primary">{value}</span>
+      width: "140px",
+      render: (value, row) => (
+        <div className="leading-tight">
+          <span className="font-mono text-sm font-semibold text-primary">{row.studentDisplayId ?? value}</span>
+          {row.studentDisplayId ? <p className="text-[11px] text-ink-muted48">{value}</p> : null}
+          {row.leadCode ? <p className="text-[11px] text-amber-700">Lead {row.leadCode}</p> : null}
+        </div>
       ),
     },
     {
       key: "fullName",
-      label: "Họ và tên",
+      label: "Học viên",
       sortable: true,
       render: (value, row) => (
         <div className="flex items-center gap-3">
@@ -61,41 +117,45 @@ export default function StudentsTable({
           </div>
           <div>
             <p className="text-sm font-semibold text-ink">{value}</p>
-            {row.phone ? (
-              <p className="text-xs font-mono text-ink-muted48">{row.phone}</p>
-            ) : null}
+            {row.phone ? <p className="text-xs font-mono text-ink-muted48">{row.phone}</p> : null}
+            {row.currentClassName ? (
+              <p className="text-xs text-primary">
+                {row.currentClassCode ? `[${row.currentClassCode}] ` : ""}
+                {row.currentClassName}
+              </p>
+            ) : (
+              <p className="text-xs text-ink-muted48">Chưa ghi danh lớp</p>
+            )}
           </div>
         </div>
       ),
     },
     {
-      key: "_count",
-      label: "Lớp học",
-      align: "center",
-      render: (value) => (
-        <span className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2" />
-            <line x1="16" y1="2" x2="16" y2="6" />
-            <line x1="8" y1="2" x2="8" y2="6" />
-            <line x1="3" y1="10" x2="21" y2="10" />
-          </svg>
-          {value?.enrollments || 0}
-        </span>
-      ),
-    },
-    {
-      key: "enrollDate",
-      label: "Ngày nhập học",
-      sortable: true,
+      key: "primaryGuardian",
+      label: "Phụ huynh / Portal",
       render: (value) =>
         value ? (
-          <span className="text-sm text-ink-muted64">
-            {new Date(value).toLocaleDateString("vi-VN")}
-          </span>
+          <div>
+            <p className="text-sm font-medium text-ink">{value.fullName}</p>
+            <p className="text-xs text-ink-muted48">{value.phone ?? "Chưa có SĐT"}</p>
+            <p className={`text-xs ${value.user?.isActive ? "text-sky-700" : "text-ink-muted48"}`}>
+              {value.user ? value.user.email : "Chưa cấp portal"}
+            </p>
+          </div>
         ) : (
-          <span className="text-xs text-ink-muted48">—</span>
+          <span className="text-xs text-ink-muted48">Chưa liên kết phụ huynh</span>
         ),
+    },
+    {
+      key: "outstanding",
+      label: "Công nợ",
+      sortable: true,
+      align: "center",
+      render: (value) => (
+        <span className={`inline-flex rounded-lg px-2 py-1 text-xs font-bold ${(value ?? 0) > 0 ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>
+          {formatVnd(value)}
+        </span>
+      ),
     },
     {
       key: "status",
@@ -104,7 +164,6 @@ export default function StudentsTable({
       render: (value) => {
         const statusConfig: Record<string, { label: string; color: string; icon: string }> = {
           ACTIVE: { label: "Đang học", color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: "●" },
-          PAUSED: { label: "Tạm nghỉ", color: "bg-amber-100 text-amber-700 border-amber-200", icon: "●" },
           LEFT: { label: "Đã nghỉ", color: "bg-red-100 text-red-700 border-red-200", icon: "●" },
         };
         const config = statusConfig[value] || statusConfig.ACTIVE;
@@ -141,7 +200,7 @@ export default function StudentsTable({
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
         </svg>
       ),
-      onClick: (row) => router.push(`/students/${row.id}/edit`),
+      onClick: (row) => router.push(`/students/${row.id}`),
       variant: "secondary",
     });
   }
@@ -179,26 +238,8 @@ export default function StudentsTable({
             <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
         ),
-        onClick: async (rows) => {
-          console.log("Xuất Excel", rows);
-        },
+        onClick: async (rows) => exportRows(rows),
         variant: "primary",
-      },
-      {
-        label: "Chuyển cơ sở",
-        icon: (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="17 1 21 5 17 9" />
-            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-            <polyline points="7 23 3 19 7 15" />
-            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-          </svg>
-        ),
-        onClick: async (rows) => {
-          console.log("Chuyển cơ sở", rows);
-        },
-        variant: "secondary",
-        confirmMessage: "Bạn có chắc muốn chuyển các học viên đã chọn sang cơ sở khác?",
       },
       {
         label: "Xóa",
@@ -227,14 +268,6 @@ export default function StudentsTable({
     router.push(`/students?q=${encodeURIComponent(query)}&page=1&pageSize=${pageSize}`);
   };
 
-  const handlePageChange = (newPage: number) => {
-    router.push(`/students?page=${newPage}&pageSize=${pageSize}`);
-  };
-
-  const handlePageSizeChange = (newSize: number) => {
-    router.push(`/students?page=1&pageSize=${newSize}`);
-  };
-
   return (
     <DataTableResponsive
       data={data}
@@ -242,9 +275,9 @@ export default function StudentsTable({
       actions={actions}
       bulkActions={bulkActions}
       title="Danh sách học viên"
-      description="Tra cứu hồ sơ, tình trạng học và lịch sử ghi danh theo từng cơ sở."
+      description="Tra cứu nhanh lead gốc, phụ huynh chính, lớp đang học và công nợ ngay trên cùng một bảng."
       searchable
-      searchPlaceholder="Tìm theo tên, mã học viên, số điện thoại..."
+      searchPlaceholder="Tìm theo tên, mã học viên, lead, phụ huynh, số điện thoại..."
       onSearch={handleSearch}
       defaultSearchValue={searchQuery}
       sortable
@@ -253,18 +286,16 @@ export default function StudentsTable({
         total,
         page,
         pageSize,
-        onPageChange: handlePageChange,
-        onPageSizeChange: handlePageSizeChange,
+        onPageChange: (newPage) => router.push(`/students?page=${newPage}&pageSize=${pageSize}`),
+        onPageSizeChange: (newSize) => router.push(`/students?page=1&pageSize=${newSize}`),
       }}
       emptyState={{
         title: "Chưa có học viên",
         description: "Bắt đầu bằng cách thêm học viên đầu tiên vào hệ thống.",
-        action: canCreate("students", userRole)
-          ? {
-              label: "Thêm học viên",
-              onClick: () => router.push("/students/new"),
-            }
-          : undefined,
+        action: {
+          label: "Thêm học viên",
+          onClick: () => router.push("/students/new"),
+        },
       }}
       loading={loading}
       stickyHeader

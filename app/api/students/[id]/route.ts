@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { getUserRole } from "@/lib/permissions";
-import { canUpdate, canDelete } from "@/lib/server/role-matrix";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canUpdateWithOverride, canDeleteWithOverride } from "@/lib/server/role-matrix";
+import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -13,8 +14,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     include: {
       guardians: { include: { guardian: true } },
       enrollments: { include: { class: true }, orderBy: { enrollDate: "desc" } },
-      charges: { include: { billingPeriod: true }, orderBy: { createdAt: "desc" }, take: 12 },
-      payments: { orderBy: { paidDate: "desc" }, take: 12 },
+      charges: { include: { billingPeriod: true }, orderBy: { createdAt: "desc" } },
+      payments: { orderBy: { paidDate: "desc" } },
     },
   });
   if (!student) return NextResponse.json({ error: "Không tìm thấy học viên" }, { status: 404 });
@@ -38,21 +39,25 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const existing = await prisma.student.findUnique({ where: { id: params.id } });
   if (!existing) return NextResponse.json({ error: "Không tìm thấy học viên" }, { status: 404 });
-  const role = await getUserRole(user.id);
-  if (!canUpdate("students", role)) {
+  const { role, override } = await getUserRoleAndOverride(user.id, "students");
+  if (!canUpdateWithOverride("students", role, override)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền sửa hồ sơ học viên" }, { status: 403 });
   }
 
   const body = await req.json();
   const data: Record<string, unknown> = {};
-  for (const field of ["fullName", "gender", "phone", "address", "leaveReason", "evaluation", "referredBy", "notes", "status"]) {
+  for (const field of ["fullName", "gender", "phone", "address", "leaveReason", "evaluation", "referredBy", "notes"]) {
     if (field in body) data[field] = body[field] || null;
   }
   for (const field of ["dob", "enrollDate", "leaveDate"]) {
     if (field in body) data[field] = body[field] ? new Date(body[field]) : null;
   }
 
-  const updated = await prisma.student.update({ where: { id: params.id }, data });
+  await prisma.student.update({ where: { id: params.id }, data });
+  // FR-0041: status luôn suy ra từ leaveDate — syncStudentDerivedFields tính lại
+  // ngay dưới đây (kèm enrollDate/studentDisplayId/cascade sang Lead), nên không
+  // cần set data.status thủ công ở trên nữa (tránh 2 nơi cùng tính 1 giá trị).
+  const updated = await syncStudentDerivedFields(params.id);
 
   await prisma.auditLog.create({
     data: {
@@ -60,7 +65,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       branchId: user.branchId,
       action: "update",
       entityType: "Student",
-      entityId: updated.id,
+      entityId: params.id,
       before: JSON.stringify(existing),
       after: JSON.stringify(updated),
     },
@@ -72,8 +77,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  const role = await getUserRole(user.id);
-  if (!canDelete("students", role)) {
+  const { role, override } = await getUserRoleAndOverride(user.id, "students");
+  if (!canDeleteWithOverride("students", role, override)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền xóa học viên" }, { status: 403 });
   }
 

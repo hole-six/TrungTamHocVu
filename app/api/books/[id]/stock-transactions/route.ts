@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { getUserRole } from "@/lib/permissions";
-import { canUpdate } from "@/lib/server/role-matrix";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canUpdateWithOverride } from "@/lib/server/role-matrix";
+import { syncBookQuantityOnHand } from "@/lib/server/database-sync";
 
 const VALID_TYPES = ["RECEIPT", "RETURN", "ADJUSTMENT"];
 
@@ -10,8 +11,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   if (!user.branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
-  const role = await getUserRole(user.id);
-  if (!canUpdate("inventory", role)) {
+  const { role, override } = await getUserRoleAndOverride(user.id, "inventory");
+  if (!canUpdateWithOverride("inventory", role, override)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền nhập/điều chỉnh kho" }, { status: 403 });
   }
 
@@ -74,8 +75,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       });
     }
 
+    await syncBookQuantityOnHand(book.id, tx);
     return { txn, cashTransactionId };
   });
 
-  return NextResponse.json({ item: result.txn, cashTransactionId: result.cashTransactionId }, { status: 201 });
+  const balance = await syncBookQuantityOnHand(book.id);
+  return NextResponse.json({ item: result.txn, cashTransactionId: result.cashTransactionId, balance }, { status: 201 });
 }

@@ -37,7 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           branchName={user?.branch?.name}
           branches={branches}
         />
-        <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
+        <main className="mx-auto max-w-7xl px-6 py-8 pb-28 md:pb-8">{children}</main>
       </div>
     </div>
   );

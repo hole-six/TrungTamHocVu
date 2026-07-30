@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
 import { canCreate, canUpdate, canDelete, canApprove } from "@/lib/server/role-matrix";
+import { exportToExcel } from "@/lib/export-utils";
 
 type BillingPeriod = {
   id: string;
@@ -47,7 +48,36 @@ export default function TuitionTable({
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
 
-  // Define columns
+  const exportRows = (rows: BillingPeriod[]) => {
+    exportToExcel(
+      rows.map((row) => {
+        const totalAmount = row.charges.reduce((sum, charge) => sum + charge.totalAmount, 0);
+        const paidAmount = row.charges.reduce(
+          (sum, charge) => sum + charge.allocations.reduce((allocationSum, allocation) => allocationSum + allocation.amount, 0),
+          0
+        );
+
+        return {
+          periodName: row.periodName,
+          chargeCount: row.charges.length,
+          totalAmount,
+          paidAmount,
+          outstandingAmount: totalAmount - paidAmount,
+          status: BILLING_STATUS_CONFIG[row.status]?.label ?? row.status,
+        };
+      }),
+      [
+        { key: "periodName", label: "Kỳ thu" },
+        { key: "chargeCount", label: "Số khoản thu" },
+        { key: "totalAmount", label: "Tổng phải thu", format: (value) => formatVnd(Number(value ?? 0)) },
+        { key: "paidAmount", label: "Đã thu", format: (value) => formatVnd(Number(value ?? 0)) },
+        { key: "outstandingAmount", label: "Còn nợ", format: (value) => formatVnd(Number(value ?? 0)) },
+        { key: "status", label: "Trạng thái" },
+      ],
+      "tong_hop_hoc_phi"
+    );
+  };
+
   const columns: Column<BillingPeriod>[] = [
     {
       key: "periodName",
@@ -73,8 +103,8 @@ export default function TuitionTable({
       label: "Tổng phải thu",
       align: "right",
       render: (charges) => {
-        const total = charges.reduce((s: number, c: any) => s + c.totalAmount, 0);
-        return <span className="font-mono text-sm font-semibold text-ink">{formatVnd(total)}</span>;
+        const totalAmount = charges.reduce((sum: number, charge: { totalAmount: number }) => sum + charge.totalAmount, 0);
+        return <span className="font-mono text-sm font-semibold text-ink">{formatVnd(totalAmount)}</span>;
       },
     },
     {
@@ -82,11 +112,12 @@ export default function TuitionTable({
       label: "Đã thu",
       align: "right",
       render: (charges) => {
-        const paid = charges.reduce(
-          (s: number, c: any) => s + c.allocations.reduce((sa: number, a: any) => sa + a.amount, 0),
+        const paidAmount = charges.reduce(
+          (sum: number, charge: { allocations: { amount: number }[] }) =>
+            sum + charge.allocations.reduce((allocationSum: number, allocation: { amount: number }) => allocationSum + allocation.amount, 0),
           0
         );
-        return <span className="font-mono text-sm font-semibold text-emerald-600">{formatVnd(paid)}</span>;
+        return <span className="font-mono text-sm font-semibold text-emerald-600">{formatVnd(paidAmount)}</span>;
       },
     },
     {
@@ -94,12 +125,13 @@ export default function TuitionTable({
       label: "Còn nợ",
       align: "right",
       render: (charges) => {
-        const total = charges.reduce((s: number, c: any) => s + c.totalAmount, 0);
-        const paid = charges.reduce(
-          (s: number, c: any) => s + c.allocations.reduce((sa: number, a: any) => sa + a.amount, 0),
+        const totalAmount = charges.reduce((sum: number, charge: { totalAmount: number }) => sum + charge.totalAmount, 0);
+        const paidAmount = charges.reduce(
+          (sum: number, charge: { allocations: { amount: number }[] }) =>
+            sum + charge.allocations.reduce((allocationSum: number, allocation: { amount: number }) => allocationSum + allocation.amount, 0),
           0
         );
-        const debt = total - paid;
+        const debt = totalAmount - paidAmount;
         return (
           <span className={`font-mono text-sm font-semibold ${debt > 0 ? "text-red-600" : "text-ink-muted64"}`}>
             {formatVnd(debt)}
@@ -123,14 +155,13 @@ export default function TuitionTable({
     },
   ];
 
-  // Define actions based on role
   const actions: Action<BillingPeriod>[] = [
     {
       label: "Xem",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
         </svg>
       ),
       onClick: (row) => router.push(`/tuition/${row.id}`),
@@ -138,14 +169,13 @@ export default function TuitionTable({
     },
   ];
 
-  // Add finalize action for ACCOUNTANT, DIRECTOR, BRANCH_MANAGER on DRAFT periods
   if (canApprove("tuition", userRole)) {
     actions.push({
       label: "Chốt kỳ",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
         </svg>
       ),
       onClick: async (row) => {
@@ -159,14 +189,13 @@ export default function TuitionTable({
     });
   }
 
-  // Add delete action only for DIRECTOR and BRANCH_MANAGER on DRAFT periods
   if (canDelete("tuition", userRole)) {
     actions.push({
       label: "Xóa",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </svg>
       ),
       onClick: async (row) => {
@@ -180,7 +209,6 @@ export default function TuitionTable({
     });
   }
 
-  // Define bulk actions
   const bulkActions: BulkAction<BillingPeriod>[] = [];
 
   if (canApprove("tuition", userRole)) {
@@ -188,14 +216,13 @@ export default function TuitionTable({
       label: "Xuất báo cáo Excel",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
         </svg>
       ),
       onClick: async (rows) => {
-        console.log("Xuất báo cáo Excel", rows);
-        // TODO: Implement export
+        exportRows(rows);
       },
       variant: "primary",
     });
@@ -206,14 +233,12 @@ export default function TuitionTable({
       label: "Xóa",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </svg>
       ),
       onClick: async (rows) => {
-        await Promise.all(
-          rows.map((row) => fetch(`/api/billing-periods/${row.id}`, { method: "DELETE" }))
-        );
+        await Promise.all(rows.map((row) => fetch(`/api/billing-periods/${row.id}`, { method: "DELETE" })));
         router.refresh();
       },
       variant: "danger",
@@ -259,10 +284,12 @@ export default function TuitionTable({
       emptyState={{
         title: "Chưa có kỳ thu",
         description: "Bắt đầu bằng cách tạo kỳ thu đầu tiên để quản lý học phí.",
-        action: canCreate("tuition", userRole) ? {
-          label: "Tạo kỳ thu",
-          onClick: () => router.push("/tuition/new"),
-        } : undefined,
+        action: canCreate("tuition", userRole)
+          ? {
+              label: "Tạo kỳ thu",
+              onClick: () => router.push("/tuition/new"),
+            }
+          : undefined,
       }}
       loading={loading}
       stickyHeader

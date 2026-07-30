@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { computeHoursFromTimeRange, computeAdjustedHours } from "@/lib/server/payroll-rules";
+import { computeSessionBaseHours, computeAdjustedHours } from "@/lib/server/payroll-rules";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate, canDelete } from "@/lib/server/role-matrix";
 
@@ -19,7 +19,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const existing = await prisma.sessionAssignment.findUnique({
     where: { id: params.id },
-    include: { session: true },
+    include: { session: true, employee: true },
   });
   if (!existing) return NextResponse.json({ error: "Không tìm thấy phân công" }, { status: 404 });
 
@@ -30,10 +30,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "Số giờ điều chỉnh không hợp lệ" }, { status: 400 });
   }
 
-  const baseHours =
-    existing.session.startTime && existing.session.endTime
-      ? computeHoursFromTimeRange(existing.session.startTime, existing.session.endTime)
-      : 0;
+  const baseHours = computeSessionBaseHours(existing.employee.payMode, existing.session.startTime, existing.session.endTime);
   const hours = computeAdjustedHours(baseHours, deductedHours, addedHours);
   const amount = Math.round(hours * (existing.hourlyRate ?? 0));
 
@@ -45,6 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       adjustmentNote: "adjustmentNote" in body ? body.adjustmentNote || null : existing.adjustmentNote,
       hours,
       amount,
+      isSubstituteShift: "isSubstituteShift" in body ? !!body.isSubstituteShift : existing.isSubstituteShift,
     },
   });
 

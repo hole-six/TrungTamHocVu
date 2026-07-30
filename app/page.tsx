@@ -41,7 +41,7 @@ export default async function HomePage() {
       <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-8 lg:px-10">
         <header className="flex flex-col gap-4 border-b border-white/60 pb-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#4facfe_0%,#667eea_100%)] text-lg font-black text-white shadow-[0_16px_40px_-18px_rgba(79,172,254,0.9)]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#7dd3fc_0%,#0284c7_100%)] text-lg font-black text-white shadow-[0_16px_40px_-18px_rgba(14,165,233,0.9)]">
               T
             </div>
             <div>
@@ -115,7 +115,7 @@ export default async function HomePage() {
                   key={item}
                   className="flex items-start gap-3 rounded-2xl border border-white/70 bg-white/70 px-4 py-4 text-sm text-[#475569] shadow-sm backdrop-blur"
                 >
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#4facfe_0%,#667eea_100%)] text-xs font-bold text-white">
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#7dd3fc_0%,#0284c7_100%)] text-xs font-bold text-white">
                     ✓
                   </span>
                   <span className="leading-6">{item}</span>

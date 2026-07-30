@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canUpdateWithOverride } from "@/lib/server/role-matrix";
 
 // Điểm học lực tại trường phổ thông của học viên — nguồn DSHV!BR:BU ("ĐIỂM THI TẠI
 // TRƯỜNG": Giữa/Cuối mỗi học kỳ). Trung tâm theo dõi để tư vấn lộ trình học phù hợp.
@@ -18,6 +20,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const { role, override } = await getUserRoleAndOverride(user.id, "students");
+  if (!canUpdateWithOverride("students", role, override)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền nhập điểm học lực" }, { status: 403 });
+  }
 
   const student = await prisma.student.findUnique({ where: { id: params.id } });
   if (!student) return NextResponse.json({ error: "Không tìm thấy học viên" }, { status: 404 });

@@ -35,7 +35,7 @@ export default async function AssistantScoreDetailPage({
     <div className="space-y-6">
       <div>
         <Link href="/payroll/assistant-scores" className="text-sm text-primary">
-          ← Quay lại đánh giá điểm trợ giảng
+          ← Quay lại đánh giá điểm giảng viên & trợ giảng
         </Link>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">{employee.fullName}</h1>
         <p className="mt-1 text-sm text-ink-muted48">Tháng {month}</p>
@@ -57,21 +57,25 @@ export default async function AssistantScoreDetailPage({
           </p>
         </div>
         <div className="card">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Tỉ lệ A</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Tỉ lệ A (toàn hệ thống, tham khảo)</p>
           <p className="mt-1 font-display text-xl font-semibold">{card.ratio === null ? "—" : `${card.ratio.toFixed(1)}%`}</p>
         </div>
       </div>
 
       <div className="card overflow-x-auto">
         <h2 className="font-display text-lg font-semibold tracking-tight">Theo cơ sở</h2>
+        <p className="mt-1 text-xs text-ink-muted48">Chỉ số A và %thưởng tính riêng cho từng cơ sở — đây là số dùng để quyết định thưởng/phạt thực tế.</p>
         <table className="mt-3 w-full text-left text-sm">
           <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
             <tr>
               <th className="py-2 font-medium">Cơ sở</th>
               <th className="py-2 font-medium">Số ca</th>
               <th className="py-2 font-medium">Ca bổ trợ</th>
+              <th className="py-2 font-medium">Ca tính điểm</th>
               <th className="py-2 font-medium">Điểm trừ</th>
               <th className="py-2 font-medium">Điểm cộng</th>
+              <th className="py-2 font-medium">Tỉ lệ A</th>
+              <th className="py-2 font-medium">% Thưởng</th>
             </tr>
           </thead>
           <tbody>
@@ -80,13 +84,22 @@ export default async function AssistantScoreDetailPage({
                 <td className="py-2 font-medium">{b.branchName}</td>
                 <td className="py-2">{b.shifts}</td>
                 <td className="py-2 text-ink-muted48">{b.substituteShifts || "—"}</td>
+                <td className="py-2">{b.countedShifts}</td>
                 <td className="py-2 text-red-600">{b.deducted || "—"}</td>
                 <td className="py-2 text-emerald-600">{b.added || "—"}</td>
+                <td className="py-2">{b.ratio === null ? "—" : `${b.ratio.toFixed(1)}%`}</td>
+                <td className="py-2">
+                  {b.bonus ? (
+                    <span className="badge bg-primary/10 text-primary">{(b.bonus.bonusPercent * 100).toFixed(0)}%</span>
+                  ) : (
+                    <span className="text-xs text-ink-muted48">Chưa nhập</span>
+                  )}
+                </td>
               </tr>
             ))}
             {card.byBranch.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-6 text-center text-ink-muted48">
+                <td colSpan={8} className="py-6 text-center text-ink-muted48">
                   Không có ca làm trong tháng này.
                 </td>
               </tr>
@@ -119,7 +132,7 @@ export default async function AssistantScoreDetailPage({
         employeeId={employee.id}
         month={month}
         branches={branches}
-        currentBonus={card.bonus?.bonusPercent ?? null}
+        bonusByBranch={Object.fromEntries(card.byBranch.map((b) => [b.branchId, b.bonus?.bonusPercent ?? null]))}
       />
     </div>
   );

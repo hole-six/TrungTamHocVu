@@ -1,0 +1,52 @@
+{
+  "generatedAt": "2026-07-30T09:37:12.588272",
+  "rawTableCounts": {
+    "ChiTietLopHoc.T_ChiTietLop": 4851,
+    "DSHV.T_HV": 423,
+    "DSLop.T_DSLop": 34,
+    "DSTest.T_DSTest": 502,
+    "MucLuc.Table1": 6,
+    "MucLuc.Table2": 12,
+    "MucLuc.Table3": 7,
+    "NhanSu.T_NS": 53,
+    "TheoDoiHP.T_HP": 5967,
+    "Thu-Chi.T_Chi": 317,
+    "Thu-Chi.T_PhanLoai": 22,
+    "Thu-Chi.T_Thu": 148,
+    "XuatNhapSach.T_SachNhap": 163,
+    "XuatNhapSach.T_SachTon": 170,
+    "XuatNhapSach.T_SachXuat": 2477
+  },
+  "canonicalCounts": {
+    "lookups.courses": 12,
+    "lookups.weekdays": 7,
+    "lookups.timeSlots": 6,
+    "crm.guardians": 0,
+    "crm.leads": 0,
+    "academics.classes": 0,
+    "academics.students": 0,
+    "academics.studentGuardianLinks": 0,
+    "academics.enrollments": 0,
+    "finance.billingPeriods": 0,
+    "finance.charges": 0,
+    "finance.payments": 0,
+    "finance.cashCategories": 22,
+    "finance.cashTransactions": 465,
+    "inventory.books": 104,
+    "inventory.stockReceipts": 0,
+    "inventory.bookIssues": 2477,
+    "summary.warnings": 2
+  },
+  "warnings": [
+    "Còn 5967 dòng học phí chưa đủ khóa student/class/period để import charge chuẩn.",
+    "Còn 2477 dòng xuất sách chưa resolve chắc chắn sang học viên."
+  ],
+  "linkStats": {
+    "studentsLinkedToLeads": 0,
+    "studentGuardianLinks": 0,
+    "chargesResolvable": 0,
+    "chargesUnresolved": 5967,
+    "bookIssuesResolvable": 0,
+    "bookIssuesUnresolved": 2477
+  }
+}

@@ -4,14 +4,26 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
-import { isManagementRole, isTeachingStaffRole, isFinanceRole, isFrontDeskRole } from "@/lib/client-roles";
+import { isManagementRole, isTeachingStaffRole, isFrontDeskRole } from "@/lib/client-roles";
+import { exportToExcel } from "@/lib/export-utils";
+
+type GuardianChild = {
+  id: string;
+  fullName: string;
+  leadCode?: string | null;
+  className?: string | null;
+  outstanding: number;
+};
 
 type Guardian = {
   id: string;
   fullName: string;
   phone?: string | null;
   address?: string | null;
-  email?: string | null;
+  portalEmail?: string | null;
+  portalActive?: boolean;
+  leads?: Array<{ id: string; leadCode: string }>;
+  children?: GuardianChild[];
   _count?: {
     leads: number;
     students: number;
@@ -26,6 +38,10 @@ type GuardiansTableProps = {
   userRole: string;
 };
 
+function formatVnd(value: number) {
+  return `${value.toLocaleString("vi-VN")}đ`;
+}
+
 export default function GuardiansTable({
   initialData,
   total,
@@ -37,11 +53,39 @@ export default function GuardiansTable({
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
 
-  // Define columns
+  const exportRows = (rows: Guardian[]) => {
+    exportToExcel(
+      rows.map((row) => ({
+        fullName: row.fullName,
+        phone: row.phone ?? "",
+        portalEmail: row.portalEmail ?? "",
+        portalStatus: row.portalEmail ? (row.portalActive ? "Đang hoạt động" : "Đã thu hồi") : "Chưa cấp",
+        address: row.address ?? "",
+        leads: row._count?.leads ?? 0,
+        students: row._count?.students ?? 0,
+        firstStudent: row.children?.[0]?.fullName ?? "",
+        firstClass: row.children?.[0]?.className ?? "",
+      })),
+      [
+        { key: "fullName", label: "Họ và tên" },
+        { key: "phone", label: "Số điện thoại" },
+        { key: "portalEmail", label: "Portal phụ huynh" },
+        { key: "portalStatus", label: "Trạng thái portal" },
+        { key: "address", label: "Địa chỉ" },
+        { key: "leads", label: "Số lead" },
+        { key: "students", label: "Số học viên" },
+        { key: "firstStudent", label: "Con đang theo dõi" },
+        { key: "firstClass", label: "Lớp hiện tại" },
+      ],
+      "phu-huynh",
+      "PhuHuynh"
+    );
+  };
+
   const columns: Column<Guardian>[] = [
     {
       key: "fullName",
-      label: "Họ và tên",
+      label: "Phụ huynh",
       sortable: true,
       render: (value, row) => (
         <div className="flex items-center gap-3">
@@ -50,64 +94,56 @@ export default function GuardiansTable({
           </div>
           <div>
             <p className="text-sm font-semibold text-ink">{value}</p>
-            {row.phone && (
-              <p className="text-xs font-mono text-ink-muted48">{row.phone}</p>
-            )}
+            <p className="text-xs font-mono text-ink-muted48">{row.phone ?? "Chưa có SĐT"}</p>
+            {row.leads?.[0] ? <p className="text-xs text-amber-700">Lead gần nhất: {row.leads[0].leadCode}</p> : null}
           </div>
         </div>
       ),
     },
     {
-      key: "email",
-      label: "Email",
-      render: (value) =>
-        value ? (
-          <span className="text-sm text-ink-muted64">{value}</span>
-        ) : (
-          <span className="text-xs text-ink-muted48">—</span>
-        ),
-    },
-    {
-      key: "address",
-      label: "Địa chỉ",
-      render: (value) =>
-        value ? (
-          <span className="text-sm text-ink-muted64 line-clamp-2">{value}</span>
-        ) : (
-          <span className="text-xs text-ink-muted48">—</span>
-        ),
-    },
-    {
-      key: "_count",
-      label: "Lead",
-      align: "center",
-      render: (value) => (
-        <span className="inline-flex items-center gap-1 rounded-lg bg-pink-50 px-2 py-1 text-xs font-bold text-pink-700">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
-          {value?.leads || 0}
-        </span>
+      key: "portalEmail",
+      label: "Portal",
+      render: (value, row) => (
+        <div>
+          <p className="text-sm font-medium text-ink">{value ?? "Chưa cấp portal"}</p>
+          <p className={`text-xs ${value ? (row.portalActive ? "text-sky-700" : "text-ink-muted48") : "text-ink-muted48"}`}>
+            {value ? (row.portalActive ? "Đang hoạt động" : "Đã thu hồi") : "Cần cấp để phụ huynh xem portal"}
+          </p>
+        </div>
       ),
     },
     {
+      key: "children",
+      label: "Học viên liên quan",
+      render: (value) =>
+        value && value.length > 0 ? (
+          <div className="space-y-1">
+            {value.slice(0, 2).map((child: GuardianChild) => (
+              <div key={child.id}>
+                <p className="text-sm font-medium text-ink">{child.fullName}</p>
+                <p className="text-xs text-ink-muted48">
+                  {child.leadCode ?? "Không gắn lead"} · {child.className ?? "Chưa có lớp"} · Nợ {formatVnd(child.outstanding)}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <span className="text-xs text-ink-muted48">Chưa liên kết học viên</span>
+        ),
+    },
+    {
       key: "_count",
-      label: "Học viên",
+      label: "Số lượng",
       align: "center",
       render: (value) => (
-        <span className="inline-flex items-center gap-1 rounded-lg bg-violet-50 px-2 py-1 text-xs font-bold text-violet-700">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-            <path d="M6 12v5c3 3 9 3 12 0v-5" />
-          </svg>
-          {value?.students || 0}
-        </span>
+        <div className="space-y-1 text-xs font-bold">
+          <div className="inline-flex rounded-lg bg-pink-50 px-2 py-1 text-pink-700">Lead {value?.leads || 0}</div>
+          <div className="inline-flex rounded-lg bg-violet-50 px-2 py-1 text-violet-700">HV {value?.students || 0}</div>
+        </div>
       ),
     },
   ];
 
-  // Define actions based on role
   const actions: Action<Guardian>[] = [
     {
       label: "Xem",
@@ -122,7 +158,6 @@ export default function GuardiansTable({
     },
   ];
 
-  // Add edit action for non-teacher roles
   if (!isTeachingStaffRole(userRole)) {
     actions.push({
       label: "Sửa",
@@ -137,7 +172,6 @@ export default function GuardiansTable({
     });
   }
 
-  // Add delete action only for DIRECTOR and BRANCH_MANAGER
   if (isManagementRole(userRole)) {
     actions.push({
       label: "Xóa",
@@ -154,11 +188,10 @@ export default function GuardiansTable({
         }
       },
       variant: "danger",
-      show: (row) => (row._count?.leads || 0) === 0 && (row._count?.students || 0) === 0, // Only if no related records
+      show: (row) => (row._count?.leads || 0) === 0 && (row._count?.students || 0) === 0,
     });
   }
 
-  // Define bulk actions
   const bulkActions: BulkAction<Guardian>[] = [];
 
   if (isFrontDeskRole(userRole)) {
@@ -171,10 +204,7 @@ export default function GuardiansTable({
           <line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
       ),
-      onClick: async (rows) => {
-        console.log("Xuất Excel", rows);
-        // TODO: Implement export
-      },
+      onClick: async (rows) => exportRows(rows),
       variant: "primary",
     });
   }
@@ -189,9 +219,7 @@ export default function GuardiansTable({
         </svg>
       ),
       onClick: async (rows) => {
-        await Promise.all(
-          rows.map((row) => fetch(`/api/guardians/${row.id}`, { method: "DELETE" }))
-        );
+        await Promise.all(rows.map((row) => fetch(`/api/guardians/${row.id}`, { method: "DELETE" })));
         router.refresh();
       },
       variant: "danger",
@@ -208,14 +236,6 @@ export default function GuardiansTable({
     router.push(`/guardians?q=${encodeURIComponent(query)}&page=1&pageSize=${pageSize}`);
   };
 
-  const handlePageChange = (newPage: number) => {
-    router.push(`/guardians?page=${newPage}&pageSize=${pageSize}`);
-  };
-
-  const handlePageSizeChange = (newSize: number) => {
-    router.push(`/guardians?page=1&pageSize=${newSize}`);
-  };
-
   return (
     <DataTable
       data={data}
@@ -223,7 +243,7 @@ export default function GuardiansTable({
       actions={actions}
       bulkActions={bulkActions}
       searchable
-      searchPlaceholder="Tìm theo tên, số điện thoại, email..."
+      searchPlaceholder="Tìm theo phụ huynh, email portal, học viên, lead..."
       onSearch={handleSearch}
       sortable
       selectable={!isTeachingStaffRole(userRole)}
@@ -231,16 +251,18 @@ export default function GuardiansTable({
         total,
         page,
         pageSize,
-        onPageChange: handlePageChange,
-        onPageSizeChange: handlePageSizeChange,
+        onPageChange: (newPage) => router.push(`/guardians?page=${newPage}&pageSize=${pageSize}`),
+        onPageSizeChange: (newSize) => router.push(`/guardians?page=1&pageSize=${newSize}`),
       }}
       emptyState={{
         title: "Chưa có phụ huynh",
         description: "Phụ huynh thường được tạo tự động khi thêm lead hoặc học viên.",
-        action: !isTeachingStaffRole(userRole) ? {
-          label: "Thêm phụ huynh",
-          onClick: () => router.push("/guardians/new"),
-        } : undefined,
+        action: !isTeachingStaffRole(userRole)
+          ? {
+              label: "Thêm phụ huynh",
+              onClick: () => router.push("/guardians/new"),
+            }
+          : undefined,
       }}
       loading={loading}
       stickyHeader

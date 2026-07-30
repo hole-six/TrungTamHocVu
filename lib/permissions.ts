@@ -6,6 +6,7 @@
 
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import type { ModuleKey, AccessLevel } from "@/lib/server/role-matrix";
 
 /**
  * Lấy tất cả permissions của user hiện tại
@@ -64,6 +65,30 @@ export async function hasAllPermissions(
 ): Promise<boolean> {
   const permissions = await getUserPermissions(userId);
   return permissionKeys.every((key) => permissions.includes(key));
+}
+
+/**
+ * Lấy override quyền theo module (nếu Giám đốc/Admin đã cấp thêm riêng cho user này) —
+ * null nghĩa là không có override, dùng thuần quyền theo Role.
+ */
+export async function getUserModuleOverride(userId: string, module: ModuleKey): Promise<AccessLevel | null> {
+  const row = await prisma.userModuleOverride.findUnique({
+    where: { userId_module: { userId, module } },
+  });
+  return (row?.level as AccessLevel) ?? null;
+}
+
+/**
+ * Lấy đồng thời role + override cho 1 module — dùng ở API route thay cho
+ * getUserRole() đơn thuần khi module đó đã hỗ trợ override (xem
+ * OVERRIDE_AWARE_MODULES trong lib/server/role-matrix.ts).
+ */
+export async function getUserRoleAndOverride(
+  userId: string,
+  module: ModuleKey
+): Promise<{ role: string | null; override: AccessLevel | null }> {
+  const [role, override] = await Promise.all([getUserRole(userId), getUserModuleOverride(userId, module)]);
+  return { role, override };
 }
 
 /**
@@ -173,8 +198,8 @@ const ROLE_ROUTES: Record<string, string[]> = {
   HR: ["/dashboard", "/timesheets", "/payroll", "/assets", "/reports"],
 
   // Giáo viên / Trợ giảng — lịch dạy, học viên lớp mình, lương của mình
-  TEACHER: ["/dashboard", "/students", "/classes", "/calendar", "/timesheets", "/payroll"],
-  TEACHING_ASSISTANT: ["/dashboard", "/classes", "/calendar", "/timesheets", "/payroll"],
+  TEACHER: ["/dashboard", "/students", "/classes", "/calendar", "/payroll"],
+  TEACHING_ASSISTANT: ["/dashboard", "/classes", "/calendar", "/payroll"],
 };
 
 export async function getFilteredNavItems(userId: string) {

@@ -3,11 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
+import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 
-// Chuyển Lead thành Học viên — bước "Duyệt xếp lớp / Tạo Student" trong Master Spec
-// §6. Cố tình KHÔNG tạo Enrollment/Charge ở đây: xếp lớp cụ thể và sinh học phí dự
-// kiến thuộc phạm vi module Lớp & Lịch / Học phí (chưa triển khai) — tạo dữ liệu giả
-// ở đây sẽ sai lệch khi hai module đó lên, nên chỉ tạo hồ sơ Student trước.
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
@@ -53,9 +50,12 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     }
 
     await tx.lead.update({ where: { id: lead.id }, data: { status: "ENROLLED", actualEnrollDate: now } });
+    await syncStudentDerivedFields(created.id, tx);
 
     return created;
   });
+
+  const synced = await syncStudentDerivedFields(student.id);
 
   await prisma.auditLog.create({
     data: {
@@ -64,10 +64,10 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       action: "convert",
       entityType: "Lead",
       entityId: lead.id,
-      after: JSON.stringify({ studentId: student.id }),
+      after: JSON.stringify({ studentId: synced?.id ?? student.id }),
       reason: "Chuyển đổi Lead thành Học viên",
     },
   });
 
-  return NextResponse.json({ item: student }, { status: 201 });
+  return NextResponse.json({ item: synced ?? student }, { status: 201 });
 }

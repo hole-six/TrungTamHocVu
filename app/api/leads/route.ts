@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate } from "@/lib/server/role-matrix";
 import { LEAD_STATUSES } from "@/lib/server/lead-rules";
+import { getBranchWhereClause } from "@/lib/branch-filter";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -16,11 +17,17 @@ export async function GET(req: NextRequest) {
   const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") ?? 20)));
 
   const where = {
-    ...(user.branchId ? { branchId: user.branchId } : {}),
+    ...(await getBranchWhereClause(searchParams.get("branchId"))),
     ...(status ? { status } : {}),
     ...(q
       ? {
-          OR: [{ fullName: { contains: q } }, { leadCode: { contains: q } }, { phone: { contains: q } }],
+          OR: [
+            { fullName: { contains: q } },
+            { leadCode: { contains: q } },
+            { phone: { contains: q } },
+            { guardian: { fullName: { contains: q } } },
+            { student: { studentCode: { contains: q } } },
+          ],
         }
       : {}),
   };
@@ -31,7 +38,16 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
-      include: { guardian: true, placementTests: { orderBy: { testDate: "desc" }, take: 1 }, student: true },
+      include: {
+        guardian: { include: { user: true } },
+        interestedClass: true,
+        placementTests: { orderBy: { testDate: "desc" }, take: 1 },
+        student: {
+          include: {
+            enrollments: { include: { class: true }, orderBy: { enrollDate: "desc" }, take: 1 },
+          },
+        },
+      },
     }),
     prisma.lead.count({ where }),
     prisma.lead.groupBy({
@@ -41,10 +57,46 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
+  const studentIds = items.flatMap((item) => (item.student ? [item.student.id] : []));
+  const charges = studentIds.length
+    ? await prisma.charge.findMany({
+        where: { studentId: { in: studentIds } },
+        select: { id: true, studentId: true, totalAmount: true },
+      })
+    : [];
+  const allocations = charges.length
+    ? await prisma.paymentAllocation.findMany({
+        where: { chargeId: { in: charges.map((charge) => charge.id) } },
+        select: { chargeId: true, amount: true },
+      })
+    : [];
+
+  const chargeOwner = new Map(charges.map((charge) => [charge.id, charge.studentId]));
+  const chargeByStudent = new Map<string, number>();
+  for (const charge of charges) {
+    chargeByStudent.set(charge.studentId, (chargeByStudent.get(charge.studentId) ?? 0) + charge.totalAmount);
+  }
+  const paidByStudent = new Map<string, number>();
+  for (const allocation of allocations) {
+    const studentId = chargeOwner.get(allocation.chargeId);
+    if (!studentId) continue;
+    paidByStudent.set(studentId, (paidByStudent.get(studentId) ?? 0) + allocation.amount);
+  }
+
+  const normalizedItems = items.map((item) => ({
+    ...item,
+    guardianName: item.guardian?.fullName ?? null,
+    guardianPortalEmail: item.guardian?.user?.email ?? null,
+    guardianPortalActive: item.guardian?.user?.isActive ?? false,
+    convertedStudentCode: item.student?.studentDisplayId ?? item.student?.studentCode ?? null,
+    convertedClassName: item.student?.enrollments[0]?.class.className ?? null,
+    outstanding: item.student ? (chargeByStudent.get(item.student.id) ?? 0) - (paidByStudent.get(item.student.id) ?? 0) : null,
+  }));
+
   const pipeline = Object.fromEntries(LEAD_STATUSES.map((s) => [s, 0])) as Record<string, number>;
   for (const row of byStatus) pipeline[row.status] = row._count._all;
 
-  return NextResponse.json({ items, total, page, pageSize, pipeline });
+  return NextResponse.json({ items: normalizedItems, total, page, pageSize, pipeline });
 }
 
 export async function POST(req: NextRequest) {
@@ -91,7 +143,10 @@ export async function POST(req: NextRequest) {
       facebookLink: body.facebookLink || null,
       initialAssessment: body.initialAssessment || null,
       notes: body.notes || null,
-      status: "NEW",
+      notes2: body.notes2 || null,
+      expectedStartDate: body.expectedStartDate ? new Date(body.expectedStartDate) : null,
+      interestedClassId: body.interestedClassId || null,
+      status: LEAD_STATUSES.includes(body.status) ? body.status : "NEW",
     },
   });
 

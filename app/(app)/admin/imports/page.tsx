@@ -10,6 +10,15 @@ export const metadata: Metadata = {
   title: "Theo dõi Import ERP",
 };
 
+const IMPORT_JOB_STATUS_LABEL: Record<string, string> = {
+  PENDING: "Chờ xử lý",
+  VALIDATING: "Đang kiểm tra",
+  DRY_RUN: "Chạy thử",
+  IMPORTED: "Đã nhập",
+  FAILED: "Lỗi",
+  ROLLED_BACK: "Đã hoàn tác",
+};
+
 type ImportReadiness = {
   readyTables: Array<{
     table: string;
@@ -313,7 +322,7 @@ export default async function AdminImportsPage() {
                           : "bg-amber-100 text-amber-700"
                     }`}
                   >
-                    {job.status}
+                    {IMPORT_JOB_STATUS_LABEL[job.status] ?? job.status}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-ink-muted80">

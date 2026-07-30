@@ -37,23 +37,24 @@ model Branch {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization     Organization      @relation(fields: [organizationId], references: [id])
-  users            User[]
-  employees        Employee[]
-  leads            Lead[]
-  students         Student[]
-  courses          Course[]
-  classes          Class[]
-  books            Book[]
-  stockLocations   StockLocation[]
-  cashTransactions CashTransaction[]
-  payrollRuns      PayrollRun[]
-  billingPeriods   BillingPeriod[]
-  timesheetPeriods TimesheetPeriod[]
-  auditLogs        AuditLog[]
-  importJobs       ImportJob[]
-  assets           Asset[]
-  assistantScoreEvents AssistantScoreEvent[]
+  organization         Organization          @relation(fields: [organizationId], references: [id])
+  users                User[]
+  employees            Employee[]
+  leads                Lead[]
+  students             Student[]
+  courses              Course[]
+  classes              Class[]
+  books                Book[]
+  stockLocations       StockLocation[]
+  cashTransactions     CashTransaction[]
+  payrollRuns          PayrollRun[]
+  billingPeriods       BillingPeriod[]
+  timesheetPeriods     TimesheetPeriod[]
+  auditLogs            AuditLog[]
+  importJobs           ImportJob[]
+  assets                 Asset[]
+  assistantScoreEvents   AssistantScoreEvent[]
+  assistantMonthlyBonuses AssistantMonthlyBonus[]
 
   @@map("branches")
 }
@@ -111,17 +112,43 @@ model User {
   roleId       String?   @map("role_id")
   branchId     String?   @map("branch_id")
   employeeId   String?   @unique @map("employee_id")
+  // Tài khoản cổng phụ huynh — chỉ set khi user này là phụ huynh được cấp quyền
+  // xem thông tin con (học phí/nhật ký lớp/lịch học), KHÔNG dùng chung với
+  // employeeId (1 user chỉ là nhân viên HOẶC phụ huynh, không phải cả hai).
+  guardianId   String?   @unique @map("guardian_id")
   isActive     Boolean   @default(true) @map("is_active")
   lastLoginAt  DateTime? @map("last_login_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  branch    Branch?     @relation(fields: [branchId], references: [id])
-  roleRef   Role?       @relation(fields: [roleId], references: [id])
-  employee  Employee?   @relation(fields: [employeeId], references: [id])
-  auditLogs AuditLog[]
+  branch          Branch?              @relation(fields: [branchId], references: [id])
+  roleRef         Role?                @relation(fields: [roleId], references: [id])
+  employee        Employee?            @relation(fields: [employeeId], references: [id])
+  guardian        Guardian?            @relation(fields: [guardianId], references: [id])
+  auditLogs       AuditLog[]
+  moduleOverrides UserModuleOverride[]
 
   @@map("users")
+}
+
+// Cấp thêm quyền theo module cho TỪNG người cụ thể, ngoài quyền mặc định theo Role —
+// dùng khi Giám đốc muốn 1 cá nhân (vd 1 Quản lý cơ sở) có thêm chức năng riêng mà
+// không cần tạo role mới/phòng ban mới. Chỉ CỘNG thêm quyền (never bớt) — merge ở tầng
+// ứng dụng theo kiểu OR từng capability với quyền của role, xem lib/server/role-matrix.ts.
+model UserModuleOverride {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  module      String // ModuleKey (lib/server/role-matrix.ts) — validate ở API layer
+  level       String // AccessLevel (lib/server/role-matrix.ts) — validate ở API layer
+  grantedById String?  @map("granted_by_id") // id người cấp, không FK — chỉ để audit
+  reason      String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, module])
+  @@map("user_module_overrides")
 }
 
 // =============================================================================
@@ -132,27 +159,27 @@ model Employee {
   id                  String    @id @default(uuid())
   branchId            String    @map("branch_id")
   employeeCode        String    @unique @map("employee_code") // Mã NV
-  fullName            String    @map("full_name")             // Họ và tên
-  shortName           String    @map("short_name")            // Tên ngắn — khóa tra cứu như Excel VLOOKUP
-  dob                 DateTime? @map("dob")                    // Ngày sinh
-  position            String?                                  // Vị trí: Giáo viên/Trợ giảng/Nhân viên
-  phone               String?                                  // SĐT
-  email               String?                                  // Mail
-  hometown            String?                                  // Quê quán
-  permanentAddress    String?   @map("permanent_address")       // Địa chỉ thường trú
-  idNumber            String?   @map("id_number")               // Số CMT
-  idIssueDate         DateTime? @map("id_issue_date")           // Ngày cấp
-  idIssuePlace        String?   @map("id_issue_place")          // Nơi cấp
-  resignDate          DateTime? @map("resign_date")             // Ngày nghỉ
+  fullName            String    @map("full_name") // Họ và tên
+  shortName           String    @map("short_name") // Tên ngắn — khóa tra cứu như Excel VLOOKUP
+  dob                 DateTime? @map("dob") // Ngày sinh
+  position            String? // Vị trí: Giáo viên/Trợ giảng/Nhân viên
+  phone               String? // SĐT
+  email               String? // Mail
+  hometown            String? // Quê quán
+  permanentAddress    String?   @map("permanent_address") // Địa chỉ thường trú
+  idNumber            String?   @map("id_number") // Số CMT
+  idIssueDate         DateTime? @map("id_issue_date") // Ngày cấp
+  idIssuePlace        String?   @map("id_issue_place") // Nơi cấp
+  resignDate          DateTime? @map("resign_date") // Ngày nghỉ
   workStatus          String    @default("ACTIVE") @map("work_status") // ACTIVE | RESIGNED
-  teachingHourlyRate  Int?      @map("teaching_hourly_rate")    // Luongh_GV
-  assistantHourlyRate Int?      @map("assistant_hourly_rate")   // Luongh_TG
+  teachingHourlyRate  Int?      @map("teaching_hourly_rate") // Luongh_GV
+  assistantHourlyRate Int?      @map("assistant_hourly_rate") // Luongh_TG
   payMode             String    @default("HOURLY") @map("pay_mode") // HOURLY (Giờ) | SESSION (Ca)
   notes               String?
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  branch             Branch               @relation(fields: [branchId], references: [id])
+  branch             Branch                  @relation(fields: [branchId], references: [id])
   user               User?
   contracts          EmploymentContract[]
   payPolicies        PayPolicy[]
@@ -172,7 +199,7 @@ model EmploymentContract {
   id           String    @id @default(uuid())
   employeeId   String    @map("employee_id")
   contractNo   String?   @map("contract_no")
-  signDate     DateTime? @map("sign_date")  // Ngày ký HĐ
+  signDate     DateTime? @map("sign_date") // Ngày ký HĐ
   expiryDate   DateTime? @map("expiry_date") // Hạn HĐ
   contractType String?   @map("contract_type")
   baseSalary   Int?      @map("base_salary")
@@ -187,7 +214,7 @@ model EmploymentContract {
 model PayPolicy {
   id            String    @id @default(uuid())
   employeeId    String    @map("employee_id")
-  role          String    // TEACHER | ASSISTANT | STAFF
+  role          String // TEACHER | ASSISTANT | STAFF
   rateType      String    @map("rate_type") // HOURLY | SESSION | MONTHLY
   rateAmount    Int       @map("rate_amount")
   effectiveFrom DateTime  @map("effective_from")
@@ -213,33 +240,34 @@ model Guardian {
 
   leads    Lead[]
   students StudentGuardian[]
+  user     User?
 
   @@map("guardians")
 }
 
 model Lead {
-  id                String    @id @default(uuid())
-  branchId          String    @map("branch_id")
-  leadCode          String    @unique @map("lead_code") // MaSo
-  fullName          String    @map("full_name")          // HoTenHV
-  gender            String?                               // GioiTinh
-  dob               DateTime?                              // DoB
-  guardianId        String?   @map("guardian_id")
-  phone             String?                                // Sdt
-  address           String?                                // DiaChiNha
-  meetDate          DateTime? @map("meet_date")            // NgayGap
-  interestedClassId String?   @map("interested_class_id")  // TenLop quan tâm
-  status            String    @default("NEW") // NEW→CONTACTING→APPOINTED→TESTED→QUALIFIED/UNQUALIFIED→ENROLLED/LOST
-  expectedStartDate DateTime? @map("expected_start_date")  // Ngày dự kiến đi học
-  actualEnrollDate  DateTime? @map("actual_enroll_date")   // Ngày nhập học
-  source            String?
-  facebookParentName String? @map("facebook_parent_name")  // Tên facebook bố mẹ (DSTest cột W)
-  facebookLink        String? @map("facebook_link")         // Đường link facebook (DSTest cột X)
-  initialAssessment   String? @map("initial_assessment")    // Đánh giá học lực ban đầu (DSTest cột U)
-  notes             String?                                // GhiChu
-  notes2            String?  @map("notes_2")                // GhiChu2
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  id                 String    @id @default(uuid())
+  branchId           String    @map("branch_id")
+  leadCode           String    @unique @map("lead_code") // MaSo
+  fullName           String    @map("full_name") // HoTenHV
+  gender             String? // GioiTinh
+  dob                DateTime? // DoB
+  guardianId         String?   @map("guardian_id")
+  phone              String? // Sdt
+  address            String? // DiaChiNha
+  meetDate           DateTime? @map("meet_date") // NgayGap
+  interestedClassId  String?   @map("interested_class_id") // TenLop quan tâm
+  status             String    @default("NEW") // NEW→CONTACTING→APPOINTED→TESTED→QUALIFIED/UNQUALIFIED→ENROLLED/LOST
+  expectedStartDate  DateTime? @map("expected_start_date") // Ngày dự kiến đi học
+  actualEnrollDate   DateTime? @map("actual_enroll_date") // Ngày nhập học
+  source             String?
+  facebookParentName String?   @map("facebook_parent_name") // Tên facebook bố mẹ (DSTest cột W)
+  facebookLink       String?   @map("facebook_link") // Đường link facebook (DSTest cột X)
+  initialAssessment  String?   @map("initial_assessment") // Đánh giá học lực ban đầu (DSTest cột U)
+  notes              String? // GhiChu
+  notes2             String?   @map("notes_2") // GhiChu2
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
   branch          Branch            @relation(fields: [branchId], references: [id])
   guardian        Guardian?         @relation(fields: [guardianId], references: [id])
@@ -257,7 +285,7 @@ model LeadInteraction {
   id         String   @id @default(uuid())
   leadId     String   @map("lead_id")
   employeeId String?  @map("employee_id")
-  type       String   // CALL | MEET | MESSAGE | EMAIL
+  type       String // CALL | MEET | MESSAGE | EMAIL
   content    String?
   occurredAt DateTime @default(now()) @map("occurred_at")
 
@@ -285,7 +313,7 @@ model Appointment {
 model PlacementTest {
   id             String    @id @default(uuid())
   leadId         String    @map("lead_id")
-  testDate       DateTime? @map("test_date")      // NgayTest
+  testDate       DateTime? @map("test_date") // NgayTest
   status         String    @default("PENDING") @map("status") // Tình trạng test
   suggestedClass String?   @map("suggested_class") // LopHoc suy ra từ tuổi
   result         String?
@@ -305,38 +333,38 @@ model PlacementTest {
 model Student {
   id               String    @id @default(uuid())
   branchId         String    @map("branch_id")
-  studentCode      String    @unique @map("student_code")       // MaSo (kế thừa từ Lead)
-  studentDisplayId String?   @map("student_display_id")         // MaHV: 3-TenLop-MaSo
-  fullName         String    @map("full_name")                  // TenHV
+  studentCode      String    @unique @map("student_code") // MaSo (kế thừa từ Lead)
+  studentDisplayId String?   @map("student_display_id") // MaHV: 3-TenLop-MaSo
+  fullName         String    @map("full_name") // TenHV
   leadId           String?   @unique @map("lead_id")
   gender           String?
   dob              DateTime?
   phone            String?
   address          String?
-  enrollDate       DateTime? @map("enroll_date")                // Ngay nhap
-  leaveDate        DateTime? @map("leave_date")                 // Ngay nghi
-  leaveReason      String?   @map("leave_reason")               // Lí do nghỉ
-  evaluation       String?                                       // DanhGia
-  referredBy       String?   @map("referred_by")                 // Người giới thiệu (DSHV cột K)
+  enrollDate       DateTime? @map("enroll_date") // Ngay nhap
+  leaveDate        DateTime? @map("leave_date") // Ngay nghi
+  leaveReason      String?   @map("leave_reason") // Lí do nghỉ
+  evaluation       String? // DanhGia
+  referredBy       String?   @map("referred_by") // Người giới thiệu (DSHV cột K)
   status           String    @default("ACTIVE") // ACTIVE | LEFT
   notes            String?
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  branch         Branch                    @relation(fields: [branchId], references: [id])
-  lead           Lead?                     @relation(fields: [leadId], references: [id])
-  guardians      StudentGuardian[]
-  enrollments    Enrollment[]
-  attendances    StudentAttendance[]
-  charges        Charge[]
-  payments       Payment[]
-  scholarships   Scholarship[]
-  adjustments    Adjustment[]
-  creditBalances CreditBalance[]
-  bookIssues     BookIssue[]
-  statusHistory  EnrollmentStatusHistory[]
+  branch           Branch                    @relation(fields: [branchId], references: [id])
+  lead             Lead?                     @relation(fields: [leadId], references: [id])
+  guardians        StudentGuardian[]
+  enrollments      Enrollment[]
+  attendances      StudentAttendance[]
+  charges          Charge[]
+  payments         Payment[]
+  scholarships     Scholarship[]
+  adjustments      Adjustment[]
+  creditBalances   CreditBalance[]
+  bookIssues       BookIssue[]
+  statusHistory    EnrollmentStatusHistory[]
   schoolExamScores SchoolExamScore[]
-  journalEntries JournalEntry[]
+  journalEntries   JournalEntry[]
 
   @@index([status])
   @@map("students")
@@ -379,13 +407,13 @@ model EnrollmentStatusHistory {
 model Course {
   id                String  @id @default(uuid())
   branchId          String  @map("branch_id")
-  code              String  // MaLop: BT, FF, LTĐH... (MucLuc/Table2)
-  name              String  // TenLop
+  code              String // MaLop: BT, FF, LTĐH... (MucLuc/Table2)
+  name              String // TenLop
   tuitionPerSession Int     @map("tuition_per_session") // HocPhi/Buoi
-  sessionsPerWeek   Int     @map("sessions_per_week")   // BuoiHoc/Tuan
+  sessionsPerWeek   Int     @map("sessions_per_week") // BuoiHoc/Tuan
   isActive          Boolean @default(true) @map("is_active")
 
-  branch      Branch       @relation(fields: [branchId], references: [id])
+  branch      Branch      @relation(fields: [branchId], references: [id])
   classes     Class[]
   feePolicies FeePolicy[]
 
@@ -397,14 +425,14 @@ model Class {
   id                String    @id @default(uuid())
   branchId          String    @map("branch_id")
   courseId          String?   @map("course_id")
-  classCode         String    @unique @map("class_code")   // MaLop
-  classGroup        String?   @map("class_group")          // Lop
-  className         String    @map("class_name")           // Ten lop (calculated concat trong Excel)
-  totalSessions     Int?      @map("total_sessions")       // SLBuoiHoc
-  startDate         DateTime? @map("start_date")            // NgayBD
-  expectedEndDate   DateTime? @map("expected_end_date")    // NgayKTDuKien
-  sessionsPerWeek   Int?      @map("sessions_per_week")    // BuoiHoc/Tuan
-  tuitionPerSession Int?      @map("tuition_per_session")  // HocPhi/Buoi
+  classCode         String    @unique @map("class_code") // MaLop
+  classGroup        String?   @map("class_group") // Lop
+  className         String    @map("class_name") // Ten lop (calculated concat trong Excel)
+  totalSessions     Int?      @map("total_sessions") // SLBuoiHoc
+  startDate         DateTime? @map("start_date") // NgayBD
+  expectedEndDate   DateTime? @map("expected_end_date") // NgayKTDuKien
+  sessionsPerWeek   Int?      @map("sessions_per_week") // BuoiHoc/Tuan
+  tuitionPerSession Int?      @map("tuition_per_session") // HocPhi/Buoi
   status            String    @default("ACTIVE") // ACTIVE | COMPLETED | CANCELLED
   notes             String?
   createdAt         DateTime  @default(now()) @map("created_at")
@@ -428,9 +456,9 @@ model Class {
 model ScheduleRule {
   id        String  @id @default(uuid())
   classId   String  @map("class_id")
-  weekday   Int     @map("weekday")   // 0=CN..6=T7
+  weekday   Int     @map("weekday") // 0=CN..6=T7
   startTime String  @map("start_time") // "17:30"
-  endTime   String  @map("end_time")   // "19:00"
+  endTime   String  @map("end_time") // "19:00"
   room      String?
   isActive  Boolean @default(true) @map("is_active")
 
@@ -452,7 +480,7 @@ model ClassSession {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  class       Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  class       Class                @relation(fields: [classId], references: [id], onDelete: Cascade)
   assignments SessionAssignment[]
   attendances StudentAttendance[]
   journal     ClassSessionJournal?
@@ -463,22 +491,22 @@ model ClassSession {
 
 // Phân công GV/TG/TG2 mỗi buổi + snapshot giờ công/tiền công (FR-0008..FR-0017)
 model SessionAssignment {
-  id         String @id @default(uuid())
-  sessionId  String @map("session_id")
-  employeeId String @map("employee_id")
-  role       String // TEACHER | ASSISTANT | ASSISTANT2
-  hours      Float? // So_Gio / So_gio_TG — giờ CUỐI CÙNG dùng để tính lương (đã gồm điều chỉnh bên dưới)
+  id                String  @id @default(uuid())
+  sessionId         String  @map("session_id")
+  employeeId        String  @map("employee_id")
+  role              String // TEACHER | ASSISTANT | ASSISTANT2
+  hours             Float? // So_Gio / So_gio_TG — giờ CUỐI CÙNG dùng để tính lương (đã gồm điều chỉnh bên dưới)
   // Trừ giờ / Cộng giờ tách riêng theo đúng 2 cột "Trừ giờ GV/TG" và "Cộng giờ GV/TG" của
   // Report_Cong_Luong (đi muộn, về sớm, chuẩn bị thêm...) — hours = giờ theo khung ca - deductedHours + addedHours.
   // Giữ tách biệt thay vì gộp 1 số ký hiệu dương/âm để không mất lý do khi tra soát lương.
-  deductedHours   Float   @default(0) @map("deducted_hours")
-  addedHours      Float   @default(0) @map("added_hours")
-  adjustmentNote  String? @map("adjustment_note")
+  deductedHours     Float   @default(0) @map("deducted_hours")
+  addedHours        Float   @default(0) @map("added_hours")
+  adjustmentNote    String? @map("adjustment_note")
   // Ca "bổ trợ" (dạy thay/hỗ trợ đột xuất, không phải phân công cố định) — loại khỏi mẫu số
   // khi tính tỉ lệ đánh giá điểm TG hàng tháng (Report "TỔNG HỢP ĐÁNH GIÁ ĐIỂM TRỢ GIẢNG").
   isSubstituteShift Boolean @default(false) @map("is_substitute_shift")
-  hourlyRate Int?   @map("hourly_rate") // Luongh_GV / Luongh_TG (snapshot tại thời điểm tính)
-  amount     Int?   // Tien_GV / Tien_TG (snapshot)
+  hourlyRate        Int?    @map("hourly_rate") // Luongh_GV / Luongh_TG (snapshot tại thời điểm tính)
+  amount            Int? // Tien_GV / Tien_TG (snapshot)
 
   session  ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   employee Employee     @relation(fields: [employeeId], references: [id])
@@ -530,14 +558,14 @@ model StudentAttendance {
 model ClassSessionJournal {
   id           String    @id @default(uuid())
   sessionId    String    @unique @map("session_id")
-  unitLesson   String?   @map("unit_lesson")            // "UNIT 1 - LESSON 1"
-  homeworkNote String?   @map("homework_note")          // Dặn dò chung cuối buổi (cho phụ huynh)
+  unitLesson   String?   @map("unit_lesson") // "UNIT 1 - LESSON 1"
+  homeworkNote String?   @map("homework_note") // Dặn dò chung cuối buổi (cho phụ huynh)
   createdById  String?   @map("created_by_id")
-  publishedAt  DateTime? @map("published_at")           // Đã chốt để gửi phụ huynh xem
+  publishedAt  DateTime? @map("published_at") // Đã chốt để gửi phụ huynh xem
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  session ClassSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session ClassSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   entries JournalEntry[]
 
   @@map("class_session_journals")
@@ -548,7 +576,7 @@ model JournalEntry {
   journalId      String  @map("journal_id")
   studentId      String  @map("student_id")
   homeworkStatus String? @map("homework_status") // "Đủ" | "Chưa nộp" | "Không có BTVN"...
-  comment        String?                          // Nhận xét của giáo viên cho học viên này
+  comment        String? // Nhận xét của giáo viên cho học viên này
   notes          String?
 
   journal ClassSessionJournal @relation(fields: [journalId], references: [id], onDelete: Cascade)
@@ -562,7 +590,7 @@ model JournalEntry {
 model JournalScore {
   id       String @id @default(uuid())
   entryId  String @map("entry_id")
-  label    String                          // "Vấn đáp" | "Minitest từ" | "Minitest NP"...
+  label    String // "Vấn đáp" | "Minitest từ" | "Minitest NP"...
   score    Float?
   maxScore Float  @default(10) @map("max_score")
 
@@ -594,18 +622,18 @@ model TimesheetPeriod {
 }
 
 model TimesheetEntry {
-  id            String    @id @default(uuid())
-  periodId      String?   @map("period_id")
-  employeeId    String    @map("employee_id")
-  workDate      DateTime  @map("work_date")
-  checkInAm     String?   @map("check_in_am")  // Đến S
-  checkOutAm    String?   @map("check_out_am") // Về S
-  checkInPm     String?   @map("check_in_pm")  // Đến C
-  checkOutPm    String?   @map("check_out_pm") // Về C
-  hours         Float?    @map("hours")         // Gio NV
-  days          Float?    @map("days")          // Cong NV
-  lateMinutes   Int?      @map("late_minutes")
-  overtimeHours Float?    @map("overtime_hours")
+  id            String   @id @default(uuid())
+  periodId      String?  @map("period_id")
+  employeeId    String   @map("employee_id")
+  workDate      DateTime @map("work_date")
+  checkInAm     String?  @map("check_in_am") // Đến S
+  checkOutAm    String?  @map("check_out_am") // Về S
+  checkInPm     String?  @map("check_in_pm") // Đến C
+  checkOutPm    String?  @map("check_out_pm") // Về C
+  hours         Float?   @map("hours") // Gio NV
+  days          Float?   @map("days") // Cong NV
+  lateMinutes   Int?     @map("late_minutes")
+  overtimeHours Float?   @map("overtime_hours")
   notes         String?
 
   period   TimesheetPeriod? @relation(fields: [periodId], references: [id])
@@ -658,14 +686,14 @@ model Charge {
   studentId       String   @map("student_id")
   classId         String   @map("class_id")
   billingPeriodId String   @map("billing_period_id")
-  sessionCount    Int      @default(0) @map("session_count")    // So buoi
-  absentCount     Int      @default(0) @map("absent_count")     // Buoi nghi
-  deductedCount   Int      @default(0) @map("deducted_count")   // Buoi tru
-  unitPrice       Int      @map("unit_price")                   // ĐG (đã áp học bổng/điều chỉnh)
-  tuitionAmount   Int      @map("tuition_amount")                // HP thang hien tai
+  sessionCount    Int      @default(0) @map("session_count") // So buoi
+  absentCount     Int      @default(0) @map("absent_count") // Buoi nghi
+  deductedCount   Int      @default(0) @map("deducted_count") // Buoi tru
+  unitPrice       Int      @map("unit_price") // ĐG (đã áp học bổng/điều chỉnh)
+  tuitionAmount   Int      @map("tuition_amount") // HP thang hien tai
   materialsAmount Int      @default(0) @map("materials_amount") // TienGiaoTrinh
-  openingBalance  Int      @default(0) @map("opening_balance")  // HP dau ky
-  totalAmount     Int      @map("total_amount")                  // TongHP
+  openingBalance  Int      @default(0) @map("opening_balance") // HP dau ky
+  totalAmount     Int      @map("total_amount") // TongHP
   notes           String?
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -700,7 +728,7 @@ model Payment {
   paymentNo    String   @unique @map("payment_no")
   paidDate     DateTime @map("paid_date") // NgayNopTien
   amount       Int
-  method       String?  @map("method")   // HinhThucTT
+  method       String?  @map("method") // HinhThucTT
   receivedById String?  @map("received_by_id") // Người nhận
   status       String   @default("CONFIRMED") // DRAFT→CONFIRMED→ALLOCATED→PARTIALLY_REFUNDED/REFUNDED/VOIDED
   notes        String?
@@ -778,7 +806,7 @@ model Refund {
   refundedAt   DateTime @default(now()) @map("refunded_at")
   approvedById String?  @map("approved_by_id")
 
-  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  payment     Payment            @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   cashPosting RefundCashPosting?
 
   @@map("refunds")
@@ -792,9 +820,9 @@ model Book {
   id             String  @id @default(uuid())
   branchId       String  @map("branch_id")
   bookCode       String? @map("book_code")
-  name           String                              // TenSach
-  unitPrice      Int     @map("unit_price")           // DonGia
-  usageStatus    String? @map("usage_status")         // Tình trạng sử dụng
+  name           String // TenSach
+  unitPrice      Int     @map("unit_price") // DonGia
+  usageStatus    String? @map("usage_status") // Tình trạng sử dụng
   notes          String?
   quantityOnHand Int     @default(0) @map("quantity_on_hand") // T_SachTon (cache, đối soát qua StockTransaction)
 
@@ -821,18 +849,18 @@ model StockTransaction {
   bookId       String   @map("book_id")
   locationId   String?  @map("location_id")
   classId      String?  @map("class_id")
-  type         String   // RECEIPT | RETURN | ADJUSTMENT
+  type         String // RECEIPT | RETURN | ADJUSTMENT
   quantity     Int
   unitPrice    Int      @map("unit_price")
   totalAmount  Int      @map("total_amount")
   receivedById String?  @map("received_by_id") // Người nhập
-  handedById   String?  @map("handed_by_id")   // Người giao
+  handedById   String?  @map("handed_by_id") // Người giao
   status       String   @default("POSTED") // DRAFT→APPROVED→POSTED→REVERSED
   txnDate      DateTime @map("txn_date")
   notes        String?
 
-  book     Book           @relation(fields: [bookId], references: [id])
-  location StockLocation? @relation(fields: [locationId], references: [id])
+  book        Book              @relation(fields: [bookId], references: [id])
+  location    StockLocation?    @relation(fields: [locationId], references: [id])
   cashPosting StockCashPosting?
 
   @@index([bookId, txnDate])
@@ -868,8 +896,8 @@ model BookIssue {
 
 model TransactionCategory {
   id     String  @id @default(uuid())
-  type   String  // THU | CHI
-  name   String  // TenThuChi
+  type   String // THU | CHI
+  name   String // TenThuChi
   detail String? // ChiTietLoai
   notes  String?
 
@@ -882,7 +910,7 @@ model CashTransaction {
   id            String   @id @default(uuid())
   branchId      String   @map("branch_id")
   categoryId    String?  @map("category_id")
-  type          String   // THU | CHI
+  type          String // THU | CHI
   txnDate       DateTime @map("txn_date")
   detail        String?
   description   String?
@@ -893,8 +921,8 @@ model CashTransaction {
   notes         String?
   createdAt     DateTime @default(now()) @map("created_at")
 
-  branch   Branch               @relation(fields: [branchId], references: [id])
-  category TransactionCategory? @relation(fields: [categoryId], references: [id])
+  branch          Branch               @relation(fields: [branchId], references: [id])
+  category        TransactionCategory? @relation(fields: [categoryId], references: [id])
   paymentPostings PaymentCashPosting[]
   refundPostings  RefundCashPosting[]
   stockPostings   StockCashPosting[]
@@ -934,13 +962,13 @@ model RefundCashPosting {
 }
 
 model StockCashPosting {
-  id                String   @id @default(uuid())
-  stockTransactionId String  @unique @map("stock_transaction_id")
-  cashTransactionId String   @unique @map("cash_transaction_id")
-  amount            Int
-  postingKind       String   @default("SUPPLIER_PAYMENT") @map("posting_kind") // SUPPLIER_PAYMENT | STOCK_REFUND | ADJUSTMENT
-  createdAt         DateTime @default(now()) @map("created_at")
-  notes             String?
+  id                 String   @id @default(uuid())
+  stockTransactionId String   @unique @map("stock_transaction_id")
+  cashTransactionId  String   @unique @map("cash_transaction_id")
+  amount             Int
+  postingKind        String   @default("SUPPLIER_PAYMENT") @map("posting_kind") // SUPPLIER_PAYMENT | STOCK_REFUND | ADJUSTMENT
+  createdAt          DateTime @default(now()) @map("created_at")
+  notes              String?
 
   stockTransaction StockTransaction @relation(fields: [stockTransactionId], references: [id], onDelete: Cascade)
   cashTransaction  CashTransaction  @relation(fields: [cashTransactionId], references: [id], onDelete: Cascade)
@@ -1042,8 +1070,8 @@ model AuditLog {
   action        String
   entityType    String   @map("entity_type")
   entityId      String   @map("entity_id")
-  before        String?  // JSON string (snapshot trước thay đổi)
-  after         String?  // JSON string (snapshot sau thay đổi)
+  before        String? // JSON string (snapshot trước thay đổi)
+  after         String? // JSON string (snapshot sau thay đổi)
   reason        String?
   correlationId String?  @map("correlation_id")
   createdAt     DateTime @default(now()) @map("created_at")
@@ -1076,7 +1104,7 @@ model ImportJob {
 model IntegrationLog {
   id           String   @id @default(uuid())
   system       String
-  direction    String   // IN | OUT
+  direction    String // IN | OUT
   payload      String?
   status       String   @default("SUCCESS")
   errorMessage String?  @map("error_message")
@@ -1093,17 +1121,17 @@ model IntegrationLog {
 // =============================================================================
 
 model Asset {
-  id           String    @id @default(uuid())
-  branchId     String    @map("branch_id")
-  assetCode    String?   @map("asset_code")
-  name         String                                 // "Điều hòa Panasonic 1 chiều", "Bàn học sinh"...
-  category     String?                                 // "Điện lạnh", "Nội thất", "Thiết bị văn phòng"...
-  room         String?                                  // vị trí/phòng hiện tại
-  unitValue    Int?      @map("unit_value")             // giá trị/đơn vị (VNĐ)
-  status       String    @default("ACTIVE")             // ACTIVE | MAINTENANCE | BROKEN | DISPOSED
-  notes        String?
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  branchId  String   @map("branch_id")
+  assetCode String?  @map("asset_code")
+  name      String // "Điều hòa Panasonic 1 chiều", "Bàn học sinh"...
+  category  String? // "Điện lạnh", "Nội thất", "Thiết bị văn phòng"...
+  room      String? // vị trí/phòng hiện tại
+  unitValue Int?     @map("unit_value") // giá trị/đơn vị (VNĐ)
+  status    String   @default("ACTIVE") // ACTIVE | MAINTENANCE | BROKEN | DISPOSED
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   branch       Branch             @relation(fields: [branchId], references: [id])
   transactions AssetTransaction[]
@@ -1118,8 +1146,8 @@ model Asset {
 model AssetTransaction {
   id        String   @id @default(uuid())
   assetId   String   @map("asset_id")
-  type      String   // RECEIPT | TRANSFER | ADJUSTMENT | DISPOSAL
-  quantity  Int      // RECEIPT dương; DISPOSAL/ADJUSTMENT âm khi giảm; TRANSFER = 0 (chỉ đổi phòng)
+  type      String // RECEIPT | TRANSFER | ADJUSTMENT | DISPOSAL
+  quantity  Int // RECEIPT dương; DISPOSAL/ADJUSTMENT âm khi giảm; TRANSFER = 0 (chỉ đổi phòng)
   toRoom    String?  @map("to_room") // dùng khi type = TRANSFER
   txnDate   DateTime @map("txn_date")
   notes     String?
@@ -1140,18 +1168,18 @@ model AssetTransaction {
 // =============================================================================
 
 model ClassTask {
-  id          String    @id @default(uuid())
-  classId     String    @map("class_id")
-  title       String                                    // Cong viec / Cong viec PS
-  recurrence  String    // MONTHLY_DAY | WEEKDAY | ONE_OFF
-  dayOfMonth  Int?      @map("day_of_month")             // Ngay CD — dùng khi MONTHLY_DAY (1-31)
-  weekday     Int?                                        // Thu — dùng khi WEEKDAY (0=CN..6=T7)
-  onceDate    DateTime? @map("once_date")                 // Ngay phat sinh — dùng khi ONE_OFF
-  isActive    Boolean   @default(true) @map("is_active")
-  notes       String?
-  createdAt   DateTime  @default(now()) @map("created_at")
+  id         String    @id @default(uuid())
+  classId    String    @map("class_id")
+  title      String // Cong viec / Cong viec PS
+  recurrence String // MONTHLY_DAY | WEEKDAY | ONE_OFF
+  dayOfMonth Int?      @map("day_of_month") // Ngay CD — dùng khi MONTHLY_DAY (1-31)
+  weekday    Int? // Thu — dùng khi WEEKDAY (0=CN..6=T7)
+  onceDate   DateTime? @map("once_date") // Ngay phat sinh — dùng khi ONE_OFF
+  isActive   Boolean   @default(true) @map("is_active")
+  notes      String?
+  createdAt  DateTime  @default(now()) @map("created_at")
 
-  class Class         @relation(fields: [classId], references: [id], onDelete: Cascade)
+  class Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
   logs  ClassTaskLog[]
 
   @@index([classId])
@@ -1163,8 +1191,8 @@ model ClassTask {
 model ClassTaskLog {
   id            String    @id @default(uuid())
   classTaskId   String    @map("class_task_id")
-  dueDate       DateTime  @map("due_date")                // Ngay thang (ngày đến hạn của lần này)
-  completedAt   DateTime? @map("completed_at")            // Ngay HT
+  dueDate       DateTime  @map("due_date") // Ngay thang (ngày đến hạn của lần này)
+  completedAt   DateTime? @map("completed_at") // Ngay HT
   completedById String?   @map("completed_by_id")
   notes         String?
 
@@ -1191,15 +1219,15 @@ model ClassTaskLog {
 // =============================================================================
 
 model AssistantScoreEvent {
-  id           String   @id @default(uuid())
-  employeeId   String   @map("employee_id")
-  branchId     String   @map("branch_id")
-  eventDate    DateTime @map("event_date")
-  type         String   // DEDUCT | ADD
-  points       Float
-  reason       String?
-  createdById  String?  @map("created_by_id")
-  createdAt    DateTime @default(now()) @map("created_at")
+  id          String   @id @default(uuid())
+  employeeId  String   @map("employee_id")
+  branchId    String   @map("branch_id")
+  eventDate   DateTime @map("event_date")
+  type        String // DEDUCT | ADD
+  points      Float
+  reason      String?
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   branch   Branch   @relation(fields: [branchId], references: [id])
@@ -1208,11 +1236,14 @@ model AssistantScoreEvent {
   @@map("assistant_score_events")
 }
 
-// Mức thưởng/phạt theo tháng — nhân sự tự nhập sau khi xem tỉ lệ A tính được, không suy ra
-// tự động (xem lý do ở comment đầu mục 15).
+// Mức thưởng/phạt theo tháng — TÁCH RIÊNG TỪNG CƠ SỞ (mỗi cơ sở 1 tỉ lệ, làm tốt ở
+// cơ sở này không bù được lỗi ở cơ sở khác — quyết định của Giám đốc). Nhân sự tự
+// nhập sau khi xem tỉ lệ A tính được theo từng cơ sở, không suy ra tự động (xem lý
+// do ở comment đầu mục 15 lib/server/assistant-score-rules.ts).
 model AssistantMonthlyBonus {
   id           String   @id @default(uuid())
   employeeId   String   @map("employee_id")
+  branchId     String   @map("branch_id")
   month        String   @map("month") // "2026-06"
   bonusPercent Float    @map("bonus_percent") // vd 0.2 = 20%, -0.05 = -5%
   notes        String?
@@ -1220,24 +1251,65 @@ model AssistantMonthlyBonus {
   decidedAt    DateTime @default(now()) @map("decided_at")
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  branch   Branch   @relation(fields: [branchId], references: [id])
 
-  @@unique([employeeId, month])
+  @@unique([employeeId, branchId, month])
   @@map("assistant_monthly_bonuses")
 }
 
 model SchoolExamScore {
-  id           String   @id @default(uuid())
-  studentId    String   @map("student_id")
-  schoolYear   String   @map("school_year")               // "2025-2026"
-  midTerm1     Float?   @map("mid_term_1")                 // Giữa HKI
-  finalTerm1   Float?   @map("final_term_1")               // Cuối HKI
-  midTerm2     Float?   @map("mid_term_2")                 // Giữa HKII
-  finalTerm2   Float?   @map("final_term_2")               // Cuối HKII
-  notes        String?
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(uuid())
+  studentId  String   @map("student_id")
+  schoolYear String   @map("school_year") // "2025-2026"
+  midTerm1   Float?   @map("mid_term_1") // Giữa HKI
+  finalTerm1 Float?   @map("final_term_1") // Cuối HKI
+  midTerm2   Float?   @map("mid_term_2") // Giữa HKII
+  finalTerm2 Float?   @map("final_term_2") // Cuối HKII
+  notes      String?
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, schoolYear])
   @@map("school_exam_scores")
+}
+
+model ReportingPeriod {
+  id         String    @id @default(uuid())
+  branchId   String    @map("branch_id")
+  periodType String    @map("period_type") // DAY | WEEK | MONTH | PAYROLL | CUSTOM
+  periodKey  String    @map("period_key") // "2026-07", "2026-W31", "2026-07-30"
+  startDate  DateTime  @map("start_date")
+  endDate    DateTime  @map("end_date")
+  status     String    @default("OPEN") // OPEN | SNAPSHOT_READY | LOCKED | REOPENED
+  closedAt   DateTime? @map("closed_at")
+  closedById String?   @map("closed_by_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@unique([branchId, periodType, periodKey])
+  @@index([branchId, startDate, endDate])
+  @@map("reporting_periods")
+}
+
+model ReportSnapshot {
+  id          String    @id @default(uuid())
+  branchId    String    @map("branch_id")
+  periodId    String    @map("period_id")
+  reportCode  String    @map("report_code")
+  filterHash  String    @map("filter_hash")
+  filterJson  String    @map("filter_json")
+  mode        String    @default("SNAPSHOT") // SNAPSHOT | EXPORT_CACHE
+  status      String    @default("READY") // DRAFT | READY | ARCHIVED
+  asOfAt      DateTime  @map("as_of_at")
+  summaryJson String?   @map("summary_json")
+  detailJson  String?   @map("detail_json")
+  rowCount    Int       @default(0) @map("row_count")
+  createdById String?   @map("created_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([periodId, reportCode, filterHash])
+  @@index([branchId, reportCode, asOfAt])
+  @@map("report_snapshots")
 }

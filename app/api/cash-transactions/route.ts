@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { getUserRole } from "@/lib/permissions";
-import { canCreate } from "@/lib/server/role-matrix";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canCreateWithOverride } from "@/lib/server/role-matrix";
+import { getBranchWhereClause } from "@/lib/branch-filter";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
   const type = searchParams.get("type");
   const month = searchParams.get("month"); // "YYYY-MM"
 
-  const where: Record<string, unknown> = { ...(user.branchId ? { branchId: user.branchId } : {}) };
+  const where: Record<string, unknown> = { ...(await getBranchWhereClause(searchParams.get("branchId"))) };
   if (type) where.type = type;
   if (month && /^\d{4}-\d{2}$/.test(month)) {
     const [y, m] = month.split("-").map(Number);
@@ -35,8 +36,8 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   if (!user.branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
-  const role = await getUserRole(user.id);
-  if (!canCreate("cashbook", role)) {
+  const { role, override } = await getUserRoleAndOverride(user.id, "cashbook");
+  if (!canCreateWithOverride("cashbook", role, override)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền tạo phiếu thu/chi" }, { status: 403 });
   }
 

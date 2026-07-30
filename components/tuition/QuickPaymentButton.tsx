@@ -3,9 +3,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function QuickPaymentButton({ studentId, suggestedAmount }: { studentId: string; suggestedAmount: number }) {
+export default function QuickPaymentButton({
+  studentId,
+  suggestedAmount,
+  autoOpen = false,
+}: {
+  studentId: string;
+  suggestedAmount: number;
+  autoOpen?: boolean;
+}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoOpen);
   const [amount, setAmount] = useState(String(Math.max(0, suggestedAmount)));
   const [method, setMethod] = useState("Tiền mặt");
   const [loading, setLoading] = useState(false);

@@ -24,7 +24,12 @@ const PROTECTED_PREFIXES = [
   "/reports",
   "/admin",
   "/invoices",
+  "/portal",
 ];
+
+// Route nghiệp vụ nhân viên — phụ huynh (session.guardianId có giá trị) không
+// được vào dù cookie hợp lệ, chỉ được ở trong /portal.
+const STAFF_ONLY_PREFIXES = PROTECTED_PREFIXES.filter((p) => p !== "/portal");
 
 export const config = {
   matcher: [
@@ -43,6 +48,7 @@ export const config = {
     "/reports/:path*",
     "/admin/:path*",
     "/invoices/:path*",
+    "/portal/:path*",
     "/login",
     "/register",
   ],
@@ -76,12 +82,19 @@ export async function middleware(req: NextRequest) {
       response = NextResponse.redirect(loginUrl);
     } else if (pathname.startsWith("/admin") && session.role !== "admin") {
       response = NextResponse.redirect(new URL("/dashboard", req.url));
+    } else if (session.guardianId && STAFF_ONLY_PREFIXES.some((p) => pathname.startsWith(p))) {
+      // Phụ huynh: chặn mọi route nghiệp vụ nhân viên, đẩy về cổng phụ huynh.
+      response = NextResponse.redirect(new URL("/portal", req.url));
+    } else if (!session.guardianId && pathname.startsWith("/portal")) {
+      // Nhân viên: không có khái niệm "con" nên không vào cổng phụ huynh.
+      response = NextResponse.redirect(new URL("/dashboard", req.url));
     }
   }
 
-  // Đã đăng nhập rồi thì không cần vào lại trang login/register.
+  // Đã đăng nhập rồi thì không cần vào lại trang login/register — phụ huynh về
+  // /portal, nhân viên về /dashboard.
   if ((pathname === "/login" || pathname === "/register") && session) {
-    response = NextResponse.redirect(new URL("/dashboard", req.url));
+    response = NextResponse.redirect(new URL(session.guardianId ? "/portal" : "/dashboard", req.url));
   }
 
   // Dựa theo giao thức THỰC của request (x-forwarded-proto do Nginx set),

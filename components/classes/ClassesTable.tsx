@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
 import { canCreate, canUpdate, canDelete } from "@/lib/server/role-matrix";
+import { exportToExcel } from "@/lib/export-utils";
 
 type Class = {
   id: string;
@@ -42,6 +43,30 @@ export default function ClassesTable({
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
 
+  const exportRows = (rows: Class[]) => {
+    exportToExcel(
+      rows.map((row) => ({
+        classCode: row.classCode,
+        className: row.className,
+        courseName: row.course?.name ?? "",
+        enrollmentCount: row._count?.enrollments ?? 0,
+        sessionCount: row._count?.sessions ?? 0,
+        totalSessions: row.totalSessions ?? 0,
+        status: row.status,
+      })),
+      [
+        { key: "classCode", label: "Mã lớp" },
+        { key: "className", label: "Tên lớp" },
+        { key: "courseName", label: "Khóa học" },
+        { key: "enrollmentCount", label: "Sĩ số" },
+        { key: "sessionCount", label: "Buổi đã học" },
+        { key: "totalSessions", label: "Tổng số buổi" },
+        { key: "status", label: "Trạng thái" },
+      ],
+      "danh_sach_lop_hoc"
+    );
+  };
+
   const columns: Column<Class>[] = [
     {
       key: "classCode",
@@ -63,9 +88,7 @@ export default function ClassesTable({
           </div>
           <div>
             <p className="text-sm font-semibold text-ink">{value}</p>
-            {row.course ? (
-              <p className="text-xs text-ink-muted48">{row.course.name}</p>
-            ) : null}
+            {row.course ? <p className="text-xs text-ink-muted48">{row.course.name}</p> : null}
           </div>
         </div>
       ),
@@ -93,9 +116,7 @@ export default function ClassesTable({
       render: (value, row) => (
         <div className="flex items-center justify-center gap-1">
           <span className="text-sm font-semibold text-ink">{value?.sessions || 0}</span>
-          {row.totalSessions ? (
-            <span className="text-xs text-ink-muted48">/ {row.totalSessions}</span>
-          ) : null}
+          {row.totalSessions ? <span className="text-xs text-ink-muted48">/ {row.totalSessions}</span> : null}
         </div>
       ),
     },
@@ -143,7 +164,7 @@ export default function ClassesTable({
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
         </svg>
       ),
-      onClick: (row) => router.push(`/classes/${row.id}/edit`),
+      onClick: (row) => router.push(`/classes/${row.id}`),
       variant: "secondary",
     });
   }
@@ -182,7 +203,7 @@ export default function ClassesTable({
           </svg>
         ),
         onClick: async (rows) => {
-          console.log("Xuất Excel", rows);
+          exportRows(rows);
         },
         variant: "primary",
       },

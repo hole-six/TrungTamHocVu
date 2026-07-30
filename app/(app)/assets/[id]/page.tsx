@@ -39,6 +39,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{asset.name}</h1>
             <p className="mt-1 text-sm text-ink-muted48">
+              {asset.assetCode && <>Mã: <strong>{asset.assetCode}</strong> · </>}
               {asset.category ?? "Chưa phân loại"} {asset.room && `· ${asset.room}`}
             </p>
           </div>
@@ -106,7 +107,14 @@ export default async function AssetDetailPage({ params }: { params: { id: string
         {canManageAsset && (
           <AssetEditForm
             assetId={asset.id}
-            initial={{ status: asset.status, room: asset.room ?? "", notes: asset.notes ?? "" }}
+            initial={{
+              status: asset.status,
+              name: asset.name,
+              category: asset.category ?? "",
+              room: asset.room ?? "",
+              unitValue: asset.unitValue?.toString() ?? "",
+              notes: asset.notes ?? "",
+            }}
           />
         )}
       </div>

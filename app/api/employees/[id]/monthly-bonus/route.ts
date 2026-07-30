@@ -17,13 +17,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const body = await req.json();
   const month = String(body.month ?? "").trim();
+  const branchId = String(body.branchId ?? "").trim();
   const bonusPercent = Number(body.bonusPercent);
   if (!month) return NextResponse.json({ error: "Thiếu tháng (vd 2026-06)" }, { status: 400 });
+  if (!branchId) return NextResponse.json({ error: "Thiếu cơ sở" }, { status: 400 });
   if (!Number.isFinite(bonusPercent)) return NextResponse.json({ error: "Mức thưởng không hợp lệ" }, { status: 400 });
 
   const item = await prisma.assistantMonthlyBonus.upsert({
-    where: { employeeId_month: { employeeId: params.id, month } },
-    create: { employeeId: params.id, month, bonusPercent, notes: body.notes || null, decidedById: user.id },
+    where: { employeeId_branchId_month: { employeeId: params.id, branchId, month } },
+    create: { employeeId: params.id, branchId, month, bonusPercent, notes: body.notes || null, decidedById: user.id },
     update: { bonusPercent, notes: body.notes || null, decidedById: user.id, decidedAt: new Date() },
   });
 

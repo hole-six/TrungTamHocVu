@@ -4,6 +4,8 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getBranchWhereClause, getValidBranchIdForCreation } from "@/lib/branch-filter";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate } from "@/lib/server/role-matrix";
+import { estimateEndDate } from "@/lib/server/class-rules";
+import { syncClassDerivedFields } from "@/lib/server/database-sync";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -78,11 +80,17 @@ export async function POST(req: NextRequest) {
       className,
       totalSessions: body.totalSessions ? Number(body.totalSessions) : null,
       startDate: body.startDate ? new Date(body.startDate) : null,
+      expectedEndDate: estimateEndDate(
+        body.startDate ? new Date(body.startDate) : null,
+        body.totalSessions ? Number(body.totalSessions) : null,
+        sessionsPerWeek
+      ),
       sessionsPerWeek,
       tuitionPerSession,
       notes: body.notes || null,
     },
   });
 
-  return NextResponse.json({ item: created }, { status: 201 });
+  const synced = await syncClassDerivedFields(created.id);
+  return NextResponse.json({ item: synced ?? created }, { status: 201 });
 }

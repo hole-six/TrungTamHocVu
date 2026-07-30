@@ -34,6 +34,42 @@ const ROLES = [
     description: "Quản lý toàn bộ cơ sở (không xem cơ sở khác)",
     isSystem: true,
   },
+  {
+    code: "SUPER_ADMIN",
+    name: "Super Admin",
+    description: "Toàn quyền hệ thống, bỏ qua mọi kiểm tra permission",
+    isSystem: true,
+  },
+  {
+    code: "BOARD",
+    name: "Ban Giám Đốc",
+    description: "Xem tổng hợp toàn hệ thống, không thao tác nghiệp vụ hàng ngày",
+    isSystem: true,
+  },
+  {
+    code: "REGISTRAR",
+    name: "Giáo vụ",
+    description: "Vận hành lớp học, học viên, chấm công — không đụng tài chính/lương",
+    isSystem: true,
+  },
+  {
+    code: "ADMISSIONS",
+    name: "Tư vấn tuyển sinh",
+    description: "CRM tuyển sinh là chính",
+    isSystem: true,
+  },
+  {
+    code: "HR",
+    name: "Nhân sự",
+    description: "Chấm công, lương, hợp đồng nhân viên",
+    isSystem: true,
+  },
+  {
+    code: "TEACHING_ASSISTANT",
+    name: "Trợ giảng",
+    description: "Xem lịch dạy, điểm danh học viên của lớp mình hỗ trợ",
+    isSystem: true,
+  },
 ];
 
 // Định nghĩa permissions
@@ -252,6 +288,68 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     "admin.manage_branch.own",
     "admin.manage_users.branch",
     "admin.view_audit.branch",
+  ],
+
+  // SUPER_ADMIN không cần entry ở đây — role.role="admin" bypass hasPermission()
+  // hoàn toàn (xem lib/server/permissions.ts), gán permission cho role này không
+  // có tác dụng và dễ gây hiểu nhầm là đã giới hạn được quyền của Super Admin.
+
+  BOARD: [
+    // Chủ yếu xem tổng hợp — quyền ghi vẫn theo permission.branch/all cụ thể của role-matrix
+    "dashboard.view.all",
+    "student.view.all",
+    "class.view.all",
+    "tuition.view.all",
+    "cashbook.view.all",
+    "payroll.view.all",
+    "report.view.all",
+    "report.view_financial.branch",
+    "admin.view_audit.all",
+  ],
+
+  REGISTRAR: [
+    "dashboard.view.branch",
+    "lead.update.branch",
+    "student.view.branch",
+    "student.create.branch",
+    "student.update.branch",
+    "guardian.view.branch",
+    "class.view.branch",
+    "class.create.branch",
+    "class.update.branch",
+    "attendance.mark.branch",
+    "report.view.branch",
+  ],
+
+  ADMISSIONS: [
+    "dashboard.view.branch",
+    "lead.view.branch",
+    "lead.create.branch",
+    "lead.update.branch",
+    "lead.delete.branch",
+    "guardian.view.branch",
+    "guardian.create.branch",
+    "guardian.update.branch",
+    "class.view.branch",
+    "tuition.view_summary.branch",
+    "report.view.branch",
+  ],
+
+  HR: [
+    "dashboard.view.branch",
+    "payroll.view.branch",
+    "payroll.create.branch",
+    "payroll.approve.branch",
+    "payroll.view_sensitive.branch",
+    "report.view.branch",
+    "inventory.view.branch",
+  ],
+
+  TEACHING_ASSISTANT: [
+    "dashboard.view.own",
+    "class.view.own",
+    "attendance.mark.own",
+    "payroll.view.own",
   ],
 };
 

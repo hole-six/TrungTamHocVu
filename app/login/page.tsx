@@ -5,6 +5,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AuthShell from "@/components/auth/AuthShell";
 
+const DEMO_ACCOUNTS = [
+  { role: "Giám đốc", email: "admin@demo.vn" },
+  { role: "Quản lý cơ sở", email: "manager.demo@tach.vn" },
+  { role: "Kế toán", email: "accountant.demo@tach.vn" },
+  { role: "Lễ tân", email: "receptionist.demo@tach.vn" },
+  { role: "Nhân sự", email: "hr.demo@tach.vn" },
+  { role: "Giáo vụ", email: "registrar.demo@tach.vn" },
+  { role: "Tư vấn tuyển sinh", email: "admissions.demo@tach.vn" },
+  { role: "Ban Giám Đốc", email: "board.demo@tach.vn" },
+  { role: "Giáo viên", email: "teacher.demo@tach.vn" },
+  { role: "Trợ giảng", email: "assistant.demo@tach.vn" },
+];
+const DEMO_PASSWORD = "Demo@123";
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -12,6 +26,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showDemoAccounts, setShowDemoAccounts] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,9 +50,9 @@ export default function LoginPage() {
     router.refresh();
   }
 
-  function fillDemoAccount() {
-    setEmail("admin@demo.vn");
-    setPassword("Demo@123");
+  function fillDemoAccount(demoEmail: string = "admin@demo.vn") {
+    setEmail(demoEmail);
+    setPassword(DEMO_PASSWORD);
     setError(null);
   }
 
@@ -71,13 +86,38 @@ export default function LoginPage() {
         <div className="rounded-3xl border border-[#dbe7ff] bg-[#f8fbff] p-4 text-sm text-[#475569]">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="font-semibold text-[#0f172a]">Demo nhanh để kiểm tra giao diện</p>
-              <p className="mt-1 text-xs text-[#6b7aa1]">Admin demo: `admin@demo.vn` / `Demo@123`</p>
+              <p className="font-semibold text-[#0f172a]">Bản demo — 10 tài khoản, mỗi tài khoản 1 vai trò</p>
+              <p className="mt-1 text-xs text-[#6b7aa1]">
+                Mật khẩu chung: <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[#4f46e5]">{DEMO_PASSWORD}</code>
+              </p>
             </div>
-            <button type="button" onClick={fillDemoAccount} className="btn-ghost-sm">
-              Điền tài khoản demo
+            <button type="button" onClick={() => setShowDemoAccounts((v) => !v)} className="btn-ghost-sm">
+              {showDemoAccounts ? "Ẩn danh sách" : "Xem tất cả tài khoản demo"}
             </button>
           </div>
+
+          {showDemoAccounts && (
+            <div className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+              {DEMO_ACCOUNTS.map((acc) => (
+                <button
+                  key={acc.email}
+                  type="button"
+                  onClick={() => fillDemoAccount(acc.email)}
+                  className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left text-xs transition ${
+                    email === acc.email
+                      ? "border-primary/40 bg-primary/5"
+                      : "border-[#e5eaf7] bg-white hover:border-primary/30 hover:bg-primary/[0.03]"
+                  }`}
+                >
+                  <span>
+                    <span className="block font-semibold text-[#0f172a]">{acc.role}</span>
+                    <span className="block text-[#6b7aa1]">{acc.email}</span>
+                  </span>
+                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-primary">Dùng</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">

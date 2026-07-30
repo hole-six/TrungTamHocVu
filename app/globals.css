@@ -2,37 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Inter variable font ─────────────────────────────── */
+/* ─── Be Vietnam Pro variable font (khai báo ở app/layout.tsx) ─── */
 
 @layer base {
   :root {
     --sidebar-w: 280px;
-    --font-inter: "SF Pro Text";
-    
-    /* Premium Light Theme - Bright & Modern */
-    --bg-canvas: #f8faff;
-    --bg-canvas-secondary: #f0f4ff;
+
+    /* Trắng / xanh biển nhạt — Bright & Modern */
+    --bg-canvas: #f7fbff;
+    --bg-canvas-secondary: #eef7ff;
     --bg-card: #ffffff;
-    --bg-card-hover: #fafbff;
-    --bg-muted: #f5f8ff;
-    --bg-accent: #eff3ff;
-    
-    --text-primary: #0f1729;
-    --text-secondary: #3d4b6e;
-    --text-muted: #6b7aa1;
-    --text-disabled: #9ca8c4;
-    
-    --border-primary: #e5eaf7;
-    --border-secondary: #dfe6f3;
-    --border-muted: #d1daf0;
-    
-    /* Premium Gradients */
-    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --gradient-blue: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    --gradient-purple: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+    --bg-card-hover: #f5faff;
+    --bg-muted: #f1f8ff;
+    --bg-accent: #e6f4ff;
+
+    --text-primary: #0f2942;
+    --text-secondary: #3c5975;
+    --text-muted: #6b84a1;
+    --text-disabled: #9db1c4;
+
+    --border-primary: #dfeefc;
+    --border-secondary: #d3e8fa;
+    --border-muted: #c4defa;
+
+    /* Gradients — cùng họ xanh biển nhạt, không dùng tím/hồng */
+    --gradient-primary: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+    --gradient-blue: linear-gradient(135deg, #7dd3fc 0%, #0ea5e9 100%);
+    --gradient-purple: linear-gradient(135deg, #7dd3fc 0%, #38bdf8 100%);
     --gradient-green: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    --gradient-orange: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-    --gradient-card: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
+    --gradient-orange: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
+    --gradient-card: linear-gradient(135deg, #ffffff 0%, #f7fbff 100%);
     
     /* Premium Shadows */
     --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.04);
@@ -40,7 +39,7 @@
     --shadow-md: 0 4px 8px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.04);
     --shadow-lg: 0 12px 24px -4px rgb(15 23 42 / 0.12), 0 4px 8px -4px rgb(15 23 42 / 0.06);
     --shadow-xl: 0 20px 40px -8px rgb(15 23 42 / 0.16), 0 8px 16px -8px rgb(15 23 42 / 0.08);
-    --shadow-glow: 0 0 24px 0 rgb(102 126 234 / 0.2);
+    --shadow-glow: 0 0 24px 0 rgb(14 165 233 / 0.25);
   }
   
   html { 
@@ -133,8 +132,8 @@
   .btn-secondary:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
-    border-color: #667eea;
-    color: #667eea;
+    border-color: #0ea5e9;
+    color: #0284c7;
   }
   
   .btn-ghost {
@@ -328,7 +327,7 @@
   }
   .input:focus {
     transform: translateY(-1px);
-    box-shadow: var(--shadow-md), 0 0 0 4px rgba(102, 126, 234, 0.1);
+    box-shadow: var(--shadow-md), 0 0 0 4px rgba(14, 165, 233, 0.15);
   }
   .input:disabled {
     background: var(--bg-muted);
@@ -353,7 +352,7 @@
     border-color: var(--border-secondary);
   }
   .input-sm:focus {
-    box-shadow: var(--shadow-sm), 0 0 0 3px rgba(102, 126, 234, 0.1);
+    box-shadow: var(--shadow-sm), 0 0 0 3px rgba(14, 165, 233, 0.15);
   }
   
   .label {
@@ -454,9 +453,9 @@
 
   /* ─── Premium Page Headers ──────────────────────────── */
   .page-header { @apply flex flex-wrap items-start justify-between gap-6; }
-  .page-title { 
+  .page-title {
     @apply text-3xl font-black tracking-tight;
-    background: linear-gradient(135deg, #0f1729 0%, #667eea 100%);
+    background: linear-gradient(135deg, #0f2942 0%, #0ea5e9 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;

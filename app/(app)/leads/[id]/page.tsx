@@ -8,6 +8,7 @@ import { LEAD_STATUS_LABEL, calculateAge, suggestGradeLevel } from "@/lib/server
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
+import { computeOutstandingBalance } from "@/lib/server/balance";
 
 const INTERACTION_LABEL: Record<string, string> = {
   CALL: "Gọi điện",
@@ -22,6 +23,7 @@ const APPOINTMENT_STATUS_LABEL: Record<string, string> = {
   MISSED: "Vắng",
   CANCELLED: "Đã hủy",
 };
+
 const APPOINTMENT_STATUS_COLOR: Record<string, string> = {
   SCHEDULED: "bg-blue-100 text-blue-700",
   DONE: "bg-emerald-100 text-emerald-700",
@@ -32,6 +34,7 @@ const APPOINTMENT_STATUS_COLOR: Record<string, string> = {
 function formatDateTime(d: Date | null) {
   return d ? new Date(d).toLocaleString("vi-VN") : "—";
 }
+
 function formatDate(d: Date | null) {
   return d ? new Date(d).toLocaleDateString("vi-VN") : "—";
 }
@@ -40,11 +43,20 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   const lead = await prisma.lead.findUnique({
     where: { id: params.id },
     include: {
-      guardian: true,
+      guardian: { include: { user: true } },
+      interestedClass: true,
       interactions: { orderBy: { occurredAt: "desc" } },
       appointments: { orderBy: { scheduledAt: "desc" } },
       placementTests: { orderBy: { testDate: "desc" } },
-      student: true,
+      student: {
+        include: {
+          guardians: {
+            where: { isPrimary: true },
+            include: { guardian: { include: { user: true } } },
+          },
+          enrollments: { include: { class: true }, orderBy: { enrollDate: "desc" } },
+        },
+      },
     },
   });
   if (!lead) notFound();
@@ -55,6 +67,9 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
 
   const age = calculateAge(lead.dob);
   const suggested = suggestGradeLevel(age);
+  const currentEnrollment = lead.student?.enrollments.find((e) => e.status === "ACTIVE") ?? lead.student?.enrollments[0] ?? null;
+  const linkedGuardian = lead.student?.guardians[0]?.guardian ?? lead.guardian ?? null;
+  const outstanding = lead.student ? await computeOutstandingBalance(lead.student.id) : null;
 
   return (
     <div className="space-y-6">
@@ -80,7 +95,14 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <div className="card">
-            <h2 className="font-display text-lg font-semibold tracking-tight">Thông tin liên hệ</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-lg font-semibold tracking-tight">Thông tin liên hệ</h2>
+              {editable && (
+                <Link href={`/leads/${lead.id}/edit`} className="btn-ghost text-sm">
+                  Sửa thông tin
+                </Link>
+              )}
+            </div>
             <dl className="mt-3 grid grid-cols-2 gap-4 text-sm">
               <div>
                 <dt className="text-ink-muted48">Phụ huynh</dt>
@@ -128,6 +150,64 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               </div>
             </dl>
             {lead.notes && <p className="mt-3 text-sm text-ink-muted80">Ghi chú: {lead.notes}</p>}
+          </div>
+
+          <div className="card">
+            <h2 className="font-display text-lg font-semibold tracking-tight">Liên kết vận hành</h2>
+            <dl className="mt-3 grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
+              <div>
+                <dt className="text-ink-muted48">Phụ huynh chủ hồ sơ</dt>
+                <dd className="mt-1 font-medium">
+                  {linkedGuardian ? (
+                    <Link href={`/guardians/${linkedGuardian.id}`} className="text-primary">
+                      {linkedGuardian.fullName}
+                    </Link>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
+                <p className="mt-1 text-xs text-ink-muted48">{linkedGuardian?.phone ?? "Chưa có số điện thoại"}</p>
+              </div>
+              <div>
+                <dt className="text-ink-muted48">Portal phụ huynh</dt>
+                <dd className="mt-1 font-medium">{linkedGuardian?.user ? linkedGuardian.user.email : "Chưa cấp tài khoản"}</dd>
+                <p className="mt-1 text-xs text-ink-muted48">
+                  {linkedGuardian?.user ? (linkedGuardian.user.isActive ? "Đang hoạt động" : "Đã thu hồi") : "Nên cấp ngay khi chính thức nhập học"}
+                </p>
+              </div>
+              <div>
+                <dt className="text-ink-muted48">Lớp quan tâm / xếp thử</dt>
+                <dd className="mt-1 font-medium">{lead.interestedClass?.className ?? "Chưa gắn lớp quan tâm"}</dd>
+                <p className="mt-1 text-xs text-ink-muted48">{lead.interestedClass?.classCode ?? lead.notes2 ?? "Dùng cho tuyển sinh và giáo vụ xếp lớp"}</p>
+              </div>
+              <div>
+                <dt className="text-ink-muted48">Kết quả chuyển đổi</dt>
+                <dd className="mt-1 font-medium">
+                  {lead.student ? (
+                    <Link href={`/students/${lead.student.id}`} className="text-primary">
+                      {lead.student.fullName}
+                    </Link>
+                  ) : (
+                    "Chưa chuyển thành học viên"
+                  )}
+                </dd>
+                <p className="mt-1 text-xs text-ink-muted48">
+                  {currentEnrollment?.class ? `Đang học lớp ${currentEnrollment.class.className}` : "Chưa có enrollment"}
+                </p>
+              </div>
+              <div>
+                <dt className="text-ink-muted48">Mã lead gốc</dt>
+                <dd className="mt-1 font-medium">{lead.leadCode}</dd>
+                <p className="mt-1 text-xs text-ink-muted48">Mã này phải theo xuyên suốt từ CRM → học viên → báo cáo.</p>
+              </div>
+              <div>
+                <dt className="text-ink-muted48">Công nợ hiện tại</dt>
+                <dd className="mt-1 font-medium">{outstanding !== null ? `${outstanding.toLocaleString("vi-VN")}đ` : "Chưa phát sinh"}</dd>
+                <p className="mt-1 text-xs text-ink-muted48">
+                  {lead.student ? "Hiện trên hồ sơ học viên và portal phụ huynh." : "Sẽ có sau khi nhập học và sinh học phí."}
+                </p>
+              </div>
+            </dl>
           </div>
 
           <div className="card">

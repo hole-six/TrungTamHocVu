@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
 import { isManagementRole, isFinanceRole } from "@/lib/client-roles";
+import { exportToExcel } from "@/lib/export-utils";
 
 type CashTransaction = {
   id: string;
@@ -55,7 +56,28 @@ export default function CashbookTable({
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
 
-  // Define columns
+  const exportRows = (rows: CashTransaction[]) => {
+    exportToExcel(
+      rows.map((row) => ({
+        txnDate: formatDate(row.txnDate),
+        type: CASH_TXN_TYPE_CONFIG[row.type]?.label ?? row.type,
+        categoryName: row.category?.name ?? "",
+        description: row.description ?? "",
+        amount: row.amount,
+        status: CASH_STATUS_CONFIG[row.status]?.label ?? row.status,
+      })),
+      [
+        { key: "txnDate", label: "Ngày" },
+        { key: "type", label: "Loại" },
+        { key: "categoryName", label: "Danh mục" },
+        { key: "description", label: "Diễn giải" },
+        { key: "amount", label: "Số tiền", format: (value) => formatVnd(Number(value ?? 0)) },
+        { key: "status", label: "Trạng thái" },
+      ],
+      "so_quy_thu_chi"
+    );
+  };
+
   const columns: Column<CashTransaction>[] = [
     {
       key: "txnDate",
@@ -84,16 +106,12 @@ export default function CashbookTable({
     {
       key: "category",
       label: "Danh mục",
-      render: (value) => (
-        <span className="text-sm text-ink-muted80">{value?.name || "—"}</span>
-      ),
+      render: (value) => <span className="text-sm text-ink-muted80">{value?.name || "—"}</span>,
     },
     {
       key: "description",
       label: "Diễn giải",
-      render: (value) => (
-        <span className="text-sm text-ink line-clamp-2">{value || "—"}</span>
-      ),
+      render: (value) => <span className="text-sm text-ink line-clamp-2">{value || "—"}</span>,
     },
     {
       key: "amount",
@@ -102,7 +120,8 @@ export default function CashbookTable({
       align: "right",
       render: (value, row) => (
         <span className={`font-mono text-sm font-semibold ${row.type === "THU" ? "text-emerald-600" : "text-red-600"}`}>
-          {row.type === "THU" ? "+" : "-"}{formatVnd(value)}
+          {row.type === "THU" ? "+" : "-"}
+          {formatVnd(value)}
         </span>
       ),
     },
@@ -123,14 +142,13 @@ export default function CashbookTable({
     },
   ];
 
-  // Define actions based on role
   const actions: Action<CashTransaction>[] = [
     {
       label: "Xem",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
         </svg>
       ),
       onClick: (row) => router.push(`/cashbook/${row.id}`),
@@ -138,14 +156,13 @@ export default function CashbookTable({
     },
   ];
 
-  // Add void action for ACCOUNTANT, DIRECTOR, BRANCH_MANAGER on CONFIRMED transactions
   if (isFinanceRole(userRole)) {
     actions.push({
       label: "Hủy phiếu",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
         </svg>
       ),
       onClick: async (row) => {
@@ -159,14 +176,13 @@ export default function CashbookTable({
     });
   }
 
-  // Add delete action only for DIRECTOR and BRANCH_MANAGER on VOIDED transactions
   if (isManagementRole(userRole)) {
     actions.push({
       label: "Xóa",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </svg>
       ),
       onClick: async (row) => {
@@ -180,7 +196,6 @@ export default function CashbookTable({
     });
   }
 
-  // Define bulk actions
   const bulkActions: BulkAction<CashTransaction>[] = [];
 
   if (isFinanceRole(userRole)) {
@@ -189,14 +204,13 @@ export default function CashbookTable({
         label: "Xuất báo cáo Excel",
         icon: (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
         ),
         onClick: async (rows) => {
-          console.log("Xuất báo cáo Excel", rows);
-          // TODO: Implement export
+          exportRows(rows);
         },
         variant: "primary",
       },
@@ -204,14 +218,12 @@ export default function CashbookTable({
         label: "Hủy phiếu hàng loạt",
         icon: (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
           </svg>
         ),
         onClick: async (rows) => {
-          await Promise.all(
-            rows.map((row) => fetch(`/api/cash-transactions/${row.id}/void`, { method: "POST" }))
-          );
+          await Promise.all(rows.map((row) => fetch(`/api/cash-transactions/${row.id}/void`, { method: "POST" })));
           router.refresh();
         },
         variant: "secondary",
@@ -225,14 +237,12 @@ export default function CashbookTable({
       label: "Xóa",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </svg>
       ),
       onClick: async (rows) => {
-        await Promise.all(
-          rows.map((row) => fetch(`/api/cash-transactions/${row.id}`, { method: "DELETE" }))
-        );
+        await Promise.all(rows.map((row) => fetch(`/api/cash-transactions/${row.id}`, { method: "DELETE" })));
         router.refresh();
       },
       variant: "danger",
@@ -278,10 +288,12 @@ export default function CashbookTable({
       emptyState={{
         title: "Chưa có phiếu thu/chi",
         description: "Bắt đầu bằng cách tạo phiếu thu hoặc phiếu chi đầu tiên.",
-        action: (isFinanceRole(userRole)) ? {
-          label: "Thêm phiếu thu/chi",
-          onClick: () => router.push("/cashbook/new"),
-        } : undefined,
+        action: isFinanceRole(userRole)
+          ? {
+              label: "Thêm phiếu thu/chi",
+              onClick: () => router.push("/cashbook/new"),
+            }
+          : undefined,
       }}
       loading={loading}
       stickyHeader

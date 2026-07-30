@@ -3,18 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeStockBalance } from "@/lib/server/inventory-rules";
 import { canEditCharges } from "@/lib/server/tuition-rules";
-import { getUserRole } from "@/lib/permissions";
-import { canCreate } from "@/lib/server/role-matrix";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canCreateWithOverride } from "@/lib/server/role-matrix";
+import { syncBookQuantityOnHand } from "@/lib/server/database-sync";
 
-// Xuất giáo trình cho học viên — nguồn XuatNhapSach/T_SachXuat, feed thẳng vào
-// TienGiaoTrinh khi sinh học phí (billing-periods/[id]/generate-charges). Spec §14
-// liệt kê "Âm kho và điều chỉnh kho" là điểm KHÔNG được tự động quyết định — nên ở
-// đây không chặn cứng khi xuất vượt tồn, chỉ cảnh báo để nhân sự tự quyết định.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  const role = await getUserRole(user.id);
-  if (!canCreate("inventory", role)) {
+  const { role, override } = await getUserRoleAndOverride(user.id, "inventory");
+  if (!canCreateWithOverride("inventory", role, override)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền xuất giáo trình" }, { status: 403 });
   }
 
@@ -40,8 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     where: { studentId, status: "ACTIVE" },
     select: { classId: true },
   });
-  const inferredClassId =
-    body.classId || (activeEnrollments.length === 1 ? activeEnrollments[0].classId : null);
+  const inferredClassId = body.classId || (activeEnrollments.length === 1 ? activeEnrollments[0].classId : null);
 
   const result = await prisma.$transaction(async (tx) => {
     const issue = await tx.bookIssue.create({
@@ -99,10 +95,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
     }
 
+    await syncBookQuantityOnHand(book.id, tx);
     return { issue, linkedChargeId, chargeUpdated };
   });
 
   const balance = await computeStockBalance(book.id);
+  await syncBookQuantityOnHand(book.id);
   const warning = balance.onHand < 0 ? `Tồn kho hiện đang âm (${balance.onHand}) — cần kiểm tra lại phiếu nhập.` : null;
 
   const classWarning =

@@ -1,8 +1,7 @@
 import type { Config } from "tailwindcss";
 
-// Design tokens rút từ DESIGN.md (Apple-design-analysis) — áp dụng cho giao diện
-// quản trị: 1 màu nhấn duy nhất, bảng màu sáng/tối, chữ SF Pro (Inter thay thế),
-// bo góc theo thang pill/lg/sm, không dùng gradient trang trí.
+// Design tokens: giao diện trắng / xanh biển nhạt, 1 màu nhấn duy nhất (sky blue),
+// chữ Be Vietnam Pro (hỗ trợ tiếng Việt có dấu tốt), bo góc theo thang pill/lg/sm.
 const config: Config = {
   darkMode: "class",
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
@@ -10,9 +9,9 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: "#0066cc",
-          focus: "#0071e3",
-          onDark: "#2997ff",
+          DEFAULT: "#0EA5E9",
+          focus: "#0284C7",
+          onDark: "#38BDF8",
         },
         ink: {
           DEFAULT: "#1d1d1f",
@@ -49,8 +48,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ["var(--font-inter)", "SF Pro Display", "system-ui", "-apple-system", "sans-serif"],
-        text: ["var(--font-inter)", "SF Pro Text", "system-ui", "-apple-system", "sans-serif"],
+        display: ["var(--font-sans)", "system-ui", "-apple-system", "sans-serif"],
+        text: ["var(--font-sans)", "system-ui", "-apple-system", "sans-serif"],
       },
       borderRadius: {
         xs: "5px",

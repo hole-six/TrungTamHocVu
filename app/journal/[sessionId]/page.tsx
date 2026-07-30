@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -7,6 +8,28 @@ const WEEKDAY_LABEL = ["Chủ nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Th
 
 function formatDate(d: Date) {
   return new Date(d).toLocaleDateString("vi-VN");
+}
+
+// Open Graph tags — để khi dán link này vào Zalo/nhóm Zalo OA, tin nhắn tự hiện thẻ
+// preview (tên lớp + ngày học) thay vì chỉ 1 link trần trụi, dễ nhận ra và dễ bấm vào hơn.
+export async function generateMetadata({ params }: { params: { sessionId: string } }): Promise<Metadata> {
+  const classSession = await prisma.classSession.findUnique({
+    where: { id: params.sessionId },
+    include: { class: { include: { branch: true } }, journal: true },
+  });
+  if (!classSession) return { title: "Nhật ký lớp học" };
+
+  const dateLabel = formatDate(classSession.sessionDate);
+  const title = `Nhật ký lớp học — ${classSession.class.className} — ${dateLabel}`;
+  const description = classSession.journal?.unitLesson
+    ? `${classSession.journal.unitLesson} · ${classSession.class.branch.name}`
+    : `${classSession.class.branch.name} · Điểm, nhận xét và bài tập về nhà của buổi học ${dateLabel}`;
+
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "article" },
+  };
 }
 
 export default async function JournalPrintPage({ params }: { params: { sessionId: string } }) {
@@ -27,6 +50,16 @@ export default async function JournalPrintPage({ params }: { params: { sessionId
     },
   });
   if (!classSession || !classSession.journal) notFound();
+
+  // Link này được gửi chung vào nhóm Zalo cả lớp (cả lớp cùng xem chung 1 bảng — theo
+  // quyết định của Giám đốc), nhưng KHÔNG được để phụ huynh của LỚP KHÁC xem được nếu
+  // vô tình có link — chỉ chặn người không liên quan, không chặn nhân sự.
+  if (session.guardianId) {
+    const hasChildInClass = await prisma.studentGuardian.findFirst({
+      where: { guardianId: session.guardianId, student: { enrollments: { some: { classId: classSession.classId } } } },
+    });
+    if (!hasChildInClass) notFound();
+  }
 
   const journal = classSession.journal;
   const enrollments = await prisma.enrollment.count({ where: { classId: classSession.classId, status: "ACTIVE" } });

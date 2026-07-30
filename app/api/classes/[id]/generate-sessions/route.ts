@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { generateSessionDates } from "@/lib/server/class-rules";
+import { createSessionsInRange } from "@/lib/server/class-generation";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate } from "@/lib/server/role-matrix";
 
 // Sinh ClassSession từ ScheduleRule trong khoảng ngày — thay cho việc gõ tay từng
 // dòng "Ngay thang" như ChiTietLopHoc gốc. Bỏ qua ngày đã có buổi học để tránh
@@ -9,6 +11,10 @@ import { generateSessionDates } from "@/lib/server/class-rules";
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const role = await getUserRole(user.id);
+  if (!canUpdate("schedule", role)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền sinh buổi học" }, { status: 403 });
+  }
 
   const cls = await prisma.class.findUnique({ where: { id: params.id }, include: { scheduleRules: true } });
   if (!cls) return NextResponse.json({ error: "Không tìm thấy lớp" }, { status: 404 });
@@ -24,28 +30,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Khoảng ngày tối đa 120 ngày mỗi lần sinh" }, { status: 400 });
   }
 
-  const candidates = generateSessionDates(cls.scheduleRules, fromDate, toDate);
-
-  const existing = await prisma.classSession.findMany({
-    where: { classId: cls.id, sessionDate: { gte: fromDate, lte: toDate } },
-    select: { sessionDate: true },
-  });
-  const existingDates = new Set(existing.map((s) => s.sessionDate.toISOString().slice(0, 10)));
-
-  const toCreate = candidates.filter((c) => !existingDates.has(c.sessionDate.toISOString().slice(0, 10)));
-
-  if (toCreate.length > 0) {
-    await prisma.classSession.createMany({
-      data: toCreate.map((c) => ({
-        classId: cls.id,
-        sessionDate: c.sessionDate,
-        startTime: c.startTime,
-        endTime: c.endTime,
-        room: c.room,
-        status: "PLANNED",
-      })),
-    });
-  }
-
-  return NextResponse.json({ created: toCreate.length, skipped: candidates.length - toCreate.length });
+  const result = await createSessionsInRange(cls.id, fromDate, toDate);
+  return NextResponse.json(result);
 }

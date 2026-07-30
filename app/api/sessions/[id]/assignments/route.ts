@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { computeHoursFromTimeRange } from "@/lib/server/payroll-rules";
+import { computeSessionBaseHours } from "@/lib/server/payroll-rules";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 
 // Phân công GV/TG cho buổi học — nguồn ChiTietLopHoc (Giáo viên/Trợ giảng + FR-0008
-// So_Gio, FR-0010/0011 Luongh_GV/Luongh_TG lookup từ NhanSu). Lưu snapshot hourlyRate
-// + amount tại thời điểm phân công để lịch sử lương không đổi khi sau này sửa đơn
-// giá của nhân viên.
+// So_Gio, FR-0009 So_gio_GV theo payMode, FR-0010/0011 Luongh_GV/Luongh_TG lookup từ
+// NhanSu). Lưu snapshot hourlyRate + amount tại thời điểm phân công để lịch sử lương
+// không đổi khi sau này sửa đơn giá của nhân viên.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
@@ -36,12 +36,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
   if (existing) return NextResponse.json({ error: "Nhân viên đã được phân công vai trò này cho buổi học" }, { status: 409 });
 
-  const hours = session.startTime && session.endTime ? computeHoursFromTimeRange(session.startTime, session.endTime) : 0;
+  const hours = computeSessionBaseHours(employee.payMode, session.startTime, session.endTime);
   const hourlyRate = role === "TEACHER" ? employee.teachingHourlyRate ?? 0 : employee.assistantHourlyRate ?? 0;
   const amount = Math.round(hours * hourlyRate);
 
   const assignment = await prisma.sessionAssignment.create({
-    data: { sessionId: session.id, employeeId, role, hours, hourlyRate, amount },
+    data: { sessionId: session.id, employeeId, role, hours, hourlyRate, amount, isSubstituteShift: !!body.isSubstituteShift },
   });
 
   return NextResponse.json({ item: assignment }, { status: 201 });

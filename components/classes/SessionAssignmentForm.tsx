@@ -12,6 +12,7 @@ type Assignment = {
   deductedHours: number;
   addedHours: number;
   adjustmentNote: string | null;
+  isSubstituteShift: boolean;
   employee: { fullName: string };
 };
 
@@ -23,6 +24,7 @@ function AssignmentRow({ a }: { a: Assignment }) {
   const [deductedHours, setDeductedHours] = useState(String(a.deductedHours ?? 0));
   const [addedHours, setAddedHours] = useState(String(a.addedHours ?? 0));
   const [note, setNote] = useState(a.adjustmentNote ?? "");
+  const [isSubstituteShift, setIsSubstituteShift] = useState(a.isSubstituteShift);
   const [loading, setLoading] = useState(false);
 
   async function remove() {
@@ -36,7 +38,7 @@ function AssignmentRow({ a }: { a: Assignment }) {
     await fetch(`/api/session-assignments/${a.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deductedHours: Number(deductedHours), addedHours: Number(addedHours), adjustmentNote: note }),
+      body: JSON.stringify({ deductedHours: Number(deductedHours), addedHours: Number(addedHours), adjustmentNote: note, isSubstituteShift }),
     });
     setLoading(false);
     setEditing(false);
@@ -48,6 +50,7 @@ function AssignmentRow({ a }: { a: Assignment }) {
       <div className="flex items-center justify-between">
         <span>
           {a.employee.fullName} — {ROLE_LABEL[a.role] ?? a.role} ({a.hours}h, {(a.amount ?? 0).toLocaleString("vi-VN")}đ)
+          {a.isSubstituteShift && <span className="badge-amber ml-2 align-middle text-[10px]">Ca bổ trợ</span>}
         </span>
         <div className="flex items-center gap-3">
           <button onClick={() => setEditing(!editing)} className="text-xs text-primary">
@@ -95,6 +98,10 @@ function AssignmentRow({ a }: { a: Assignment }) {
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
+          <label className="flex items-center gap-1.5 text-xs text-ink-muted80">
+            <input type="checkbox" checked={isSubstituteShift} onChange={(e) => setIsSubstituteShift(e.target.checked)} />
+            Ca bổ trợ (không tính vào đánh giá)
+          </label>
           <button type="submit" disabled={loading} className="btn-primary">
             {loading ? "..." : "Lưu"}
           </button>
