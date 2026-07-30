@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState, useEffect } from "react";
 import DataTable, { Column, Action, BulkAction } from "./DataTable";
 import DataTableMobile from "./DataTableMobile";
@@ -33,6 +34,10 @@ type DataTableResponsiveProps<T> = {
   rowKey: keyof T;
   onRowClick?: (row: T) => void;
   className?: string;
+  title?: string;
+  description?: string;
+  headerActions?: ReactNode;
+  defaultSearchValue?: string;
   
   // Mobile-specific props
   mobileConfig?: {

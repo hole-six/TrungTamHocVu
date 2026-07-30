@@ -19,7 +19,8 @@ export type FormField = {
   max?: number;
   step?: number;
   rows?: number;
-  onChange?: (value: any) => void;
+  colSpan?: 1 | 2;
+  onChange?: (value: any, formData: Record<string, any>) => void | Partial<Record<string, any>>;
 };
 
 export type FormSection = {
@@ -66,6 +67,7 @@ export default function SmartForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const submitting = loading || isSubmitting;
+
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     sections.forEach((section, idx) => {
@@ -77,51 +79,60 @@ export default function SmartForm({
   });
 
   const handleChange = (name: string, value: any, field: FormField) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    
-    // Clear error for this field
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value };
+      const patch = field.onChange?.(value, next);
+      if (patch && typeof patch === "object") {
+        Object.assign(next, patch);
+      }
+      return next;
+    });
+
     if (errors[name]) {
       setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
+        const next = { ...prev };
+        delete next[name];
+        return next;
       });
     }
 
-    // Run custom onChange
-    field.onChange?.(value);
+    setSubmitError(null);
   };
 
   const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
+    const nextErrors: Record<string, string> = {};
 
     sections.forEach((section) => {
       section.fields.forEach((field) => {
         if (field.hidden) return;
 
         const value = formData[field.name];
+        const isEmpty =
+          value === undefined ||
+          value === null ||
+          value === "" ||
+          (field.type === "checkbox" && value !== true);
 
-        // Required validation
-        if (field.required && (!value || value === "")) {
-          newErrors[field.name] = `${field.label} là bắt buộc`;
+        if (field.required && isEmpty) {
+          nextErrors[field.name] = `${field.label} là bắt buộc`;
+          return;
         }
 
-        // Custom validation
-        if (field.validation && value) {
+        if (field.validation && value !== undefined && value !== null && value !== "") {
           const error = field.validation(value);
           if (error) {
-            newErrors[field.name] = error;
+            nextErrors[field.name] = error;
           }
         }
       });
     });
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     setSubmitError(null);
 
     if (!validate()) {
@@ -131,11 +142,8 @@ export default function SmartForm({
     setIsSubmitting(true);
     try {
       await onSubmit(formData);
-    } catch (err) {
-      // Không để lỗi submit (vd server trả 409 trùng SĐT) rơi vào unhandled rejection —
-      // nếu component cha không tự bắt lỗi thì người dùng bấm Lưu xong không thấy gì xảy ra,
-      // nút vẫn kẹt ở "Đang lưu..." mà không rõ vì sao.
-      setSubmitError(err instanceof Error ? err.message : "Có lỗi xảy ra, vui lòng thử lại.");
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Có lỗi xảy ra, vui lòng thử lại.");
     } finally {
       setIsSubmitting(false);
     }
@@ -151,51 +159,55 @@ export default function SmartForm({
   const renderField = (field: FormField) => {
     if (field.hidden) return null;
 
-    const value = formData[field.name] || "";
+    const rawValue =
+      formData[field.name] ??
+      (field.type === "checkbox" ? false : "");
     const error = errors[field.name];
+    const spanClass =
+      field.colSpan === 2 || field.type === "textarea" || field.type === "checkbox" || field.type === "radio"
+        ? "sm:col-span-2"
+        : "";
 
-    const inputClasses = `input ${error ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""} ${
-      field.icon ? "pl-10" : ""
-    }`;
+    const inputClasses = `input ${error ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""} ${field.icon ? "pl-10" : ""}`;
 
     return (
-      <div key={field.name} className="form-group">
+      <div key={field.name} className={`form-group ${spanClass}`}>
         <label className="label">
           {field.label}
-          {field.required && <span className="text-red-500 ml-1">*</span>}
+          {field.required ? <span className="ml-1 text-red-500">*</span> : null}
         </label>
 
-        {field.description && (
-          <p className="text-xs text-ink-muted48 mb-2">{field.description}</p>
-        )}
+        {field.description ? (
+          <p className="mb-2 text-xs leading-5 text-ink-muted48">{field.description}</p>
+        ) : null}
 
         <div className="relative">
-          {field.icon && (
+          {field.icon ? (
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-ink-muted48">
               {field.icon}
             </div>
-          )}
+          ) : null}
 
           {field.type === "select" ? (
             <select
               name={field.name}
-              value={value}
+              value={rawValue}
               onChange={(e) => handleChange(field.name, e.target.value, field)}
               disabled={field.disabled || submitting}
               required={field.required}
               className={inputClasses}
             >
               <option value="">-- Chọn {field.label.toLowerCase()} --</option>
-              {field.options?.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
+              {field.options?.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
           ) : field.type === "textarea" ? (
             <textarea
               name={field.name}
-              value={value}
+              value={rawValue}
               onChange={(e) => handleChange(field.name, e.target.value, field)}
               disabled={field.disabled || submitting}
               required={field.required}
@@ -204,11 +216,11 @@ export default function SmartForm({
               className={inputClasses}
             />
           ) : field.type === "checkbox" ? (
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-[#e5eaf7] bg-white px-4 py-3">
               <input
                 type="checkbox"
                 name={field.name}
-                checked={!!value}
+                checked={Boolean(rawValue)}
                 onChange={(e) => handleChange(field.name, e.target.checked, field)}
                 disabled={field.disabled || submitting}
                 className="h-4 w-4 rounded border-2 border-[#cbd5e1] text-primary focus:ring-2 focus:ring-primary/20"
@@ -217,18 +229,21 @@ export default function SmartForm({
             </label>
           ) : field.type === "radio" ? (
             <div className="space-y-2">
-              {field.options?.map((opt) => (
-                <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+              {field.options?.map((option) => (
+                <label
+                  key={option.value}
+                  className="flex cursor-pointer items-center gap-3 rounded-2xl border border-[#e5eaf7] bg-white px-4 py-3"
+                >
                   <input
                     type="radio"
                     name={field.name}
-                    value={opt.value}
-                    checked={value === opt.value}
+                    value={option.value}
+                    checked={rawValue === option.value}
                     onChange={(e) => handleChange(field.name, e.target.value, field)}
                     disabled={field.disabled || submitting}
                     className="h-4 w-4 border-2 border-[#cbd5e1] text-primary focus:ring-2 focus:ring-primary/20"
                   />
-                  <span className="text-sm text-ink">{opt.label}</span>
+                  <span className="text-sm text-ink">{option.label}</span>
                 </label>
               ))}
             </div>
@@ -236,11 +251,13 @@ export default function SmartForm({
             <input
               type={field.type}
               name={field.name}
-              value={value}
+              value={rawValue}
               onChange={(e) =>
                 handleChange(
                   field.name,
-                  field.type === "number" ? Number(e.target.value) : e.target.value,
+                  field.type === "number"
+                    ? (e.target.value === "" ? "" : Number(e.target.value))
+                    : e.target.value,
                   field
                 )
               }
@@ -255,8 +272,8 @@ export default function SmartForm({
           )}
         </div>
 
-        {error && (
-          <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+        {error ? (
+          <p className="mt-1 flex items-center gap-1 text-xs text-red-600">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/>
               <line x1="12" y1="8" x2="12" y2="12"/>
@@ -264,7 +281,7 @@ export default function SmartForm({
             </svg>
             {error}
           </p>
-        )}
+        ) : null}
       </div>
     );
   };
@@ -277,29 +294,32 @@ export default function SmartForm({
         return (
           <div
             key={sectionIdx}
-            className="rounded-xl border border-[#e8edf5] bg-gradient-to-br from-white to-[#fafbff] overflow-hidden"
+            className="overflow-hidden rounded-[28px] border border-[#e4ebf8] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_22px_60px_-40px_rgba(15,23,42,0.45)]"
           >
-            {/* Section header */}
             <div
-              className={`flex items-center justify-between p-5 ${
-                section.collapsible ? "cursor-pointer hover:bg-[#f8fafc]" : ""
+              className={`flex items-center justify-between gap-4 px-6 py-5 ${
+                section.collapsible ? "cursor-pointer hover:bg-[#f8fbff]" : ""
               }`}
               onClick={() => section.collapsible && toggleSection(sectionIdx)}
             >
-              <div className="flex items-center gap-2">
-                {section.icon && (
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-[#eef4ff] text-xs font-bold text-primary">
+                  {String(sectionIdx + 1).padStart(2, "0")}
+                </div>
+                {section.icon ? (
+                  <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/10">
                     {section.icon}
                   </div>
-                )}
+                ) : null}
                 <div>
                   <h3 className="text-sm font-bold text-ink">{section.title}</h3>
-                  {section.description && (
-                    <p className="text-xs text-ink-muted48 mt-0.5">{section.description}</p>
-                  )}
+                  {section.description ? (
+                    <p className="mt-0.5 text-xs leading-5 text-ink-muted48">{section.description}</p>
+                  ) : null}
                 </div>
               </div>
-              {section.collapsible && (
+
+              {section.collapsible ? (
                 <svg
                   width="16"
                   height="16"
@@ -309,26 +329,25 @@ export default function SmartForm({
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className={`transition-transform text-ink-muted48 ${isCollapsed ? "" : "rotate-180"}`}
+                  className={`text-ink-muted48 transition-transform ${isCollapsed ? "" : "rotate-180"}`}
                 >
                   <polyline points="6 9 12 15 18 9"/>
                 </svg>
-              )}
+              ) : null}
             </div>
 
-            {/* Section fields */}
-            {!isCollapsed && (
-              <div className="px-5 pb-5 space-y-4 border-t border-[#e8edf5] pt-4">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {!isCollapsed ? (
+              <div className="space-y-4 border-t border-[#e8edf5] px-6 pb-6 pt-5">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   {section.fields.map(renderField)}
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         );
       })}
 
-      {submitError && (
+      {submitError ? (
         <div className="alert-danger flex items-center gap-2">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10"/>
@@ -337,40 +356,42 @@ export default function SmartForm({
           </svg>
           {submitError}
         </div>
-      )}
+      ) : null}
 
-      {/* Form actions */}
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sticky bottom-0 bg-white/90 backdrop-blur-md border-t border-[#e8edf5] p-4 -mx-4 -mb-4 rounded-b-xl">
-        {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={submitting}
-            className="btn-ghost"
-          >
-            {cancelLabel}
+      <div className="sticky bottom-4 z-10 -mx-2 rounded-[24px] border border-[#e4ebf8] bg-white/92 p-4 shadow-[0_20px_60px_-35px_rgba(15,23,42,0.45)] backdrop-blur-md">
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+          {onCancel ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={submitting}
+              className="btn-ghost"
+            >
+              {cancelLabel}
+            </button>
+          ) : null}
+
+          <button type="submit" disabled={submitting} className="btn-primary min-w-[140px]">
+            {submitting ? (
+              <span className="flex items-center gap-2">
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16 8 8 0 01-8-8z"/>
+                </svg>
+                Đang lưu...
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17 21 17 13 7 13 7 21"/>
+                  <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                {submitLabel}
+              </span>
+            )}
           </button>
-        )}
-        <button type="submit" disabled={submitting} className="btn-primary min-w-[120px]">
-          {submitting ? (
-            <span className="flex items-center gap-2">
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16 8 8 0 01-8-8z"/>
-              </svg>
-              Đang lưu...
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                <polyline points="17 21 17 13 7 13 7 21"/>
-                <polyline points="7 3 7 8 15 8"/>
-              </svg>
-              {submitLabel}
-            </span>
-          )}
-        </button>
+        </div>
       </div>
     </form>
   );

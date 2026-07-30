@@ -23,23 +23,16 @@ export default function DataTableRow<T extends Record<string, any>>({
   onClick,
 }: DataTableRowProps<T>) {
   const [showActions, setShowActions] = useState(false);
-
-  // Filter actions based on show condition
-  const visibleActions = actions.filter((action) => 
-    !action.show || action.show(row)
-  );
+  const visibleActions = actions.filter((action) => !action.show || action.show(row));
 
   return (
     <tr
-      className={`group transition-colors ${
-        onClick ? "cursor-pointer hover:bg-primary/5" : ""
-      } ${selected ? "bg-primary/10" : ""}`}
+      className={`group transition-colors ${onClick ? "cursor-pointer hover:bg-primary/5" : ""} ${selected ? "bg-primary/10" : ""}`}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
-      {/* Checkbox */}
-      {selectable && (
-        <td className="w-12 px-4 py-3">
+      {selectable ? (
+        <td className="w-12 px-4 py-3 align-middle">
           <input
             type="checkbox"
             checked={selected}
@@ -50,9 +43,8 @@ export default function DataTableRow<T extends Record<string, any>>({
             className="h-4 w-4 rounded border-2 border-[#cbd5e1] text-primary focus:ring-2 focus:ring-primary/20"
           />
         </td>
-      )}
+      ) : null}
 
-      {/* Data cells */}
       {columns.map((column) => {
         const value = row[column.key];
         const content = column.render ? column.render(value, row) : value;
@@ -60,12 +52,12 @@ export default function DataTableRow<T extends Record<string, any>>({
         return (
           <td
             key={column.key}
-            className={`px-4 py-3 text-sm ${
+            className={`px-4 py-3 align-middle text-sm ${
               column.align === "center"
                 ? "text-center"
                 : column.align === "right"
-                ? "text-right"
-                : ""
+                  ? "text-right"
+                  : ""
             } ${column.className || ""}`}
             onClick={onClick}
           >
@@ -74,12 +66,11 @@ export default function DataTableRow<T extends Record<string, any>>({
         );
       })}
 
-      {/* Actions */}
-      {actions.length > 0 && (
-        <td className="px-4 py-3 text-right">
+      {actions.length > 0 ? (
+        <td className="px-4 py-3 text-right align-middle">
           <div
             className={`flex items-center justify-end gap-2 transition-opacity ${
-              showActions || selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              showActions || selected ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
             }`}
           >
             {visibleActions.map((action, idx) => {
@@ -92,13 +83,12 @@ export default function DataTableRow<T extends Record<string, any>>({
               return (
                 <button
                   key={idx}
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    action.onClick(row);
+                    void action.onClick(row);
                   }}
-                  className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
-                    variantClasses[action.variant || "secondary"]
-                  }`}
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all ${variantClasses[action.variant || "secondary"]}`}
                   title={action.label}
                 >
                   {action.icon || (
@@ -113,7 +103,7 @@ export default function DataTableRow<T extends Record<string, any>>({
             })}
           </div>
         </td>
-      )}
+      ) : null}
     </tr>
   );
 }

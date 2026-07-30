@@ -1,28 +1,74 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import NewBranchForm from "@/components/admin/NewBranchForm";
 import UserRoleEditor from "@/components/admin/UserRoleEditor";
 import Link from "next/link";
+import type { Prisma } from "@prisma/client";
 
 function formatDateTime(d: Date | null) {
   return d ? new Date(d).toLocaleString("vi-VN") : "—";
 }
 
-export default async function AdminPage() {
+const USERS_PAGE_SIZE = 20;
+const LOGS_PAGE_SIZE = 25;
+
+function buildQuery(base: Record<string, string | undefined>, overrides: Record<string, string | number>) {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries({ ...base, ...overrides })) {
+    if (v !== undefined && v !== "") params.set(k, String(v));
+  }
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
+
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: { userQuery?: string; userPage?: string; logEntity?: string; logPage?: string };
+}) {
   const currentUser = await getCurrentUser();
 
-  const [branches, users, auditLogs, roles] = await Promise.all([
+  const userQuery = searchParams.userQuery?.trim() ?? "";
+  const userPage = Math.max(1, Number(searchParams.userPage) || 1);
+  const logEntity = searchParams.logEntity?.trim() ?? "";
+  const logPage = Math.max(1, Number(searchParams.logPage) || 1);
+
+  const userWhere: Prisma.UserWhereInput = userQuery
+    ? { OR: [{ fullName: { contains: userQuery } }, { email: { contains: userQuery } }] }
+    : {};
+  const logWhere: Prisma.AuditLogWhereInput = logEntity ? { entityType: logEntity } : {};
+
+  const [branches, roles, userTotal, users, logTotal, auditLogs, entityTypes] = await Promise.all([
     prisma.branch.findMany({ orderBy: { code: "asc" }, include: { _count: { select: { users: true, students: true } } } }),
-    prisma.user.findMany({ orderBy: { createdAt: "asc" }, include: { branch: true } }),
-    prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 50, include: { user: { select: { fullName: true } } } }),
     prisma.role.findMany({ orderBy: { name: "asc" } }),
+    prisma.user.count({ where: userWhere }),
+    prisma.user.findMany({
+      where: userWhere,
+      orderBy: { createdAt: "asc" },
+      include: { branch: true },
+      skip: (userPage - 1) * USERS_PAGE_SIZE,
+      take: USERS_PAGE_SIZE,
+    }),
+    prisma.auditLog.count({ where: logWhere }),
+    prisma.auditLog.findMany({
+      where: logWhere,
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { fullName: true } } },
+      skip: (logPage - 1) * LOGS_PAGE_SIZE,
+      take: LOGS_PAGE_SIZE,
+    }),
+    prisma.auditLog.findMany({ distinct: ["entityType"], select: { entityType: true }, orderBy: { entityType: "asc" } }),
   ]);
+
+  const userPageCount = Math.max(1, Math.ceil(userTotal / USERS_PAGE_SIZE));
+  const logPageCount = Math.max(1, Math.ceil(logTotal / LOGS_PAGE_SIZE));
+  const userBaseQuery = { userQuery: searchParams.userQuery, logEntity: searchParams.logEntity, logPage: searchParams.logPage };
+  const logBaseQuery = { userQuery: searchParams.userQuery, userPage: searchParams.userPage, logEntity: searchParams.logEntity };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Quản trị</h1>
-        <p className="mt-1 text-sm text-ink-muted48">Chi nhánh, người dùng và nhật ký hệ thống.</p>
+        <p className="mt-1 text-sm text-ink-muted48">Chi nhánh, người dùng, vai trò và nhật ký hệ thống.</p>
       </div>
 
       <div className="card">
@@ -45,25 +91,48 @@ export default async function AdminPage() {
       </div>
 
       <div className="card">
-        <h2 className="font-display text-lg font-semibold tracking-tight">Chi nhánh</h2>
-        <div className="mt-3 space-y-2">
-          {branches.map((b) => (
-            <div key={b.id} className="flex items-center justify-between rounded-lg border border-hairline px-3 py-2 text-sm">
-              <span>
-                <strong>{b.code}</strong> — {b.name}
-              </span>
-              <span className="text-ink-muted48">
-                {b._count.users} người dùng · {b._count.students} học viên
-              </span>
-            </div>
-          ))}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-display text-lg font-semibold tracking-tight">Chi nhánh & vai trò</h2>
+            <p className="mt-1 text-sm text-ink-muted48">
+              {branches.length} cơ sở · {branches.reduce((s, b) => s + b._count.users, 0)} người dùng ·{" "}
+              {branches.reduce((s, b) => s + b._count.students, 0)} học viên · {roles.length} vai trò
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/admin/branches" className="btn-primary">
+              Quản lý chi nhánh
+            </Link>
+            <Link href="/admin/roles" className="btn-ghost">
+              Quản lý vai trò
+            </Link>
+          </div>
         </div>
-        <NewBranchForm />
       </div>
 
       <div className="card overflow-x-auto p-0">
-        <div className="border-b border-hairline px-4 py-3">
-          <h2 className="font-display text-lg font-semibold tracking-tight">Người dùng</h2>
+        <div className="flex flex-col gap-3 border-b border-hairline px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="font-display text-lg font-semibold tracking-tight">
+            Người dùng <span className="text-sm font-normal text-ink-muted48">({userTotal})</span>
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <form action="/admin" method="GET" className="flex items-center gap-2">
+              {logEntity && <input type="hidden" name="logEntity" value={logEntity} />}
+              <input
+                type="search"
+                name="userQuery"
+                defaultValue={userQuery}
+                placeholder="Tìm tên hoặc email..."
+                className="rounded-md border-hairline text-xs"
+              />
+              <button type="submit" className="btn-ghost text-xs">
+                Tìm
+              </button>
+            </form>
+            <Link href="/admin/users/new" className="btn-primary text-xs">
+              + Tạo người dùng
+            </Link>
+          </div>
         </div>
         <table className="w-full text-left text-sm">
           <thead className="border-b border-hairline bg-canvas-parchment/60 text-xs uppercase tracking-wide text-ink-muted48">
@@ -95,13 +164,55 @@ export default async function AdminPage() {
                 </td>
               </tr>
             ))}
+            {users.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-4 py-10 text-center text-ink-muted48">
+                  Không tìm thấy người dùng nào.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
+        {userPageCount > 1 && (
+          <div className="flex items-center justify-between border-t border-hairline px-4 py-3 text-xs text-ink-muted48">
+            <span>
+              Trang {userPage}/{userPageCount}
+            </span>
+            <div className="flex gap-2">
+              {userPage > 1 && (
+                <Link href={`/admin${buildQuery(userBaseQuery, { userPage: userPage - 1 })}`} className="btn-ghost">
+                  ← Trước
+                </Link>
+              )}
+              {userPage < userPageCount && (
+                <Link href={`/admin${buildQuery(userBaseQuery, { userPage: userPage + 1 })}`} className="btn-ghost">
+                  Sau →
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="card overflow-x-auto p-0">
-        <div className="border-b border-hairline px-4 py-3">
-          <h2 className="font-display text-lg font-semibold tracking-tight">Nhật ký hệ thống</h2>
+        <div className="flex flex-col gap-3 border-b border-hairline px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="font-display text-lg font-semibold tracking-tight">
+            Nhật ký hệ thống <span className="text-sm font-normal text-ink-muted48">({logTotal})</span>
+          </h2>
+          <form action="/admin" method="GET" className="flex items-center gap-2">
+            {userQuery && <input type="hidden" name="userQuery" value={userQuery} />}
+            <select name="logEntity" defaultValue={logEntity} className="rounded-md border-hairline text-xs">
+              <option value="">Tất cả đối tượng</option>
+              {entityTypes.map((e) => (
+                <option key={e.entityType} value={e.entityType}>
+                  {e.entityType}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="btn-ghost text-xs">
+              Lọc
+            </button>
+          </form>
         </div>
         <table className="w-full text-left text-sm">
           <thead className="border-b border-hairline bg-canvas-parchment/60 text-xs uppercase tracking-wide text-ink-muted48">
@@ -134,6 +245,25 @@ export default async function AdminPage() {
             )}
           </tbody>
         </table>
+        {logPageCount > 1 && (
+          <div className="flex items-center justify-between border-t border-hairline px-4 py-3 text-xs text-ink-muted48">
+            <span>
+              Trang {logPage}/{logPageCount}
+            </span>
+            <div className="flex gap-2">
+              {logPage > 1 && (
+                <Link href={`/admin${buildQuery(logBaseQuery, { logPage: logPage - 1 })}`} className="btn-ghost">
+                  ← Trước
+                </Link>
+              )}
+              {logPage < logPageCount && (
+                <Link href={`/admin${buildQuery(logBaseQuery, { logPage: logPage + 1 })}`} className="btn-ghost">
+                  Sau →
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

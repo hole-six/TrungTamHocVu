@@ -69,9 +69,6 @@ export default async function HomePage() {
                 <Link href="/login" className="btn-primary">
                   Đăng nhập ERP
                 </Link>
-                <Link href="/register" className="btn-secondary">
-                  Tạo tài khoản
-                </Link>
               </>
             )}
           </div>
@@ -109,9 +106,6 @@ export default async function HomePage() {
             <div className="flex flex-wrap gap-3">
               <Link href={session ? "/dashboard" : "/login"} className="btn-primary">
                 {session ? "Mở dashboard ngay" : "Bắt đầu đăng nhập"}
-              </Link>
-              <Link href="/register" className="btn-ghost">
-                Chuẩn bị tài khoản mới
               </Link>
             </div>
 

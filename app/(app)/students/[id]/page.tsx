@@ -9,7 +9,7 @@ import SchoolExamScoreForm from "@/components/students/SchoolExamScoreForm";
 import { computeOutstandingBalance } from "@/lib/server/balance";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
-import { canUpdate } from "@/lib/server/role-matrix";
+import { canUpdate, canView } from "@/lib/server/role-matrix";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -37,6 +37,9 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
   const role = currentUser ? await getUserRole(currentUser.id) : null;
   const canEditStudent = canUpdate("students", role);
   const canManageFinance = canUpdate("tuition", role);
+  // Giáo viên/Trợ giảng/HR = NONE cho module tuition trong role-matrix — không cho
+  // xem công nợ, chi tiết học phí theo kỳ hay lịch sử thanh toán của học viên.
+  const canSeeFinance = canView("tuition", role);
 
   const outstanding = await computeOutstandingBalance(student.id);
   const currentEnrollment = student.enrollments.find((e) => e.status === "ACTIVE") ?? student.enrollments[0];
@@ -63,13 +66,15 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Công nợ học phí</p>
-            {outstanding > 0 && canManageFinance && <QuickPaymentButton studentId={student.id} suggestedAmount={outstanding} />}
+        {canSeeFinance && (
+          <div className="card">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Công nợ học phí</p>
+              {outstanding > 0 && canManageFinance && <QuickPaymentButton studentId={student.id} suggestedAmount={outstanding} />}
+            </div>
+            <p className="mt-2 font-display text-2xl font-semibold tracking-tight">{formatVnd(outstanding)}</p>
           </div>
-          <p className="mt-2 font-display text-2xl font-semibold tracking-tight">{formatVnd(outstanding)}</p>
-        </div>
+        )}
         <div className="card">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Ngày nhập học</p>
           <p className="mt-2 font-display text-2xl font-semibold tracking-tight">{formatDate(student.enrollDate)}</p>
@@ -82,6 +87,13 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
+          {!canSeeFinance && (
+            <div className="card">
+              <p className="text-sm text-ink-muted48">Vai trò của bạn không có quyền xem thông tin học phí / thanh toán của học viên.</p>
+            </div>
+          )}
+          {canSeeFinance && (
+          <>
           <div className="card overflow-x-auto">
             <h2 className="font-display text-lg font-semibold tracking-tight">Học phí theo kỳ</h2>
             <table className="mt-4 w-full text-left text-sm">
@@ -162,6 +174,8 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
               </tbody>
             </table>
           </div>
+          </>
+          )}
         </div>
 
         <div className="space-y-6">

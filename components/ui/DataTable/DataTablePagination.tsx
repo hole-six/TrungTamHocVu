@@ -19,51 +19,42 @@ export default function DataTablePagination({
   const startItem = (page - 1) * pageSize + 1;
   const endItem = Math.min(page * pageSize, total);
 
-  // Generate page numbers to display
+  if (totalPages <= 1) {
+    return null;
+  }
+
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
     const maxVisible = 7;
 
     if (totalPages <= maxVisible) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
+      return Array.from({ length: totalPages }, (_, index) => index + 1);
     }
 
-    // Always show first page
     pages.push(1);
+    if (page > 3) pages.push("...");
 
-    if (page > 3) {
-      pages.push("...");
-    }
-
-    // Show pages around current page
     const start = Math.max(2, page - 1);
     const end = Math.min(totalPages - 1, page + 1);
 
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
+    for (let current = start; current <= end; current += 1) {
+      pages.push(current);
     }
 
-    if (page < totalPages - 2) {
-      pages.push("...");
-    }
-
-    // Always show last page
-    if (totalPages > 1) {
-      pages.push(totalPages);
-    }
+    if (page < totalPages - 2) pages.push("...");
+    if (totalPages > 1) pages.push(totalPages);
 
     return pages;
   };
 
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      {/* Page size selector */}
+    <div className="flex flex-col gap-4 rounded-[24px] border border-[#e4ebf8] bg-white px-4 py-4 shadow-[0_18px_50px_-38px_rgba(15,23,42,0.4)] sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2">
         <label className="text-sm text-ink-muted64">Hiển thị</label>
         <select
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
-          className="input w-20 py-1.5"
+          className="input h-10 w-20 rounded-xl py-1.5"
         >
           <option value={10}>10</option>
           <option value={20}>20</option>
@@ -71,32 +62,29 @@ export default function DataTablePagination({
           <option value={100}>100</option>
         </select>
         <span className="text-sm text-ink-muted64">
-          {startItem}-{endItem} của {total.toLocaleString()}
+          {startItem}-{endItem} / {total.toLocaleString()} bản ghi
         </span>
       </div>
 
-      {/* Page buttons */}
       <div className="flex items-center gap-1">
-        {/* Previous */}
         <button
+          type="button"
           onClick={() => onPageChange(page - 1)}
           disabled={page === 1}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8edf5] bg-white text-ink-muted64 transition-all hover:bg-[#f8fafc] hover:border-primary/50 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8edf5] bg-white text-ink-muted64 transition-all hover:bg-[#f8fafc] hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
         </button>
 
-        {/* Page numbers */}
         {getPageNumbers().map((pageNum, idx) =>
           pageNum === "..." ? (
-            <span key={`ellipsis-${idx}`} className="px-2 text-ink-muted48">
-              ...
-            </span>
+            <span key={`ellipsis-${idx}`} className="px-2 text-ink-muted48">...</span>
           ) : (
             <button
               key={pageNum}
+              type="button"
               onClick={() => onPageChange(pageNum as number)}
               className={`flex h-9 min-w-[36px] items-center justify-center rounded-lg border px-2 text-sm font-semibold transition-all ${
                 page === pageNum
@@ -109,11 +97,11 @@ export default function DataTablePagination({
           )
         )}
 
-        {/* Next */}
         <button
+          type="button"
           onClick={() => onPageChange(page + 1)}
           disabled={page === totalPages}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8edf5] bg-white text-ink-muted64 transition-all hover:bg-[#f8fafc] hover:border-primary/50 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8edf5] bg-white text-ink-muted64 transition-all hover:bg-[#f8fafc] hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="9 18 15 12 9 6"/>

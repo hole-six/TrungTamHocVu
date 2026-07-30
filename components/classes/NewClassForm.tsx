@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import SmartForm, { FormSection } from "@/components/ui/SmartForm/SmartForm";
 
 type Course = {
   id: string;
@@ -12,247 +12,193 @@ type Course = {
   sessionsPerWeek: number;
 };
 
-function formatVnd(n: number) {
-  return n.toLocaleString("vi-VN") + "đ";
+function formatVnd(amount: number) {
+  return `${amount.toLocaleString("vi-VN")}đ`;
 }
 
 export default function NewClassForm({ courses }: { courses: Course[] }) {
   const router = useRouter();
-  const [form, setForm] = useState({
-    classCode: "",
-    className: "",
-    classGroup: "",
-    courseId: "",
-    totalSessions: "",
-    startDate: "",
-    tuitionPerSession: "",
-    sessionsPerWeek: "",
-    notes: "",
-  });
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  function update<K extends keyof typeof form>(key: K, value: string) {
-    setForm((f) => ({ ...f, [key]: value }));
-  }
+  const sections: FormSection[] = [
+    {
+      title: "Thông tin nhận diện lớp",
+      description: "Khai báo mã lớp, tên lớp và nhóm lớp để đồng bộ cho mọi màn vận hành.",
+      fields: [
+        {
+          name: "classCode",
+          label: "Mã lớp",
+          type: "text",
+          required: true,
+          placeholder: "VD: FF3-2026-SANG",
+        },
+        {
+          name: "className",
+          label: "Tên lớp",
+          type: "text",
+          required: true,
+          placeholder: "VD: First Friends 3 - Sáng T2/T4",
+        },
+        {
+          name: "classGroup",
+          label: "Nhóm lớp",
+          type: "text",
+          placeholder: "VD: Thiếu nhi, Starters, Kèm riêng",
+        },
+      ],
+    },
+    {
+      title: "Khóa học và học phí",
+      description: "Map lớp với khóa chuẩn để ERP tự điền học phí và số buổi mỗi tuần.",
+      fields: [
+        {
+          name: "courseId",
+          label: "Khóa học",
+          type: "select",
+          options: [
+            { value: "", label: "Nhập tay / chưa gắn khóa" },
+            ...courses.map((course) => ({
+              value: course.id,
+              label: `[${course.code}] ${course.name} · ${formatVnd(course.tuitionPerSession)}/buổi`,
+            })),
+          ],
+          description: "Khi chọn khóa học, hệ thống tự điền học phí/buổi và số buổi/tuần theo cấu hình master.",
+          onChange: (courseId) => {
+            const selectedCourse = courses.find((course) => course.id === courseId);
+            if (!selectedCourse) {
+              return undefined;
+            }
 
-  function onCourseChange(courseId: string) {
-    const course = courses.find((c) => c.id === courseId);
-    setForm((f) => ({
-      ...f,
-      courseId,
-      tuitionPerSession: course ? String(course.tuitionPerSession) : f.tuitionPerSession,
-      sessionsPerWeek: course ? String(course.sessionsPerWeek) : f.sessionsPerWeek,
-    }));
-  }
+            return {
+              tuitionPerSession: selectedCourse.tuitionPerSession,
+              sessionsPerWeek: selectedCourse.sessionsPerWeek,
+            };
+          },
+        },
+        {
+          name: "tuitionPerSession",
+          label: "Học phí / buổi",
+          type: "number",
+          placeholder: "170000",
+          min: 0,
+        },
+        {
+          name: "sessionsPerWeek",
+          label: "Số buổi / tuần",
+          type: "number",
+          placeholder: "2",
+          min: 1,
+          max: 7,
+        },
+      ],
+    },
+    {
+      title: "Tiến độ triển khai",
+      description: "Khai báo mốc mở lớp để liên kết lịch học, sĩ số và báo cáo doanh thu.",
+      fields: [
+        {
+          name: "totalSessions",
+          label: "Tổng số buổi",
+          type: "number",
+          placeholder: "48",
+          min: 1,
+        },
+        {
+          name: "startDate",
+          label: "Ngày khai giảng",
+          type: "date",
+        },
+        {
+          name: "notes",
+          label: "Ghi chú nội bộ",
+          type: "textarea",
+          rows: 4,
+          colSpan: 2,
+          placeholder: "Cam kết với phụ huynh, lưu ý vận hành, phòng học, giáo viên phụ trách...",
+        },
+      ],
+    },
+  ];
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    const res = await fetch("/api/classes", {
+  async function handleSubmit(data: Record<string, any>) {
+    const payload = {
+      classCode: data.classCode,
+      className: data.className,
+      classGroup: data.classGroup || null,
+      courseId: data.courseId || null,
+      totalSessions: data.totalSessions === "" ? null : data.totalSessions,
+      startDate: data.startDate || null,
+      tuitionPerSession: data.tuitionPerSession === "" ? null : data.tuitionPerSession,
+      sessionsPerWeek: data.sessionsPerWeek === "" ? null : data.sessionsPerWeek,
+      notes: data.notes || null,
+    };
+
+    const response = await fetch("/api/classes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) {
-      setError(data.error ?? "Không thể tạo lớp.");
-      return;
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error ?? "Không thể tạo lớp học.");
     }
-    router.push(`/classes/${data.item.id}`);
+
+    router.push(`/classes/${result.item.id}`);
+    router.refresh();
   }
 
-  const selectedCourse = courses.find((c) => c.id === form.courseId);
-
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 py-6 sm:px-0">
-      {/* Back + title */}
-      <div>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <div className="space-y-4">
         <Link
           href="/classes"
-          className="inline-flex items-center gap-1.5 text-sm text-ink-muted48 hover:text-primary transition-colors"
+          className="inline-flex items-center gap-2 text-sm font-medium text-ink-muted48 transition hover:text-primary"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6"/>
+            <polyline points="15 18 9 12 15 6" />
           </svg>
-          Quay lại Lớp &amp; Lịch
+          Quay lại quản lý lớp học
         </Link>
-        <h1 className="page-title mt-2">Thêm lớp học mới</h1>
-        <p className="page-subtitle">Tạo lớp và kết nối với khóa học để tự động điền học phí.</p>
+
+        <div className="overflow-hidden rounded-[32px] border border-[#dbe7ff] bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_45%,#60a5fa_100%)] p-6 text-white shadow-[0_30px_80px_-45px_rgba(29,78,216,0.75)]">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl space-y-3">
+              <span className="inline-flex w-fit rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-white/85">
+                ERP vận hành lớp
+              </span>
+              <div>
+                <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Khởi tạo lớp học mới</h1>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-white/80 sm:text-base">
+                  Tạo lớp theo đúng cấu trúc ERP: nhận diện lớp, liên kết khóa học, học phí và các mốc vận hành để dữ liệu luôn khớp nhau.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
+                <p className="text-xs uppercase tracking-[0.18em] text-white/70">Khóa khả dụng</p>
+                <p className="mt-2 text-2xl font-semibold">{courses.length}</p>
+              </div>
+              <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
+                <p className="text-xs uppercase tracking-[0.18em] text-white/70">Map tự động</p>
+                <p className="mt-2 text-2xl font-semibold">Học phí</p>
+              </div>
+              <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
+                <p className="text-xs uppercase tracking-[0.18em] text-white/70">Sẵn sàng</p>
+                <p className="mt-2 text-2xl font-semibold">Vận hành</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="card space-y-6">
-        {/* Section: Thông tin cơ bản */}
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white text-xs font-bold">1</span>
-            <h3 className="text-sm font-bold text-ink uppercase tracking-wide">Thông tin cơ bản</h3>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="form-group">
-              <label className="label">Mã lớp <span className="text-red-500">*</span></label>
-              <input
-                required
-                className="input font-mono"
-                placeholder="VD: FF3-2024"
-                value={form.classCode}
-                onChange={(e) => update("classCode", e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="label">Tên lớp <span className="text-red-500">*</span></label>
-              <input
-                required
-                className="input"
-                placeholder="VD: First Friends 3 - Sáng T2T4"
-                value={form.className}
-                onChange={(e) => update("className", e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="divider" />
-
-        {/* Section: Khóa học */}
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white text-xs font-bold">2</span>
-            <h3 className="text-sm font-bold text-ink uppercase tracking-wide">Khóa học &amp; Học phí</h3>
-          </div>
-
-          <div className="form-group mb-4">
-            <label className="label">Gắn với khóa học</label>
-            <select
-              className="input"
-              value={form.courseId}
-              onChange={(e) => onCourseChange(e.target.value)}
-            >
-              <option value="">— Nhập thủ công —</option>
-              {courses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  [{c.code}] {c.name} · {formatVnd(c.tuitionPerSession)}/buổi
-                </option>
-              ))}
-            </select>
-            <p className="form-hint">Chọn khóa học sẽ tự điền học phí và số buổi/tuần.</p>
-          </div>
-
-          {/* Course preview chip */}
-          {selectedCourse && (
-            <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-3 flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0066cc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-primary">{selectedCourse.name}</p>
-                <p className="text-xs text-ink-muted80">{formatVnd(selectedCourse.tuitionPerSession)}/buổi · {selectedCourse.sessionsPerWeek} buổi/tuần</p>
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="form-group">
-              <label className="label">Học phí / buổi (đ)</label>
-              <input
-                type="number"
-                className="input"
-                placeholder="170000"
-                value={form.tuitionPerSession}
-                onChange={(e) => update("tuitionPerSession", e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="label">Số buổi / tuần</label>
-              <input
-                type="number"
-                min="1"
-                max="7"
-                className="input"
-                placeholder="2"
-                value={form.sessionsPerWeek}
-                onChange={(e) => update("sessionsPerWeek", e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="divider" />
-
-        {/* Section: Lịch học */}
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white text-xs font-bold">3</span>
-            <h3 className="text-sm font-bold text-ink uppercase tracking-wide">Tiến độ &amp; Lịch</h3>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="form-group">
-              <label className="label">Tổng buổi học của khóa</label>
-              <input
-                type="number"
-                className="input"
-                placeholder="48"
-                value={form.totalSessions}
-                onChange={(e) => update("totalSessions", e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="label">Ngày khai giảng</label>
-              <input
-                type="date"
-                className="input"
-                value={form.startDate}
-                onChange={(e) => update("startDate", e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="divider" />
-
-        {/* Notes */}
-        <div className="form-group">
-          <label className="label">Ghi chú nội bộ</label>
-          <textarea
-            className="input resize-none"
-            rows={3}
-            placeholder="Thông tin thêm về lớp, yêu cầu đặc biệt..."
-            value={form.notes}
-            onChange={(e) => update("notes", e.target.value)}
-          />
-        </div>
-
-        {error && <div className="alert-danger">{error}</div>}
-
-        {/* Actions */}
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Link href="/classes" className="btn-ghost w-full sm:w-auto justify-center">
-            Hủy
-          </Link>
-          <button type="submit" disabled={loading} className="btn-primary w-full sm:w-auto justify-center">
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16 8 8 0 01-8-8z"/>
-                </svg>
-                Đang tạo lớp...
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-                Tạo lớp học
-              </span>
-            )}
-          </button>
-        </div>
-      </form>
+      <SmartForm
+        sections={sections}
+        onSubmit={handleSubmit}
+        onCancel={() => router.push("/classes")}
+        submitLabel="Tạo lớp học"
+        cancelLabel="Hủy"
+      />
     </div>
   );
 }

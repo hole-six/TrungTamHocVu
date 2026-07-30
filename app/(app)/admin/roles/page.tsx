@@ -124,9 +124,9 @@ export default async function RolesPage() {
                   <p className="text-xs font-mono text-ink-muted48">{role.code}</p>
                 </div>
               </div>
-              {role.isSystem && (
+              {role.code === "SUPER_ADMIN" && (
                 <span className="inline-flex items-center rounded-lg bg-blue-50 border border-blue-200 px-2 py-1 text-xs font-semibold text-blue-700">
-                  🔒 System
+                  🔒 Toàn quyền
                 </span>
               )}
             </div>

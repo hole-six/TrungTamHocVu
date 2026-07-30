@@ -16,27 +16,11 @@ export default function DataTableBulk<T>({
   selectedRows,
   onClearSelection,
 }: DataTableBulkProps<T>) {
+  const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState<{
     action: BulkAction<T>;
     show: boolean;
   } | null>(null);
-
-  const handleAction = (action: BulkAction<T>) => {
-    if (action.confirmMessage) {
-      setShowConfirm({ action, show: true });
-    } else {
-      action.onClick(selectedRows);
-      onClearSelection();
-    }
-  };
-
-  const confirmAction = () => {
-    if (showConfirm) {
-      showConfirm.action.onClick(selectedRows);
-      onClearSelection();
-      setShowConfirm(null);
-    }
-  };
 
   const variantClasses = {
     primary: "btn-primary",
@@ -44,38 +28,60 @@ export default function DataTableBulk<T>({
     danger: "bg-red-600 text-white hover:bg-red-700 border-red-600",
   };
 
+  const runAction = async (action: BulkAction<T>) => {
+    setLoading(true);
+    try {
+      await action.onClick(selectedRows);
+      onClearSelection();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAction = async (action: BulkAction<T>) => {
+    if (action.confirmMessage) {
+      setShowConfirm({ action, show: true });
+      return;
+    }
+    await runAction(action);
+  };
+
+  const confirmAction = async () => {
+    if (!showConfirm) return;
+    await runAction(showConfirm.action);
+    setShowConfirm(null);
+  };
+
   return (
     <>
       <div className="flex items-center justify-between rounded-xl border-2 border-primary/30 bg-primary/5 px-4 py-3 backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white font-bold text-sm">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white">
             {selectedCount}
           </div>
-          <p className="text-sm font-semibold text-ink">
-            {selectedCount} mục đã chọn
-          </p>
+          <p className="text-sm font-semibold text-ink">{selectedCount} mục đã chọn</p>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Actions */}
           {actions.map((action, idx) => (
             <button
               key={idx}
-              onClick={() => handleAction(action)}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
-                variantClasses[action.variant || "secondary"]
-              }`}
+              type="button"
+              onClick={() => void handleAction(action)}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all ${variantClasses[action.variant || "secondary"]}`}
+              disabled={loading}
             >
               {action.icon}
               {action.label}
             </button>
           ))}
 
-          {/* Clear selection */}
           <button
+            type="button"
             onClick={onClearSelection}
             className="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-[#e8edf5] bg-white text-ink-muted64 transition-all hover:bg-[#f1f5f9] hover:border-primary/50"
             title="Bỏ chọn"
+            disabled={loading}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/>
@@ -85,8 +91,7 @@ export default function DataTableBulk<T>({
         </div>
       </div>
 
-      {/* Confirmation dialog */}
-      {showConfirm?.show && (
+      {showConfirm?.show ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-[#e8edf5] bg-white p-6 shadow-2xl">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100">
@@ -96,31 +101,29 @@ export default function DataTableBulk<T>({
                 <line x1="12" y1="17" x2="12.01" y2="17"/>
               </svg>
             </div>
-            <h3 className="font-display text-lg font-bold text-ink mb-2">
-              Xác nhận thao tác
-            </h3>
-            <p className="text-sm text-ink-muted64 mb-6">
-              {showConfirm.action.confirmMessage}
-            </p>
+            <h3 className="mb-2 font-display text-lg font-bold text-ink">Xác nhận thao tác</h3>
+            <p className="mb-6 text-sm text-ink-muted64">{showConfirm.action.confirmMessage}</p>
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={() => setShowConfirm(null)}
                 className="btn-ghost flex-1"
+                disabled={loading}
               >
                 Hủy
               </button>
               <button
-                onClick={confirmAction}
-                className={`flex-1 ${
-                  variantClasses[showConfirm.action.variant || "primary"]
-                }`}
+                type="button"
+                onClick={() => void confirmAction()}
+                className={`flex-1 ${variantClasses[showConfirm.action.variant || "primary"]}`}
+                disabled={loading}
               >
-                Xác nhận
+                {loading ? "Đang xử lý..." : "Xác nhận"}
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </>
   );
 }

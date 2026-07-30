@@ -49,7 +49,8 @@ export default function UserRoleEditor({
       <select
         className="rounded-md border-hairline text-xs"
         value={roleId ?? ""}
-        disabled={loading}
+        disabled={loading || isSelf}
+        title={isSelf ? "Không thể tự đổi vai trò của chính mình — nhờ một Super Admin khác thực hiện" : ""}
         onChange={(e) => update({ roleId: e.target.value })}
       >
         <option value="">— Chưa gán vai trò —</option>

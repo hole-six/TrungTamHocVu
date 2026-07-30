@@ -107,6 +107,17 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        branchId: branch.id,
+        action: "branch.create",
+        entityType: "Branch",
+        entityId: branch.id,
+        after: JSON.stringify({ code: branch.code, name: branch.name }),
+      },
+    });
+
     return NextResponse.json(branch, { status: 201 });
   } catch (error) {
     console.error("POST /api/branches error:", error);

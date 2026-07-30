@@ -181,9 +181,21 @@ export async function DELETE(
       );
     }
 
+    const toDelete = await prisma.branch.findUnique({ where: { id }, select: { code: true, name: true } });
+
     // Xóa branch
     await prisma.branch.delete({
       where: { id },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "branch.delete",
+        entityType: "Branch",
+        entityId: id,
+        before: JSON.stringify(toDelete),
+      },
     });
 
     return NextResponse.json({ success: true });
