@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import DataTable, { Column, Action, BulkAction } from "./DataTable";
 import DataTableMobile from "./DataTableMobile";
 
@@ -31,6 +31,7 @@ type DataTableResponsiveProps<T> = {
     };
   };
   loading?: boolean;
+  stickyHeader?: boolean;
   rowKey: keyof T;
   onRowClick?: (row: T) => void;
   className?: string;
@@ -38,14 +39,10 @@ type DataTableResponsiveProps<T> = {
   description?: string;
   headerActions?: ReactNode;
   defaultSearchValue?: string;
-  
-  // Mobile-specific props
   mobileConfig?: {
     primaryColumn: string;
     secondaryColumns?: string[];
   };
-  
-  // Breakpoint for switching to mobile view (default: 768px)
   mobileBreakpoint?: number;
 };
 
@@ -59,27 +56,22 @@ export default function DataTableResponsive<T extends Record<string, any>>({
 
   useEffect(() => {
     setMounted(true);
-    
-    // Initial check
+
     const checkMobile = () => {
       setIsMobile(window.innerWidth < mobileBreakpoint);
     };
-    
-    checkMobile();
 
-    // Listen for resize
+    checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, [mobileBreakpoint]);
 
-  // Prevent hydration mismatch - render desktop on server
   if (!mounted) {
     return <DataTable {...props} />;
   }
 
-  // Auto-detect primary column if not provided
   const primaryColumn = mobileConfig?.primaryColumn || props.columns[0]?.key;
-  const secondaryColumns = mobileConfig?.secondaryColumns || props.columns.slice(1, 3).map(col => col.key);
+  const secondaryColumns = mobileConfig?.secondaryColumns || props.columns.slice(1, 3).map((column) => column.key);
 
   if (isMobile) {
     return (
@@ -98,6 +90,7 @@ export default function DataTableResponsive<T extends Record<string, any>>({
         primaryColumn={primaryColumn}
         secondaryColumns={secondaryColumns}
         className={props.className}
+        defaultSearchValue={props.defaultSearchValue}
       />
     );
   }

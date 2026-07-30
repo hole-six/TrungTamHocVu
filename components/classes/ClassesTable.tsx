@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { DataTable } from "@/components/ui/DataTable";
+import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
 import { canCreate, canUpdate, canDelete } from "@/lib/server/role-matrix";
 
@@ -27,6 +27,7 @@ type ClassesTableProps = {
   page: number;
   pageSize: number;
   userRole: string;
+  searchQuery?: string;
 };
 
 export default function ClassesTable({
@@ -35,12 +36,12 @@ export default function ClassesTable({
   page,
   pageSize,
   userRole,
+  searchQuery = "",
 }: ClassesTableProps) {
   const router = useRouter();
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
 
-  // Define columns
   const columns: Column<Class>[] = [
     {
       key: "classCode",
@@ -62,9 +63,9 @@ export default function ClassesTable({
           </div>
           <div>
             <p className="text-sm font-semibold text-ink">{value}</p>
-            {row.course && (
+            {row.course ? (
               <p className="text-xs text-ink-muted48">{row.course.name}</p>
-            )}
+            ) : null}
           </div>
         </div>
       ),
@@ -92,9 +93,9 @@ export default function ClassesTable({
       render: (value, row) => (
         <div className="flex items-center justify-center gap-1">
           <span className="text-sm font-semibold text-ink">{value?.sessions || 0}</span>
-          {row.totalSessions && (
+          {row.totalSessions ? (
             <span className="text-xs text-ink-muted48">/ {row.totalSessions}</span>
-          )}
+          ) : null}
         </div>
       ),
     },
@@ -104,9 +105,9 @@ export default function ClassesTable({
       align: "center",
       render: (value) => {
         const statusConfig: Record<string, { label: string; color: string; icon: string }> = {
-          ACTIVE: { label: "Đang hoạt động", color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: "✅" },
-          COMPLETED: { label: "Đã kết thúc", color: "bg-blue-100 text-blue-700 border-blue-200", icon: "🎓" },
-          CANCELLED: { label: "Đã hủy", color: "bg-red-100 text-red-700 border-red-200", icon: "❌" },
+          ACTIVE: { label: "Đang hoạt động", color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: "●" },
+          COMPLETED: { label: "Đã kết thúc", color: "bg-blue-100 text-blue-700 border-blue-200", icon: "●" },
+          CANCELLED: { label: "Đã hủy", color: "bg-red-100 text-red-700 border-red-200", icon: "●" },
         };
         const config = statusConfig[value] || statusConfig.ACTIVE;
         return (
@@ -119,14 +120,13 @@ export default function ClassesTable({
     },
   ];
 
-  // Define actions based on role
   const actions: Action<Class>[] = [
     {
       label: "Xem",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
         </svg>
       ),
       onClick: (row) => router.push(`/classes/${row.id}`),
@@ -134,14 +134,13 @@ export default function ClassesTable({
     },
   ];
 
-  // Add edit action for non-teacher roles
   if (canUpdate("schedule", userRole)) {
     actions.push({
       label: "Sửa",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
         </svg>
       ),
       onClick: (row) => router.push(`/classes/${row.id}/edit`),
@@ -149,14 +148,13 @@ export default function ClassesTable({
     });
   }
 
-  // Add delete action only for DIRECTOR and BRANCH_MANAGER
   if (canDelete("schedule", userRole)) {
     actions.push({
       label: "Xóa",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </svg>
       ),
       onClick: async (row) => {
@@ -166,11 +164,10 @@ export default function ClassesTable({
         }
       },
       variant: "danger",
-      show: (row) => row.status !== "ACTIVE", // Only show for non-active classes
+      show: (row) => row.status !== "ACTIVE",
     });
   }
 
-  // Define bulk actions
   const bulkActions: BulkAction<Class>[] = [];
 
   if (canDelete("schedule", userRole)) {
@@ -179,14 +176,13 @@ export default function ClassesTable({
         label: "Xuất Excel",
         icon: (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
         ),
         onClick: async (rows) => {
           console.log("Xuất Excel", rows);
-          // TODO: Implement export
         },
         variant: "primary",
       },
@@ -194,8 +190,8 @@ export default function ClassesTable({
         label: "Kết thúc lớp",
         icon: (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="9 11 12 14 22 4"/>
-            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            <polyline points="9 11 12 14 22 4" />
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
           </svg>
         ),
         onClick: async (rows) => {
@@ -217,14 +213,12 @@ export default function ClassesTable({
         label: "Xóa",
         icon: (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="3 6 5 6 21 6"/>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
           </svg>
         ),
         onClick: async (rows) => {
-          await Promise.all(
-            rows.map((row) => fetch(`/api/classes/${row.id}`, { method: "DELETE" }))
-          );
+          await Promise.all(rows.map((row) => fetch(`/api/classes/${row.id}`, { method: "DELETE" })));
           router.refresh();
         },
         variant: "danger",
@@ -235,8 +229,8 @@ export default function ClassesTable({
 
   const handleSearch = async (query: string) => {
     setLoading(true);
-    const res = await fetch(`/api/classes?q=${encodeURIComponent(query)}&page=1&pageSize=${pageSize}`);
-    const result = await res.json();
+    const response = await fetch(`/api/classes?q=${encodeURIComponent(query)}&page=1&pageSize=${pageSize}`);
+    const result = await response.json();
     setData(result.items);
     setLoading(false);
     router.push(`/classes?q=${encodeURIComponent(query)}&page=1&pageSize=${pageSize}`);
@@ -251,14 +245,17 @@ export default function ClassesTable({
   };
 
   return (
-    <DataTable
+    <DataTableResponsive
       data={data}
       columns={columns}
       actions={actions}
       bulkActions={bulkActions}
+      title="Danh sách lớp học"
+      description="Theo dõi sĩ số, số buổi và trạng thái vận hành của từng lớp."
       searchable
       searchPlaceholder="Tìm theo tên lớp, mã lớp..."
       onSearch={handleSearch}
+      defaultSearchValue={searchQuery}
       sortable
       selectable={canUpdate("schedule", userRole)}
       pagination={{
@@ -271,15 +268,21 @@ export default function ClassesTable({
       emptyState={{
         title: "Chưa có lớp học",
         description: "Bắt đầu bằng cách thêm lớp học đầu tiên vào hệ thống.",
-        action: canCreate("schedule", userRole) ? {
-          label: "Thêm lớp học",
-          onClick: () => router.push("/classes/new"),
-        } : undefined,
+        action: canCreate("schedule", userRole)
+          ? {
+              label: "Thêm lớp học",
+              onClick: () => router.push("/classes/new"),
+            }
+          : undefined,
       }}
       loading={loading}
       stickyHeader
       rowKey="id"
       onRowClick={(row) => router.push(`/classes/${row.id}`)}
+      mobileConfig={{
+        primaryColumn: "className",
+        secondaryColumns: ["classCode", "status"],
+      }}
     />
   );
 }

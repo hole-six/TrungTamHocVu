@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { DataTable } from "@/components/ui/DataTable";
+import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
 import { canCreate, canUpdate, canDelete } from "@/lib/server/role-matrix";
 
@@ -25,6 +25,7 @@ type StudentsTableProps = {
   page: number;
   pageSize: number;
   userRole: string;
+  searchQuery?: string;
 };
 
 export default function StudentsTable({
@@ -33,12 +34,12 @@ export default function StudentsTable({
   page,
   pageSize,
   userRole,
+  searchQuery = "",
 }: StudentsTableProps) {
   const router = useRouter();
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
 
-  // Define columns
   const columns: Column<Student>[] = [
     {
       key: "studentCode",
@@ -60,9 +61,9 @@ export default function StudentsTable({
           </div>
           <div>
             <p className="text-sm font-semibold text-ink">{value}</p>
-            {row.phone && (
+            {row.phone ? (
               <p className="text-xs font-mono text-ink-muted48">{row.phone}</p>
-            )}
+            ) : null}
           </div>
         </div>
       ),
@@ -74,10 +75,10 @@ export default function StudentsTable({
       render: (value) => (
         <span className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2"/>
-            <line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="8" y1="2" x2="8" y2="6"/>
-            <line x1="3" y1="10" x2="21" y2="10"/>
+            <rect x="3" y="4" width="18" height="18" rx="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
           </svg>
           {value?.enrollments || 0}
         </span>
@@ -102,9 +103,9 @@ export default function StudentsTable({
       align: "center",
       render: (value) => {
         const statusConfig: Record<string, { label: string; color: string; icon: string }> = {
-          ACTIVE: { label: "Đang học", color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: "✅" },
-          PAUSED: { label: "Tạm nghỉ", color: "bg-amber-100 text-amber-700 border-amber-200", icon: "⏸️" },
-          LEFT: { label: "Đã nghỉ", color: "bg-red-100 text-red-700 border-red-200", icon: "❌" },
+          ACTIVE: { label: "Đang học", color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: "●" },
+          PAUSED: { label: "Tạm nghỉ", color: "bg-amber-100 text-amber-700 border-amber-200", icon: "●" },
+          LEFT: { label: "Đã nghỉ", color: "bg-red-100 text-red-700 border-red-200", icon: "●" },
         };
         const config = statusConfig[value] || statusConfig.ACTIVE;
         return (
@@ -117,14 +118,13 @@ export default function StudentsTable({
     },
   ];
 
-  // Define actions based on role
   const actions: Action<Student>[] = [
     {
       label: "Xem",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
         </svg>
       ),
       onClick: (row) => router.push(`/students/${row.id}`),
@@ -132,14 +132,13 @@ export default function StudentsTable({
     },
   ];
 
-  // Add edit action for non-teacher roles
   if (canUpdate("students", userRole)) {
     actions.push({
       label: "Sửa",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
         </svg>
       ),
       onClick: (row) => router.push(`/students/${row.id}/edit`),
@@ -147,14 +146,13 @@ export default function StudentsTable({
     });
   }
 
-  // Add delete action only for DIRECTOR and BRANCH_MANAGER
   if (canDelete("students", userRole)) {
     actions.push({
       label: "Xóa",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </svg>
       ),
       onClick: async (row) => {
@@ -164,11 +162,10 @@ export default function StudentsTable({
         }
       },
       variant: "danger",
-      show: (row) => row.status !== "ACTIVE", // Only show for non-active students
+      show: (row) => row.status !== "ACTIVE",
     });
   }
 
-  // Define bulk actions
   const bulkActions: BulkAction<Student>[] = [];
 
   if (canDelete("students", userRole)) {
@@ -177,14 +174,13 @@ export default function StudentsTable({
         label: "Xuất Excel",
         icon: (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
         ),
         onClick: async (rows) => {
           console.log("Xuất Excel", rows);
-          // TODO: Implement export
         },
         variant: "primary",
       },
@@ -192,15 +188,14 @@ export default function StudentsTable({
         label: "Chuyển cơ sở",
         icon: (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="17 1 21 5 17 9"/>
-            <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
-            <polyline points="7 23 3 19 7 15"/>
-            <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+            <polyline points="17 1 21 5 17 9" />
+            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+            <polyline points="7 23 3 19 7 15" />
+            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
           </svg>
         ),
         onClick: async (rows) => {
           console.log("Chuyển cơ sở", rows);
-          // TODO: Implement transfer
         },
         variant: "secondary",
         confirmMessage: "Bạn có chắc muốn chuyển các học viên đã chọn sang cơ sở khác?",
@@ -209,14 +204,12 @@ export default function StudentsTable({
         label: "Xóa",
         icon: (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="3 6 5 6 21 6"/>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
           </svg>
         ),
         onClick: async (rows) => {
-          await Promise.all(
-            rows.map((row) => fetch(`/api/students/${row.id}`, { method: "DELETE" }))
-          );
+          await Promise.all(rows.map((row) => fetch(`/api/students/${row.id}`, { method: "DELETE" })));
           router.refresh();
         },
         variant: "danger",
@@ -227,8 +220,8 @@ export default function StudentsTable({
 
   const handleSearch = async (query: string) => {
     setLoading(true);
-    const res = await fetch(`/api/students?q=${encodeURIComponent(query)}&page=1&pageSize=${pageSize}`);
-    const result = await res.json();
+    const response = await fetch(`/api/students?q=${encodeURIComponent(query)}&page=1&pageSize=${pageSize}`);
+    const result = await response.json();
     setData(result.items);
     setLoading(false);
     router.push(`/students?q=${encodeURIComponent(query)}&page=1&pageSize=${pageSize}`);
@@ -243,14 +236,17 @@ export default function StudentsTable({
   };
 
   return (
-    <DataTable
+    <DataTableResponsive
       data={data}
       columns={columns}
       actions={actions}
       bulkActions={bulkActions}
+      title="Danh sách học viên"
+      description="Tra cứu hồ sơ, tình trạng học và lịch sử ghi danh theo từng cơ sở."
       searchable
       searchPlaceholder="Tìm theo tên, mã học viên, số điện thoại..."
       onSearch={handleSearch}
+      defaultSearchValue={searchQuery}
       sortable
       selectable={canUpdate("students", userRole)}
       pagination={{
@@ -263,15 +259,21 @@ export default function StudentsTable({
       emptyState={{
         title: "Chưa có học viên",
         description: "Bắt đầu bằng cách thêm học viên đầu tiên vào hệ thống.",
-        action: canCreate("students", userRole) ? {
-          label: "Thêm học viên",
-          onClick: () => router.push("/students/new"),
-        } : undefined,
+        action: canCreate("students", userRole)
+          ? {
+              label: "Thêm học viên",
+              onClick: () => router.push("/students/new"),
+            }
+          : undefined,
       }}
       loading={loading}
       stickyHeader
       rowKey="id"
       onRowClick={(row) => router.push(`/students/${row.id}`)}
+      mobileConfig={{
+        primaryColumn: "fullName",
+        secondaryColumns: ["studentCode", "status"],
+      }}
     />
   );
 }
