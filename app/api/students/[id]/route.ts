@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate, canDelete } from "@/lib/server/role-matrix";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -36,6 +38,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const existing = await prisma.student.findUnique({ where: { id: params.id } });
   if (!existing) return NextResponse.json({ error: "Không tìm thấy học viên" }, { status: 404 });
+  const role = await getUserRole(user.id);
+  if (!canUpdate("students", role)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền sửa hồ sơ học viên" }, { status: 403 });
+  }
 
   const body = await req.json();
   const data: Record<string, unknown> = {};
@@ -66,6 +72,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const role = await getUserRole(user.id);
+  if (!canDelete("students", role)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền xóa học viên" }, { status: 403 });
+  }
 
   const [chargeCount, paymentCount] = await Promise.all([
     prisma.charge.count({ where: { studentId: params.id } }),

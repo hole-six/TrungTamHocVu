@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
+import { canCreate } from "@/lib/server/role-matrix";
 import StudentsTable from "./StudentsTable";
 
 const PAGE_SIZE = 20;
@@ -58,7 +59,7 @@ export default async function StudentsPage({
             Danh sách và thông tin chi tiết của {total} học viên
           </p>
         </div>
-        {userRole !== "TEACHER" && (
+        {canCreate("students", userRole) && (
           <Link href="/students/new" className="btn-primary">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19" />

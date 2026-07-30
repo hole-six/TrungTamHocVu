@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { canEditCharges, computeTotalAmount, computeTuitionAmount } from "@/lib/server/tuition-rules";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate } from "@/lib/server/role-matrix";
 
 // Cho phép nhân sự chỉnh tay "Buoi tru" (buổi trừ, vd nghỉ có phép không tính vào
 // công thức tự động) — spec §14 liệt kê đây là điểm không được tự quyết định thay.
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const role = await getUserRole(user.id);
+  if (!canUpdate("tuition", role)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền sửa khoản học phí" }, { status: 403 });
+  }
 
   const charge = await prisma.charge.findUnique({ where: { id: params.id }, include: { billingPeriod: true } });
   if (!charge) return NextResponse.json({ error: "Không tìm thấy khoản học phí" }, { status: 404 });

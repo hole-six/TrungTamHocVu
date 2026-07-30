@@ -3,13 +3,30 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import AttendanceForm from "@/components/classes/AttendanceForm";
 import SessionAssignmentForm from "@/components/classes/SessionAssignmentForm";
+import ClassJournalForm from "@/components/classes/ClassJournalForm";
+import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate } from "@/lib/server/role-matrix";
 
 export default async function SessionAttendancePage({ params }: { params: { id: string; sessionId: string } }) {
   const session = await prisma.classSession.findUnique({
     where: { id: params.sessionId },
-    include: { class: true, attendances: true, assignments: { include: { employee: true } } },
+    include: {
+      class: true,
+      attendances: true,
+      assignments: { include: { employee: true } },
+      journal: { include: { entries: { include: { scores: true, student: true } } } },
+    },
   });
   if (!session || session.classId !== params.id) notFound();
+
+  const currentUser = await getCurrentUser();
+  const role = currentUser ? await getUserRole(currentUser.id) : null;
+  const canManageClass = canUpdate("schedule", role);
+  // Điểm danh + nhật ký lớp học vẫn cần mở cho GV/TG dù họ không có quyền quản lý lớp
+  // (canManageClass=false với TEACHER/TEACHING_ASSISTANT) — đây là công việc dạy học
+  // hàng ngày của họ, khác với việc quản lý lịch/ghi danh/phân công.
+  const canTeachSession = canManageClass || role === "TEACHER" || role === "TEACHING_ASSISTANT";
 
   const [activeEnrollments, employees] = await Promise.all([
     prisma.enrollment.findMany({
@@ -42,11 +59,34 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
         </p>
       </div>
 
-      <div className="card">
-        <AttendanceForm sessionId={session.id} initialRoster={roster} />
-      </div>
+      {canTeachSession ? (
+        <div className="card">
+          <AttendanceForm sessionId={session.id} initialRoster={roster} />
+        </div>
+      ) : (
+        <div className="card">
+          <h2 className="font-display text-lg font-semibold tracking-tight">Điểm danh</h2>
+          <div className="mt-3 space-y-1 text-sm">
+            {roster.map((r) => (
+              <div key={r.studentId} className="flex items-center justify-between border-b border-hairline py-1.5 last:border-0">
+                <span>{r.fullName}</span>
+                <span className="text-ink-muted48">{r.status === "PRESENT" ? "Có mặt" : r.status === "ABSENT" ? "Vắng" : r.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-      <SessionAssignmentForm sessionId={session.id} employees={employees} assignments={session.assignments} />
+      {canManageClass && <SessionAssignmentForm sessionId={session.id} employees={employees} assignments={session.assignments} />}
+
+      {canTeachSession && (
+        <ClassJournalForm
+          sessionId={session.id}
+          roster={activeEnrollments.map((e) => e.student)}
+          journal={session.journal}
+          publishedUrl={`/journal/${session.id}`}
+        />
+      )}
     </div>
   );
 }

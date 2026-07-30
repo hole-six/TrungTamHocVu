@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import CourseManager from "@/components/classes/CourseManager";
 import ClassesTable from "@/components/classes/ClassesTable";
+import { canCreate } from "@/lib/server/role-matrix";
 
 const PAGE_SIZE = 20;
 
@@ -59,7 +60,7 @@ export default async function ClassesPage({
             Danh sách và thông tin chi tiết của {total} lớp học
           </p>
         </div>
-        {userRole !== "TEACHER" && (
+        {canCreate("schedule", userRole) && (
           <Link href="/classes/new" className="btn-primary">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19" />
@@ -71,7 +72,7 @@ export default async function ClassesPage({
       </div>
 
       {/* Course manager */}
-      {userRole !== "TEACHER" && <CourseManager courses={courses} />}
+      {canCreate("schedule", userRole) && <CourseManager courses={courses} />}
 
       {/* DataTable */}
       <ClassesTable

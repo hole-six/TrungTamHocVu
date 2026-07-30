@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "import:workbook:ready": "tsx scripts/import_workbook_ready.ts",
+    "pipeline:workbook": "tsx scripts/run_workbook_pipeline.ts",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:studio": "prisma studio"

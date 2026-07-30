@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
-import { isManagementRole, isTeachingStaffRole } from "@/lib/client-roles";
+import { canCreate, canUpdate, canDelete } from "@/lib/server/role-matrix";
 
 type Class = {
   id: string;
@@ -135,7 +135,7 @@ export default function ClassesTable({
   ];
 
   // Add edit action for non-teacher roles
-  if (!isTeachingStaffRole(userRole)) {
+  if (canUpdate("schedule", userRole)) {
     actions.push({
       label: "Sửa",
       icon: (
@@ -150,7 +150,7 @@ export default function ClassesTable({
   }
 
   // Add delete action only for DIRECTOR and BRANCH_MANAGER
-  if (isManagementRole(userRole)) {
+  if (canDelete("schedule", userRole)) {
     actions.push({
       label: "Xóa",
       icon: (
@@ -173,7 +173,7 @@ export default function ClassesTable({
   // Define bulk actions
   const bulkActions: BulkAction<Class>[] = [];
 
-  if (isManagementRole(userRole)) {
+  if (canDelete("schedule", userRole)) {
     bulkActions.push(
       {
         label: "Xuất Excel",
@@ -260,7 +260,7 @@ export default function ClassesTable({
       searchPlaceholder="Tìm theo tên lớp, mã lớp..."
       onSearch={handleSearch}
       sortable
-      selectable={!isTeachingStaffRole(userRole)}
+      selectable={canUpdate("schedule", userRole)}
       pagination={{
         total,
         page,
@@ -271,7 +271,7 @@ export default function ClassesTable({
       emptyState={{
         title: "Chưa có lớp học",
         description: "Bắt đầu bằng cách thêm lớp học đầu tiên vào hệ thống.",
-        action: !isTeachingStaffRole(userRole) ? {
+        action: canCreate("schedule", userRole) ? {
           label: "Thêm lớp học",
           onClick: () => router.push("/classes/new"),
         } : undefined,

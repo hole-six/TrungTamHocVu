@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeStockBalance } from "@/lib/server/inventory-rules";
 import { canEditCharges } from "@/lib/server/tuition-rules";
+import { getUserRole } from "@/lib/permissions";
+import { canCreate } from "@/lib/server/role-matrix";
 
 // Xuất giáo trình cho học viên — nguồn XuatNhapSach/T_SachXuat, feed thẳng vào
 // TienGiaoTrinh khi sinh học phí (billing-periods/[id]/generate-charges). Spec §14
@@ -11,6 +13,10 @@ import { canEditCharges } from "@/lib/server/tuition-rules";
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const role = await getUserRole(user.id);
+  if (!canCreate("inventory", role)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền xuất giáo trình" }, { status: 403 });
+  }
 
   const book = await prisma.book.findUnique({ where: { id: params.id } });
   if (!book) return NextResponse.json({ error: "Không tìm thấy sách" }, { status: 404 });

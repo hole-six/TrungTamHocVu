@@ -10,7 +10,6 @@ type NavItem = {
   status: "live" | "planned";
 };
 
-// Icons remain the same
 const Icon = {
   dashboard: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -125,22 +124,21 @@ const GROUPS = [
   { label: "Hệ thống", hrefs: ["/reports", "/admin"] },
 ];
 
-function SidebarContent({ 
-  pathname, 
+function SidebarContent({
+  pathname,
   onClose,
   navItems,
-  userRole 
-}: { 
-  pathname: string; 
+  userRole,
+}: {
+  pathname: string;
   onClose?: () => void;
   navItems: NavItem[];
   userRole?: string;
 }) {
-  const itemsByHref = Object.fromEntries(navItems.map((i) => [i.href, i]));
+  const itemsByHref = Object.fromEntries(navItems.map((item) => [item.href, item]));
 
   return (
     <div className="flex h-full flex-col">
-      {/* Logo */}
       <div className="flex h-16 items-center justify-between border-b border-[#eef1f8] px-5">
         <Link href="/dashboard" className="flex items-center gap-2.5" onClick={onClose}>
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary shadow-sm shadow-primary/30">
@@ -150,22 +148,21 @@ function SidebarContent({
           </div>
           <span className="font-display text-[15px] font-bold tracking-tight text-ink">TACH</span>
         </Link>
-        {onClose && (
+        {onClose ? (
           <button onClick={onClose} className="btn-icon md:hidden">
             {Icon.close}
           </button>
-        )}
+        ) : null}
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 overflow-y-auto scrollbar-thin px-3 py-3">
         {GROUPS.map((group) => {
-          const items = group.hrefs.map((h) => itemsByHref[h]).filter(Boolean);
+          const items = group.hrefs.map((href) => itemsByHref[href]).filter(Boolean);
           return (
             <div key={group.label}>
               <p className="nav-group-label">{group.label}</p>
               {items.map((item) => {
-                const active = pathname === item.href || pathname?.startsWith(item.href + "/");
+                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
                   <Link
                     key={item.href}
@@ -176,14 +173,16 @@ function SidebarContent({
                     <span className={`shrink-0 ${active ? "opacity-100" : "opacity-60"}`}>
                       {NAV_ICONS[item.href]}
                     </span>
-                    <span className="flex-1 min-w-0 truncate">{item.label}</span>
-                    {item.status === "planned" && (
-                      <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                        active ? "bg-white/20 text-white/80" : "bg-[#f1f5f9] text-[#94a3b8]"
-                      }`}>
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {item.status === "planned" ? (
+                      <span
+                        className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                          active ? "bg-white/20 text-white/80" : "bg-[#f1f5f9] text-[#94a3b8]"
+                        }`}
+                      >
                         Beta
                       </span>
-                    )}
+                    ) : null}
                   </Link>
                 );
               })}
@@ -192,25 +191,29 @@ function SidebarContent({
         })}
       </nav>
 
-      {/* Footer */}
       <div className="border-t border-[#eef1f8] px-4 py-3">
-        <p className="text-xs text-[#94a3b8] font-medium">TACH ERP · v0.1 alpha</p>
-        {userRole && (
-          <p className="text-[10px] text-[#cbd5e1] mt-1">Role: {userRole}</p>
-        )}
+        <p className="text-xs font-medium text-[#94a3b8]">TACH ERP · v0.1 alpha</p>
+        {userRole ? (
+          <p className="mt-1 text-[10px] text-[#cbd5e1]">Role: {userRole}</p>
+        ) : null}
       </div>
     </div>
   );
 }
 
-export default function Sidebar({ navItems, userRole }: { navItems: NavItem[]; userRole?: string }) {
+export default function Sidebar({
+  navItems,
+  userRole,
+}: {
+  navItems: NavItem[];
+  userRole?: string;
+}) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <>
-      {/* ─── Mobile top bar ───────────────────────────── */}
-      <div className="sticky top-0 z-30 flex h-14 items-center justify-between bg-white border-b border-[#eef1f8] px-4 shadow-sm md:hidden">
+      <div className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-[#eef1f8] bg-white px-4 shadow-sm md:hidden">
         <button
           onClick={() => setMobileOpen(true)}
           className="btn-icon"
@@ -226,30 +229,25 @@ export default function Sidebar({ navItems, userRole }: { navItems: NavItem[]; u
           </div>
           <span className="font-display text-sm font-bold text-ink">TACH</span>
         </Link>
-        <div className="w-9" /> {/* spacer */}
+        <div className="w-9" />
       </div>
 
-      {/* ─── Mobile overlay + drawer ───────────────────── */}
-      {mobileOpen && (
+      {mobileOpen ? (
         <>
-          <div
-            className="mobile-overlay"
-            onClick={() => setMobileOpen(false)}
-          />
+          <div className="mobile-overlay" onClick={() => setMobileOpen(false)} />
           <div className="fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-2xl md:hidden">
-            <SidebarContent 
-              pathname={pathname} 
+            <SidebarContent
+              pathname={pathname}
               onClose={() => setMobileOpen(false)}
               navItems={navItems}
               userRole={userRole}
             />
           </div>
         </>
-      )}
+      ) : null}
 
-      {/* ─── Desktop sidebar ─────────────────────────── */}
-      <aside className="fixed inset-y-0 left-0 hidden w-[260px] bg-white border-r border-[#eef1f8] shadow-sm md:block">
-        <SidebarContent 
+      <aside className="fixed inset-y-0 left-0 hidden w-[260px] border-r border-[#eef1f8] bg-white shadow-sm md:block">
+        <SidebarContent
           pathname={pathname}
           navItems={navItems}
           userRole={userRole}

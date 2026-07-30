@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
-import { isManagementRole, isTeachingStaffRole, isFinanceRole, isFrontDeskRole } from "@/lib/client-roles";
+import { canCreate, canUpdate, canDelete, canApprove } from "@/lib/server/role-matrix";
 
 type BillingPeriod = {
   id: string;
@@ -139,7 +139,7 @@ export default function TuitionTable({
   ];
 
   // Add finalize action for ACCOUNTANT, DIRECTOR, BRANCH_MANAGER on DRAFT periods
-  if (isFinanceRole(userRole)) {
+  if (canApprove("tuition", userRole)) {
     actions.push({
       label: "Chốt kỳ",
       icon: (
@@ -160,7 +160,7 @@ export default function TuitionTable({
   }
 
   // Add delete action only for DIRECTOR and BRANCH_MANAGER on DRAFT periods
-  if (isManagementRole(userRole)) {
+  if (canDelete("tuition", userRole)) {
     actions.push({
       label: "Xóa",
       icon: (
@@ -183,7 +183,7 @@ export default function TuitionTable({
   // Define bulk actions
   const bulkActions: BulkAction<BillingPeriod>[] = [];
 
-  if (isFinanceRole(userRole)) {
+  if (canApprove("tuition", userRole)) {
     bulkActions.push({
       label: "Xuất báo cáo Excel",
       icon: (
@@ -201,7 +201,7 @@ export default function TuitionTable({
     });
   }
 
-  if (isManagementRole(userRole)) {
+  if (canDelete("tuition", userRole)) {
     bulkActions.push({
       label: "Xóa",
       icon: (
@@ -248,7 +248,7 @@ export default function TuitionTable({
       searchPlaceholder="Tìm theo tên kỳ thu..."
       onSearch={handleSearch}
       sortable
-      selectable={isFinanceRole(userRole)}
+      selectable={canUpdate("tuition", userRole)}
       pagination={{
         total,
         page,
@@ -259,7 +259,7 @@ export default function TuitionTable({
       emptyState={{
         title: "Chưa có kỳ thu",
         description: "Bắt đầu bằng cách tạo kỳ thu đầu tiên để quản lý học phí.",
-        action: (isFinanceRole(userRole)) ? {
+        action: canCreate("tuition", userRole) ? {
           label: "Tạo kỳ thu",
           onClick: () => router.push("/tuition/new"),
         } : undefined,

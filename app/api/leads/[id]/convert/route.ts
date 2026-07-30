@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate } from "@/lib/server/role-matrix";
 
 // Chuyển Lead thành Học viên — bước "Duyệt xếp lớp / Tạo Student" trong Master Spec
 // §6. Cố tình KHÔNG tạo Enrollment/Charge ở đây: xếp lớp cụ thể và sinh học phí dự
@@ -10,6 +12,10 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   if (!user.branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
+  const role = await getUserRole(user.id);
+  if (!canUpdate("leads", role)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền chuyển đổi lead thành học viên" }, { status: 403 });
+  }
 
   const lead = await prisma.lead.findUnique({ where: { id: params.id }, include: { student: true } });
   if (!lead) return NextResponse.json({ error: "Không tìm thấy lead" }, { status: 404 });

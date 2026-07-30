@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { SESSION_ROLE_LABEL } from "@/lib/server/payroll-rules";
 import TimesheetQuickAddForm from "@/components/payroll/TimesheetQuickAddForm";
+import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canView, canUpdate } from "@/lib/server/role-matrix";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -12,6 +15,13 @@ function formatDate(d: Date) {
 }
 
 export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
+  const currentUser = await getCurrentUser();
+  const role = currentUser ? await getUserRole(currentUser.id) : null;
+  const isSelf = currentUser?.employeeId === params.id;
+  // GV/TG chỉ xem được hồ sơ của chính mình (lương/giờ công đồng nghiệp không được lộ ra) —
+  // vai trò khác cần canView("hr") mới được xem hồ sơ nhân viên bất kỳ.
+  if (!isSelf && !canView("hr", role)) notFound();
+
   const employee = await prisma.employee.findUnique({
     where: { id: params.id },
     include: {
@@ -98,7 +108,7 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
           </div>
         </div>
 
-        <TimesheetQuickAddForm employeeId={employee.id} />
+        {(isSelf || canUpdate("hr", role)) && <TimesheetQuickAddForm employeeId={employee.id} />}
       </div>
     </div>
   );

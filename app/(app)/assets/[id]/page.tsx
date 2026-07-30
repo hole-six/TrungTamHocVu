@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { ASSET_STATUS_LABEL, ASSET_TXN_TYPE_LABEL } from "@/lib/server/asset-rules";
 import AssetTransactionForm from "@/components/assets/AssetTransactionForm";
 import AssetEditForm from "@/components/assets/AssetEditForm";
+import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate } from "@/lib/server/role-matrix";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -18,6 +21,10 @@ export default async function AssetDetailPage({ params }: { params: { id: string
     include: { transactions: { orderBy: { txnDate: "desc" } } },
   });
   if (!asset) notFound();
+
+  const currentUser = await getCurrentUser();
+  const role = currentUser ? await getUserRole(currentUser.id) : null;
+  const canManageAsset = canUpdate("assets", role);
 
   const quantity = asset.transactions.reduce((s, t) => s + t.quantity, 0);
   const totalValue = quantity * (asset.unitValue ?? 0);
@@ -93,13 +100,15 @@ export default async function AssetDetailPage({ params }: { params: { id: string
             </table>
           </div>
 
-          <AssetTransactionForm assetId={asset.id} />
+          {canManageAsset && <AssetTransactionForm assetId={asset.id} />}
         </div>
 
-        <AssetEditForm
-          assetId={asset.id}
-          initial={{ status: asset.status, room: asset.room ?? "", notes: asset.notes ?? "" }}
-        />
+        {canManageAsset && (
+          <AssetEditForm
+            assetId={asset.id}
+            initial={{ status: asset.status, room: asset.room ?? "", notes: asset.notes ?? "" }}
+          />
+        )}
       </div>
     </div>
   );

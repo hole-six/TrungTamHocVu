@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canCreate } from "@/lib/server/role-matrix";
 import { LEAD_STATUSES } from "@/lib/server/lead-rules";
 
 export async function GET(req: NextRequest) {
@@ -49,6 +51,10 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   if (!user.branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
+  const role = await getUserRole(user.id);
+  if (!canCreate("leads", role)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền tạo lead mới" }, { status: 403 });
+  }
 
   const body = await req.json();
   const fullName = String(body.fullName ?? "").trim();

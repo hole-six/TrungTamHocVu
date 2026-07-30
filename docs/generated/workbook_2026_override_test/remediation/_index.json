@@ -1,0 +1,55 @@
+{
+  "generatedAt": "2026-07-29T23:52:09.096363",
+  "tables": [
+    {
+      "table": "ChiTietLopHoc.T_ChiTietLop",
+      "file": "ChiTietLopHoc_T_ChiTietLop.csv",
+      "status": "written"
+    },
+    {
+      "table": "DSHV.T_HV",
+      "file": "DSHV_T_HV.csv",
+      "status": "written"
+    },
+    {
+      "table": "DSLop.T_DSLop",
+      "file": "DSLop_T_DSLop.csv",
+      "status": "written"
+    },
+    {
+      "table": "MucLuc.Table1",
+      "file": "MucLuc_Table1.csv",
+      "status": "written"
+    },
+    {
+      "table": "NhanSu.T_NS",
+      "file": "NhanSu_T_NS.csv",
+      "status": "written"
+    },
+    {
+      "table": "TheoDoiHP.T_HP",
+      "file": "TheoDoiHP_T_HP.csv",
+      "status": "written"
+    },
+    {
+      "table": "Thu-Chi.T_Chi",
+      "file": "Thu_Chi_T_Chi.csv",
+      "status": "written"
+    },
+    {
+      "table": "Thu-Chi.T_Thu",
+      "file": "Thu_Chi_T_Thu.csv",
+      "status": "written"
+    },
+    {
+      "table": "XuatNhapSach.T_SachNhap",
+      "file": "XuatNhapSach_T_SachNhap.csv",
+      "status": "written"
+    },
+    {
+      "table": "XuatNhapSach.T_SachXuat",
+      "file": "XuatNhapSach_T_SachXuat.csv",
+      "status": "written"
+    }
+  ]
+}

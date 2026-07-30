@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate } from "@/lib/server/role-matrix";
 import { BILLING_PERIOD_STATUS_LABEL } from "@/lib/server/tuition-rules";
 import NewPeriodForm from "@/components/tuition/NewPeriodForm";
 
@@ -10,6 +12,7 @@ function formatVnd(n: number) {
 
 export default async function TuitionPage() {
   const user = await getCurrentUser();
+  const role = user ? await getUserRole(user.id) : null;
 
   const periods = await prisma.billingPeriod.findMany({
     where: user?.branchId ? { branchId: user.branchId } : {},
@@ -31,7 +34,7 @@ export default async function TuitionPage() {
           <h1 className="page-title">Học phí</h1>
           <p className="page-subtitle">{periods.length} kỳ thu</p>
         </div>
-        <NewPeriodForm />
+        {canUpdate("tuition", role) && <NewPeriodForm />}
       </div>
 
       {/* Summary stats */}

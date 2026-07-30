@@ -3,13 +3,30 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import LeadStatusPanel from "@/components/leads/LeadStatusPanel";
 import LeadActivityForms from "@/components/leads/LeadActivityForms";
+import AppointmentStatusButtons from "@/components/leads/AppointmentStatusButtons";
 import { LEAD_STATUS_LABEL, calculateAge, suggestGradeLevel } from "@/lib/server/lead-rules";
+import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate } from "@/lib/server/role-matrix";
 
 const INTERACTION_LABEL: Record<string, string> = {
   CALL: "Gọi điện",
   MEET: "Gặp trực tiếp",
   MESSAGE: "Nhắn tin",
   EMAIL: "Email",
+};
+
+const APPOINTMENT_STATUS_LABEL: Record<string, string> = {
+  SCHEDULED: "Đã hẹn",
+  DONE: "Đã đến",
+  MISSED: "Vắng",
+  CANCELLED: "Đã hủy",
+};
+const APPOINTMENT_STATUS_COLOR: Record<string, string> = {
+  SCHEDULED: "bg-blue-100 text-blue-700",
+  DONE: "bg-emerald-100 text-emerald-700",
+  MISSED: "bg-red-100 text-red-700",
+  CANCELLED: "bg-ink/5 text-ink-muted48",
 };
 
 function formatDateTime(d: Date | null) {
@@ -31,6 +48,10 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     },
   });
   if (!lead) notFound();
+
+  const currentUser = await getCurrentUser();
+  const role = currentUser ? await getUserRole(currentUser.id) : null;
+  const editable = canUpdate("leads", role);
 
   const age = calculateAge(lead.dob);
   const suggested = suggestGradeLevel(age);
@@ -131,8 +152,16 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             <div className="mt-3 space-y-2">
               {lead.appointments.map((a) => (
                 <div key={a.id} className="flex items-center justify-between rounded-lg border border-hairline px-3 py-2 text-sm">
-                  <span>{formatDateTime(a.scheduledAt)}</span>
-                  <span className="badge bg-ink/5 text-ink-muted80">{a.status}</span>
+                  <div>
+                    <span>{formatDateTime(a.scheduledAt)}</span>
+                    {a.notes && <p className="text-xs text-ink-muted48">{a.notes}</p>}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`badge ${APPOINTMENT_STATUS_COLOR[a.status] ?? "bg-ink/5 text-ink-muted80"}`}>
+                      {APPOINTMENT_STATUS_LABEL[a.status] ?? a.status}
+                    </span>
+                    {editable && <AppointmentStatusButtons appointmentId={a.id} status={a.status} />}
+                  </div>
                 </div>
               ))}
               {lead.appointments.length === 0 && <p className="text-sm text-ink-muted48">Chưa có lịch hẹn.</p>}
@@ -157,8 +186,18 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         </div>
 
         <div className="space-y-6">
-          <LeadStatusPanel leadId={lead.id} status={lead.status} hasStudent={!!lead.student} />
-          <LeadActivityForms leadId={lead.id} />
+          {editable ? (
+            <>
+              <LeadStatusPanel leadId={lead.id} status={lead.status} hasStudent={!!lead.student} />
+              <LeadActivityForms leadId={lead.id} />
+            </>
+          ) : (
+            <div className="card">
+              <p className="text-sm text-ink-muted48">
+                Vai trò của bạn chỉ có quyền xem lead này — không thể đổi trạng thái hoặc ghi nhận hoạt động mới.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -15,7 +15,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     // Đồng bộ cờ "admin"/"user" đơn giản dùng cho middleware cổng /admin — vai trò
     // chi tiết (ACCOUNTANT, STAFF...) vẫn là "user" ở tầng middleware, chỉ khác nhau
     // ở Permission mà API route tự kiểm tra qua hasPermission().
-    data.role = role?.code === "ADMIN" ? "admin" : "user";
+    // "SUPER_ADMIN" là mã role thật đang seed (không phải "ADMIN") — so sai chuỗi này
+    // nghĩa là gán quyền Super Admin qua UI sẽ không set được cờ admin cho middleware,
+    // khóa luôn người đó khỏi /admin dù roleId đã đúng.
+    data.role = role?.code === "SUPER_ADMIN" ? "admin" : "user";
   }
   if ("branchId" in body) data.branchId = body.branchId || null;
   if ("isActive" in body) {

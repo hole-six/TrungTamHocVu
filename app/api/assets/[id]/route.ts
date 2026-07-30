@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeAssetQuantity } from "@/lib/server/asset-rules";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate, canDelete } from "@/lib/server/role-matrix";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -20,6 +22,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const role = await getUserRole(user.id);
+  if (!canUpdate("assets", role)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền sửa tài sản" }, { status: 403 });
+  }
 
   const body = await req.json();
   const data: Record<string, unknown> = {};
@@ -35,6 +41,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const role = await getUserRole(user.id);
+  if (!canDelete("assets", role)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền xóa tài sản" }, { status: 403 });
+  }
 
   const txnCount = await prisma.assetTransaction.count({ where: { assetId: params.id } });
   if (txnCount > 1) {

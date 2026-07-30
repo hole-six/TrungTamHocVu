@@ -1,12 +1,25 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canCreate, canUpdate } from "@/lib/server/role-matrix";
 import { PAYROLL_RUN_STATUS_LABEL } from "@/lib/server/payroll-rules";
 import NewEmployeeForm from "@/components/payroll/NewEmployeeForm";
 import NewPayrollRunForm from "@/components/payroll/NewPayrollRunForm";
 
 export default async function PayrollPage() {
   const user = await getCurrentUser();
+  const role = user ? await getUserRole(user.id) : null;
+
+  // GV/TG chỉ được xem lương của chính mình — bảng lương đầy đủ hiển thị lương/giờ của
+  // TẤT CẢ nhân viên nên tuyệt đối không cho 2 vai trò này thấy (lộ lương đồng nghiệp).
+  if ((role === "TEACHER" || role === "TEACHING_ASSISTANT") && user?.employeeId) {
+    redirect(`/payroll/employees/${user.employeeId}`);
+  }
+
+  const canManageEmployees = canCreate("hr", role);
+  const canManagePayrollRuns = canUpdate("hr", role);
 
   const [employees, runs] = await Promise.all([
     prisma.employee.findMany({ where: user?.branchId ? { branchId: user.branchId } : {}, orderBy: { fullName: "asc" } }),
@@ -24,7 +37,14 @@ export default async function PayrollPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Nhân sự & Lương</h1>
           <p className="mt-1 text-sm text-ink-muted48">{employees.length} nhân viên</p>
         </div>
-        <NewEmployeeForm />
+        <div className="flex items-center gap-2">
+          {canManagePayrollRuns && (
+            <Link href="/payroll/assistant-scores" className="btn-ghost">
+              Đánh giá điểm trợ giảng
+            </Link>
+          )}
+          {canManageEmployees && <NewEmployeeForm />}
+        </div>
       </div>
 
       <div className="card overflow-x-auto p-0">
@@ -73,7 +93,7 @@ export default async function PayrollPage() {
 
       <div className="flex items-center justify-between pt-4">
         <h2 className="font-display text-lg font-semibold tracking-tight">Kỳ lương</h2>
-        <NewPayrollRunForm />
+        {canManagePayrollRuns && <NewPayrollRunForm />}
       </div>
 
       <div className="card overflow-x-auto p-0">

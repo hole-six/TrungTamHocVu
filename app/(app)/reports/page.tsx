@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeOutstandingBalance } from "@/lib/server/balance";
 import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
+import { getUserRole } from "@/lib/permissions";
+import { canView } from "@/lib/server/role-matrix";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -162,7 +164,16 @@ async function getReportData(branchId: string | null) {
 
 export default async function ReportsPage() {
   const user = await getCurrentUser();
+  const role = user ? await getUserRole(user.id) : null;
   const data = await getReportData(user?.branchId ?? null);
+
+  // Mỗi vai trò chỉ thấy phần báo cáo thuộc phạm vi việc của mình (PDF §6 "Báo cáo": Kế
+  // toán "Theo tài chính", Tư vấn tuyển sinh "Theo tuyển sinh", Giáo vụ "Theo nghiệp vụ"...)
+  // — không hiện học phí/lương/thu chi cho vai trò không có quyền xem module tương ứng.
+  const showTuitionReports = canView("tuition", role);
+  const showCashbookReport = canView("cashbook", role);
+  const showHrReport = canView("hr", role);
+  const showInventoryReport = canView("inventory", role);
 
   return (
     <div className="space-y-6">
@@ -202,6 +213,7 @@ export default async function ReportsPage() {
           </div>
         </div>
 
+        {showTuitionReports && (
         <div className="card">
           <h2 className="font-display text-lg font-semibold tracking-tight">Doanh thu học phí theo kỳ</h2>
           <table className="mt-3 w-full text-left text-sm">
@@ -234,7 +246,9 @@ export default async function ReportsPage() {
             </tbody>
           </table>
         </div>
+        )}
 
+        {showTuitionReports && (
         <div className="card">
           <h2 className="font-display text-lg font-semibold tracking-tight">Tuổi nợ — công nợ cao nhất</h2>
           <div className="mt-3 space-y-2">
@@ -249,7 +263,9 @@ export default async function ReportsPage() {
             {data.debtors.length === 0 && <p className="text-sm text-ink-muted48">Không có học viên nợ học phí.</p>}
           </div>
         </div>
+        )}
 
+        {showInventoryReport && (
         <div className="card">
           <h2 className="font-display text-lg font-semibold tracking-tight">Giáo trình</h2>
           <p className="mt-1 text-sm text-ink-muted48">Tổng giá trị đã xuất: <strong>{formatVnd(data.materialsTotal)}</strong></p>
@@ -263,7 +279,9 @@ export default async function ReportsPage() {
             {data.bookRanking.length === 0 && <p className="text-sm text-ink-muted48">Chưa xuất giáo trình nào.</p>}
           </div>
         </div>
+        )}
 
+        {showHrReport && (
         <div className="card">
           <h2 className="font-display text-lg font-semibold tracking-tight">Công & lương theo kỳ</h2>
           <table className="mt-3 w-full text-left text-sm">
@@ -294,6 +312,7 @@ export default async function ReportsPage() {
             </tbody>
           </table>
         </div>
+        )}
 
         <div className="card">
           <h2 className="font-display text-lg font-semibold tracking-tight">Sinh nhật học viên tháng này</h2>
@@ -312,6 +331,7 @@ export default async function ReportsPage() {
           </div>
         </div>
 
+        {showTuitionReports && (
         <div className="card overflow-x-auto">
           <h2 className="font-display text-lg font-semibold tracking-tight">Học phí theo lớp (kỳ gần nhất)</h2>
           <table className="mt-3 w-full text-left text-sm">
@@ -346,8 +366,9 @@ export default async function ReportsPage() {
             </tbody>
           </table>
         </div>
+        )}
 
-        {data.payrollBreakdown && (
+        {showHrReport && data.payrollBreakdown && (
           <div className="card">
             <h2 className="font-display text-lg font-semibold tracking-tight">
               Công GV/TG — kỳ {data.payrollBreakdown.periodName}
@@ -381,6 +402,7 @@ export default async function ReportsPage() {
           </div>
         )}
 
+        {showCashbookReport && (
         <div className="card">
           <h2 className="font-display text-lg font-semibold tracking-tight">Dòng tiền (thu chi ngoài học phí)</h2>
           <div className="mt-3 grid grid-cols-3 gap-4 text-sm">
@@ -398,6 +420,7 @@ export default async function ReportsPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

@@ -53,6 +53,7 @@ model Branch {
   auditLogs        AuditLog[]
   importJobs       ImportJob[]
   assets           Asset[]
+  assistantScoreEvents AssistantScoreEvent[]
 
   @@map("branches")
 }
@@ -160,6 +161,8 @@ model Employee {
   payrollLines       PayrollLine[]
   leadInteractions   LeadInteraction[]
   appointments       Appointment[]
+  scoreEvents        AssistantScoreEvent[]
+  monthlyBonuses     AssistantMonthlyBonus[]
 
   @@index([workStatus])
   @@map("employees")
@@ -333,6 +336,7 @@ model Student {
   bookIssues     BookIssue[]
   statusHistory  EnrollmentStatusHistory[]
   schoolExamScores SchoolExamScore[]
+  journalEntries JournalEntry[]
 
   @@index([status])
   @@map("students")
@@ -451,6 +455,7 @@ model ClassSession {
   class       Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
   assignments SessionAssignment[]
   attendances StudentAttendance[]
+  journal     ClassSessionJournal?
 
   @@index([classId, sessionDate])
   @@map("class_sessions")
@@ -469,6 +474,9 @@ model SessionAssignment {
   deductedHours   Float   @default(0) @map("deducted_hours")
   addedHours      Float   @default(0) @map("added_hours")
   adjustmentNote  String? @map("adjustment_note")
+  // Ca "bổ trợ" (dạy thay/hỗ trợ đột xuất, không phải phân công cố định) — loại khỏi mẫu số
+  // khi tính tỉ lệ đánh giá điểm TG hàng tháng (Report "TỔNG HỢP ĐÁNH GIÁ ĐIỂM TRỢ GIẢNG").
+  isSubstituteShift Boolean @default(false) @map("is_substitute_shift")
   hourlyRate Int?   @map("hourly_rate") // Luongh_GV / Luongh_TG (snapshot tại thời điểm tính)
   amount     Int?   // Tien_GV / Tien_TG (snapshot)
 
@@ -514,6 +522,53 @@ model StudentAttendance {
   @@unique([sessionId, studentId])
   @@index([studentId])
   @@map("student_attendances")
+}
+
+// Nhật ký lớp học sau mỗi buổi — bản in gửi phụ huynh xem tiến độ + nhận xét của giáo
+// viên. Điểm để dạng nhãn tự do (JournalScore.label) thay vì cột cố định vì mỗi khóa học
+// có thể chấm khác nhau (Vấn đáp/Minitest từ/Minitest NP cho IELTS, khác cho Cambridge...).
+model ClassSessionJournal {
+  id           String    @id @default(uuid())
+  sessionId    String    @unique @map("session_id")
+  unitLesson   String?   @map("unit_lesson")            // "UNIT 1 - LESSON 1"
+  homeworkNote String?   @map("homework_note")          // Dặn dò chung cuối buổi (cho phụ huynh)
+  createdById  String?   @map("created_by_id")
+  publishedAt  DateTime? @map("published_at")           // Đã chốt để gửi phụ huynh xem
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  session ClassSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  entries JournalEntry[]
+
+  @@map("class_session_journals")
+}
+
+model JournalEntry {
+  id             String  @id @default(uuid())
+  journalId      String  @map("journal_id")
+  studentId      String  @map("student_id")
+  homeworkStatus String? @map("homework_status") // "Đủ" | "Chưa nộp" | "Không có BTVN"...
+  comment        String?                          // Nhận xét của giáo viên cho học viên này
+  notes          String?
+
+  journal ClassSessionJournal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  student Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  scores  JournalScore[]
+
+  @@unique([journalId, studentId])
+  @@map("journal_entries")
+}
+
+model JournalScore {
+  id       String @id @default(uuid())
+  entryId  String @map("entry_id")
+  label    String                          // "Vấn đáp" | "Minitest từ" | "Minitest NP"...
+  score    Float?
+  maxScore Float  @default(10) @map("max_score")
+
+  entry JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@map("journal_scores")
 }
 
 // =============================================================================
@@ -1124,6 +1179,51 @@ model ClassTaskLog {
 // mỗi học kỳ). Tách theo schoolYear thay vì 4 cột cố định như Excel để giữ được lịch
 // sử qua nhiều năm học thay vì bị ghi đè khi sang năm mới.
 // =============================================================================
+
+// =============================================================================
+// 15. ĐIỂM TRỢ GIẢNG — nguồn "TỔNG HỢP ĐÁNH GIÁ ĐIỂM TRỢ GIẢNG THÁNG X": mỗi lần trừ/cộng
+// điểm là 1 sự kiện gắn với cơ sở cụ thể (TG có thể làm nhiều cơ sở). "Số ca làm" và "ca
+// bổ trợ" KHÔNG lưu ở đây — tính động từ SessionAssignment (role=ASSISTANT/ASSISTANT2,
+// isSubstituteShift) theo đúng nguyên tắc "compute don't store" đã áp dụng toàn hệ thống.
+// %Thưởng KHÔNG tự động suy ra từ tỉ lệ A — quy tắc quy đổi cụ thể chưa xác nhận được từ
+// dữ liệu mẫu (nhiều dòng cùng A khác nhau nhưng %Thưởng giống nhau và ngược lại), nên để
+// nhân sự tự nhập/xác nhận mức thưởng mỗi tháng thay vì đoán công thức rồi tính sai lương.
+// =============================================================================
+
+model AssistantScoreEvent {
+  id           String   @id @default(uuid())
+  employeeId   String   @map("employee_id")
+  branchId     String   @map("branch_id")
+  eventDate    DateTime @map("event_date")
+  type         String   // DEDUCT | ADD
+  points       Float
+  reason       String?
+  createdById  String?  @map("created_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  branch   Branch   @relation(fields: [branchId], references: [id])
+
+  @@index([employeeId, eventDate])
+  @@map("assistant_score_events")
+}
+
+// Mức thưởng/phạt theo tháng — nhân sự tự nhập sau khi xem tỉ lệ A tính được, không suy ra
+// tự động (xem lý do ở comment đầu mục 15).
+model AssistantMonthlyBonus {
+  id           String   @id @default(uuid())
+  employeeId   String   @map("employee_id")
+  month        String   @map("month") // "2026-06"
+  bonusPercent Float    @map("bonus_percent") // vd 0.2 = 20%, -0.05 = -5%
+  notes        String?
+  decidedById  String?  @map("decided_by_id")
+  decidedAt    DateTime @default(now()) @map("decided_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, month])
+  @@map("assistant_monthly_bonuses")
+}
 
 model SchoolExamScore {
   id           String   @id @default(uuid())

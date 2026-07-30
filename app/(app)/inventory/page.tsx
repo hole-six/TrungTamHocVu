@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeStockBalance } from "@/lib/server/inventory-rules";
 import NewBookForm from "@/components/inventory/NewBookForm";
+import { getUserRole } from "@/lib/permissions";
+import { canCreate } from "@/lib/server/role-matrix";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -10,6 +12,7 @@ function formatVnd(n: number) {
 
 export default async function InventoryPage() {
   const user = await getCurrentUser();
+  const role = user ? await getUserRole(user.id) : null;
   const books = await prisma.book.findMany({
     where: user?.branchId ? { branchId: user.branchId } : {},
     orderBy: { name: "asc" },
@@ -28,7 +31,7 @@ export default async function InventoryPage() {
           <h1 className="page-title">Kho giáo trình</h1>
           <p className="page-subtitle">{books.length} đầu sách</p>
         </div>
-        <NewBookForm />
+        {canCreate("inventory", role) && <NewBookForm />}
       </div>
 
       {/* Summary stats */}

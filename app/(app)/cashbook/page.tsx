@@ -4,6 +4,8 @@ import { CASH_TXN_TYPE_LABEL, CASH_TXN_STATUS_LABEL } from "@/lib/server/cash-ru
 import CategoryManager from "@/components/cashbook/CategoryManager";
 import NewCashTransactionForm from "@/components/cashbook/NewCashTransactionForm";
 import VoidButton from "@/components/cashbook/VoidButton";
+import { getUserRole } from "@/lib/permissions";
+import { canCreate, canUpdate, canApprove } from "@/lib/server/role-matrix";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -14,6 +16,7 @@ function formatDate(d: Date) {
 
 export default async function CashbookPage({ searchParams }: { searchParams: { type?: string } }) {
   const user = await getCurrentUser();
+  const role = user ? await getUserRole(user.id) : null;
   const type = searchParams.type ?? "";
 
   const [transactions, categories] = await Promise.all([
@@ -35,7 +38,7 @@ export default async function CashbookPage({ searchParams }: { searchParams: { t
           <h1 className="page-title">Thu chi</h1>
           <p className="page-subtitle">{transactions.length} phiếu</p>
         </div>
-        <NewCashTransactionForm categories={categories} />
+        {canCreate("cashbook", role) && <NewCashTransactionForm categories={categories} />}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -53,7 +56,7 @@ export default async function CashbookPage({ searchParams }: { searchParams: { t
         </div>
       </div>
 
-      <CategoryManager categories={categories} />
+      {canUpdate("cashbook", role) && <CategoryManager categories={categories} />}
 
       <div className="table-container">
         <table className="table">
@@ -81,7 +84,7 @@ export default async function CashbookPage({ searchParams }: { searchParams: { t
                 <td>
                   <span className="badge-gray">{CASH_TXN_STATUS_LABEL[t.status] ?? t.status}</span>
                 </td>
-                <td>{t.status === "CONFIRMED" && <VoidButton txnId={t.id} />}</td>
+                <td>{t.status === "CONFIRMED" && canApprove("cashbook", role) && <VoidButton txnId={t.id} />}</td>
               </tr>
             ))}
             {transactions.length === 0 && (

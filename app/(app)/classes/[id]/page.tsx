@@ -10,6 +10,9 @@ import EnrollmentRowActions from "@/components/classes/EnrollmentRowActions";
 import ClassTaskManager from "@/components/classes/ClassTaskManager";
 import ClassRecurringTaskManager from "@/components/classes/ClassRecurringTaskManager";
 import { isTaskDueOn, computeTaskLogStatus } from "@/lib/server/class-task-rules";
+import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate } from "@/lib/server/role-matrix";
 
 function formatDate(d: Date | null) {
   return d ? new Date(d).toLocaleDateString("vi-VN") : "—";
@@ -26,6 +29,10 @@ export default async function ClassDetailPage({ params }: { params: { id: string
     },
   });
   if (!cls) notFound();
+
+  const currentUser = await getCurrentUser();
+  const role = currentUser ? await getUserRole(currentUser.id) : null;
+  const canManageClass = canUpdate("schedule", role);
 
   const tasks = await prisma.task.findMany({
     where: { relatedType: "Class", relatedId: cls.id },
@@ -96,8 +103,12 @@ export default async function ClassDetailPage({ params }: { params: { id: string
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <ScheduleRuleManager classId={cls.id} rules={cls.scheduleRules} />
-          <GenerateSessionsForm classId={cls.id} />
+          {canManageClass && (
+            <>
+              <ScheduleRuleManager classId={cls.id} rules={cls.scheduleRules} />
+              <GenerateSessionsForm classId={cls.id} />
+            </>
+          )}
 
           <div className="card overflow-x-auto">
             <h2 className="font-display text-lg font-semibold tracking-tight">Buổi học gần đây</h2>
@@ -142,7 +153,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
         </div>
 
         <div className="space-y-6">
-          <EnrollStudentForm classId={cls.id} />
+          {canManageClass && <EnrollStudentForm classId={cls.id} />}
 
           <div className="card">
             <h2 className="font-display text-lg font-semibold tracking-tight">Danh sách ghi danh</h2>
@@ -159,7 +170,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                   </div>
                   <div className="mt-1 flex items-center justify-between text-ink-muted48">
                     <span>Từ {formatDate(e.enrollDate)}</span>
-                    <EnrollmentRowActions enrollmentId={e.id} status={e.status} />
+                    {canManageClass && <EnrollmentRowActions enrollmentId={e.id} status={e.status} />}
                   </div>
                 </div>
               ))}
@@ -167,8 +178,12 @@ export default async function ClassDetailPage({ params }: { params: { id: string
             </div>
           </div>
 
-          <ClassTaskManager classId={cls.id} tasks={tasks} />
-          <ClassRecurringTaskManager classId={cls.id} tasks={classTasks} />
+          {canManageClass && (
+            <>
+              <ClassTaskManager classId={cls.id} tasks={tasks} />
+              <ClassRecurringTaskManager classId={cls.id} tasks={classTasks} />
+            </>
+          )}
         </div>
       </div>
     </div>

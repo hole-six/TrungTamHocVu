@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeHoursFromTimeRange, computeAdjustedHours } from "@/lib/server/payroll-rules";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate, canDelete } from "@/lib/server/role-matrix";
 
 // Sửa điều chỉnh giờ (Trừ giờ/Cộng giờ — đi muộn, chuẩn bị thêm...) sau khi đã phân công —
 // nguồn Report_Cong_Luong "Trừ giờ GV/TG"/"Cộng giờ GV/TG". Tính lại hours/amount từ giờ
@@ -9,6 +11,11 @@ import { computeHoursFromTimeRange, computeAdjustedHours } from "@/lib/server/pa
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+
+  const role = await getUserRole(user.id);
+  if (!canUpdate("schedule", role) && !canUpdate("timesheet", role)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền sửa điều chỉnh giờ công" }, { status: 403 });
+  }
 
   const existing = await prisma.sessionAssignment.findUnique({
     where: { id: params.id },
@@ -47,6 +54,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const role = await getUserRole(user.id);
+  if (!canDelete("schedule", role)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền xóa phân công" }, { status: 403 });
+  }
   await prisma.sessionAssignment.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });
 }

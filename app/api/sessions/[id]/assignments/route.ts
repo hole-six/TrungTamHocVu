@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeHoursFromTimeRange } from "@/lib/server/payroll-rules";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate } from "@/lib/server/role-matrix";
 
 // Phân công GV/TG cho buổi học — nguồn ChiTietLopHoc (Giáo viên/Trợ giảng + FR-0008
 // So_Gio, FR-0010/0011 Luongh_GV/Luongh_TG lookup từ NhanSu). Lưu snapshot hourlyRate
@@ -10,6 +12,10 @@ import { computeHoursFromTimeRange } from "@/lib/server/payroll-rules";
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const userRole = await getUserRole(user.id);
+  if (!canUpdate("schedule", userRole)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền phân công GV/TG" }, { status: 403 });
+  }
 
   const session = await prisma.classSession.findUnique({ where: { id: params.id } });
   if (!session) return NextResponse.json({ error: "Không tìm thấy buổi học" }, { status: 404 });

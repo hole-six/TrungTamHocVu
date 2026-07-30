@@ -163,6 +163,10 @@ def is_placeholder_value(value: Any) -> bool:
     return normalized.lower() in PLACEHOLDER_TEXTS
 
 
+def table_to_filename(table_name: str) -> str:
+    return re.sub(r"[^0-9A-Za-z]+", "_", table_name).strip("_") + ".csv"
+
+
 def slugify(text: str | None) -> str:
     if not text:
         return ""
@@ -295,6 +299,102 @@ def extract_tables(workbook_path: Path, specs: list[TableSpec]) -> dict[str, lis
                 rows.append(record)
         extracted[f"{spec.sheet}.{spec.table}"] = rows
     return extracted
+
+
+def build_field_type_lookup(specs: list[TableSpec]) -> dict[str, dict[str, str]]:
+    lookup: dict[str, dict[str, str]] = {}
+    for spec in specs:
+        table_name = f"{spec.sheet}.{spec.table}"
+        lookup[table_name] = {field.name: field.inferred_type for field in spec.fields}
+    return lookup
+
+
+def load_csv_overrides(
+    remediation_dir: Path,
+    table_types: dict[str, dict[str, str]],
+) -> tuple[dict[str, dict[int, dict[str, Any]]], dict[str, Any]]:
+    overrides: dict[str, dict[int, dict[str, Any]]] = {}
+    summary = {
+        "filesRead": 0,
+        "rowsApplied": 0,
+        "tablesTouched": 0,
+    }
+
+    if not remediation_dir.exists():
+        return overrides, summary
+
+    filename_to_table = {
+        table_to_filename(table_name): table_name for table_name in table_types.keys()
+    }
+
+    for csv_path in remediation_dir.glob("*.csv"):
+        if csv_path.name.startswith("_"):
+            continue
+        table_name = filename_to_table.get(csv_path.name)
+        if not table_name:
+            continue
+        file_rows_applied = 0
+        with csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            for row in reader:
+                apply_flag = normalize_text(row.get("applyOverride"))
+                if not apply_flag or apply_flag.lower() not in {"1", "y", "yes", "true", "x"}:
+                    continue
+                source_row_text = normalize_text(row.get("sourceRow"))
+                if not source_row_text or not source_row_text.isdigit():
+                    continue
+                source_row = int(source_row_text)
+                patch: dict[str, Any] = {}
+                for field_name, value in row.items():
+                    if field_name in {"sourceRow", "applyOverride", "notes"}:
+                        continue
+                    normalized = normalize_text(value)
+                    if normalized is None:
+                        continue
+                    inferred_type = table_types.get(table_name, {}).get(field_name, "text")
+                    patch[field_name] = normalize_value(normalized, inferred_type)
+                if not patch:
+                    continue
+                overrides.setdefault(table_name, {})[source_row] = patch
+                file_rows_applied += 1
+
+        if file_rows_applied:
+            summary["filesRead"] += 1
+            summary["rowsApplied"] += file_rows_applied
+            summary["tablesTouched"] += 1
+
+    return overrides, summary
+
+
+def apply_overrides(
+    raw_tables: dict[str, list[dict[str, Any]]],
+    overrides: dict[str, dict[int, dict[str, Any]]],
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
+    merged: dict[str, list[dict[str, Any]]] = {}
+    applied_count = 0
+    touched_tables = 0
+
+    for table_name, rows in raw_tables.items():
+        row_overrides = overrides.get(table_name, {})
+        if not row_overrides:
+            merged[table_name] = rows
+            continue
+
+        touched_tables += 1
+        merged_rows: list[dict[str, Any]] = []
+        for row in rows:
+            source_row = row.get("__sourceRow")
+            if isinstance(source_row, int) and source_row in row_overrides:
+                merged_rows.append({**row, **row_overrides[source_row]})
+                applied_count += 1
+            else:
+                merged_rows.append(row)
+        merged[table_name] = merged_rows
+
+    return merged, {
+        "rowsApplied": applied_count,
+        "tablesTouched": touched_tables,
+    }
 
 
 def build_diagnostics(raw_tables: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
@@ -919,6 +1019,79 @@ def build_import_readiness(diagnostics: dict[str, Any], canonical: dict[str, Any
     }
 
 
+def select_context_fields(table_name: str, rows: list[dict[str, Any]]) -> list[str]:
+    key_fields = set(BUSINESS_KEY_FIELDS.get(table_name, []))
+    counts = Counter()
+    for row in rows:
+        for field_name, value in row.items():
+            if field_name == "__sourceRow" or field_name in key_fields:
+                continue
+            if not is_placeholder_value(value):
+                counts[field_name] += 1
+    return [field for field, _ in counts.most_common(6)]
+
+
+def generate_remediation_templates(
+    raw_tables: dict[str, list[dict[str, Any]]],
+    diagnostics: dict[str, Any],
+    remediation_dir: Path,
+    refresh: bool,
+) -> dict[str, Any]:
+    remediation_dir.mkdir(parents=True, exist_ok=True)
+    summary = {
+        "filesWritten": 0,
+        "tablesPrepared": 0,
+    }
+
+    index_rows = []
+    excluded = {"MucLuc.Table2", "MucLuc.Table3", "Thu-Chi.T_PhanLoai", "XuatNhapSach.T_SachTon"}
+
+    for table_name, report in diagnostics["tables"].items():
+        if report["qualityStatus"] not in {"PLACEHOLDER_ONLY", "PARTIAL_KEYS"}:
+            continue
+        if table_name in excluded:
+            continue
+
+        rows = raw_tables.get(table_name, [])
+        if not rows:
+            continue
+
+        business_fields = BUSINESS_KEY_FIELDS.get(table_name, [])
+        context_fields = select_context_fields(table_name, rows)
+        output_fields = ["sourceRow", "applyOverride", *business_fields, *context_fields, "notes"]
+        output_path = remediation_dir / table_to_filename(table_name)
+
+        if output_path.exists() and not refresh:
+            index_rows.append({"table": table_name, "file": output_path.name, "status": "kept"})
+            continue
+
+        with output_path.open("w", encoding="utf-8-sig", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=output_fields)
+            writer.writeheader()
+            for row in rows:
+                writer.writerow(
+                    {
+                        "sourceRow": row.get("__sourceRow"),
+                        "applyOverride": "",
+                        **{
+                            field: "" if is_placeholder_value(row.get(field)) else row.get(field)
+                            for field in business_fields + context_fields
+                        },
+                        "notes": "",
+                    }
+                )
+
+        summary["filesWritten"] += 1
+        summary["tablesPrepared"] += 1
+        index_rows.append({"table": table_name, "file": output_path.name, "status": "written"})
+
+    write_json(
+        remediation_dir / "_index.json",
+        {"generatedAt": datetime.now().isoformat(), "tables": index_rows},
+    )
+    return summary
+
+
 def build_import_readiness_markdown(readiness: dict[str, Any]) -> str:
     lines = [
         "# Workbook Import Readiness",
@@ -974,24 +1147,45 @@ def main() -> None:
     parser.add_argument("--source", default="docs/File Quan ly tong 2026.xlsx")
     parser.add_argument("--dictionary", default="docs/Data_Dictionary_Excel.csv")
     parser.add_argument("--output", default="docs/generated/workbook_2026")
+    parser.add_argument("--remediation-dir", default=None)
+    parser.add_argument("--refresh-remediation", action="store_true")
     args = parser.parse_args()
 
     source_path = Path(args.source)
     dictionary_path = Path(args.dictionary)
     output_path = Path(args.output)
+    remediation_dir = Path(args.remediation_dir) if args.remediation_dir else output_path / "remediation"
 
     specs = read_dictionary(dictionary_path)
-    raw_tables = extract_tables(source_path, specs)
+    field_type_lookup = build_field_type_lookup(specs)
+    raw_tables_extracted = extract_tables(source_path, specs)
+    csv_overrides, override_load_summary = load_csv_overrides(remediation_dir, field_type_lookup)
+    raw_tables, override_apply_summary = apply_overrides(raw_tables_extracted, csv_overrides)
     canonical = canonicalize(raw_tables)
     diagnostics = build_diagnostics(raw_tables)
     manifest = build_manifest(raw_tables, canonical)
     readiness = build_import_readiness(diagnostics, canonical)
+    remediation_summary = generate_remediation_templates(
+        raw_tables,
+        diagnostics,
+        remediation_dir,
+        args.refresh_remediation,
+    )
 
+    write_json(output_path / "raw_tables_extracted.json", raw_tables_extracted)
     write_json(output_path / "raw_tables.json", raw_tables)
     write_json(output_path / "canonical.json", canonical)
     write_json(output_path / "diagnostics.json", diagnostics)
     write_json(output_path / "manifest.json", manifest)
     write_json(output_path / "import_readiness.json", readiness)
+    write_json(
+        output_path / "override_summary.json",
+        {
+            "loaded": override_load_summary,
+            "applied": override_apply_summary,
+            "remediationTemplates": remediation_summary,
+        },
+    )
     (output_path / "data_quality_report.md").write_text(
         build_quality_markdown(diagnostics),
         encoding="utf-8",

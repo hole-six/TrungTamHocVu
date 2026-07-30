@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate } from "@/lib/server/role-matrix";
+
+// Điểm danh vẫn cho phép GV/TG (canUpdate("schedule") = false với 2 vai trò này) vì đây
+// là việc dạy học hàng ngày, khác với quản lý lịch/ghi danh — xem giải thích tương tự ở
+// app/(app)/classes/[id]/sessions/[sessionId]/page.tsx.
+async function canMarkAttendance(userId: string): Promise<boolean> {
+  const role = await getUserRole(userId);
+  return canUpdate("schedule", role) || role === "TEACHER" || role === "TEACHING_ASSISTANT";
+}
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -36,6 +46,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  if (!(await canMarkAttendance(user.id))) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền điểm danh" }, { status: 403 });
+  }
 
   const session = await prisma.classSession.findUnique({ where: { id: params.id } });
   if (!session) return NextResponse.json({ error: "Không tìm thấy buổi học" }, { status: 404 });

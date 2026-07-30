@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getBranchWhereClause } from "@/lib/branch-filter";
+import { getUserRole } from "@/lib/permissions";
+import { canCreate } from "@/lib/server/role-matrix";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -53,6 +55,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const role = await getUserRole(user.id);
+  if (!canCreate("students", role)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền tạo học viên mới" }, { status: 403 });
+  }
 
   const body = await req.json();
   

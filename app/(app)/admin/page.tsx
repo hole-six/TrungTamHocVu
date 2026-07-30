@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import NewBranchForm from "@/components/admin/NewBranchForm";
 import UserRoleEditor from "@/components/admin/UserRoleEditor";
+import Link from "next/link";
 
 function formatDateTime(d: Date | null) {
   return d ? new Date(d).toLocaleString("vi-VN") : "—";
@@ -22,6 +23,25 @@ export default async function AdminPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Quản trị</h1>
         <p className="mt-1 text-sm text-ink-muted48">Chi nhánh, người dùng và nhật ký hệ thống.</p>
+      </div>
+
+      <div className="card">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-display text-lg font-semibold tracking-tight">Import workbook ERP</h2>
+            <p className="mt-1 text-sm text-ink-muted48">
+              Theo dõi tiến độ import từ Excel vào ERP, dữ liệu nào đã lên DB và dữ liệu nào còn bị chặn.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/admin/imports" className="btn-primary">
+              Xem ImportJob
+            </Link>
+            <Link href="/admin/imports/remediation" className="btn-ghost">
+              Mở Remediation
+            </Link>
+          </div>
+        </div>
       </div>
 
       <div className="card">

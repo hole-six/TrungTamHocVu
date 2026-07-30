@@ -5,6 +5,9 @@ import { BILLING_PERIOD_STATUS_LABEL, chargePaymentStatus, PAYMENT_STATUS_LABEL,
 import BillingPeriodActions from "@/components/tuition/BillingPeriodActions";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import ChargeDeductionEditor from "@/components/tuition/ChargeDeductionEditor";
+import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate } from "@/lib/server/role-matrix";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -22,7 +25,10 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
   });
   if (!period) notFound();
 
-  const editable = canEditCharges(period.status);
+  const currentUser = await getCurrentUser();
+  const role = currentUser ? await getUserRole(currentUser.id) : null;
+  const canManageTuition = canUpdate("tuition", role);
+  const editable = canEditCharges(period.status) && canManageTuition;
   const totalReceivable = period.charges.reduce((s, c) => s + c.totalAmount, 0);
   const totalCollected = period.charges.reduce((s, c) => s + c.allocations.reduce((sa, a) => sa + a.amount, 0), 0);
 
@@ -56,7 +62,7 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
         </div>
       </div>
 
-      <BillingPeriodActions periodId={period.id} status={period.status} />
+      {canManageTuition && <BillingPeriodActions periodId={period.id} status={period.status} />}
 
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-left text-sm">
@@ -107,7 +113,7 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <QuickPaymentButton studentId={c.studentId} suggestedAmount={c.totalAmount - paid} />
+                      {canManageTuition && <QuickPaymentButton studentId={c.studentId} suggestedAmount={c.totalAmount - paid} />}
                       <Link href={`/invoices/${c.id}`} target="_blank" className="text-xs text-ink-muted48">
                         Hóa đơn
                       </Link>

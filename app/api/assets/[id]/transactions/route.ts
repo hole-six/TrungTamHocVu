@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeAssetQuantity } from "@/lib/server/asset-rules";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate } from "@/lib/server/role-matrix";
 
 const VALID_TYPES = ["RECEIPT", "TRANSFER", "ADJUSTMENT", "DISPOSAL"];
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const role = await getUserRole(user.id);
+  if (!canUpdate("assets", role)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền ghi nhận giao dịch tài sản" }, { status: 403 });
+  }
 
   const asset = await prisma.asset.findUnique({ where: { id: params.id } });
   if (!asset) return NextResponse.json({ error: "Không tìm thấy tài sản" }, { status: 404 });

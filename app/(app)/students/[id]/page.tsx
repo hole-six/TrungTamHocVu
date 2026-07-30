@@ -7,6 +7,9 @@ import ScholarshipAdjustmentForm from "@/components/students/ScholarshipAdjustme
 import RefundButton from "@/components/students/RefundButton";
 import SchoolExamScoreForm from "@/components/students/SchoolExamScoreForm";
 import { computeOutstandingBalance } from "@/lib/server/balance";
+import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate } from "@/lib/server/role-matrix";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -29,6 +32,11 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
     },
   });
   if (!student) notFound();
+
+  const currentUser = await getCurrentUser();
+  const role = currentUser ? await getUserRole(currentUser.id) : null;
+  const canEditStudent = canUpdate("students", role);
+  const canManageFinance = canUpdate("tuition", role);
 
   const outstanding = await computeOutstandingBalance(student.id);
   const currentEnrollment = student.enrollments.find((e) => e.status === "ACTIVE") ?? student.enrollments[0];
@@ -58,7 +66,7 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
         <div className="card">
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Công nợ học phí</p>
-            {outstanding > 0 && <QuickPaymentButton studentId={student.id} suggestedAmount={outstanding} />}
+            {outstanding > 0 && canManageFinance && <QuickPaymentButton studentId={student.id} suggestedAmount={outstanding} />}
           </div>
           <p className="mt-2 font-display text-2xl font-semibold tracking-tight">{formatVnd(outstanding)}</p>
         </div>
@@ -139,7 +147,7 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
                         {p.status === "REFUNDED" ? "Đã hoàn" : p.status === "PARTIALLY_REFUNDED" ? `Hoàn ${formatVnd(refunded)}` : "—"}
                       </td>
                       <td className="py-2">
-                        <RefundButton paymentId={p.id} refundable={p.amount - refunded} />
+                        {canManageFinance && <RefundButton paymentId={p.id} refundable={p.amount - refunded} />}
                       </td>
                     </tr>
                   );
@@ -157,23 +165,51 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
         </div>
 
         <div className="space-y-6">
-          <StudentEditForm
-            studentId={student.id}
-            initial={{
-              status: student.status,
-              phone: student.phone ?? "",
-              address: student.address ?? "",
-              leaveReason: student.leaveReason ?? "",
-              referredBy: student.referredBy ?? "",
-              notes: student.notes ?? "",
-            }}
-          />
-          <ScholarshipAdjustmentForm
-            studentId={student.id}
-            scholarships={student.scholarships}
-            adjustments={student.adjustments}
-          />
-          <SchoolExamScoreForm studentId={student.id} scores={student.schoolExamScores} />
+          {canEditStudent ? (
+            <>
+              <StudentEditForm
+                studentId={student.id}
+                initial={{
+                  status: student.status,
+                  phone: student.phone ?? "",
+                  address: student.address ?? "",
+                  leaveReason: student.leaveReason ?? "",
+                  referredBy: student.referredBy ?? "",
+                  notes: student.notes ?? "",
+                }}
+              />
+              <ScholarshipAdjustmentForm
+                studentId={student.id}
+                scholarships={student.scholarships}
+                adjustments={student.adjustments}
+              />
+              <SchoolExamScoreForm studentId={student.id} scores={student.schoolExamScores} />
+            </>
+          ) : (
+            <div className="card space-y-3">
+              <h2 className="font-display text-base font-bold tracking-tight text-ink">Hồ sơ</h2>
+              <dl className="space-y-2 text-sm">
+                <div>
+                  <dt className="text-ink-muted48">Địa chỉ</dt>
+                  <dd className="font-medium">{student.address ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-ink-muted48">Người giới thiệu</dt>
+                  <dd className="font-medium">{student.referredBy ?? "—"}</dd>
+                </div>
+                {student.schoolExamScores[0] && (
+                  <div>
+                    <dt className="text-ink-muted48">Điểm học lực ({student.schoolExamScores[0].schoolYear})</dt>
+                    <dd className="font-medium">
+                      GHKI {student.schoolExamScores[0].midTerm1 ?? "—"} · CHKI {student.schoolExamScores[0].finalTerm1 ?? "—"} · GHKII{" "}
+                      {student.schoolExamScores[0].midTerm2 ?? "—"} · CHKII {student.schoolExamScores[0].finalTerm2 ?? "—"}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+              <p className="text-xs text-ink-muted48">Vai trò của bạn chỉ có quyền xem hồ sơ này.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

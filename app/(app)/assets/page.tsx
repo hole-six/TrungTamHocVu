@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { ASSET_STATUS_LABEL } from "@/lib/server/asset-rules";
 import NewAssetForm from "@/components/assets/NewAssetForm";
+import { getUserRole } from "@/lib/permissions";
+import { canCreate } from "@/lib/server/role-matrix";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -10,6 +12,7 @@ function formatVnd(n: number) {
 
 export default async function AssetsPage({ searchParams }: { searchParams: { q?: string } }) {
   const user = await getCurrentUser();
+  const role = user ? await getUserRole(user.id) : null;
   const q = searchParams.q?.trim() ?? "";
 
   const assets = await prisma.asset.findMany({
@@ -35,7 +38,7 @@ export default async function AssetsPage({ searchParams }: { searchParams: { q?:
             {assets.length} loại thiết bị · Tổng giá trị ước tính {formatVnd(totalValue)}
           </p>
         </div>
-        <NewAssetForm />
+        {canCreate("assets", role) && <NewAssetForm />}
       </div>
 
       <form className="card flex items-center gap-3" action="/assets">

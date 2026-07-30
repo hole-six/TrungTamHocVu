@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeHoursFromTimeRange } from "@/lib/server/payroll-rules";
+import { getUserRole } from "@/lib/permissions";
+import { canCreate } from "@/lib/server/role-matrix";
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
@@ -10,6 +12,16 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const employeeId = String(body.employeeId ?? "").trim();
   if (!employeeId) return NextResponse.json({ error: "Thiếu nhân viên" }, { status: 400 });
+
+  // GV/TG chỉ được tự chấm công cho chính mình — vai trò quản lý (canUpdate("timesheet"))
+  // mới được chấm công thay cho người khác.
+  const isSelf = user.employeeId === employeeId;
+  if (!isSelf) {
+    const role = await getUserRole(user.id);
+    if (!canCreate("timesheet", role)) {
+      return NextResponse.json({ error: "Bạn chỉ có thể chấm công cho chính mình" }, { status: 403 });
+    }
+  }
   if (!body.workDate) return NextResponse.json({ error: "Thiếu ngày công" }, { status: 400 });
 
   const workDate = new Date(body.workDate);

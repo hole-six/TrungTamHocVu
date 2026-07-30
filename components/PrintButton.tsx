@@ -1,9 +1,9 @@
 "use client";
 
-export default function PrintButton() {
+export default function PrintButton({ label = "In hóa đơn" }: { label?: string }) {
   return (
     <button onClick={() => window.print()} className="btn-primary print:hidden">
-      In hóa đơn
+      {label}
     </button>
   );
 }

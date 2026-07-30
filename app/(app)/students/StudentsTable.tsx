@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
-import { isManagementRole, isTeachingStaffRole } from "@/lib/client-roles";
+import { canCreate, canUpdate, canDelete } from "@/lib/server/role-matrix";
 
 type Student = {
   id: string;
@@ -133,7 +133,7 @@ export default function StudentsTable({
   ];
 
   // Add edit action for non-teacher roles
-  if (!isTeachingStaffRole(userRole)) {
+  if (canUpdate("students", userRole)) {
     actions.push({
       label: "Sửa",
       icon: (
@@ -148,7 +148,7 @@ export default function StudentsTable({
   }
 
   // Add delete action only for DIRECTOR and BRANCH_MANAGER
-  if (isManagementRole(userRole)) {
+  if (canDelete("students", userRole)) {
     actions.push({
       label: "Xóa",
       icon: (
@@ -171,7 +171,7 @@ export default function StudentsTable({
   // Define bulk actions
   const bulkActions: BulkAction<Student>[] = [];
 
-  if (isManagementRole(userRole)) {
+  if (canDelete("students", userRole)) {
     bulkActions.push(
       {
         label: "Xuất Excel",
@@ -252,7 +252,7 @@ export default function StudentsTable({
       searchPlaceholder="Tìm theo tên, mã học viên, số điện thoại..."
       onSearch={handleSearch}
       sortable
-      selectable={!isTeachingStaffRole(userRole)}
+      selectable={canUpdate("students", userRole)}
       pagination={{
         total,
         page,
@@ -263,7 +263,7 @@ export default function StudentsTable({
       emptyState={{
         title: "Chưa có học viên",
         description: "Bắt đầu bằng cách thêm học viên đầu tiên vào hệ thống.",
-        action: !isTeachingStaffRole(userRole) ? {
+        action: canCreate("students", userRole) ? {
           label: "Thêm học viên",
           onClick: () => router.push("/students/new"),
         } : undefined,

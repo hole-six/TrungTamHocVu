@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeEffectiveUnitPrice, computeTuitionAmount, computeTotalAmount, canEditCharges } from "@/lib/server/tuition-rules";
 import { computeOpeningBalance } from "@/lib/server/balance";
+import { getUserRole } from "@/lib/permissions";
+import { canUpdate } from "@/lib/server/role-matrix";
 
 // Sinh Charge (khoản phải thu) cho mọi ghi danh đang ACTIVE trong kỳ — tương ứng
 // trigger "Phát sinh học phí" ở Master Spec §6. Số buổi/số buổi nghỉ lấy từ
@@ -12,6 +14,10 @@ import { computeOpeningBalance } from "@/lib/server/balance";
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const role = await getUserRole(user.id);
+  if (!canUpdate("tuition", role)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền sinh học phí" }, { status: 403 });
+  }
 
   const period = await prisma.billingPeriod.findUnique({ where: { id: params.id } });
   if (!period) return NextResponse.json({ error: "Không tìm thấy kỳ thu" }, { status: 404 });

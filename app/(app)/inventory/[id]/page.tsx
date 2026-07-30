@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { computeStockBalance, STOCK_TXN_TYPE_LABEL } from "@/lib/server/inventory-rules";
 import ReceiptForm from "@/components/inventory/ReceiptForm";
 import IssueBookForm from "@/components/inventory/IssueBookForm";
+import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRole } from "@/lib/permissions";
+import { canCreate, canUpdate } from "@/lib/server/role-matrix";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -21,6 +24,9 @@ export default async function BookDetailPage({ params }: { params: { id: string 
     },
   });
   if (!book) notFound();
+
+  const currentUser = await getCurrentUser();
+  const role = currentUser ? await getUserRole(currentUser.id) : null;
 
   const balance = await computeStockBalance(book.id);
 
@@ -52,8 +58,8 @@ export default async function BookDetailPage({ params }: { params: { id: string 
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ReceiptForm bookId={book.id} />
-        <IssueBookForm bookId={book.id} />
+        {canUpdate("inventory", role) && <ReceiptForm bookId={book.id} />}
+        {canCreate("inventory", role) && <IssueBookForm bookId={book.id} />}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
