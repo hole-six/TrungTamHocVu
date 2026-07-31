@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
+import { generateCourseCharge } from "@/lib/server/billing-generation";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -47,5 +48,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
 
   const syncedStudent = await syncStudentDerivedFields(studentId);
-  return NextResponse.json({ item: enrollment, student: syncedStudent }, { status: 201 });
+
+  // Ghi danh xong là thu học phí trọn khóa ngay — không đợi tới kỳ thu tháng sau nữa
+  // (xem lib/server/billing-generation.ts generateCourseCharge). Không chặn việc ghi
+  // danh nếu sinh học phí lỗi (vd lớp chưa cấu hình tổng buổi) — trả về warning để
+  // nhân sự tự xử lý sau, ghi danh vẫn phải thành công.
+  const chargeResult = await generateCourseCharge(enrollment.id);
+
+  return NextResponse.json(
+    { item: enrollment, student: syncedStudent, billingWarning: "error" in chargeResult ? chargeResult.error : undefined },
+    { status: 201 }
+  );
 }

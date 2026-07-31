@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const payload = await buildPayrollOverviewLivePayload(branchId);
+  const payload = await buildPayrollOverviewLivePayload(branchId, filters);
   return NextResponse.json({
     meta: {
       requestedMode: filters.mode,

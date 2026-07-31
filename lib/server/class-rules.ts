@@ -19,6 +19,42 @@ export function estimateEndDate(
 
 export type ScheduleRuleLike = { weekday: number; startTime: string; endTime: string; room: string | null };
 
+export function estimateEndDateFromRules(
+  startDate: Date | null,
+  totalSessions: number | null,
+  rules: ScheduleRuleLike[]
+): Date | null {
+  if (!startDate || !totalSessions || totalSessions <= 0 || rules.length === 0) return null;
+
+  const normalizedRules = rules
+    .filter((rule) => Number.isInteger(rule.weekday) && rule.weekday >= 0 && rule.weekday <= 6)
+    .slice()
+    .sort((a, b) => {
+      if (a.weekday !== b.weekday) return a.weekday - b.weekday;
+      return a.startTime.localeCompare(b.startTime);
+    });
+
+  if (normalizedRules.length === 0) return null;
+
+  const cursor = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
+  let countedSessions = 0;
+  let guard = 0;
+
+  while (guard < 3660) {
+    const todayRules = normalizedRules.filter((rule) => rule.weekday === cursor.getUTCDay());
+    for (const _rule of todayRules) {
+      countedSessions += 1;
+      if (countedSessions === totalSessions) {
+        return new Date(cursor);
+      }
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+    guard += 1;
+  }
+
+  return null;
+}
+
 // Sinh danh sách ngày buổi học từ ScheduleRule trong khoảng [fromDate, toDate] —
 // thay cho việc gõ tay từng dòng ngày tháng như ChiTietLopHoc gốc.
 //
@@ -52,6 +88,39 @@ export function generateSessionDates(
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return results;
+}
+
+// "Hôm nay" theo giờ Việt Nam (UTC+7 cố định, không DST) — KHÔNG dùng new Date() trực
+// tiếp để so ngày, vì máy chủ có thể chạy ở múi giờ khác giờ VN, làm buổi hôm nay bị
+// tính nhầm thành "đã qua"/"sắp tới" lệch cả ngày. sessionDate lưu dạng UTC-midnight
+// đại diện đúng ngày lịch VN (xem generateSessionDates), nên "hôm nay" cũng phải quy
+// về cùng dạng UTC-midnight mới so sánh đúng.
+export function getVietnamToday(): Date {
+  const vnMs = Date.now() + 7 * 60 * 60 * 1000;
+  const vn = new Date(vnMs);
+  return new Date(Date.UTC(vn.getUTCFullYear(), vn.getUTCMonth(), vn.getUTCDate()));
+}
+
+export function isSameUtcDay(a: Date, b: Date): boolean {
+  return a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate();
+}
+
+// Ghép ngày buổi học (UTC-midnight, đại diện đúng ngày lịch VN) với giờ "HH:MM" (giờ
+// tường VN) thành 1 mốc thời gian UTC thật — dùng để so với "bây giờ" khi check-in/
+// check-out. VN cố định UTC+7, không DST, nên trừ thẳng 7 tiếng là đúng quanh năm.
+export function vnTimeToUtc(sessionDate: Date, time: string): Date {
+  const [h, m] = time.split(":").map(Number);
+  const utcMs = Date.UTC(sessionDate.getUTCFullYear(), sessionDate.getUTCMonth(), sessionDate.getUTCDate(), h || 0, m || 0, 0) - 7 * 60 * 60 * 1000;
+  return new Date(utcMs);
+}
+
+// Buổi so với "hôm nay" (giờ VN) — chỉ để HIỂN THỊ quan sát tiến độ, không ghi đè
+// ClassSession.status (trường đó vẫn do nhân sự/điểm danh set thủ công, xem
+// lib/server/class-rules.ts đầu file và app/api/sessions/[id]/attendance/route.ts).
+export type SessionTiming = "past" | "today" | "upcoming";
+export function computeSessionTiming(sessionDate: Date, vietnamToday: Date): SessionTiming {
+  if (isSameUtcDay(sessionDate, vietnamToday)) return "today";
+  return sessionDate.getTime() < vietnamToday.getTime() ? "past" : "upcoming";
 }
 
 export const WEEKDAY_LABEL = ["CN", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];

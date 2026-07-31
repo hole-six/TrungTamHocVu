@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { getAppShellConfig, type AppQuickAction } from "@/lib/app-shell";
 import { getReportsDashboardData } from "@/lib/server/reporting";
+import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
 import QuickActions from "@/components/dashboard/QuickActions";
 
 function startOfDay(date: Date) {
@@ -119,40 +120,117 @@ async function getBranchBreakdown() {
   );
 }
 
+// Phễu tuyển sinh theo đúng thứ tự state machine (lib/server/lead-rules.ts) — thứ tự
+// cố định chứ không sort theo số lượng, để "màu theo nhóm, không theo hạng" (mỗi cột
+// luôn là 1 giai đoạn cụ thể dù số liệu đổi qua từng ngày).
+async function getLeadPipeline(user: Awaited<ReturnType<typeof getCurrentUser>>) {
+  const branchWhere = user?.branchId ? { branchId: user.branchId } : {};
+  const rows = await prisma.lead.groupBy({ by: ["status"], where: branchWhere, _count: { _all: true } });
+  const countByStatus = new Map(rows.map((r) => [r.status, r._count._all]));
+  return LEAD_STATUSES.map((status) => ({ status, label: LEAD_STATUS_LABEL[status], count: countByStatus.get(status) ?? 0 }));
+}
+
+// Học bổng giờ gắn theo TỪNG ghi danh (Scholarship.enrollmentId, sửa trong session
+// này) thay vì gắn thẳng học viên — trước đó bảng scholarships trống 0 dòng dù có
+// hàng trăm học viên, đây là chỉ số để xác nhận việc nhập học bổng đã thực sự chạy.
+async function getScholarshipCoverage(user: Awaited<ReturnType<typeof getCurrentUser>>) {
+  const now = new Date();
+  const branchWhere = user?.branchId ? { student: { branchId: user.branchId } } : {};
+  return prisma.scholarship.count({
+    where: { ...branchWhere, effectiveFrom: { lte: now }, OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }] },
+  });
+}
+
+// Cùng logic cảnh báo đỏ/vàng đang dùng ở /leads/test-schedule (lib/server/lead-rules
+// dateUrgency) — lặp lại ở đây để Director/CSO thấy ngay tình trạng test mà không
+// phải rời dashboard, đúng tinh thần "thống kê đúng và đủ dữ liệu đã sửa" của hệ thống.
+async function getTestOverview(user: Awaited<ReturnType<typeof getCurrentUser>>) {
+  const branchWhere = user?.branchId ? { branchId: user.branchId } : {};
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const soonBoundary = new Date(today);
+  soonBoundary.setDate(soonBoundary.getDate() + 3);
+  soonBoundary.setHours(23, 59, 59, 999);
+
+  const [missingTest, overdue, soon] = await Promise.all([
+    prisma.lead.count({ where: { ...branchWhere, status: { notIn: ["ENROLLED", "LOST"] }, placementTests: { none: {} } } }),
+    prisma.placementTest.count({ where: { status: "SCHEDULED", scheduledDate: { lt: today }, lead: branchWhere } }),
+    prisma.placementTest.count({ where: { status: "SCHEDULED", scheduledDate: { gte: today, lte: soonBoundary }, lead: branchWhere } }),
+  ]);
+
+  return { missingTest, overdue, soon };
+}
+
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
 }
 
-function StatCard({
-  label,
-  value,
-  sub,
-  href,
-  accent,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  href?: string;
-  accent?: boolean;
-}) {
-  const content = (
-    <div className={accent ? "stat-card-accent" : "stat-card"}>
-      <p className={`text-xs font-semibold uppercase tracking-widest ${accent ? "text-white/70" : "text-ink-muted48"}`}>{label}</p>
-      <p className={`mt-1 font-display text-3xl font-semibold tracking-tight ${accent ? "text-white" : "text-ink"}`}>{value}</p>
-      {sub ? <p className={`mt-1 text-xs ${accent ? "text-white/60" : "text-ink-muted48"}`}>{sub}</p> : null}
+// Chart thanh ngang 1-hue duy nhất (magnitude qua các giai đoạn có thứ tự cố định,
+// không phải identity nhiều nhóm) — theo skill dataviz: mảnh, bo tròn đầu vạch dữ
+// liệu, nhãn giá trị trực tiếp, không dùng dual-axis, không đổi màu theo thứ hạng.
+function PipelineBarChart({ rows, href }: { rows: { status: string; label: string; count: number }[]; href: string }) {
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  return (
+    <div className="space-y-2.5">
+      {rows.map((row) => (
+        <Link
+          key={row.status}
+          href={`${href}?status=${row.status}`}
+          className="group flex items-center gap-3 rounded-lg px-1 py-0.5 hover:bg-primary/5"
+        >
+          <span className="w-32 shrink-0 truncate text-xs font-medium text-ink-muted80" title={row.label}>
+            {row.label}
+          </span>
+          <span className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-primary/10">
+            <span
+              className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all group-hover:bg-primary/80"
+              style={{ width: `${Math.max(row.count > 0 ? 3 : 0, (row.count / max) * 100)}%` }}
+            />
+          </span>
+          <span className="w-8 shrink-0 text-right text-xs font-bold tabular-nums text-ink">{row.count}</span>
+        </Link>
+      ))}
     </div>
   );
+}
 
-  if (href) {
-    return (
-      <Link href={href} className="block">
-        {content}
-      </Link>
-    );
-  }
+function BoardCard({
+  title,
+  subtitle,
+  href,
+  metric,
+  hint,
+  tone = "primary",
+}: {
+  title: string;
+  subtitle: string;
+  href: string;
+  metric: string;
+  hint: string;
+  tone?: "primary" | "warning" | "success" | "danger";
+}) {
+  const toneClass =
+    tone === "danger"
+      ? "border-rose-200 bg-rose-50"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50"
+        : tone === "success"
+          ? "border-emerald-200 bg-emerald-50"
+          : "border-primary/20 bg-primary/5";
 
-  return content;
+  return (
+    <Link href={href} className={`block rounded-[24px] border p-5 transition hover:-translate-y-0.5 hover:shadow-sm ${toneClass}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-ink">{title}</p>
+          <p className="mt-1 text-xs text-ink-muted48">{subtitle}</p>
+        </div>
+        <span className="text-xs font-semibold text-primary">Mở →</span>
+      </div>
+      <p className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink">{metric}</p>
+      <p className="mt-1 text-xs text-ink-muted48">{hint}</p>
+    </Link>
+  );
 }
 
 function actionToneClasses(tone: AppQuickAction["tone"]) {
@@ -270,17 +348,19 @@ export default async function DashboardPage() {
   const role = user ? await getUserRole(user.id) : null;
   const shellConfig = getAppShellConfig(role);
   const stats = await getStats(user);
-  const operational = role !== "TEACHER" && role !== "TEACHING_ASSISTANT" ? await getReportsDashboardData(user?.branchId ?? null) : null;
+  const showCrmWidgets = role !== "TEACHER" && role !== "TEACHING_ASSISTANT";
+  const [operational, leadPipeline, scholarshipCoverage, testOverview] = await Promise.all([
+    showCrmWidgets ? getReportsDashboardData(user?.branchId ?? null) : Promise.resolve(null),
+    showCrmWidgets ? getLeadPipeline(user) : Promise.resolve(null),
+    showCrmWidgets ? getScholarshipCoverage(user) : Promise.resolve(0),
+    showCrmWidgets ? getTestOverview(user) : Promise.resolve(null),
+  ]);
   // Giám đốc luôn cần thấy tình hình MỌI cơ sở, kể cả khi tài khoản của họ vẫn
   // đang gắn 1 branchId cụ thể (vd hệ thống hiện chỉ có 1 cơ sở) — nên xét theo
   // vai trò DIRECTOR, không xét branchId có null hay không.
   const branchBreakdown = role === "DIRECTOR" ? await getBranchBreakdown() : null;
 
   const sessionsCardValue = role === "TEACHER" || role === "TEACHING_ASSISTANT" ? stats.mySessionsToday : stats.branchSessionsToday;
-  const sessionsCardSub =
-    role === "TEACHER" || role === "TEACHING_ASSISTANT"
-      ? "buổi đã phân công cho bạn hôm nay"
-      : "buổi học của cơ sở trong ngày";
   const quickActions = enrichQuickActions(shellConfig.quickActions, role, stats, operational);
 
   return (
@@ -292,11 +372,47 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {/* 1 hàng duy nhất — trước đây có 2 hàng (StatCard + BoardCard) lặp lại gần
+          như y hệt nhau (cùng 1 số hiện ra 2-3 lần ở 2 hàng khác nhau, có thẻ còn
+          tự lặp số của chính nó giữa "metric" và "hint"), nhìn rối. Giờ mỗi thẻ chỉ
+          hiện 1 con số chính + 1 thông tin bổ sung THỰC SỰ khác, không trùng nhau. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Học viên đang học" value={String(stats.activeStudents)} sub={`trên tổng ${stats.totalStudents} học viên`} href="/students" />
-        <StatCard label="Lớp đang hoạt động" value={String(stats.activeClasses)} sub="lớp trạng thái ACTIVE" href="/classes" />
-        <StatCard label="Buổi học hôm nay" value={String(sessionsCardValue)} sub={sessionsCardSub} href="/calendar" />
-        <StatCard label="Công nợ học phí" value={formatVnd(stats.outstanding)} sub={`${stats.openLeads} lead đang theo dõi`} href="/tuition" accent />
+        <BoardCard
+          title="Student 360"
+          subtitle="Hồ sơ HV, phụ huynh, portal, lớp, công nợ"
+          href="/students"
+          metric={String(stats.activeStudents)}
+          hint={`trên tổng ${stats.totalStudents} học viên`}
+          tone="primary"
+        />
+        <BoardCard
+          title="Class Operating Board"
+          subtitle="Lớp, buổi học, roster, journal, điểm danh"
+          href="/classes"
+          metric={String(stats.activeClasses)}
+          hint={`${sessionsCardValue} buổi học hôm nay`}
+          tone="success"
+        />
+        <BoardCard
+          title="Tuition Control Board"
+          subtitle="Kỳ thu, công nợ, phụ huynh, nhắc thanh toán"
+          href="/tuition"
+          metric={formatVnd(stats.outstanding)}
+          hint={
+            operational
+              ? `${operational.debtors.length} học viên đang nợ`
+              : `${stats.openBillingPeriods} kỳ học phí đang mở`
+          }
+          tone="warning"
+        />
+        <BoardCard
+          title="Teaching Payroll Board"
+          subtitle="Công GV/TG, kỳ lương, đánh giá, thanh toán"
+          href="/payroll"
+          metric={String(stats.openPayrollRuns)}
+          hint="kỳ lương chưa khóa sổ"
+          tone="danger"
+        />
       </div>
 
       {branchBreakdown && (
@@ -335,6 +451,55 @@ export default async function DashboardPage() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {leadPipeline && testOverview && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="card">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-display text-lg font-semibold tracking-tight">Phễu tuyển sinh</h2>
+                <p className="mt-1 text-sm text-ink-muted48">Số lead theo từng giai đoạn — bấm vào 1 giai đoạn để lọc thẳng trong CRM.</p>
+              </div>
+              <Link href="/leads" className="shrink-0 text-sm font-medium text-primary">
+                Mở CRM →
+              </Link>
+            </div>
+            <div className="mt-5">
+              <PipelineBarChart rows={leadPipeline} href="/leads" />
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-display text-lg font-semibold tracking-tight">Danh sách test</h2>
+                <p className="mt-1 text-sm text-ink-muted48">Sổ hẹn test chủ động, cảnh báo theo hạn.</p>
+              </div>
+              <Link href="/leads/test-schedule" className="shrink-0 text-sm font-medium text-primary">
+                Mở →
+              </Link>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              <Link href="/leads/test-schedule?testStatus=SCHEDULED" className="rounded-2xl border border-red-200 bg-red-50 p-3 text-center hover:bg-red-100">
+                <p className="font-display text-2xl font-bold text-red-700">{testOverview.overdue}</p>
+                <p className="mt-0.5 text-[11px] font-medium text-red-700">Quá hạn</p>
+              </Link>
+              <Link href="/leads/test-schedule?testStatus=SCHEDULED" className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-center hover:bg-amber-100">
+                <p className="font-display text-2xl font-bold text-amber-700">{testOverview.soon}</p>
+                <p className="mt-0.5 text-[11px] font-medium text-amber-700">Sắp tới (3 ngày)</p>
+              </Link>
+              <Link href="/leads/test-schedule?testStatus=NONE" className="rounded-2xl border border-hairline bg-canvas-parchment/60 p-3 text-center hover:bg-canvas-parchment">
+                <p className="font-display text-2xl font-bold text-ink">{testOverview.missingTest}</p>
+                <p className="mt-0.5 text-[11px] font-medium text-ink-muted48">Chưa hẹn</p>
+              </Link>
+            </div>
+            <div className="mt-4 flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <p className="text-sm font-medium text-emerald-800">Học viên đang có học bổng áp dụng</p>
+              <p className="font-display text-xl font-bold text-emerald-700">{scholarshipCoverage}</p>
+            </div>
+          </div>
         </div>
       )}
 

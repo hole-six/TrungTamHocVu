@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useRef, useState, FormEvent } from "react";
 
 export type FormField = {
   name: string;
@@ -156,6 +156,13 @@ export default function SmartForm({
     }));
   };
 
+  const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const goToSection = (index: number) => {
+    if (collapsedSections[index]) toggleSection(index);
+    sectionRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const renderField = (field: FormField) => {
     if (field.hidden) return null;
 
@@ -165,7 +172,7 @@ export default function SmartForm({
     const error = errors[field.name];
     const spanClass =
       field.colSpan === 2 || field.type === "textarea" || field.type === "checkbox" || field.type === "radio"
-        ? "sm:col-span-2"
+        ? "sm:col-span-2 lg:col-span-3"
         : "";
 
     const inputClasses = `input ${error ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""} ${field.icon ? "pl-10" : ""}`;
@@ -288,12 +295,37 @@ export default function SmartForm({
 
   return (
     <form onSubmit={handleSubmit} className={`space-y-5 ${className}`}>
+      {sections.length > 1 && (
+        <div className="overflow-x-auto rounded-[24px] border border-[#e4ebf8] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] px-5 py-4 shadow-[0_16px_40px_-32px_rgba(15,23,42,0.45)]">
+          <div className="flex min-w-max items-center">
+            {sections.map((section, sectionIdx) => (
+              <div key={sectionIdx} className="flex items-center">
+                <button
+                  type="button"
+                  onClick={() => goToSection(sectionIdx)}
+                  className="flex items-center gap-2.5 rounded-2xl px-2 py-1 hover:bg-[#f8fbff]"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eef4ff] text-xs font-bold text-primary">
+                    {sectionIdx + 1}
+                  </span>
+                  <span className="whitespace-nowrap text-sm font-semibold text-ink">{section.title}</span>
+                </button>
+                {sectionIdx < sections.length - 1 ? <span className="mx-3 h-px w-8 shrink-0 bg-[#dbe4f5]" /> : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {sections.map((section, sectionIdx) => {
         const isCollapsed = collapsedSections[sectionIdx];
 
         return (
           <div
             key={sectionIdx}
+            ref={(el) => {
+              sectionRefs.current[sectionIdx] = el;
+            }}
             className="overflow-hidden rounded-[28px] border border-[#e4ebf8] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_22px_60px_-40px_rgba(15,23,42,0.45)]"
           >
             <div
@@ -303,9 +335,6 @@ export default function SmartForm({
               onClick={() => section.collapsible && toggleSection(sectionIdx)}
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-[#eef4ff] text-xs font-bold text-primary">
-                  {String(sectionIdx + 1).padStart(2, "0")}
-                </div>
                 {section.icon ? (
                   <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/10">
                     {section.icon}
@@ -338,7 +367,7 @@ export default function SmartForm({
 
             {!isCollapsed ? (
               <div className="space-y-4 border-t border-[#e8edf5] px-6 pb-6 pt-5">
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {section.fields.map(renderField)}
                 </div>
               </div>

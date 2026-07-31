@@ -48,10 +48,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data.status = body.status;
   }
 
-  for (const field of ["fullName", "gender", "phone", "address", "source", "facebookParentName", "facebookLink", "initialAssessment", "notes", "notes2"]) {
+  for (const field of ["fullName", "gender", "phone", "secondaryPhone", "zaloContact", "currentSchoolGrade", "address", "source", "facebookParentName", "facebookLink", "initialAssessment", "notes", "notes2"]) {
     if (field in body) data[field] = body[field] || null;
   }
-  for (const field of ["dob", "meetDate", "expectedStartDate"]) {
+  for (const field of ["dob", "meetDate", "expectedStartDate", "actualEnrollDate"]) {
     if (field in body) data[field] = body[field] ? new Date(body[field]) : null;
   }
   if ("interestedClassId" in body) data.interestedClassId = body.interestedClassId || null;

@@ -12,23 +12,27 @@ export default function NewCashTransactionForm({ categories }: { categories: Cat
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const filteredCategories = categories.filter((c) => c.type === form.type);
+  const filteredCategories = categories.filter((category) => category.type === form.type);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
     setLoading(true);
     setError(null);
-    const res = await fetch("/api/cash-transactions", {
+
+    const response = await fetch("/api/cash-transactions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
-    const data = await res.json();
+
+    const data = await response.json();
     setLoading(false);
-    if (!res.ok) {
+
+    if (!response.ok) {
       setError(data.error ?? "Không thể tạo phiếu.");
       return;
     }
+
     setForm({ type: "CHI", categoryId: "", amount: "", description: "" });
     setOpen(false);
     router.refresh();
@@ -36,47 +40,77 @@ export default function NewCashTransactionForm({ categories }: { categories: Cat
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="btn-primary">
+      <button type="button" onClick={() => setOpen(true)} className="btn-primary">
         + Tạo phiếu thu/chi
       </button>
     );
   }
 
   return (
-    <form onSubmit={submit} className="card flex flex-wrap items-end gap-3">
-      <div>
-        <label className="label">Loại</label>
-        <select className="input" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value, categoryId: "" }))}>
-          <option value="CHI">Phiếu chi</option>
-          <option value="THU">Phiếu thu</option>
-        </select>
+    <div className="w-full rounded-[28px] border border-[#dbe7ff] bg-white/95 p-5 shadow-[0_18px_50px_-32px_rgba(14,116,144,0.35)] lg:w-[860px]">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Tạo nghiệp vụ tiền</p>
+          <h3 className="mt-1 text-lg font-semibold text-ink">Phiếu thu / phiếu chi mới</h3>
+          <p className="mt-1 text-sm text-ink-muted48">Nhập đúng hướng tiền, đúng danh mục và diễn giải đủ rõ để sau này đối chiếu sổ không bị mơ hồ.</p>
+        </div>
+        <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
+          Đóng
+        </button>
       </div>
-      <div>
-        <label className="label">Danh mục</label>
-        <select className="input" value={form.categoryId} onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}>
-          <option value="">— Không có —</option>
-          {filteredCategories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className="label">Số tiền *</label>
-        <input required type="number" className="input" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} />
-      </div>
-      <div className="flex-1">
-        <label className="label">Diễn giải</label>
-        <input className="input" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
-      </div>
-      {error && <p className="w-full text-sm text-red-600">{error}</p>}
-      <button type="submit" disabled={loading} className="btn-primary">
-        {loading ? "Đang lưu..." : "Lưu"}
-      </button>
-      <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
-        Hủy
-      </button>
-    </form>
+
+      <form onSubmit={submit} className="mt-5 grid gap-4">
+        <div className="grid gap-4 md:grid-cols-3">
+          <label className="form-group">
+            <span className="label-sm">Loại phiếu</span>
+            <select className="input" value={form.type} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value, categoryId: "" }))}>
+              <option value="CHI">Phiếu chi</option>
+              <option value="THU">Phiếu thu</option>
+            </select>
+          </label>
+
+          <label className="form-group">
+            <span className="label-sm">Danh mục tiền</span>
+            <select className="input" value={form.categoryId} onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value }))}>
+              <option value="">Chưa chọn danh mục</option>
+              {filteredCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="form-group">
+            <span className="label-sm">Số tiền</span>
+            <input required type="number" min="0" className="input" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} />
+          </label>
+        </div>
+
+        <label className="form-group">
+          <span className="label-sm">Diễn giải giao dịch</span>
+          <input
+            className="input"
+            value={form.description}
+            onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+            placeholder="VD: Thu học phí tháng 8, chi mua văn phòng phẩm, hoàn tiền..."
+          />
+        </label>
+
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline pt-4">
+          <p className="text-sm text-ink-muted48">Phiếu tạo xong sẽ xuất hiện ngay trong sổ giao dịch của kỳ đang xem.</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
+              Hủy
+            </button>
+            <button type="submit" disabled={loading} className="btn-primary">
+              {loading ? "Đang lưu..." : "Lưu phiếu"}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
   );
 }

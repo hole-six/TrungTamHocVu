@@ -2,54 +2,78 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import SlideOver from "@/components/ui/SlideOver";
 
 export default function GenerateSessionsForm({ classId }: { classId: string }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
     setLoading(true);
     setError(null);
     setResult(null);
-    const res = await fetch(`/api/classes/${classId}/generate-sessions`, {
+
+    const response = await fetch(`/api/classes/${classId}/generate-sessions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fromDate, toDate }),
     });
-    const data = await res.json();
+    const resultData = await response.json().catch(() => ({}));
     setLoading(false);
-    if (!res.ok) {
-      setError(data.error ?? "Không thể sinh buổi học.");
+
+    if (!response.ok) {
+      setError(resultData.error ?? "Không thể sinh buổi học.");
       return;
     }
-    setResult(`Đã sinh ${data.created} buổi mới (bỏ qua ${data.skipped} buổi trùng ngày).`);
+
+    setResult(`Đã sinh ${resultData.created} buổi mới, bỏ qua ${resultData.skipped} buổi đã tồn tại.`);
     router.refresh();
   }
 
   return (
-    <div className="card">
-      <h2 className="font-display text-lg font-semibold tracking-tight">Sinh buổi học theo lịch</h2>
-      <p className="mt-1 text-sm text-ink-muted48">Tự động tạo buổi học từ quy tắc lịch trong khoảng ngày chọn.</p>
-      <form onSubmit={submit} className="mt-3 flex flex-wrap items-end gap-3">
-        <div>
-          <label className="label">Từ ngày</label>
-          <input type="date" required className="input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-        </div>
-        <div>
-          <label className="label">Đến ngày</label>
-          <input type="date" required className="input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-        </div>
-        <button type="submit" disabled={loading} className="btn-primary">
-          {loading ? "Đang sinh..." : "Sinh buổi học"}
-        </button>
-      </form>
-      {result && <p className="mt-2 text-sm text-primary">{result}</p>}
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-    </div>
+    <>
+      <button onClick={() => setOpen(true)} className="btn-ghost">
+        Sinh buổi học
+      </button>
+
+      <SlideOver
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Sinh buổi học theo lịch chuẩn"
+        description="Hệ thống sẽ tạo các buổi học trong khoảng ngày bạn chọn dựa trên lịch chuẩn của lớp."
+      >
+        <form onSubmit={submit} className="space-y-5">
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="form-group">
+              <span className="label">Từ ngày</span>
+              <input type="date" required className="input" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+            </label>
+
+            <label className="form-group">
+              <span className="label">Đến ngày</span>
+              <input type="date" required className="input" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+            </label>
+          </div>
+
+          {result ? <div className="alert-success">{result}</div> : null}
+          {error ? <div className="alert-danger">{error}</div> : null}
+
+          <div className="flex gap-3 border-t border-[#e6eefc] pt-4">
+            <button type="submit" disabled={loading} className="btn-primary">
+              {loading ? "Đang sinh..." : "Xác nhận sinh buổi học"}
+            </button>
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
+              Hủy
+            </button>
+          </div>
+        </form>
+      </SlideOver>
+    </>
   );
 }

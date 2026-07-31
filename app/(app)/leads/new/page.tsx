@@ -1,12 +1,21 @@
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/server/current-user";
 import LeadForm from "@/components/leads/LeadForm";
 
-export default function NewLeadPage() {
+export default async function NewLeadPage({ searchParams }: { searchParams: { returnTo?: string } }) {
+  const returnTo = searchParams.returnTo && searchParams.returnTo.startsWith("/") ? searchParams.returnTo : null;
+  const user = await getCurrentUser();
+  const classes = await prisma.class.findMany({
+    where: { ...(user?.branchId ? { branchId: user.branchId } : {}), status: "ACTIVE" },
+    orderBy: [{ className: "asc" }],
+    select: { id: true, classCode: true, className: true },
+  });
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="page-shell page-shell-form">
       <div className="flex items-center gap-4">
         <Link
-          href="/leads"
+          href={returnTo ?? "/leads"}
           className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-[#e8edf5] hover:bg-[#f8fafc] transition-colors"
         >
           <svg
@@ -31,7 +40,7 @@ export default function NewLeadPage() {
       </div>
 
       <div className="card">
-        <LeadForm />
+        <LeadForm redirectTo={returnTo ?? undefined} classes={classes} />
       </div>
     </div>
   );

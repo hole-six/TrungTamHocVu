@@ -6,6 +6,7 @@ import { canCreate, canCreateWithOverride, canUpdate } from "@/lib/server/role-m
 import { getValidBranchIdForCreation } from "@/lib/branch-filter";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { provisionGuardianPortalAccount } from "@/lib/server/guardian-accounts";
+import { generateCourseCharge } from "@/lib/server/billing-generation";
 
 type IntakeMode = "WAITLIST" | "ENROLL_NOW";
 
@@ -41,9 +42,11 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const mode = String(body.mode ?? "ENROLL_NOW").trim() as IntakeMode;
+  const existingStudentId = normalizeText(body.existingStudentId);
   const fullName = String(body.fullName ?? "").trim();
+  const resolvedFullName = existingStudentId ? fullName || null : fullName;
 
-  if (!fullName) {
+  if (!resolvedFullName) {
     return NextResponse.json({ error: "Thiếu họ tên học viên." }, { status: 400 });
   }
 
@@ -59,16 +62,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Không xác định được cơ sở." }, { status: 400 });
   }
 
-  if (!guardianName && !contactPhone) {
-    return NextResponse.json({ error: "Cần ít nhất tên phụ huynh hoặc số điện thoại liên hệ." }, { status: 400 });
-  }
-
   if (createPortalAccount && mode !== "ENROLL_NOW") {
     return NextResponse.json({ error: "Chỉ nên cấp tài khoản phụ huynh khi đã nhập học và liên kết học viên." }, { status: 400 });
   }
 
   if (createPortalAccount && !guardianEmail) {
     return NextResponse.json({ error: "Cần email phụ huynh để cấp tài khoản portal." }, { status: 400 });
+  }
+
+  if (existingStudentId && createPortalAccount) {
+    return NextResponse.json({ error: "Học viên đã có sẵn không cấp portal mới từ intake này." }, { status: 400 });
   }
 
   const classId = normalizeText(body.classId);
@@ -81,6 +84,37 @@ export async function POST(req: NextRequest) {
   }
   if (mode === "ENROLL_NOW" && !canEnrollDirectly) {
     return NextResponse.json({ error: "Bạn chưa có quyền ghi danh học viên vào lớp." }, { status: 403 });
+  }
+
+  const existingStudent = existingStudentId
+    ? await prisma.student.findFirst({
+        where: { id: existingStudentId, branchId },
+        include: {
+          guardians: {
+            where: { isPrimary: true },
+            include: { guardian: true },
+            take: 1,
+          },
+        },
+      })
+    : null;
+
+  if (existingStudentId && !existingStudent) {
+    return NextResponse.json({ error: "Không tìm thấy học viên đang có trong cơ sở hiện tại." }, { status: 404 });
+  }
+
+  if (existingStudent && mode === "ENROLL_NOW" && classId) {
+    const duplicateEnrollment = await prisma.enrollment.findFirst({
+      where: {
+        studentId: existingStudent.id,
+        classId,
+        status: { in: ["PENDING", "ACTIVE", "PAUSED"] },
+      },
+      select: { id: true },
+    });
+    if (duplicateEnrollment) {
+      return NextResponse.json({ error: "Học viên này đã có hoặc đang chờ enrollment ở lớp đã chọn." }, { status: 409 });
+    }
   }
 
   const selectedClass = classId
@@ -100,32 +134,41 @@ export async function POST(req: NextRequest) {
 
   const leadCode = normalizeText(body.leadCode) ?? `LEAD${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
   const studentCode = normalizeText(body.studentCode) ?? leadCode.replace(/^LEAD/i, "HV");
-  const existingLeadCode = await prisma.lead.findUnique({ where: { leadCode } });
 
+  const existingLeadCode = await prisma.lead.findUnique({ where: { leadCode } });
   if (existingLeadCode) {
     return NextResponse.json({ error: "Mã lead đã tồn tại." }, { status: 409 });
   }
 
-  if (mode === "ENROLL_NOW") {
+  if (mode === "ENROLL_NOW" && !existingStudent) {
     const existingStudentCode = await prisma.student.findUnique({ where: { studentCode } });
     if (existingStudentCode) {
       return NextResponse.json({ error: "Mã học viên đã tồn tại." }, { status: 409 });
     }
   }
 
-  const meetDate = normalizeDate(body.meetDate) ?? new Date();
+  const meetDate = normalizeDate(body.meetDate) ?? new Date("2026-07-31T00:00:00.000Z");
   const expectedStartDate = normalizeDate(body.expectedStartDate);
   const dob = normalizeDate(body.dob);
-  const enrollDate = normalizeDate(body.enrollDate) ?? new Date();
+  const enrollDate = normalizeDate(body.enrollDate) ?? new Date("2026-07-31T00:00:00.000Z");
   const notes = normalizeText(body.notes);
   const initialAssessment = normalizeText(body.initialAssessment);
   const source = normalizeText(body.source);
   const guardianRelation = normalizeText(body.guardianRelation);
-  const duplicateStudentWhere = dob
-    ? { branchId, fullName, dob }
-    : studentPhone ?? contactPhone
-      ? { branchId, fullName, phone: studentPhone ?? contactPhone }
-      : null;
+  const scholarshipPercent = body.scholarshipPercent !== undefined && body.scholarshipPercent !== "" ? Number(body.scholarshipPercent) : null;
+  const scholarshipReason = normalizeText(body.scholarshipReason);
+
+  if (scholarshipPercent !== null && (!Number.isFinite(scholarshipPercent) || scholarshipPercent < 0 || scholarshipPercent > 100)) {
+    return NextResponse.json({ error: "Phần trăm học bổng không hợp lệ (0-100)." }, { status: 400 });
+  }
+
+  const duplicateStudentWhere = existingStudent
+    ? null
+    : dob
+      ? { branchId, fullName: resolvedFullName, dob }
+      : studentPhone ?? contactPhone
+        ? { branchId, fullName: resolvedFullName, phone: studentPhone ?? contactPhone }
+        : null;
 
   const duplicateStudent = duplicateStudentWhere
     ? await prisma.student.findFirst({
@@ -139,22 +182,23 @@ export async function POST(req: NextRequest) {
       {
         error: `Đã có học viên trùng dữ liệu cơ bản trong hệ thống: ${duplicateStudent.fullName} (${duplicateStudent.studentCode}).`,
       },
-      { status: 409 }
+      { status: 409 },
     );
   }
 
   const result = await prisma.$transaction(async (tx) => {
-    let guardian = contactPhone
-      ? await tx.guardian.findFirst({
-          where: { phone: contactPhone },
-        })
-      : null;
+    let guardian = existingStudent?.guardians[0]?.guardian
+      ? existingStudent.guardians[0].guardian
+      : contactPhone
+        ? await tx.guardian.findFirst({ where: { phone: contactPhone } })
+        : null;
 
     if (guardian) {
       guardian = await tx.guardian.update({
         where: { id: guardian.id },
         data: {
           fullName: guardianName ?? guardian.fullName,
+          phone: contactPhone ?? guardian.phone,
           address: address ?? guardian.address,
           notes: notes ?? guardian.notes,
         },
@@ -174,7 +218,7 @@ export async function POST(req: NextRequest) {
       data: {
         branchId,
         leadCode,
-        fullName,
+        fullName: existingStudent?.fullName ?? resolvedFullName,
         gender: normalizeText(body.gender),
         dob,
         guardianId: guardian.id,
@@ -199,36 +243,50 @@ export async function POST(req: NextRequest) {
         mode,
         leadId: lead.id,
         studentId: null as string | null,
+        enrollmentId: null as string | null,
         guardianPortal: null as null | { email: string; tempPassword: string },
       };
     }
 
-    const student = await tx.student.create({
-      data: {
-        branchId,
-        studentCode,
-        fullName,
-        leadId: lead.id,
-        gender: normalizeText(body.gender),
-        dob,
-        phone: studentPhone ?? contactPhone,
-        address,
-        enrollDate,
-        referredBy: source,
-        notes,
-        evaluation: initialAssessment,
-        status: "ACTIVE",
-      },
-    });
+    const student = existingStudent
+      ? await tx.student.update({
+          where: { id: existingStudent.id },
+          data: {
+            phone: studentPhone ?? contactPhone ?? existingStudent.phone,
+            address: address ?? existingStudent.address,
+            notes: notes ?? existingStudent.notes,
+            evaluation: initialAssessment ?? existingStudent.evaluation,
+            referredBy: source ?? existingStudent.referredBy,
+          },
+        })
+      : await tx.student.create({
+          data: {
+            branchId,
+            studentCode,
+            fullName: resolvedFullName,
+            leadId: lead.id,
+            gender: normalizeText(body.gender),
+            dob,
+            phone: studentPhone ?? contactPhone,
+            address,
+            enrollDate,
+            referredBy: source,
+            notes,
+            evaluation: initialAssessment,
+            status: "ACTIVE",
+          },
+        });
 
-    await tx.studentGuardian.create({
-      data: {
-        studentId: student.id,
-        guardianId: guardian.id,
-        relation: guardianRelation,
-        isPrimary: true,
-      },
-    });
+    if (!existingStudent) {
+      await tx.studentGuardian.create({
+        data: {
+          studentId: student.id,
+          guardianId: guardian.id,
+          relation: guardianRelation,
+          isPrimary: true,
+        },
+      });
+    }
 
     const enrollment = await tx.enrollment.create({
       data: {
@@ -246,9 +304,21 @@ export async function POST(req: NextRequest) {
         enrollmentId: enrollment.id,
         toStatus: "ACTIVE",
         changedById: user.id,
-        reason: "Nhập học nhanh từ wizard",
+        reason: existingStudent ? "Ghi danh thêm lớp từ wizard" : "Nhập học nhanh từ wizard",
       },
     });
+
+    if (scholarshipPercent !== null && scholarshipPercent > 0) {
+      await tx.scholarship.create({
+        data: {
+          studentId: student.id,
+          enrollmentId: enrollment.id,
+          percentage: scholarshipPercent / 100,
+          reason: scholarshipReason,
+          effectiveFrom: enrollDate,
+        },
+      });
+    }
 
     let guardianPortal: null | { email: string; tempPassword: string } = null;
     if (createPortalAccount && guardianEmail) {
@@ -275,12 +345,22 @@ export async function POST(req: NextRequest) {
       mode,
       leadId: lead.id,
       studentId: student.id,
+      enrollmentId: enrollment.id,
       guardianPortal,
     };
   });
 
   if (result.studentId) {
     await syncStudentDerivedFields(result.studentId);
+  }
+
+  // Ghi danh xong là thu học phí trọn khóa ngay (xem generateCourseCharge) — không
+  // đợi tới kỳ thu tháng sau. Không chặn luồng intake nếu sinh học phí lỗi (vd lớp
+  // chưa cấu hình tổng buổi), chỉ ghi log để nhân sự tự xử lý sau.
+  let billingWarning: string | undefined;
+  if (result.enrollmentId) {
+    const chargeResult = await generateCourseCharge(result.enrollmentId);
+    if ("error" in chargeResult) billingWarning = chargeResult.error;
   }
 
   await prisma.auditLog.create({
@@ -302,8 +382,9 @@ export async function POST(req: NextRequest) {
       leadId: result.leadId,
       studentId: result.studentId,
       guardianPortal: result.guardianPortal,
+      billingWarning,
       redirectTo: result.studentId ? `/students/${result.studentId}?from=intake&focus=tuition` : `/leads/${result.leadId}?from=intake`,
     },
-    { status: 201 }
+    { status: 201 },
   );
 }

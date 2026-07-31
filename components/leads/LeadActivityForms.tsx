@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PLACEMENT_TEST_STATUSES, PLACEMENT_TEST_STATUS_LABEL } from "@/lib/server/lead-rules";
 
 type Tab = "interaction" | "appointment" | "test";
 
@@ -52,7 +53,7 @@ export default function LeadActivityForms({ leadId }: { leadId: string }) {
 
   const [interactionForm, setInteractionForm] = useState({ type: "CALL", content: "" });
   const [appointmentForm, setAppointmentForm] = useState({ scheduledAt: "", notes: "" });
-  const [testForm, setTestForm] = useState({ testDate: "", result: "", notes: "" });
+  const [testForm, setTestForm] = useState({ scheduledDate: "", testDate: "", status: "SCHEDULED", result: "", notes: "" });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -88,7 +89,7 @@ export default function LeadActivityForms({ leadId }: { leadId: string }) {
     setSuccess("Đã lưu thành công!");
     setInteractionForm({ type: "CALL", content: "" });
     setAppointmentForm({ scheduledAt: "", notes: "" });
-    setTestForm({ testDate: "", result: "", notes: "" });
+    setTestForm({ scheduledDate: "", testDate: "", status: "SCHEDULED", result: "", notes: "" });
     setTimeout(() => setSuccess(null), 3000);
     router.refresh();
   }
@@ -190,14 +191,35 @@ export default function LeadActivityForms({ leadId }: { leadId: string }) {
         {/* ── Tab: Kết quả test ── */}
         {tab === "test" && (
           <>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="form-group">
+                <label className="label">Ngày HẸN test</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={testForm.scheduledDate}
+                  onChange={(e) => setTestForm((f) => ({ ...f, scheduledDate: e.target.value }))}
+                />
+                <p className="form-hint">Ngày đặt hẹn qua điện thoại — để trống nếu ghi nhận luôn kết quả walk-in.</p>
+              </div>
+              <div className="form-group">
+                <label className="label">Ngày ĐẾN kiểm tra thực tế</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={testForm.testDate}
+                  onChange={(e) => setTestForm((f) => ({ ...f, testDate: e.target.value }))}
+                />
+                <p className="form-hint">Để trống nếu chỉ mới hẹn, chưa tới ngày test.</p>
+              </div>
+            </div>
             <div className="form-group">
-              <label className="label">Ngày test đầu vào</label>
-              <input
-                type="date"
-                className="input"
-                value={testForm.testDate}
-                onChange={(e) => setTestForm((f) => ({ ...f, testDate: e.target.value }))}
-              />
+              <label className="label">Tình trạng test</label>
+              <select className="input" value={testForm.status} onChange={(e) => setTestForm((f) => ({ ...f, status: e.target.value }))}>
+                {PLACEMENT_TEST_STATUSES.map((s) => (
+                  <option key={s} value={s}>{PLACEMENT_TEST_STATUS_LABEL[s]}</option>
+                ))}
+              </select>
             </div>
             <div className="form-group">
               <label className="label">Kết quả / Xếp lớp đề xuất</label>

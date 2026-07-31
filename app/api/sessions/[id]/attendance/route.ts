@@ -40,9 +40,18 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ roster, sessionStatus: session.status });
 }
 
+const ABSENCE_STATUSES = new Set(["ABSENT", "EXCUSED"]);
+
 // Lưu điểm danh cho cả lớp trong 1 buổi — đồng thời đánh dấu buổi học là đã hoàn
 // thành (việc điểm danh tức là buổi học đã diễn ra), thay cho cột TTHoc (C/K) cấp
 // lớp trong ChiTietLopHoc gốc nhưng chuẩn hóa xuống cấp học viên.
+//
+// Với học viên đã thu học phí TRỌN KHÓA (Charge.billingModel="COURSE"): mỗi lần điểm
+// danh CHUYỂN sang Vắng/Vắng có phép (dù trước đó là gì) sinh 1 "buổi dư"
+// (SessionCredit) để đăng ký học bù — vắng buổi nào vẫn tính tiền buổi đó, không giảm
+// học phí, bù lại bằng buổi dư (xem lib/server/billing-generation.ts generateCourseCharge).
+// Nếu sau đó sửa lại thành có mặt mà buổi dư đó CHƯA dùng (AVAILABLE) thì hủy
+// (VOIDED) — nếu đã dùng để học bù (CONSUMED) thì để nguyên, không tự động hủy được.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
@@ -59,19 +68,60 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Thiếu danh sách điểm danh" }, { status: 400 });
   }
 
-  await prisma.$transaction([
-    ...records.map((r) =>
-      prisma.studentAttendance.upsert({
+  const existingAttendances = await prisma.studentAttendance.findMany({ where: { sessionId: session.id } });
+  const oldStatusByStudent = new Map(existingAttendances.map((a) => [a.studentId, a.status]));
+
+  const newlyAbsentIds = records.filter((r) => !ABSENCE_STATUSES.has(oldStatusByStudent.get(r.studentId) ?? "") && ABSENCE_STATUSES.has(r.status)).map((r) => r.studentId);
+  const newlyPresentIds = records.filter((r) => ABSENCE_STATUSES.has(oldStatusByStudent.get(r.studentId) ?? "") && !ABSENCE_STATUSES.has(r.status)).map((r) => r.studentId);
+
+  const [courseEnrollments, existingCredits] = await Promise.all([
+    newlyAbsentIds.length > 0
+      ? prisma.enrollment.findMany({
+          where: {
+            studentId: { in: newlyAbsentIds },
+            classId: session.classId,
+            status: "ACTIVE",
+            student: { charges: { some: { classId: session.classId, billingModel: "COURSE" } } },
+          },
+        })
+      : Promise.resolve([]),
+    prisma.sessionCredit.findMany({ where: { sourceSessionId: session.id, studentId: { in: [...newlyAbsentIds, ...newlyPresentIds] } } }),
+  ]);
+  const existingCreditByStudent = new Map(existingCredits.map((c) => [c.studentId, c]));
+
+  await prisma.$transaction(async (tx) => {
+    for (const r of records) {
+      await tx.studentAttendance.upsert({
         where: { sessionId_studentId: { sessionId: session.id, studentId: r.studentId } },
         create: { sessionId: session.id, studentId: r.studentId, status: r.status },
         update: { status: r.status },
-      })
-    ),
-    prisma.classSession.update({
+      });
+    }
+
+    for (const enrollment of courseEnrollments) {
+      const credit = existingCreditByStudent.get(enrollment.studentId);
+      if (!credit) {
+        await tx.sessionCredit.create({
+          data: { studentId: enrollment.studentId, enrollmentId: enrollment.id, sourceSessionId: session.id, status: "AVAILABLE" },
+        });
+      } else if (credit.status === "VOIDED") {
+        await tx.sessionCredit.update({ where: { id: credit.id }, data: { status: "AVAILABLE" } });
+      }
+      // status AVAILABLE/CONSUMED sẵn rồi thì để nguyên, không tạo trùng (unique studentId+sourceSessionId).
+    }
+
+    for (const studentId of newlyPresentIds) {
+      const credit = existingCreditByStudent.get(studentId);
+      if (credit && credit.status === "AVAILABLE") {
+        await tx.sessionCredit.update({ where: { id: credit.id }, data: { status: "VOIDED" } });
+      }
+    }
+
+    await tx.classSession.update({
       where: { id: session.id },
       data: { status: "COMPLETED", completedAt: new Date() },
-    }),
-  ]);
+    });
+  });
 
   return NextResponse.json({ ok: true });
 }

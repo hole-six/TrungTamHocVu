@@ -11,10 +11,14 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();
+  const category = searchParams.get("category")?.trim();
+  const status = searchParams.get("status")?.trim();
 
   const items = await prisma.asset.findMany({
     where: {
       ...(await getBranchWhereClause(searchParams.get("branchId"))),
+      ...(category ? { category } : {}),
+      ...(status ? { status } : {}),
       ...(q ? { OR: [{ name: { contains: q } }, { category: { contains: q } }, { room: { contains: q } }] } : {}),
     },
     orderBy: { name: "asc" },
@@ -50,6 +54,7 @@ export async function POST(req: NextRequest) {
         name,
         category: body.category || null,
         room: body.room || null,
+        unitName: body.unitName || null,
         unitValue: body.unitValue ? Number(body.unitValue) : null,
         notes: body.notes || null,
       },

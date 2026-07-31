@@ -135,26 +135,34 @@ export default async function StudentsPage({
         ) : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {[
-          { label: "Tổng học viên", value: total, tone: "text-slate-900", bg: "from-slate-50 to-white" },
-          { label: "Đang học", value: stats.ACTIVE ?? 0, tone: "text-emerald-700", bg: "from-emerald-50 to-white" },
-          { label: "Đã nghỉ", value: stats.LEFT ?? 0, tone: "text-rose-700", bg: "from-rose-50 to-white" },
-          {
-            label: "Có portal phụ huynh",
-            value: normalizedItems.filter((item) => item.primaryGuardian?.user?.isActive).length,
-            tone: "text-sky-700",
-            bg: "from-sky-50 to-white",
-          },
-        ].map((card) => (
-          <div
-            key={card.label}
-            className={`rounded-[26px] border border-[#e4ebf8] bg-gradient-to-br ${card.bg} p-5 shadow-[0_20px_55px_-40px_rgba(15,23,42,0.45)]`}
-          >
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">{card.label}</p>
-            <p className={`mt-3 text-3xl font-semibold tracking-tight ${card.tone}`}>{card.value}</p>
-          </div>
-        ))}
+          { label: "Tổng học viên", value: total, tone: "text-slate-900", bg: "from-slate-50 to-white", filterStatus: null },
+          { label: "Đang học", value: stats.ACTIVE ?? 0, tone: "text-emerald-700", bg: "from-emerald-50 to-white", filterStatus: "ACTIVE" },
+          { label: "Đã nghỉ", value: stats.LEFT ?? 0, tone: "text-rose-700", bg: "from-rose-50 to-white", filterStatus: "LEFT" },
+          { label: "Có portal phụ huynh", value: portalCount, tone: "text-sky-700", bg: "from-sky-50 to-white", filterStatus: undefined },
+          { label: "Đang có công nợ", value: debtCount, tone: "text-amber-700", bg: "from-amber-50 to-white", filterStatus: undefined },
+        ].map((card) => {
+          const isFilterable = card.filterStatus !== undefined;
+          const isActive = isFilterable && status === (card.filterStatus ?? "");
+          const body = (
+            <div
+              className={`rounded-[26px] border bg-gradient-to-br ${card.bg} p-5 shadow-[0_20px_55px_-40px_rgba(15,23,42,0.45)] transition ${
+                isActive ? "border-primary ring-2 ring-primary/20" : "border-[#e4ebf8]"
+              } ${isFilterable ? "hover:-translate-y-0.5 hover:shadow-md" : ""}`}
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">{card.label}</p>
+              <p className={`mt-3 text-3xl font-semibold tracking-tight ${card.tone}`}>{card.value}</p>
+            </div>
+          );
+          return isFilterable ? (
+            <Link key={card.label} href={card.filterStatus ? `/students?status=${card.filterStatus}` : "/students"} className="block">
+              {body}
+            </Link>
+          ) : (
+            <div key={card.label}>{body}</div>
+          );
+        })}
       </div>
 
       <ModuleActionHub
@@ -164,12 +172,6 @@ export default async function StudentsPage({
           { label: "Thêm học viên", description: "Tạo mới hồ sơ học viên khi đi ngoài luồng intake hoặc cần nhập thủ công.", href: "/students/new", tone: "primary" },
           { label: "Mở lớp học", description: "Đi sang lớp để ghi danh, xem điểm danh và nhật ký buổi học.", href: "/classes", tone: "success" },
           { label: "Theo dõi học phí", description: "Mở công nợ và kỳ thu để xử lý học viên đang còn nợ.", href: "/tuition", tone: "warning" },
-        ]}
-        metrics={[
-          { label: "Tổng học viên", value: total, hint: "Toàn bộ hồ sơ đang có" },
-          { label: "Đang học", value: stats.ACTIVE ?? 0, hint: "Học viên active", tone: "success" },
-          { label: "Có portal PH", value: portalCount, hint: "PH chính đã có tài khoản", tone: "info" },
-          { label: "Đang nợ", value: debtCount, hint: "Có công nợ cần theo dõi", tone: "danger" },
         ]}
       />
 

@@ -252,8 +252,11 @@ model Lead {
   fullName           String    @map("full_name") // HoTenHV
   gender             String? // GioiTinh
   dob                DateTime? // DoB
+  currentSchoolGrade String?   @map("current_school_grade") // Lớp đang học ở trường (khác lớp dự kiến ở trung tâm)
   guardianId         String?   @map("guardian_id")
-  phone              String? // Sdt
+  phone              String? // Sdt (mẹ)
+  secondaryPhone     String?   @map("secondary_phone") // Sdt thứ 2 (thường là bố) — DSTest có 2 dòng Sdt
+  zaloContact        String?   @map("zalo_contact") // Zalo phụ huynh (Word: "Facebook/Zalo của bố mẹ")
   address            String? // DiaChiNha
   meetDate           DateTime? @map("meet_date") // NgayGap
   interestedClassId  String?   @map("interested_class_id") // TenLop quan tâm
@@ -310,14 +313,20 @@ model Appointment {
   @@map("appointments")
 }
 
+// Tách rõ 2 mốc ngày (yêu cầu nghiệp vụ): scheduledDate là ngày NHÂN VIÊN HẸN phụ
+// huynh sẽ đưa con tới test (đặt lúc gọi điện, trước khi test diễn ra); testDate là
+// ngày HỌ THỰC SỰ ĐẾN kiểm tra (có thể khác scheduledDate nếu dời lịch, hoặc null nếu
+// chưa tới). Mỗi ngày cần nhắc hẹn riêng vì có thể lệch nhau.
 model PlacementTest {
   id             String    @id @default(uuid())
   leadId         String    @map("lead_id")
-  testDate       DateTime? @map("test_date") // NgayTest
-  status         String    @default("PENDING") @map("status") // Tình trạng test
+  scheduledDate  DateTime? @map("scheduled_date") // Ngày HẸN test (nhắc hẹn)
+  testDate       DateTime? @map("test_date") // Ngày ĐẾN kiểm tra thực tế (nhắc hẹn nếu vẫn ở tương lai)
+  status         String    @default("SCHEDULED") @map("status") // SCHEDULED|PASSED|FAILED|NO_NEED|CANCELLED
   suggestedClass String?   @map("suggested_class") // LopHoc suy ra từ tuổi
   result         String?
   notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
 
   lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
@@ -365,6 +374,7 @@ model Student {
   statusHistory    EnrollmentStatusHistory[]
   schoolExamScores SchoolExamScore[]
   journalEntries   JournalEntry[]
+  sessionCredits   SessionCredit[]
 
   @@index([status])
   @@map("students")
@@ -448,9 +458,29 @@ model Class {
   charges       Charge[]
   feePolicies   FeePolicy[]
   classTasks    ClassTask[]
+  roadmapItems  ClassRoadmapItem[]
 
   @@index([status])
   @@map("classes")
+}
+
+model ClassRoadmapItem {
+  id            String   @id @default(uuid())
+  classId        String   @map("class_id")
+  sessionNumber  Int      @map("session_number")
+  title          String   @default("")
+  objective      String?  @map("objective")
+  materials      String?  @map("materials")
+  teacherGuide   String?  @map("teacher_guide")
+  homeworkGuide  String?  @map("homework_guide")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, sessionNumber])
+  @@index([classId, sessionNumber])
+  @@map("class_roadmap_items")
 }
 
 model ScheduleRule {
@@ -480,10 +510,20 @@ model ClassSession {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
+  // Đổi buổi (dời lịch) = 1-1: buổi gốc chuyển status RESCHEDULED, buổi bù mới trỏ
+  // replacesSessionId về buổi gốc — giữ đúng tổng số buổi của khóa (1 buổi dời đi,
+  // đúng 1 buổi bù thay vào, không tự sinh thêm/mất buổi). @unique đảm bảo 1 buổi
+  // gốc chỉ có đúng 1 buổi bù duy nhất.
+  replacesSessionId String?       @unique @map("replaces_session_id")
+  replacesSession   ClassSession? @relation("SessionReschedule", fields: [replacesSessionId], references: [id])
+  replacedBySession ClassSession? @relation("SessionReschedule")
+
   class       Class                @relation(fields: [classId], references: [id], onDelete: Cascade)
   assignments SessionAssignment[]
   attendances StudentAttendance[]
   journal     ClassSessionJournal?
+  creditsFromAbsence   SessionCredit[] @relation("SessionCreditSource")
+  creditsRedeemedHere  SessionCredit[] @relation("SessionCreditConsumed")
 
   @@index([classId, sessionDate])
   @@map("class_sessions")
@@ -508,6 +548,23 @@ model SessionAssignment {
   hourlyRate        Int?    @map("hourly_rate") // Luongh_GV / Luongh_TG (snapshot tại thời điểm tính)
   amount            Int? // Tien_GV / Tien_TG (snapshot)
 
+  // Check-in/check-out THỰC TẾ của GV/TG tại buổi học — CHỈ là log xác nhận đã có
+  // mặt/đã rời lớp, KHÔNG tự động đổi "hours" ở trên (hours vẫn tính theo khung giờ
+  // lịch như cũ, đã kiểm chứng kỹ cho payroll). Muốn đối chiếu giờ lịch vs giờ thực
+  // tế thì admin tự xem 2 cột này với hours rồi sửa deductedHours/addedHours tay.
+  checkInAt  DateTime? @map("check_in_at")
+  checkOutAt DateTime? @map("check_out_at")
+
+  // Dạy thay đột xuất — phải trỏ ĐÍCH DANH bản ghi phân công gốc bị thay, không chỉ
+  // đánh dấu isSubstituteShift chung chung, để biết chính xác "ai thay ai, buổi nào"
+  // đúng thực tế vận hành. @unique: 1 phân công gốc chỉ có đúng 1 người thay tại 1
+  // thời điểm. Khi tạo bản ghi thay thế, giờ công của phân công GỐC bị trừ về 0 (xem
+  // route /api/session-assignments/[id]/substitute) — người không dạy không được tính
+  // công buổi đó, người dạy thay được tính công đầy đủ trên bản ghi CỦA HỌ.
+  substituteForId String?             @unique @map("substitute_for_id")
+  substituteFor   SessionAssignment?  @relation("SessionSubstitute", fields: [substituteForId], references: [id])
+  substitutedBy   SessionAssignment?  @relation("SessionSubstitute")
+
   session  ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   employee Employee     @relation(fields: [employeeId], references: [id])
 
@@ -530,9 +587,39 @@ model Enrollment {
   student       Student                   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   class         Class                     @relation(fields: [classId], references: [id])
   statusHistory EnrollmentStatusHistory[]
+  scholarships  Scholarship[]
+  sessionCredits SessionCredit[]
 
   @@index([status])
   @@map("enrollments")
+}
+
+// Buổi dư (session credit) — sinh ra khi học viên VẮNG (có phép hay không đều như
+// nhau) ở 1 buổi thuộc khóa đã thu học phí trọn khóa (Charge.billingModel="COURSE"):
+// buổi đó đã trả tiền nhưng chưa học, nên tự động thành 1 credit AVAILABLE để đăng ký
+// học bù ở buổi khác (redeem → tạo StudentAttendance status=MAKEUP ở buổi đích, credit
+// chuyển CONSUMED). Nếu điểm danh bị sửa lại từ vắng thành có mặt mà credit đó vẫn
+// còn AVAILABLE (chưa dùng) thì credit bị hủy (VOIDED) — không hủy được nếu đã CONSUMED
+// (đã lỡ dùng để học bù rồi, phải xử lý tay). Khác hẳn CreditBalance (credit bằng TIỀN,
+// do overpay) — đây là credit bằng BUỔI, không quy đổi qua lại.
+model SessionCredit {
+  id                String    @id @default(uuid())
+  studentId         String    @map("student_id")
+  enrollmentId      String    @map("enrollment_id")
+  sourceSessionId   String    @map("source_session_id") // buổi bị vắng sinh ra credit này
+  status            String    @default("AVAILABLE") // AVAILABLE | CONSUMED | VOIDED
+  consumedSessionId String?   @map("consumed_session_id") // buổi học bù đã dùng credit này
+  consumedAt        DateTime? @map("consumed_at")
+  notes             String?
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  student         Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollment      Enrollment   @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  sourceSession   ClassSession @relation("SessionCreditSource", fields: [sourceSessionId], references: [id], onDelete: Cascade)
+  consumedSession ClassSession? @relation("SessionCreditConsumed", fields: [consumedSessionId], references: [id])
+
+  @@unique([studentId, sourceSessionId])
+  @@map("session_credits")
 }
 
 // Điểm danh theo học viên/buổi — chuẩn hóa từ cột TTHoc (C/K) cấp lớp trong Excel
@@ -694,6 +781,13 @@ model Charge {
   materialsAmount Int      @default(0) @map("materials_amount") // TienGiaoTrinh
   openingBalance  Int      @default(0) @map("opening_balance") // HP dau ky
   totalAmount     Int      @map("total_amount") // TongHP
+  // "PERIOD" (mặc định, giữ nguyên hành vi cũ) = charge sinh theo từng kỳ thu hàng
+  // tháng dựa trên buổi ĐÃ học trong tháng. "COURSE" = charge MỚI, thu 1 LẦN DUY NHẤT
+  // cho trọn khóa ngay lúc ghi danh (sessionCount = tổng buổi cả khóa, không phải buổi
+  // đã học) — billingPeriodId vẫn giữ (gắn vào kỳ lúc ghi danh, chỉ để phân loại/báo
+  // cáo, KHÔNG giới hạn theo tháng đó). Sweep tự động hằng tháng phải bỏ qua enrollment
+  // đã có charge "COURSE" — xem generateChargesForPeriod trong billing-generation.ts.
+  billingModel    String   @default("PERIOD") @map("billing_model")
   notes           String?
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -757,16 +851,22 @@ model PaymentAllocation {
   @@map("payment_allocations")
 }
 
+// Học bổng gắn theo TỪNG ghi danh (enrollmentId) chứ không gắn thẳng vào học viên —
+// một học viên học nhiều khóa có thể có mức học bổng khác nhau cho từng khóa, và học
+// bổng của khóa đã nghỉ không được lẫn vào tính học phí của khóa đang học (BR-SCH).
 model Scholarship {
   id            String    @id @default(uuid())
   studentId     String    @map("student_id")
-  percentage    Float     @default(0) // Hoc bong
+  enrollmentId  String    @map("enrollment_id")
+  percentage    Float     @default(0) // Hoc bong, dang phan so 0-1
   reason        String?
   effectiveFrom DateTime  @map("effective_from")
   effectiveTo   DateTime? @map("effective_to")
 
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 
+  @@index([enrollmentId])
   @@map("scholarships")
 }
 
@@ -820,6 +920,7 @@ model Book {
   id             String  @id @default(uuid())
   branchId       String  @map("branch_id")
   bookCode       String? @map("book_code")
+  category       String? // Danh mục sách, trống = Sách khác
   name           String // TenSach
   unitPrice      Int     @map("unit_price") // DonGia
   usageStatus    String? @map("usage_status") // Tình trạng sử dụng
@@ -1127,6 +1228,7 @@ model Asset {
   name      String // "Điều hòa Panasonic 1 chiều", "Bàn học sinh"...
   category  String? // "Điện lạnh", "Nội thất", "Thiết bị văn phòng"...
   room      String? // vị trí/phòng hiện tại
+  unitName  String?  @map("unit_name") // đơn vị tính: cái, bộ, chiếc...
   unitValue Int?     @map("unit_value") // giá trị/đơn vị (VNĐ)
   status    String   @default("ACTIVE") // ACTIVE | MAINTENANCE | BROKEN | DISPOSED
   notes     String?

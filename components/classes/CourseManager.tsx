@@ -2,14 +2,28 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import SlideOver from "@/components/ui/SlideOver";
 
-type Course = { id: string; code: string; name: string; tuitionPerSession: number; sessionsPerWeek: number; isActive: boolean };
+type Course = {
+  id: string;
+  code: string;
+  name: string;
+  tuitionPerSession: number;
+  sessionsPerWeek: number;
+  isActive: boolean;
+};
 
-function formatVnd(n: number) {
-  return n.toLocaleString("vi-VN") + "đ";
+function formatVnd(amount: number) {
+  return `${amount.toLocaleString("vi-VN")}đ`;
 }
 
-function CourseEditRow({ course, onDone }: { course: Course; onDone: () => void }) {
+function CourseEditor({
+  course,
+  onClose,
+}: {
+  course: Course;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [form, setForm] = useState({
     name: course.name,
@@ -20,40 +34,74 @@ function CourseEditRow({ course, onDone }: { course: Course; onDone: () => void 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
     setLoading(true);
     setError(null);
-    const res = await fetch(`/api/courses/${course.id}`, {
+
+    const response = await fetch(`/api/courses/${course.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
+    const result = await response.json().catch(() => ({}));
     setLoading(false);
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error ?? "Không thể cập nhật khóa học.");
+
+    if (!response.ok) {
+      setError(result.error ?? "Không thể cập nhật khóa học.");
       return;
     }
-    onDone();
+
+    onClose();
     router.refresh();
   }
 
   return (
-    <form onSubmit={save} className="rounded-xl border border-[#e8edf5] bg-[#fafbff] p-3 space-y-2">
-      <input className="input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-      <div className="grid grid-cols-2 gap-2">
-        <input type="number" className="input font-mono" value={form.tuitionPerSession} onChange={(e) => setForm((f) => ({ ...f, tuitionPerSession: e.target.value }))} />
-        <input type="number" className="input font-mono" value={form.sessionsPerWeek} onChange={(e) => setForm((f) => ({ ...f, sessionsPerWeek: e.target.value }))} />
-      </div>
-      <label className="flex items-center gap-2 text-xs text-ink-muted80">
-        <input type="checkbox" checked={form.isActive} onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))} />
-        Đang áp dụng
+    <form onSubmit={save} className="space-y-5">
+      <label className="form-group">
+        <span className="label">Tên khóa học</span>
+        <input className="input" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
       </label>
-      {error && <div className="alert-danger text-xs">{error}</div>}
-      <div className="flex gap-2">
-        <button type="submit" disabled={loading} className="btn-ghost-sm">{loading ? "Đang lưu..." : "Lưu"}</button>
-        <button type="button" onClick={onDone} className="btn-ghost-sm">Hủy</button>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <label className="form-group">
+          <span className="label">Học phí / buổi</span>
+          <input
+            type="number"
+            min={0}
+            className="input"
+            value={form.tuitionPerSession}
+            onChange={(event) => setForm((current) => ({ ...current, tuitionPerSession: event.target.value }))}
+          />
+        </label>
+
+        <label className="form-group">
+          <span className="label">Số buổi / tuần</span>
+          <input
+            type="number"
+            min={1}
+            max={7}
+            className="input"
+            value={form.sessionsPerWeek}
+            onChange={(event) => setForm((current) => ({ ...current, sessionsPerWeek: event.target.value }))}
+          />
+        </label>
+      </div>
+
+      <label className="flex items-center gap-3 rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm font-medium text-ink">
+        <input type="checkbox" checked={form.isActive} onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))} />
+        Khóa học này đang được áp dụng để tạo lớp mới
+      </label>
+
+      {error ? <div className="alert-danger">{error}</div> : null}
+
+      <div className="flex gap-3 border-t border-[#e6eefc] pt-4">
+        <button type="submit" disabled={loading} className="btn-primary">
+          {loading ? "Đang lưu..." : "Lưu thay đổi"}
+        </button>
+        <button type="button" onClick={onClose} className="btn-ghost">
+          Hủy
+        </button>
       </div>
     </form>
   );
@@ -61,139 +109,170 @@ function CourseEditRow({ course, onDone }: { course: Course; onDone: () => void 
 
 export default function CourseManager({ courses }: { courses: Course[] }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [openCreate, setOpenCreate] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [form, setForm] = useState({ code: "", name: "", tuitionPerSession: "", sessionsPerWeek: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
+  async function create(event: React.FormEvent) {
+    event.preventDefault();
     setLoading(true);
     setError(null);
-    const res = await fetch("/api/courses", {
+
+    const response = await fetch("/api/courses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
+    const result = await response.json().catch(() => ({}));
     setLoading(false);
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error ?? "Không thể tạo khóa học.");
+
+    if (!response.ok) {
+      setError(result.error ?? "Không thể tạo khóa học.");
       return;
     }
+
     setForm({ code: "", name: "", tuitionPerSession: "", sessionsPerWeek: "" });
-    setOpen(false);
+    setOpenCreate(false);
     router.refresh();
   }
 
   return (
-    <div className="card">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-            </svg>
-          </div>
+    <>
+      <div className="card">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="font-display text-base font-bold tracking-tight text-ink">Khóa học</h2>
-            <p className="text-xs text-ink-muted48">{courses.length} khóa</p>
+            <h2 className="font-display text-lg font-semibold tracking-tight">Danh mục khóa học chuẩn</h2>
+            <p className="mt-1 text-sm text-ink-muted48">
+              Đây là nơi khai báo khóa học gốc để lớp học tự lấy học phí mỗi buổi và số buổi mỗi tuần khi tạo mới.
+            </p>
           </div>
+          <button onClick={() => setOpenCreate(true)} className="btn-primary">
+            + Thêm khóa học
+          </button>
         </div>
-        <button onClick={() => setOpen(!open)} className="btn-ghost-sm">
-          {open ? "Đóng" : "+ Thêm khóa học"}
-        </button>
+
+        <div className="mt-5 table-container">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Mã khóa</th>
+                <th>Tên khóa học</th>
+                <th>Học phí / buổi</th>
+                <th>Số buổi / tuần</th>
+                <th>Trạng thái</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {courses.map((course) => (
+                <tr key={course.id}>
+                  <td className="font-mono font-semibold text-primary">{course.code}</td>
+                  <td>{course.name}</td>
+                  <td>{formatVnd(course.tuitionPerSession)}</td>
+                  <td>{course.sessionsPerWeek}</td>
+                  <td>
+                    <span className={course.isActive ? "badge-green" : "badge-gray"}>
+                      {course.isActive ? "Đang áp dụng" : "Ngừng áp dụng"}
+                    </span>
+                  </td>
+                  <td className="text-right">
+                    <button onClick={() => setEditingCourse(course)} className="btn-ghost-sm">
+                      Sửa
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {courses.length === 0 ? (
+                <tr className="table-empty">
+                  <td colSpan={6}>Chưa có khóa học chuẩn nào.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* List */}
-      <div className="space-y-2 mb-4">
-        {courses.map((c) =>
-          editingId === c.id ? (
-            <CourseEditRow key={c.id} course={c} onDone={() => setEditingId(null)} />
-          ) : (
-            <div key={c.id} className="flex items-center justify-between rounded-xl border border-[#e8edf5] bg-white px-3.5 py-3">
-              <div>
-                <p className="text-sm font-bold text-ink">
-                  <span className="font-mono text-xs text-ink-muted48 mr-2">[{c.code}]</span>
-                  {c.name}
-                  {!c.isActive && <span className="badge-gray ml-2 align-middle text-[10px]">Ngừng áp dụng</span>}
-                </p>
-                <p className="text-xs text-ink-muted48 mt-0.5">
-                  {formatVnd(c.tuitionPerSession)}/buổi · {c.sessionsPerWeek} buổi/tuần
-                </p>
-              </div>
-              <button onClick={() => setEditingId(c.id)} className="btn-ghost-sm">Sửa</button>
-            </div>
-          )
-        )}
-        {courses.length === 0 && (
-          <div className="rounded-xl border border-dashed border-[#e2e8f0] py-5 text-center">
-            <p className="text-sm text-ink-muted48">Chưa có khóa học nào.</p>
+      <SlideOver
+        open={openCreate}
+        onClose={() => setOpenCreate(false)}
+        title="Thêm khóa học chuẩn"
+        description="Khai báo khóa học gốc để khi tạo lớp, hệ thống tự điền học phí mỗi buổi và số buổi học trong tuần."
+      >
+        <form onSubmit={create} className="space-y-5">
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="form-group">
+              <span className="label">Mã khóa học</span>
+              <input
+                required
+                className="input"
+                placeholder="Ví dụ: FF3"
+                value={form.code}
+                onChange={(event) => setForm((current) => ({ ...current, code: event.target.value }))}
+              />
+            </label>
+
+            <label className="form-group">
+              <span className="label">Tên khóa học</span>
+              <input
+                required
+                className="input"
+                placeholder="Ví dụ: First Friends 3"
+                value={form.name}
+                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+              />
+            </label>
+
+            <label className="form-group">
+              <span className="label">Học phí / buổi</span>
+              <input
+                type="number"
+                required
+                min={0}
+                className="input"
+                placeholder="200000"
+                value={form.tuitionPerSession}
+                onChange={(event) => setForm((current) => ({ ...current, tuitionPerSession: event.target.value }))}
+              />
+            </label>
+
+            <label className="form-group">
+              <span className="label">Số buổi / tuần</span>
+              <input
+                type="number"
+                required
+                min={1}
+                max={7}
+                className="input"
+                placeholder="2"
+                value={form.sessionsPerWeek}
+                onChange={(event) => setForm((current) => ({ ...current, sessionsPerWeek: event.target.value }))}
+              />
+            </label>
           </div>
-        )}
-      </div>
 
-      {/* Create form */}
-      {open && (
-        <div className="rounded-xl border border-[#e8edf5] bg-[#fafbff] p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-ink-muted48 mb-3">+ Thêm khóa học mới</p>
-          <form onSubmit={create} className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="form-group">
-                <label className="label">Mã khóa</label>
-                <input
-                  required
-                  className="input font-mono"
-                  placeholder="VD: FF3"
-                  value={form.code}
-                  onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label className="label">Tên khóa học</label>
-                <input
-                  required
-                  className="input"
-                  placeholder="VD: First Friends 3"
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="form-group">
-                <label className="label">Học phí / buổi (đ)</label>
-                <input
-                  type="number"
-                  required
-                  className="input font-mono"
-                  placeholder="200000"
-                  value={form.tuitionPerSession}
-                  onChange={(e) => setForm((f) => ({ ...f, tuitionPerSession: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label className="label">Buổi/tuần</label>
-                <input
-                  type="number"
-                  required
-                  className="input font-mono"
-                  placeholder="2"
-                  value={form.sessionsPerWeek}
-                  onChange={(e) => setForm((f) => ({ ...f, sessionsPerWeek: e.target.value }))}
-                />
-              </div>
-            </div>
-            {error && <div className="alert-danger text-xs">{error}</div>}
-            <button type="submit" disabled={loading} className="btn-ghost-sm w-full border-dashed hover:border-primary hover:text-primary">
-              {loading ? "Đang lưu..." : "+ Thêm khóa học"}
+          {error ? <div className="alert-danger">{error}</div> : null}
+
+          <div className="flex gap-3 border-t border-[#e6eefc] pt-4">
+            <button type="submit" disabled={loading} className="btn-primary">
+              {loading ? "Đang lưu..." : "Lưu khóa học"}
             </button>
-          </form>
-        </div>
-      )}
-    </div>
+            <button type="button" onClick={() => setOpenCreate(false)} className="btn-ghost">
+              Hủy
+            </button>
+          </div>
+        </form>
+      </SlideOver>
+
+      <SlideOver
+        open={Boolean(editingCourse)}
+        onClose={() => setEditingCourse(null)}
+        title="Sửa khóa học"
+        description="Cập nhật học phí, số buổi mỗi tuần hoặc trạng thái áp dụng của khóa học này."
+      >
+        {editingCourse ? <CourseEditor course={editingCourse} onClose={() => setEditingCourse(null)} /> : null}
+      </SlideOver>
+    </>
   );
 }

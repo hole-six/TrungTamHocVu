@@ -34,9 +34,11 @@ export async function computeOpeningBalance(
 // Tổng công nợ hiện tại của học viên (mọi kỳ, mọi lớp) — dùng cho dashboard/trang
 // chi tiết học viên, thay cho việc dò cột "HP tồn" cộng dồn thủ công.
 export async function computeOutstandingBalance(studentId: string) {
-  const [chargeTotal, allocatedTotal] = await Promise.all([
+  const [chargeTotal, allocatedTotal, unusedCredits] = await Promise.all([
     prisma.charge.aggregate({ where: { studentId }, _sum: { totalAmount: true } }),
     prisma.paymentAllocation.aggregate({ where: { charge: { studentId } }, _sum: { amount: true } }),
+    prisma.creditBalance.findMany({ where: { studentId, usedAt: null } }),
   ]);
-  return (chargeTotal._sum.totalAmount ?? 0) - (allocatedTotal._sum.amount ?? 0);
+  const creditAmount = unusedCredits.reduce((sum, credit) => sum + credit.amount, 0);
+  return (chargeTotal._sum.totalAmount ?? 0) - (allocatedTotal._sum.amount ?? 0) - creditAmount;
 }

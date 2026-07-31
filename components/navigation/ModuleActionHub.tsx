@@ -33,12 +33,12 @@ export default function ModuleActionHub({
   title,
   subtitle,
   actions,
-  metrics,
+  metrics = [],
 }: {
   title: string;
   subtitle: string;
   actions: ModuleAction[];
-  metrics: ModuleMetric[];
+  metrics?: ModuleMetric[];
 }) {
   return (
     <div className="space-y-4">

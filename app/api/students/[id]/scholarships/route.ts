@@ -21,9 +21,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Tỉ lệ học bổng phải trong khoảng 0–1 (vd 0.2 = 20%)" }, { status: 400 });
   }
 
+  const enrollmentId = String(body.enrollmentId ?? "").trim();
+  if (!enrollmentId) {
+    return NextResponse.json({ error: "Học bổng phải gắn với một ghi danh (khóa/lớp) cụ thể." }, { status: 400 });
+  }
+  const enrollment = await prisma.enrollment.findFirst({ where: { id: enrollmentId, studentId: params.id } });
+  if (!enrollment) {
+    return NextResponse.json({ error: "Ghi danh không hợp lệ hoặc không thuộc học viên này." }, { status: 400 });
+  }
+
   const scholarship = await prisma.scholarship.create({
     data: {
       studentId: params.id,
+      enrollmentId,
       percentage,
       reason: body.reason || null,
       effectiveFrom: body.effectiveFrom ? new Date(body.effectiveFrom) : new Date(),

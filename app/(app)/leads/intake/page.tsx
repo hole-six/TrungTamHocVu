@@ -6,7 +6,7 @@ export default async function EnrollmentIntakePage() {
   const user = await getCurrentUser();
   const branchWhere = user?.branchId ? { branchId: user.branchId } : {};
 
-  const [courses, classes] = await Promise.all([
+  const [courses, classes, students] = await Promise.all([
     prisma.course.findMany({
       where: { ...branchWhere, isActive: true },
       orderBy: [{ code: "asc" }, { name: "asc" }],
@@ -28,6 +28,7 @@ export default async function EnrollmentIntakePage() {
         courseId: true,
         tuitionPerSession: true,
         sessionsPerWeek: true,
+        totalSessions: true,
         startDate: true,
         course: {
           select: {
@@ -39,6 +40,30 @@ export default async function EnrollmentIntakePage() {
           select: {
             enrollments: {
               where: { status: "ACTIVE" },
+            },
+          },
+        },
+      },
+    }),
+    prisma.student.findMany({
+      where: { ...branchWhere, status: "ACTIVE" },
+      orderBy: [{ fullName: "asc" }],
+      select: {
+        id: true,
+        fullName: true,
+        studentCode: true,
+        studentDisplayId: true,
+        phone: true,
+        enrollments: {
+          where: { status: { in: ["ACTIVE", "PAUSED", "PENDING"] } },
+          orderBy: { enrollDate: "desc" },
+          take: 3,
+          select: {
+            class: {
+              select: {
+                className: true,
+                classCode: true,
+              },
             },
           },
         },
@@ -58,8 +83,20 @@ export default async function EnrollmentIntakePage() {
         courseCode: item.course?.code ?? null,
         tuitionPerSession: item.tuitionPerSession,
         sessionsPerWeek: item.sessionsPerWeek,
+        totalSessions: item.totalSessions,
         activeEnrollments: item._count.enrollments,
         startDate: item.startDate?.toISOString() ?? null,
+      }))}
+      students={students.map((item) => ({
+        id: item.id,
+        fullName: item.fullName,
+        studentCode: item.studentCode,
+        studentDisplayId: item.studentDisplayId,
+        phone: item.phone,
+        currentClasses: item.enrollments.map((enrollment) => ({
+          className: enrollment.class.className,
+          classCode: enrollment.class.classCode,
+        })),
       }))}
     />
   );

@@ -23,19 +23,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const body = await req.json();
 
   const suggestedClass = body.suggestedClass || suggestGradeLevel(calculateAge(lead.dob));
+  const testDate = body.testDate ? new Date(body.testDate) : null;
 
   const test = await prisma.placementTest.create({
     data: {
       leadId: lead.id,
-      testDate: body.testDate ? new Date(body.testDate) : new Date(),
-      status: body.status || "DONE",
+      scheduledDate: body.scheduledDate ? new Date(body.scheduledDate) : null,
+      testDate,
+      status: body.status || (testDate ? "PASSED" : "SCHEDULED"),
       suggestedClass,
       result: body.result || null,
       notes: body.notes || null,
     },
   });
 
-  if (lead.status === "APPOINTED" || lead.status === "CONTACTING") {
+  // Chỉ chuyển Lead sang TESTED khi buổi test THỰC SỰ đã diễn ra (có testDate) —
+  // hẹn lịch (chỉ có scheduledDate) chưa phải là đã test.
+  if (testDate && (lead.status === "APPOINTED" || lead.status === "CONTACTING")) {
     await prisma.lead.update({ where: { id: lead.id }, data: { status: "TESTED" } });
   }
 

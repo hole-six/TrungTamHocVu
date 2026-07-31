@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 type BookProfile = {
   id: string;
   bookCode: string | null;
+  category: string | null;
   name: string;
   unitPrice: number;
   usageStatus: string | null;
@@ -19,26 +20,31 @@ export default function BookEditForm({ book }: { book: BookProfile }) {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: book.name,
+    category: book.category ?? "",
     unitPrice: String(book.unitPrice),
     usageStatus: book.usageStatus ?? "",
     notes: book.notes ?? "",
   });
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
     setLoading(true);
     setError(null);
-    const res = await fetch(`/api/books/${book.id}`, {
+
+    const response = await fetch(`/api/books/${book.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
-    const data = await res.json().catch(() => ({}));
+
+    const data = await response.json().catch(() => ({}));
     setLoading(false);
-    if (!res.ok) {
+
+    if (!response.ok) {
       setError(data.error ?? "Không lưu được thông tin sách.");
       return;
     }
+
     setEditing(false);
     router.refresh();
   }
@@ -47,11 +53,11 @@ export default function BookEditForm({ book }: { book: BookProfile }) {
     <div className="card">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg font-semibold tracking-tight">Thông tin sách</h2>
-        {!editing && (
-          <button onClick={() => setEditing(true)} className="btn-ghost text-sm">
+        {!editing ? (
+          <button type="button" onClick={() => setEditing(true)} className="btn-ghost text-sm">
             Sửa
           </button>
-        )}
+        ) : null}
       </div>
 
       {!editing ? (
@@ -59,6 +65,10 @@ export default function BookEditForm({ book }: { book: BookProfile }) {
           <div className="flex justify-between border-b border-hairline/60 py-1">
             <dt className="text-ink-muted48">Mã sách</dt>
             <dd className="font-medium">{book.bookCode ?? "—"}</dd>
+          </div>
+          <div className="flex justify-between border-b border-hairline/60 py-1">
+            <dt className="text-ink-muted48">Danh mục</dt>
+            <dd className="font-medium">{book.category ?? "Sách khác"}</dd>
           </div>
           <div className="flex justify-between border-b border-hairline/60 py-1">
             <dt className="text-ink-muted48">Tình trạng sử dụng</dt>
@@ -73,21 +83,25 @@ export default function BookEditForm({ book }: { book: BookProfile }) {
         <form onSubmit={save} className="mt-3 space-y-3">
           <label className="space-y-1 block">
             <span className="text-xs font-medium text-ink-muted48">Tên sách/giáo trình</span>
-            <input required className="input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+            <input required className="input" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
+          </label>
+          <label className="space-y-1 block">
+            <span className="text-xs font-medium text-ink-muted48">Danh mục sách</span>
+            <input className="input" placeholder="Để trống nếu là sách khác" value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} />
           </label>
           <label className="space-y-1 block">
             <span className="text-xs font-medium text-ink-muted48">Đơn giá</span>
-            <input required type="number" className="input" value={form.unitPrice} onChange={(e) => setForm((f) => ({ ...f, unitPrice: e.target.value }))} />
+            <input required type="number" min="0" className="input" value={form.unitPrice} onChange={(event) => setForm((current) => ({ ...current, unitPrice: event.target.value }))} />
           </label>
           <label className="space-y-1 block">
             <span className="text-xs font-medium text-ink-muted48">Tình trạng sử dụng</span>
-            <input className="input" placeholder="VD: Còn dùng, Ngừng dùng..." value={form.usageStatus} onChange={(e) => setForm((f) => ({ ...f, usageStatus: e.target.value }))} />
+            <input className="input" placeholder="VD: Còn dùng, Ngừng dùng..." value={form.usageStatus} onChange={(event) => setForm((current) => ({ ...current, usageStatus: event.target.value }))} />
           </label>
           <label className="space-y-1 block">
             <span className="text-xs font-medium text-ink-muted48">Ghi chú</span>
-            <textarea className="input resize-none" rows={3} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+            <textarea className="input resize-none" rows={3} value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
           </label>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
           <div className="flex gap-2">
             <button type="submit" disabled={loading} className="btn-primary">
               {loading ? "Đang lưu..." : "Lưu"}

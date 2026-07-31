@@ -70,6 +70,9 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   const currentEnrollment = lead.student?.enrollments.find((e) => e.status === "ACTIVE") ?? lead.student?.enrollments[0] ?? null;
   const linkedGuardian = lead.student?.guardians[0]?.guardian ?? lead.guardian ?? null;
   const outstanding = lead.student ? await computeOutstandingBalance(lead.student.id) : null;
+  const currentClassTuition = currentEnrollment?.class.tuitionPerSession && currentEnrollment.class.totalSessions
+    ? currentEnrollment.class.tuitionPerSession * currentEnrollment.class.totalSessions
+    : null;
 
   return (
     <div className="space-y-6">
@@ -178,7 +181,11 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               <div>
                 <dt className="text-ink-muted48">Lớp quan tâm / xếp thử</dt>
                 <dd className="mt-1 font-medium">{lead.interestedClass?.className ?? "Chưa gắn lớp quan tâm"}</dd>
-                <p className="mt-1 text-xs text-ink-muted48">{lead.interestedClass?.classCode ?? lead.notes2 ?? "Dùng cho tuyển sinh và giáo vụ xếp lớp"}</p>
+                <p className="mt-1 text-xs text-ink-muted48">
+                  {lead.interestedClass
+                    ? `${lead.interestedClass.classCode} · Đây mới là lớp quan tâm ở bước CRM, chưa tự động thành enrollment nếu chưa nhập học.`
+                    : lead.notes2 ?? "Có thể để trống nếu phụ huynh mới hỏi thông tin, chưa chốt lớp."}
+                </p>
               </div>
               <div>
                 <dt className="text-ink-muted48">Kết quả chuyển đổi</dt>
@@ -208,6 +215,21 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
                 </p>
               </div>
             </dl>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Nếu chưa gắn lớp</p>
+                <p className="mt-2 text-sm text-ink-muted80">
+                  Lead vẫn hoàn toàn hợp lệ. Đây chỉ là nhu cầu ban đầu để tuyển sinh theo dõi, nhắc test và chờ giáo vụ xếp lớp sau.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Khi nào mới tính tiền</p>
+                <p className="mt-2 text-sm text-ink-muted80">
+                  Chỉ khi học viên đã có enrollment vào lớp thật thì mới sinh học phí chuẩn. {currentEnrollment?.class ? `Lớp hiện tại đang có mức chuẩn ${currentEnrollment.class.tuitionPerSession ? `${currentEnrollment.class.tuitionPerSession.toLocaleString("vi-VN")}đ/buổi` : "chưa khai báo"}${currentClassTuition ? `, tạm tính toàn khóa ${currentClassTuition.toLocaleString("vi-VN")}đ` : ""}.` : "Nếu chưa có enrollment thì chưa nên chốt tiền."}
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="card">

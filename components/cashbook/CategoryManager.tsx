@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CASH_TXN_TYPE_LABEL } from "@/lib/server/cash-rules";
 
@@ -13,57 +13,120 @@ export default function CategoryManager({ categories }: { categories: Category[]
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  const grouped = useMemo(
+    () => ({
+      THU: categories.filter((category) => category.type === "THU"),
+      CHI: categories.filter((category) => category.type === "CHI"),
+    }),
+    [categories],
+  );
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
     setLoading(true);
     setError(null);
-    const res = await fetch("/api/cash-categories", {
+
+    const response = await fetch("/api/cash-categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
-    const data = await res.json();
+
+    const data = await response.json();
     setLoading(false);
-    if (!res.ok) {
+
+    if (!response.ok) {
       setError(data.error ?? "Không thể tạo danh mục.");
       return;
     }
+
     setForm({ type: "CHI", name: "", detail: "" });
     router.refresh();
   }
 
   return (
     <div className="card">
-      <div className="flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold tracking-tight">Danh mục thu/chi</h2>
-        <button className="btn-ghost text-xs" onClick={() => setOpen((o) => !o)}>
-          {open ? "Đóng" : "+ Thêm danh mục"}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Cấu hình phụ trợ</p>
+          <h2 className="mt-1 font-display text-lg font-semibold tracking-tight">Danh mục phân loại thu chi</h2>
+          <p className="mt-1 text-sm text-ink-muted48">Đây là bảng mã để gắn cho giao dịch. Nó không phải bảng tiền chính nên được đặt riêng để tránh rối sổ quỹ.</p>
+        </div>
+        <button className="btn-ghost text-xs" onClick={() => setOpen((current) => !current)}>
+          {open ? "Đóng thêm danh mục" : "+ Thêm danh mục"}
         </button>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        {categories.map((c) => (
-          <span key={c.id} className={`badge ${c.type === "THU" ? "bg-primary/10 text-primary" : "bg-ink/5 text-ink-muted80"}`}>
-            [{CASH_TXN_TYPE_LABEL[c.type] ?? c.type}] {c.name}
-          </span>
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        {(["THU", "CHI"] as const).map((type) => (
+          <div key={type} className={`rounded-[24px] border p-4 ${type === "THU" ? "border-emerald-100 bg-emerald-50/60" : "border-rose-100 bg-rose-50/60"}`}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${type === "THU" ? "text-emerald-700" : "text-rose-700"}`}>
+                  {CASH_TXN_TYPE_LABEL[type]}
+                </p>
+                <p className="mt-1 text-sm text-ink-muted48">{grouped[type].length} danh mục</p>
+              </div>
+            </div>
+
+            <div className="mt-4 overflow-hidden rounded-2xl border border-white/80 bg-white">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-hairline bg-[#f9fbff] text-xs uppercase tracking-wide text-ink-muted48">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Tên danh mục</th>
+                    <th className="px-4 py-3 font-medium">Chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {grouped[type].map((category) => (
+                    <tr key={category.id} className="border-b border-hairline last:border-0">
+                      <td className="px-4 py-3 font-medium text-ink">{category.name}</td>
+                      <td className="px-4 py-3 text-ink-muted80">{category.detail || "—"}</td>
+                    </tr>
+                  ))}
+                  {grouped[type].length === 0 ? (
+                    <tr>
+                      <td colSpan={2} className="px-4 py-4 text-center text-ink-muted48">
+                        Chưa có danh mục nào.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
         ))}
-        {categories.length === 0 && <p className="text-sm text-ink-muted48">Chưa có danh mục nào.</p>}
       </div>
 
-      {open && (
-        <form onSubmit={submit} className="mt-4 grid grid-cols-3 gap-3 border-t border-hairline pt-4">
-          <select className="input" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}>
-            <option value="CHI">Chi</option>
-            <option value="THU">Thu</option>
-          </select>
-          <input required placeholder="Tên danh mục" className="input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-          <input placeholder="Chi tiết" className="input" value={form.detail} onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))} />
-          {error && <p className="col-span-3 text-sm text-red-600">{error}</p>}
-          <button type="submit" disabled={loading} className="btn-primary col-span-3">
-            {loading ? "Đang lưu..." : "Lưu danh mục"}
-          </button>
+      {open ? (
+        <form onSubmit={submit} className="mt-5 grid gap-4 border-t border-hairline pt-5">
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="form-group">
+              <span className="label-sm">Loại danh mục</span>
+              <select className="input" value={form.type} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value }))}>
+                <option value="CHI">Chi</option>
+                <option value="THU">Thu</option>
+              </select>
+            </label>
+            <label className="form-group">
+              <span className="label-sm">Tên danh mục</span>
+              <input required placeholder="VD: Thu học phí ngoài hệ thống, chi mua vật tư..." className="input" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
+            </label>
+            <label className="form-group">
+              <span className="label-sm">Chi tiết loại</span>
+              <input placeholder="Mô tả ngắn để người nhập tiền hiểu đúng" className="input" value={form.detail} onChange={(event) => setForm((current) => ({ ...current, detail: event.target.value }))} />
+            </label>
+          </div>
+
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+          <div className="flex justify-end">
+            <button type="submit" disabled={loading} className="btn-primary">
+              {loading ? "Đang lưu..." : "Lưu danh mục"}
+            </button>
+          </div>
         </form>
-      )}
+      ) : null}
     </div>
   );
 }

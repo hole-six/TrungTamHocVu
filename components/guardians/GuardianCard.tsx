@@ -97,7 +97,7 @@ export default function GuardianCard({ guardian }: { guardian: Guardian }) {
       )}
 
       {/* Hover indicator */}
-      <div className="mt-4 flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="mt-4 flex items-center justify-end">
         <span className="text-xs font-semibold text-primary flex items-center gap-1">
           Xem chi tiết
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

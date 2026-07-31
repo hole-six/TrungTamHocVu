@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const books = await prisma.book.findMany({
     where: await getBranchWhereClause(searchParams.get("branchId")),
-    orderBy: { name: "asc" },
+    orderBy: [{ category: "asc" }, { name: "asc" }],
   });
 
   return NextResponse.json({ items: books });
@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
     data: {
       branchId: user.branchId,
       bookCode: body.bookCode || null,
+      category: body.category || null,
       name,
       unitPrice,
       notes: body.notes || null,

@@ -11,6 +11,8 @@ type NavItem = {
   status: "live" | "planned";
 };
 
+type NavBadgeMap = Partial<Record<string, number>>;
+
 const Icon = {
   dashboard: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -143,11 +145,13 @@ function SidebarContent({
   pathname,
   onClose,
   navItems,
+  navBadges,
   userRole,
 }: {
   pathname: string;
   onClose?: () => void;
   navItems: NavItem[];
+  navBadges?: NavBadgeMap;
   userRole?: string;
 }) {
   const itemsByHref = Object.fromEntries(navItems.map((item) => [item.href, item]));
@@ -182,6 +186,7 @@ function SidebarContent({
               <p className="nav-group-label">{group.label}</p>
               {items.map((item) => {
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const badge = navBadges?.[item.href];
                 return (
                   <Link
                     key={item.href}
@@ -191,6 +196,15 @@ function SidebarContent({
                   >
                     <span className={`shrink-0 ${active ? "opacity-100" : "opacity-60"}`}>{NAV_ICONS[item.href]}</span>
                     <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {badge && badge > 0 ? (
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          active ? "bg-white/20 text-white" : "bg-primary/10 text-primary"
+                        }`}
+                      >
+                        {badge > 99 ? "99+" : badge}
+                      </span>
+                    ) : null}
                     {item.status === "planned" ? (
                       <span
                         className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
@@ -219,10 +233,12 @@ function SidebarContent({
 function MobilePrimaryNav({
   pathname,
   navItems,
+  navBadges,
   userRole,
 }: {
   pathname: string;
   navItems: NavItem[];
+  navBadges?: NavBadgeMap;
   userRole?: string;
 }) {
   const shellConfig = getAppShellConfig(userRole);
@@ -236,14 +252,20 @@ function MobilePrimaryNav({
       <div className="grid grid-cols-5 gap-1">
         {mobileItems.map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const badge = navBadges?.[item.href];
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex min-h-[62px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-center transition ${
+              className={`relative flex min-h-[62px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-center transition ${
                 active ? "bg-primary/10 text-primary" : "text-ink-muted48"
               }`}
             >
+              {badge && badge > 0 ? (
+                <span className="absolute top-1.5 right-2 rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white">
+                  {badge > 99 ? "99+" : badge}
+                </span>
+              ) : null}
               <span className={active ? "opacity-100" : "opacity-70"}>{NAV_ICONS[item.href]}</span>
               <span className="text-[10px] font-semibold leading-tight">{item.label}</span>
             </Link>
@@ -256,9 +278,11 @@ function MobilePrimaryNav({
 
 export default function Sidebar({
   navItems,
+  navBadges,
   userRole,
 }: {
   navItems: NavItem[];
+  navBadges?: NavBadgeMap;
   userRole?: string;
 }) {
   const pathname = usePathname();
@@ -285,16 +309,16 @@ export default function Sidebar({
         <>
           <div className="mobile-overlay" onClick={() => setMobileOpen(false)} />
           <div className="fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-2xl md:hidden">
-            <SidebarContent pathname={pathname} onClose={() => setMobileOpen(false)} navItems={navItems} userRole={userRole} />
+            <SidebarContent pathname={pathname} onClose={() => setMobileOpen(false)} navItems={navItems} navBadges={navBadges} userRole={userRole} />
           </div>
         </>
       ) : null}
 
       <aside className="fixed inset-y-0 left-0 hidden w-[260px] border-r border-[#eef1f8] bg-white shadow-sm md:block">
-        <SidebarContent pathname={pathname} navItems={navItems} userRole={userRole} />
+        <SidebarContent pathname={pathname} navItems={navItems} navBadges={navBadges} userRole={userRole} />
       </aside>
 
-      <MobilePrimaryNav pathname={pathname} navItems={navItems} userRole={userRole} />
+      <MobilePrimaryNav pathname={pathname} navItems={navItems} navBadges={navBadges} userRole={userRole} />
     </>
   );
 }

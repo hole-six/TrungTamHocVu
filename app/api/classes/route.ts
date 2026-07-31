@@ -4,8 +4,9 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getBranchWhereClause, getValidBranchIdForCreation } from "@/lib/branch-filter";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate } from "@/lib/server/role-matrix";
-import { estimateEndDate } from "@/lib/server/class-rules";
+import { estimateEndDate, estimateEndDateFromRules } from "@/lib/server/class-rules";
 import { syncClassDerivedFields } from "@/lib/server/database-sync";
+import { ensureClassRoadmapItems, normalizeRoadmapItemsInput } from "@/lib/server/class-roadmap";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -23,14 +24,32 @@ export async function GET(req: NextRequest) {
     ...(status ? { status } : {}),
     ...(q ? { OR: [{ className: { contains: q } }, { classCode: { contains: q } }] } : {}),
   };
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
 
   const items = await prisma.class.findMany({
     where,
     orderBy: { createdAt: "desc" },
     include: {
-      course: true,
-      _count: { select: { enrollments: true, sessions: true } },
-      enrollments: { where: { status: "ACTIVE" }, select: { id: true } },
+      course: { select: { code: true, name: true } },
+      scheduleRules: {
+        where: { isActive: true },
+        orderBy: [{ weekday: "asc" }, { startTime: "asc" }],
+      },
+      sessions: {
+        where: {
+          sessionDate: { gte: today },
+          status: { not: "CANCELLED" },
+        },
+        orderBy: [{ sessionDate: "asc" }, { startTime: "asc" }],
+        take: 1,
+      },
+      _count: {
+        select: {
+          enrollments: { where: { status: "ACTIVE" } },
+          sessions: { where: { status: "COMPLETED" } },
+        },
+      },
     },
   });
 
@@ -62,6 +81,7 @@ export async function POST(req: NextRequest) {
 
   let tuitionPerSession = body.tuitionPerSession ? Number(body.tuitionPerSession) : null;
   let sessionsPerWeek = body.sessionsPerWeek ? Number(body.sessionsPerWeek) : null;
+  const scheduleRules = Array.isArray(body.scheduleRules) ? body.scheduleRules : [];
 
   if (body.courseId) {
     const course = await prisma.course.findUnique({ where: { id: body.courseId } });
@@ -71,6 +91,35 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (scheduleRules.length > 0) {
+    sessionsPerWeek = scheduleRules.length;
+  }
+
+  for (const [index, rule] of scheduleRules.entries()) {
+    const weekday = Number(rule.weekday);
+    const startTime = String(rule.startTime ?? "").trim();
+    const endTime = String(rule.endTime ?? "").trim();
+    if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
+      return NextResponse.json({ error: `Buổi cố định ${index + 1} có thứ không hợp lệ.` }, { status: 400 });
+    }
+    if (!startTime || !endTime || startTime >= endTime) {
+      return NextResponse.json({ error: `Buổi cố định ${index + 1} có giờ học không hợp lệ.` }, { status: 400 });
+    }
+  }
+
+  const normalizedStartDate = body.startDate ? new Date(body.startDate) : null;
+  const normalizedTotalSessions = body.totalSessions ? Number(body.totalSessions) : null;
+  const normalizedRules = scheduleRules.map((rule: { weekday: number; startTime: string; endTime: string; room?: string | null }) => ({
+    weekday: Number(rule.weekday),
+    startTime: String(rule.startTime).trim(),
+    endTime: String(rule.endTime).trim(),
+    room: rule.room ? String(rule.room).trim() : null,
+  }));
+  const expectedEndDate =
+    estimateEndDateFromRules(normalizedStartDate, normalizedTotalSessions, normalizedRules) ??
+    estimateEndDate(normalizedStartDate, normalizedTotalSessions, sessionsPerWeek);
+  const roadmapItems = normalizeRoadmapItemsInput(body.roadmapItems, normalizedTotalSessions);
+
   const created = await prisma.class.create({
     data: {
       branchId,
@@ -78,19 +127,28 @@ export async function POST(req: NextRequest) {
       classCode,
       classGroup: body.classGroup || null,
       className,
-      totalSessions: body.totalSessions ? Number(body.totalSessions) : null,
-      startDate: body.startDate ? new Date(body.startDate) : null,
-      expectedEndDate: estimateEndDate(
-        body.startDate ? new Date(body.startDate) : null,
-        body.totalSessions ? Number(body.totalSessions) : null,
-        sessionsPerWeek
-      ),
+      totalSessions: normalizedTotalSessions,
+      startDate: normalizedStartDate,
+      expectedEndDate,
       sessionsPerWeek,
       tuitionPerSession,
       notes: body.notes || null,
+      scheduleRules: scheduleRules.length
+        ? {
+            create: normalizedRules,
+          }
+        : undefined,
+      roadmapItems: roadmapItems.length
+        ? {
+            create: roadmapItems,
+          }
+        : undefined,
     },
   });
 
+  if (roadmapItems.length === 0) {
+    await ensureClassRoadmapItems(created.id, normalizedTotalSessions);
+  }
   const synced = await syncClassDerivedFields(created.id);
   return NextResponse.json({ item: synced ?? created }, { status: 201 });
 }

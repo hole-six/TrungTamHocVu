@@ -7,15 +7,22 @@ import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 
 export default async function EditLeadPage({ params }: { params: { id: string } }) {
-  const lead = await prisma.lead.findUnique({ where: { id: params.id }, include: { guardian: true } });
+  const currentUser = await getCurrentUser();
+  const [lead, classes] = await Promise.all([
+    prisma.lead.findUnique({ where: { id: params.id }, include: { guardian: true } }),
+    prisma.class.findMany({
+      where: { ...(currentUser?.branchId ? { branchId: currentUser.branchId } : {}), status: "ACTIVE" },
+      orderBy: [{ className: "asc" }],
+      select: { id: true, classCode: true, className: true },
+    }),
+  ]);
   if (!lead) notFound();
 
-  const currentUser = await getCurrentUser();
   const role = currentUser ? await getUserRole(currentUser.id) : null;
   if (!canUpdate("leads", role)) notFound();
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="page-shell page-shell-form">
       <div className="flex items-center gap-4">
         <Link
           href={`/leads/${lead.id}`}
@@ -35,6 +42,7 @@ export default async function EditLeadPage({ params }: { params: { id: string } 
       <div className="card">
         <LeadForm
           leadId={lead.id}
+          classes={classes}
           initialData={{
             ...lead,
             guardianName: lead.guardian?.fullName ?? "",

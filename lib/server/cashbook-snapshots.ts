@@ -38,10 +38,19 @@ function buildFilterHash(filters: StandardReportFilters) {
   return hashString(serializeFilterHashInput(filters));
 }
 
-export async function buildCashbookOverviewLivePayload(branchId: string | null, typeFilter: string | null) {
+export async function buildCashbookOverviewLivePayload(
+  branchId: string | null,
+  filters?: Pick<StandardReportFilters, "periodKey" | "status">
+) {
+  const currentPeriodKey = filters?.periodKey ?? getCurrentMonthPeriodKey();
+  const { startDate, endDate } = getMonthDateRange(currentPeriodKey);
   const where: Record<string, unknown> = {};
   if (branchId) where.branchId = branchId;
-  if (typeFilter) where.type = typeFilter;
+  if (filters?.status) where.type = filters.status;
+  where.txnDate = {
+    gte: startDate,
+    lte: endDate,
+  };
 
   const [transactions, categories] = await Promise.all([
     prisma.cashTransaction.findMany({
@@ -159,7 +168,10 @@ export async function createCashbookOverviewSnapshot({
   const periodKey = resolveCashbookPeriodKey(filters);
   const filterHash = buildFilterHash(filters);
   const { startDate, endDate } = getMonthDateRange(periodKey);
-  const payload = await buildCashbookOverviewLivePayload(branchId, filters.status);
+  const payload = await buildCashbookOverviewLivePayload(branchId, {
+    periodKey,
+    status: filters.status,
+  });
 
   const period = await prisma.reportingPeriod.upsert({
     where: {

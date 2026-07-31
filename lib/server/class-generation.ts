@@ -82,3 +82,27 @@ export async function computeAutoSessionWindow(
 
   return { fromDate, toDate };
 }
+
+// Tiến độ học của 1 enrollment trong lớp — đếm buổi ĐÃ DIỄN RA (status COMPLETED)
+// kể từ enrollDate của CHÍNH enrollment đó, không phải toàn bộ buổi của lớp. Học
+// viên vào giữa khóa (lớp đã học được vài buổi trước khi họ ghi danh) thì các buổi
+// trước enrollDate không tính vào "đã học" của họ — khớp đúng cách billing-generation
+// đang định nghĩa "buổi đã tiêu" (completed sessions), chỉ khác là ở đây tính mốc bắt
+// đầu theo TỪNG học viên thay vì theo kỳ thu chung.
+export async function computeEnrollmentSessionProgress(classId: string, enrollDate: Date) {
+  const [cls, consumed] = await Promise.all([
+    prisma.class.findUnique({ where: { id: classId }, select: { totalSessions: true, expectedEndDate: true } }),
+    prisma.classSession.count({
+      where: { classId, status: "COMPLETED", sessionDate: { gte: enrollDate } },
+    }),
+  ]);
+
+  const planned = cls?.totalSessions ?? null;
+  const remaining = planned !== null ? planned - consumed : null;
+  // Lớp coi như đã hết hạn khi qua ngày dự kiến kết thúc — lúc đó "remaining > 0"
+  // nghĩa là học viên còn bị thiếu buổi (do vào muộn) cần bảo lưu/học bù ở lớp khác,
+  // không phải lỗi tính toán.
+  const classEnded = cls?.expectedEndDate ? cls.expectedEndDate.getTime() < Date.now() : false;
+
+  return { consumed, planned, remaining, classEnded };
+}

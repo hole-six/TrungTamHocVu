@@ -4,15 +4,19 @@ import { prisma } from "@/lib/prisma";
 import { ASSET_STATUS_LABEL, ASSET_TXN_TYPE_LABEL } from "@/lib/server/asset-rules";
 import AssetTransactionForm from "@/components/assets/AssetTransactionForm";
 import AssetEditForm from "@/components/assets/AssetEditForm";
+import DeleteAssetButton from "@/components/assets/DeleteAssetButton";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
-import { canUpdate } from "@/lib/server/role-matrix";
+import { canUpdate, canDelete } from "@/lib/server/role-matrix";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
 }
 function formatDate(d: Date) {
   return new Date(d).toLocaleDateString("vi-VN");
+}
+function unitLabel(unitName: string | null) {
+  return unitName?.trim() || "cái";
 }
 
 export default async function AssetDetailPage({ params }: { params: { id: string } }) {
@@ -25,9 +29,11 @@ export default async function AssetDetailPage({ params }: { params: { id: string
   const currentUser = await getCurrentUser();
   const role = currentUser ? await getUserRole(currentUser.id) : null;
   const canManageAsset = canUpdate("assets", role);
+  const canRemoveAsset = canDelete("assets", role);
 
   const quantity = asset.transactions.reduce((s, t) => s + t.quantity, 0);
   const totalValue = quantity * (asset.unitValue ?? 0);
+  const unitName = unitLabel(asset.unitName);
 
   return (
     <div className="space-y-6">
@@ -40,21 +46,24 @@ export default async function AssetDetailPage({ params }: { params: { id: string
             <h1 className="text-2xl font-semibold tracking-tight">{asset.name}</h1>
             <p className="mt-1 text-sm text-ink-muted48">
               {asset.assetCode && <>Mã: <strong>{asset.assetCode}</strong> · </>}
-              {asset.category ?? "Chưa phân loại"} {asset.room && `· ${asset.room}`}
+              {asset.category ?? "Chưa phân loại"} {asset.room && `· ${asset.room}`} · Đơn vị tính: {unitName}
             </p>
           </div>
-          <span
-            className={`badge ${asset.status === "ACTIVE" ? "bg-primary/10 text-primary" : asset.status === "BROKEN" ? "bg-red-100 text-red-700" : "bg-ink/5 text-ink-muted48"}`}
-          >
-            {ASSET_STATUS_LABEL[asset.status] ?? asset.status}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className={`badge ${asset.status === "ACTIVE" ? "bg-primary/10 text-primary" : asset.status === "BROKEN" ? "bg-red-100 text-red-700" : "bg-ink/5 text-ink-muted48"}`}
+            >
+              {ASSET_STATUS_LABEL[asset.status] ?? asset.status}
+            </span>
+            {canRemoveAsset && <DeleteAssetButton assetId={asset.id} assetName={asset.name} redirectTo="/assets" />}
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="card">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Số lượng hiện có</p>
-          <p className="mt-2 font-display text-2xl font-semibold tracking-tight">{quantity}</p>
+          <p className="mt-2 font-display text-2xl font-semibold tracking-tight">{quantity} {unitName}</p>
         </div>
         <div className="card">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Giá trị/đơn vị</p>
@@ -112,6 +121,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
               name: asset.name,
               category: asset.category ?? "",
               room: asset.room ?? "",
+              unitName: asset.unitName ?? "cái",
               unitValue: asset.unitValue?.toString() ?? "",
               notes: asset.notes ?? "",
             }}

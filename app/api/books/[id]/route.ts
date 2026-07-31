@@ -36,6 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const body = await req.json();
   const data: Record<string, unknown> = {};
   if ("name" in body) data.name = String(body.name).trim();
+  if ("category" in body) data.category = body.category || null;
   if ("unitPrice" in body) data.unitPrice = Number(body.unitPrice);
   if ("usageStatus" in body) data.usageStatus = body.usageStatus || null;
   if ("notes" in body) data.notes = body.notes || null;

@@ -86,3 +86,48 @@ export function needsContactNow(lead: {
   if (!lead.studentId && lead.expectedStartDate && lead.expectedStartDate.getTime() - now <= oneDayMs) return true;
   return false;
 }
+
+export const PLACEMENT_TEST_STATUSES = ["SCHEDULED", "PASSED", "FAILED", "NO_NEED", "CANCELLED"] as const;
+export type PlacementTestStatus = (typeof PLACEMENT_TEST_STATUSES)[number];
+export const PLACEMENT_TEST_STATUS_LABEL: Record<string, string> = {
+  SCHEDULED: "Đã hẹn, chưa test",
+  PASSED: "Đạt",
+  FAILED: "Không đạt",
+  NO_NEED: "Không có nhu cầu",
+  CANCELLED: "Đã hủy hẹn",
+};
+
+// Màu badge trạng thái test — Đạt xanh lá, Không đạt/Chưa hẹn đỏ (cần hành động),
+// Đã hẹn vàng (đang chờ), Không có nhu cầu/Đã hủy xám (đã đóng, không cần chú ý).
+export const PLACEMENT_TEST_BADGE_CLASS: Record<string, string> = {
+  SCHEDULED: "bg-amber-100 text-amber-700",
+  PASSED: "bg-emerald-100 text-emerald-700",
+  FAILED: "bg-red-100 text-red-700",
+  NO_NEED: "bg-ink/5 text-ink-muted48",
+  CANCELLED: "bg-ink/5 text-ink-muted48 line-through",
+  NONE: "bg-red-100 text-red-700",
+};
+
+// Mức cảnh báo theo mốc ngày (hẹn test / dự kiến đi học...) — Đỏ = quá hạn hoặc hôm
+// nay, Vàng = trong 3 ngày tới, không màu = còn xa hoặc đã null. Dùng chung cho mọi
+// cột ngày cần "nhắc hẹn" ở Danh sách test, tránh mỗi nơi tự định nghĩa 1 kiểu.
+export type DateUrgency = "overdue" | "soon" | "none";
+const URGENCY_SOON_DAYS = 3;
+
+export function dateUrgency(date: Date | string | null | undefined): DateUrgency {
+  if (!date) return "none";
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = (target.getTime() - today.getTime()) / (24 * 60 * 60 * 1000);
+  if (diffDays <= 0) return "overdue";
+  if (diffDays <= URGENCY_SOON_DAYS) return "soon";
+  return "none";
+}
+
+export const DATE_URGENCY_CLASS: Record<DateUrgency, string> = {
+  overdue: "bg-red-100 text-red-700 border-red-200",
+  soon: "bg-amber-100 text-amber-700 border-amber-200",
+  none: "",
+};

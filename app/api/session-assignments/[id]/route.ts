@@ -56,6 +56,37 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   if (!canDelete("schedule", role)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền xóa phân công" }, { status: 403 });
   }
+
+  const target = await prisma.sessionAssignment.findUnique({ where: { id: params.id } });
+  if (!target) return NextResponse.json({ error: "Không tìm thấy phân công" }, { status: 404 });
+
+  // Xóa 1 phân công DẠY THAY = hủy sắp xếp thay người, không chỉ là xóa 1 dòng —
+  // phải trả lại giờ công cho người bị thay ban đầu (đã bị trừ về 0 khi tạo dạy
+  // thay ở route /substitute), nếu không sẽ mất công của cả 2 người cho cùng 1 buổi.
+  if (target.substituteForId) {
+    await prisma.$transaction(async (tx) => {
+      await tx.sessionAssignment.delete({ where: { id: params.id } });
+      await tx.sessionAssignment.update({
+        where: { id: target.substituteForId! },
+        data: { deductedHours: 0, addedHours: 0, adjustmentNote: null },
+      });
+    });
+    // hours/amount của người được trả lại cần tính theo khung ca hiện tại — dùng
+    // lại đúng công thức PATCH đang dùng để không lệch giữa 2 chỗ tính cùng 1 thứ.
+    const restored = await prisma.sessionAssignment.findUnique({
+      where: { id: target.substituteForId },
+      include: { session: true, employee: true },
+    });
+    if (restored) {
+      const baseHours = computeSessionBaseHours(restored.employee.payMode, restored.session.startTime, restored.session.endTime);
+      await prisma.sessionAssignment.update({
+        where: { id: restored.id },
+        data: { hours: baseHours, amount: Math.round(baseHours * (restored.hourlyRate ?? 0)) },
+      });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   await prisma.sessionAssignment.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });
 }

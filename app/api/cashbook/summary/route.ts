@@ -42,7 +42,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const payload = await buildCashbookOverviewLivePayload(branchId, filters.status);
+  const payload = await buildCashbookOverviewLivePayload(branchId, {
+    periodKey: resolveCashbookPeriodKey(filters),
+    status: filters.status,
+  });
   return NextResponse.json({
     meta: {
       requestedMode: filters.mode,

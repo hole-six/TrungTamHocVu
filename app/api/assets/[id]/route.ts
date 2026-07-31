@@ -29,7 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const body = await req.json();
   const data: Record<string, unknown> = {};
-  for (const field of ["name", "category", "room", "status", "notes"]) {
+  for (const field of ["name", "category", "room", "unitName", "status", "notes"]) {
     if (field in body) data[field] = body[field] || null;
   }
   if ("unitValue" in body) data.unitValue = body.unitValue === "" || body.unitValue === null ? null : Number(body.unitValue);

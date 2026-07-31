@@ -5,6 +5,7 @@ import { getUserRole } from "@/lib/permissions";
 import { canUpdate, canDelete } from "@/lib/server/role-matrix";
 import { estimateEndDate } from "@/lib/server/class-rules";
 import { syncClassDerivedFields } from "@/lib/server/database-sync";
+import { ensureClassRoadmapItems } from "@/lib/server/class-roadmap";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -83,6 +84,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const updated = await prisma.class.update({ where: { id: params.id }, data });
+  await ensureClassRoadmapItems(updated.id, nextTotalSessions);
   const synced = await syncClassDerivedFields(updated.id);
   return NextResponse.json({ item: synced ?? updated });
 }

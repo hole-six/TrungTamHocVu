@@ -9,27 +9,37 @@ type Item = {
   reason: string | null;
   effectiveFrom: string | Date;
   effectiveTo: string | Date | null;
+  enrollment?: { class: { className: string } } | null;
 };
+
+type EnrollmentOption = { id: string; className: string; status: string };
 
 export default function ScholarshipAdjustmentForm({
   studentId,
   scholarships,
   adjustments,
+  enrollments,
 }: {
   studentId: string;
   scholarships: Item[];
   adjustments: Item[];
+  enrollments: EnrollmentOption[];
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"scholarship" | "adjustment">("scholarship");
   const [percentage, setPercentage] = useState("");
   const [reason, setReason] = useState("");
+  const [enrollmentId, setEnrollmentId] = useState(enrollments[0]?.id ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (tab === "scholarship" && !enrollmentId) {
+      setError("Học viên chưa có ghi danh nào để gắn học bổng.");
+      return;
+    }
     setLoading(true);
     setError(null);
     setSuccess(false);
@@ -40,7 +50,11 @@ export default function ScholarshipAdjustmentForm({
     const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ percentage: Number(percentage) / 100, reason }),
+      body: JSON.stringify({
+        percentage: Number(percentage) / 100,
+        reason,
+        ...(tab === "scholarship" ? { enrollmentId } : {}),
+      }),
     });
     const data = await res.json();
     setLoading(false);
@@ -104,6 +118,9 @@ export default function ScholarshipAdjustmentForm({
             >
               <div>
                 <p className="text-sm font-semibold text-ink">{item.reason ?? "Không có lý do"}</p>
+                {isScholarship && item.enrollment ? (
+                  <p className="text-xs font-medium text-primary mt-0.5">{item.enrollment.class.className}</p>
+                ) : null}
                 <p className="text-xs text-ink-muted48 mt-0.5">
                   Từ {new Date(item.effectiveFrom).toLocaleDateString("vi-VN")}
                   {item.effectiveTo ? ` → ${new Date(item.effectiveTo).toLocaleDateString("vi-VN")}` : " (còn hiệu lực)"}
@@ -123,6 +140,22 @@ export default function ScholarshipAdjustmentForm({
           + {isScholarship ? "Thêm học bổng mới" : "Thêm điều chỉnh mới"}
         </p>
         <form onSubmit={submit} className="space-y-3">
+          {isScholarship && (
+            <div className="form-group">
+              <label className="label">Áp dụng cho lớp/khóa</label>
+              {enrollments.length === 0 ? (
+                <p className="text-xs text-red-600">Học viên chưa có ghi danh nào — cần ghi danh vào lớp trước khi thêm học bổng.</p>
+              ) : (
+                <select className="input" value={enrollmentId} onChange={(e) => setEnrollmentId(e.target.value)} required>
+                  {enrollments.map((en) => (
+                    <option key={en.id} value={en.id}>
+                      {en.className} {en.status !== "ACTIVE" ? `(${en.status})` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="form-group">
               <label className="label">Tỉ lệ (%)</label>
@@ -152,7 +185,11 @@ export default function ScholarshipAdjustmentForm({
           </div>
           {error && <div className="alert-danger text-xs">{error}</div>}
           {success && <div className="alert-success text-xs">Đã lưu thành công!</div>}
-          <button type="submit" disabled={loading} className="btn-ghost-sm w-full border-dashed hover:border-primary hover:text-primary">
+          <button
+            type="submit"
+            disabled={loading || (isScholarship && enrollments.length === 0)}
+            className="btn-ghost-sm w-full border-dashed hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
             {loading ? "Đang lưu..." : `+ Thêm ${isScholarship ? "học bổng" : "điều chỉnh"}`}
           </button>
         </form>

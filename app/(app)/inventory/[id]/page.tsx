@@ -67,6 +67,7 @@ export default async function BookDetailPage({ params }: { params: { id: string 
           book={{
             id: book.id,
             bookCode: book.bookCode,
+            category: book.category,
             name: book.name,
             unitPrice: book.unitPrice,
             usageStatus: book.usageStatus,

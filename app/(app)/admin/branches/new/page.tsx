@@ -31,7 +31,7 @@ export default async function NewBranchPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="page-shell page-shell-form">
       <div className="flex items-center gap-3">
         <a
           href="/admin/branches"

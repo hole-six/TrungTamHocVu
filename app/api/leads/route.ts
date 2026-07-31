@@ -13,12 +13,13 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();
   const status = searchParams.get("status");
+  const missingTest = searchParams.get("missingTest") === "1";
   const page = Math.max(1, Number(searchParams.get("page") ?? 1));
   const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") ?? 20)));
 
   const where = {
     ...(await getBranchWhereClause(searchParams.get("branchId"))),
-    ...(status ? { status } : {}),
+    ...(missingTest ? { status: { notIn: ["ENROLLED", "LOST"] }, placementTests: { none: {} } } : status ? { status } : {}),
     ...(q
       ? {
           OR: [
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
       include: {
         guardian: { include: { user: true } },
         interestedClass: true,
-        placementTests: { orderBy: { testDate: "desc" }, take: 1 },
+        placementTests: { orderBy: { createdAt: "desc" }, take: 1 },
         student: {
           include: {
             enrollments: { include: { class: true }, orderBy: { enrollDate: "desc" }, take: 1 },
@@ -83,6 +84,21 @@ export async function GET(req: NextRequest) {
     paidByStudent.set(studentId, (paidByStudent.get(studentId) ?? 0) + allocation.amount);
   }
 
+  // Cảnh báo mềm trùng SĐT — 2 anh chị em ruột dùng chung SĐT phụ huynh là hợp lệ,
+  // nên chỉ liệt kê tên lead khác cùng SĐT để nhân viên tự xét, không chặn lưu.
+  const phones = [...new Set(items.map((item) => item.phone).filter((p): p is string => !!p))];
+  const duplicatePhoneLeads = phones.length
+    ? await prisma.lead.findMany({
+        where: { phone: { in: phones }, id: { notIn: items.map((i) => i.id) } },
+        select: { id: true, fullName: true, phone: true },
+      })
+    : [];
+  const duplicatesByPhone = new Map<string, string[]>();
+  for (const l of duplicatePhoneLeads) {
+    if (!l.phone) continue;
+    duplicatesByPhone.set(l.phone, [...(duplicatesByPhone.get(l.phone) ?? []), l.fullName]);
+  }
+
   const normalizedItems = items.map((item) => ({
     ...item,
     guardianName: item.guardian?.fullName ?? null,
@@ -91,12 +107,17 @@ export async function GET(req: NextRequest) {
     convertedStudentCode: item.student?.studentDisplayId ?? item.student?.studentCode ?? null,
     convertedClassName: item.student?.enrollments[0]?.class.className ?? null,
     outstanding: item.student ? (chargeByStudent.get(item.student.id) ?? 0) - (paidByStudent.get(item.student.id) ?? 0) : null,
+    duplicatePhoneNames: item.phone ? (duplicatesByPhone.get(item.phone) ?? []) : [],
   }));
 
   const pipeline = Object.fromEntries(LEAD_STATUSES.map((s) => [s, 0])) as Record<string, number>;
   for (const row of byStatus) pipeline[row.status] = row._count._all;
 
-  return NextResponse.json({ items: normalizedItems, total, page, pageSize, pipeline });
+  const missingTestCount = await prisma.lead.count({
+    where: { ...(await getBranchWhereClause(searchParams.get("branchId"))), status: { notIn: ["ENROLLED", "LOST"] }, placementTests: { none: {} } },
+  });
+
+  return NextResponse.json({ items: normalizedItems, total, page, pageSize, pipeline, missingTestCount });
 }
 
 export async function POST(req: NextRequest) {
@@ -109,10 +130,9 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const fullName = String(body.fullName ?? "").trim();
-  if (!fullName) return NextResponse.json({ error: "Thiếu họ tên học viên tiềm năng" }, { status: 400 });
+  const fullName = String(body.fullName ?? "").trim() || "Chưa rõ";
 
-  const leadCode = String(body.leadCode ?? "").trim() || `LEAD${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+  const leadCode = `LEAD${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
   const existingCode = await prisma.lead.findUnique({ where: { leadCode } });
   if (existingCode) return NextResponse.json({ error: "Mã lead đã tồn tại" }, { status: 409 });
 
@@ -134,8 +154,11 @@ export async function POST(req: NextRequest) {
       fullName,
       gender: body.gender || null,
       dob: body.dob ? new Date(body.dob) : null,
+      currentSchoolGrade: body.currentSchoolGrade || null,
       guardianId,
       phone: phone || null,
+      secondaryPhone: body.secondaryPhone || null,
+      zaloContact: body.zaloContact || null,
       address: body.address || null,
       meetDate: body.meetDate ? new Date(body.meetDate) : new Date(),
       source: body.source || null,

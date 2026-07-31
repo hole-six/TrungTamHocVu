@@ -1,6 +1,4 @@
 "use client";
-
-import { useState } from "react";
 import type { Column, Action } from "./DataTable";
 
 type DataTableRowProps<T> = {
@@ -22,14 +20,11 @@ export default function DataTableRow<T extends Record<string, any>>({
   onSelect,
   onClick,
 }: DataTableRowProps<T>) {
-  const [showActions, setShowActions] = useState(false);
   const visibleActions = actions.filter((action) => !action.show || action.show(row));
 
   return (
     <tr
       className={`group transition-colors ${onClick ? "cursor-pointer hover:bg-primary/5" : ""} ${selected ? "bg-primary/10" : ""}`}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
     >
       {selectable ? (
         <td className="w-12 px-4 py-3 align-middle">
@@ -68,16 +63,12 @@ export default function DataTableRow<T extends Record<string, any>>({
 
       {actions.length > 0 ? (
         <td className="px-4 py-3 text-right align-middle">
-          <div
-            className={`flex items-center justify-end gap-2 transition-opacity ${
-              showActions || selected ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
-            }`}
-          >
+          <div className="flex items-center justify-end gap-2">
             {visibleActions.map((action, idx) => {
               const variantClasses = {
-                primary: "text-primary hover:bg-primary/10",
-                secondary: "text-ink-muted64 hover:bg-[#f1f5f9]",
-                danger: "text-red-600 hover:bg-red-50",
+                primary: "border-primary/15 bg-primary/5 text-primary hover:bg-primary/10",
+                secondary: "border-[#d9e3f7] bg-white text-ink-muted64 hover:bg-[#f8fbff]",
+                danger: "border-red-200 bg-red-50 text-red-600 hover:bg-red-100",
               };
 
               return (
@@ -88,16 +79,11 @@ export default function DataTableRow<T extends Record<string, any>>({
                     e.stopPropagation();
                     void action.onClick(row);
                   }}
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all ${variantClasses[action.variant || "secondary"]}`}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${variantClasses[action.variant || "secondary"]}`}
                   title={action.label}
                 >
-                  {action.icon || (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="1"/>
-                      <circle cx="12" cy="5" r="1"/>
-                      <circle cx="12" cy="19" r="1"/>
-                    </svg>
-                  )}
+                  {action.icon ? <span className="flex h-4 w-4 items-center justify-center">{action.icon}</span> : null}
+                  <span>{action.label}</span>
                 </button>
               );
             })}
