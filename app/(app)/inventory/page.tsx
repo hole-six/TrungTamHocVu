@@ -15,6 +15,14 @@ function normalizeCategory(category: string | null) {
   return trimmed ? trimmed : "Sách khác";
 }
 
+const CATEGORY_BADGE_COLORS = ["badge-blue", "badge-purple", "badge-pink", "badge-gray"];
+function categoryBadgeClass(category: string) {
+  if (category === "Sách khác") return "badge-gray";
+  let hash = 0;
+  for (let i = 0; i < category.length; i++) hash = (hash * 31 + category.charCodeAt(i)) % CATEGORY_BADGE_COLORS.length;
+  return CATEGORY_BADGE_COLORS[hash];
+}
+
 function monthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
@@ -87,7 +95,15 @@ export default async function InventoryPage({
   });
 
   const categoryOptions = Array.from(new Set(stockRows.map((book) => book.categoryLabel))).sort((left, right) => left.localeCompare(right, "vi"));
-  const availableBooks = stockRows.filter((book) => !selectedCategory || book.categoryLabel === selectedCategory);
+  const qLower = q.toLowerCase();
+  const availableBooks = stockRows.filter((book) => {
+    if (selectedCategory && book.categoryLabel !== selectedCategory) return false;
+    if (qLower) {
+      const haystack = `${book.name} ${book.bookCode ?? ""} ${book.categoryLabel}`.toLowerCase();
+      if (!haystack.includes(qLower)) return false;
+    }
+    return true;
+  });
   const bookTotalPages = Math.max(1, Math.ceil(availableBooks.length / PAGE_SIZE));
   const pagedBooks = availableBooks.slice((bookPage - 1) * PAGE_SIZE, bookPage * PAGE_SIZE);
 
@@ -162,16 +178,6 @@ export default async function InventoryPage({
   const unpaidIssues = issueRows.filter((row) => row.paymentStatus !== "PAID").length;
   const issueMonthOptions = Array.from(new Set(issueRows.map((row) => row.issueMonth))).sort((left, right) => right.localeCompare(left));
 
-  const categorySummary = categoryOptions.map((categoryName) => {
-    const booksInCategory = stockRows.filter((row) => row.categoryLabel === categoryName);
-    return {
-      categoryName,
-      bookCount: booksInCategory.length,
-      totalOnHand: booksInCategory.reduce((sum, row) => sum + row.onHand, 0),
-      totalIssued: booksInCategory.reduce((sum, row) => sum + row.issuedTotal, 0),
-    };
-  });
-
   return (
     <div className="space-y-6">
       <div className="overflow-hidden rounded-[32px] border border-[#dbe7ff] bg-[linear-gradient(135deg,#f8fcff_0%,#eef7ff_42%,#ffffff_100%)] p-6 shadow-[0_28px_80px_-48px_rgba(14,116,144,0.45)]">
@@ -187,7 +193,7 @@ export default async function InventoryPage({
               </p>
             </div>
           </div>
-          {canCreate("inventory", role) ? <NewBookForm /> : null}
+          {canCreate("inventory", role) ? <NewBookForm categoryOptions={categoryOptions} /> : null}
         </div>
 
         <form className="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_220px_260px_220px_190px_auto]">
@@ -285,117 +291,80 @@ export default async function InventoryPage({
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <div className="card">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="font-display text-lg font-semibold tracking-tight">Tổng hợp theo danh mục sách</h2>
-              <p className="mt-1 text-sm text-ink-muted48">Danh mục giúp gộp các sách cùng họ để tra cứu nhanh, ví dụ một bộ sách có student/workbook/writing/minitest.</p>
-            </div>
-            <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
-              <p className="font-semibold text-ink">Quy ước</p>
-              <p className="mt-1">Nếu đầu sách chưa có danh mục, hệ thống tự xếp vào `Sách khác`.</p>
-            </div>
+      <div className="card">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="font-display text-lg font-semibold tracking-tight">Danh mục sách và tồn kho</h2>
+            <p className="mt-1 text-sm text-ink-muted48">
+              {categoryOptions.length} danh mục · Bảng này dùng để tìm đúng tên sách trong từng danh mục trước khi xem sổ xuất chi tiết.
+            </p>
           </div>
-
-          <div className="mt-5 table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Danh mục</th>
-                  <th>Đầu sách</th>
-                  <th>Đã xuất</th>
-                  <th>Tồn kho</th>
-                </tr>
-              </thead>
-              <tbody>
-                {categorySummary.map((item) => (
-                  <tr key={item.categoryName}>
-                    <td className="font-medium text-ink">{item.categoryName}</td>
-                    <td>{item.bookCount}</td>
-                    <td>{item.totalIssued}</td>
-                    <td>
-                      <span className={item.totalOnHand <= 5 ? "badge-amber" : "badge-green"}>{item.totalOnHand}</span>
-                    </td>
-                  </tr>
-                ))}
-                {categorySummary.length === 0 ? (
-                  <tr className="table-empty">
-                    <td colSpan={4}>Chưa có danh mục/đầu sách nào.</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
+          <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
+            <p className="font-semibold text-ink">Quy ước</p>
+            <p className="mt-1">Nếu đầu sách chưa có danh mục, hệ thống tự xếp vào `Sách khác`.</p>
           </div>
         </div>
 
-        <div className="card">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="font-display text-lg font-semibold tracking-tight">Danh mục sách và tồn kho</h2>
-              <p className="mt-1 text-sm text-ink-muted48">Bảng này dùng để tìm đúng tên sách trong từng danh mục trước khi xem sổ xuất chi tiết.</p>
-            </div>
-          </div>
-
-          <div className="mt-5 table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Danh mục</th>
-                  <th>Tên sách</th>
-                  <th>Đơn giá</th>
-                  <th>Đã xuất</th>
-                  <th>Tồn</th>
+        <div className="mt-5 table-container">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Danh mục</th>
+                <th>Tên sách</th>
+                <th>Đơn giá</th>
+                <th>Đã xuất</th>
+                <th>Tồn</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagedBooks.map((book) => (
+                <tr key={book.id}>
+                  <td>
+                    <span className={categoryBadgeClass(book.categoryLabel)}>{book.categoryLabel}</span>
+                  </td>
+                  <td>
+                    <Link href={`/inventory/${book.id}`} className="font-medium text-primary hover:underline">
+                      {book.name}
+                    </Link>
+                  </td>
+                  <td>{formatVnd(book.unitPrice)}</td>
+                  <td>{book.issuedTotal}</td>
+                  <td>
+                    <span className={book.onHand <= 5 ? "badge-amber" : "badge-green"}>{book.onHand}</span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {pagedBooks.map((book) => (
-                  <tr key={book.id}>
-                    <td className="text-ink-muted80">{book.categoryLabel}</td>
-                    <td>
-                      <Link href={`/inventory/${book.id}`} className="font-medium text-primary hover:underline">
-                        {book.name}
-                      </Link>
-                    </td>
-                    <td>{formatVnd(book.unitPrice)}</td>
-                    <td>{book.issuedTotal}</td>
-                    <td>
-                      <span className={book.onHand <= 5 ? "badge-amber" : "badge-green"}>{book.onHand}</span>
-                    </td>
-                  </tr>
-                ))}
-                {availableBooks.length === 0 ? (
-                  <tr className="table-empty">
-                    <td colSpan={5}>Không có đầu sách nào khớp bộ lọc.</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-
-          {availableBooks.length > 0 && (
-            <div className="mt-4 flex flex-col gap-3 border-t border-[#e6eefc] pt-4 md:flex-row md:items-center md:justify-between">
-              <p className="text-sm text-ink-muted48">
-                Trang {bookPage}/{bookTotalPages} • Hiển thị {pagedBooks.length} trên tổng {availableBooks.length} đầu sách
-              </p>
-              <div className="pagination">
-                <Link
-                  href={pageHref(currentParams, { bookPage: String(Math.max(1, bookPage - 1)) })}
-                  className={bookPage <= 1 ? "pagination-item pointer-events-none opacity-50" : "pagination-item"}
-                >
-                  Trước
-                </Link>
-                <span className="pagination-item-active">{bookPage}</span>
-                <Link
-                  href={pageHref(currentParams, { bookPage: String(Math.min(bookTotalPages, bookPage + 1)) })}
-                  className={bookPage >= bookTotalPages ? "pagination-item pointer-events-none opacity-50" : "pagination-item"}
-                >
-                  Sau
-                </Link>
-              </div>
-            </div>
-          )}
+              ))}
+              {availableBooks.length === 0 ? (
+                <tr className="table-empty">
+                  <td colSpan={5}>Không có đầu sách nào khớp bộ lọc.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
         </div>
+
+        {availableBooks.length > 0 && (
+          <div className="mt-4 flex flex-col gap-3 border-t border-[#e6eefc] pt-4 md:flex-row md:items-center md:justify-between">
+            <p className="text-sm text-ink-muted48">
+              Trang {bookPage}/{bookTotalPages} • Hiển thị {pagedBooks.length} trên tổng {availableBooks.length} đầu sách
+            </p>
+            <div className="pagination">
+              <Link
+                href={pageHref(currentParams, { bookPage: String(Math.max(1, bookPage - 1)) })}
+                className={bookPage <= 1 ? "pagination-item pointer-events-none opacity-50" : "pagination-item"}
+              >
+                Trước
+              </Link>
+              <span className="pagination-item-active">{bookPage}</span>
+              <Link
+                href={pageHref(currentParams, { bookPage: String(Math.min(bookTotalPages, bookPage + 1)) })}
+                className={bookPage >= bookTotalPages ? "pagination-item pointer-events-none opacity-50" : "pagination-item"}
+              >
+                Sau
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="card">
@@ -439,7 +408,9 @@ export default async function InventoryPage({
                   <td>{row.classCode || "—"}</td>
                   <td>{row.className}</td>
                   <td>{row.studentLabel}</td>
-                  <td>{row.bookCategory}</td>
+                  <td>
+                    <span className={categoryBadgeClass(row.bookCategory)}>{row.bookCategory}</span>
+                  </td>
                   <td>
                     <Link href={`/inventory/${row.bookId}`} className="text-primary hover:underline">
                       {row.bookName}

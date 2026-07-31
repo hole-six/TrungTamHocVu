@@ -6,6 +6,7 @@ import { canUpdate, canDelete } from "@/lib/server/role-matrix";
 import { estimateEndDate } from "@/lib/server/class-rules";
 import { syncClassDerivedFields } from "@/lib/server/database-sync";
 import { ensureClassRoadmapItems } from "@/lib/server/class-roadmap";
+import { isValidClassAssignmentRole } from "@/lib/server/class-default-assignments";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -16,6 +17,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     include: {
       course: true,
       scheduleRules: { orderBy: { weekday: "asc" } },
+      defaultAssignments: { where: { isActive: true }, include: { employee: true }, orderBy: { role: "asc" } },
       sessions: { orderBy: { sessionDate: "desc" }, take: 30, include: { attendances: true } },
       enrollments: { include: { student: true }, orderBy: { enrollDate: "desc" } },
     },
@@ -83,7 +85,55 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
   }
 
-  const updated = await prisma.class.update({ where: { id: params.id }, data });
+  const defaultAssignments = Array.isArray(body.defaultAssignments) ? body.defaultAssignments : null;
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const classUpdated = await tx.class.update({ where: { id: params.id }, data });
+
+    if (defaultAssignments) {
+      const normalizedAssignments: Array<{ role: string; employeeId: string; notes: string | null }> = defaultAssignments
+        .map((item: { role?: string; employeeId?: string | null; notes?: string | null }) => ({
+          role: String(item.role ?? "").trim(),
+          employeeId: item.employeeId ? String(item.employeeId).trim() : "",
+          notes: String(item.notes ?? "").trim() || null,
+        }))
+        .filter((item: { role: string }) => isValidClassAssignmentRole(item.role));
+
+      const seenRoles = new Set<string>();
+      for (const assignment of normalizedAssignments) {
+        if (seenRoles.has(assignment.role)) {
+          throw new Error(`Vai trò ${assignment.role} đang bị gửi trùng.`);
+        }
+        seenRoles.add(assignment.role);
+      }
+
+      await tx.classDefaultAssignment.updateMany({
+        where: { classId: params.id, role: { notIn: normalizedAssignments.map((item: { role: string }) => item.role) } },
+        data: { isActive: false },
+      });
+
+      for (const assignment of normalizedAssignments) {
+        if (!assignment.employeeId) continue;
+        await tx.classDefaultAssignment.upsert({
+          where: { classId_role: { classId: params.id, role: assignment.role } },
+          create: {
+            classId: params.id,
+            employeeId: assignment.employeeId,
+            role: assignment.role,
+            notes: assignment.notes,
+            isActive: true,
+          },
+          update: {
+            employeeId: assignment.employeeId,
+            notes: assignment.notes,
+            isActive: true,
+          },
+        });
+      }
+    }
+
+    return classUpdated;
+  });
   await ensureClassRoadmapItems(updated.id, nextTotalSessions);
   const synced = await syncClassDerivedFields(updated.id);
   return NextResponse.json({ item: synced ?? updated });

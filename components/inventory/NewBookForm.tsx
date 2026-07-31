@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import CategorySelect from "./CategorySelect";
 
-export default function NewBookForm() {
+export default function NewBookForm({ categoryOptions }: { categoryOptions: string[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", bookCode: "", category: "", unitPrice: "" });
@@ -69,11 +70,10 @@ export default function NewBookForm() {
 
           <label className="form-group">
             <span className="label-sm">Danh mục sách</span>
-            <input
-              className="input"
+            <CategorySelect
+              categoryOptions={categoryOptions}
               value={form.category}
-              onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
-              placeholder="VD: Everybody Up, NGP, Sách bổ trợ..."
+              onChange={(next) => setForm((current) => ({ ...current, category: next }))}
             />
           </label>
         </div>

@@ -1,12 +1,19 @@
-// Sinh ClassSession — tách riêng khỏi class-rules.ts (file đó được
-// components/classes/ScheduleRuleManager.tsx — 1 client component — import trực
-// tiếp; nếu thêm import prisma vào class-rules.ts sẽ kéo Prisma Client vào bundle
-// trình duyệt). File này chỉ được gọi từ route handler và scheduler (server-only).
 import { prisma } from "@/lib/prisma";
 import { generateSessionDates } from "@/lib/server/class-rules";
+import { computeSessionBaseHours } from "@/lib/server/payroll-rules";
 
 export async function createSessionsInRange(classId: string, fromDate: Date, toDate: Date) {
-  const cls = await prisma.class.findUnique({ where: { id: classId }, include: { scheduleRules: true } });
+  const cls = await prisma.class.findUnique({
+    where: { id: classId },
+    include: {
+      scheduleRules: true,
+      defaultAssignments: {
+        where: { isActive: true },
+        include: { employee: true },
+        orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+      },
+    },
+  });
   if (!cls) throw new Error("Không tìm thấy lớp");
   if (cls.scheduleRules.length === 0) return { created: 0, skipped: 0 };
 
@@ -16,35 +23,48 @@ export async function createSessionsInRange(classId: string, fromDate: Date, toD
     where: { classId, sessionDate: { gte: fromDate, lte: toDate } },
     select: { sessionDate: true },
   });
-  const existingDates = new Set(existing.map((s) => s.sessionDate.toISOString().slice(0, 10)));
-
-  const toCreate = candidates.filter((c) => !existingDates.has(c.sessionDate.toISOString().slice(0, 10)));
+  const existingDates = new Set(existing.map((session) => session.sessionDate.toISOString().slice(0, 10)));
+  const toCreate = candidates.filter((candidate) => !existingDates.has(candidate.sessionDate.toISOString().slice(0, 10)));
 
   if (toCreate.length > 0) {
-    await prisma.classSession.createMany({
-      data: toCreate.map((c) => ({
-        classId,
-        sessionDate: c.sessionDate,
-        startTime: c.startTime,
-        endTime: c.endTime,
-        room: c.room,
-        status: "PLANNED",
-      })),
-    });
+    await prisma.$transaction(
+      toCreate.map((candidate) => {
+        const assignments = cls.defaultAssignments.map((assignment) => {
+          const hours = computeSessionBaseHours(assignment.employee.payMode, candidate.startTime, candidate.endTime);
+          const hourlyRate =
+            assignment.role === "TEACHER" ? assignment.employee.teachingHourlyRate ?? 0 : assignment.employee.assistantHourlyRate ?? 0;
+          return {
+            employeeId: assignment.employeeId,
+            role: assignment.role,
+            hours,
+            hourlyRate,
+            amount: Math.round(hours * hourlyRate),
+          };
+        });
+
+        return prisma.classSession.create({
+          data: {
+            classId,
+            sessionDate: candidate.sessionDate,
+            startTime: candidate.startTime,
+            endTime: candidate.endTime,
+            room: candidate.room,
+            status: "PLANNED",
+            assignments: assignments.length ? { create: assignments } : undefined,
+          },
+        });
+      }),
+    );
   }
 
   return { created: toCreate.length, skipped: candidates.length - toCreate.length };
 }
 
-const MAX_SPAN_MS = 1000 * 60 * 60 * 24 * 120; // khớp giới hạn 120 ngày/lần của route generate-sessions
+const MAX_SPAN_MS = 1000 * 60 * 60 * 24 * 120;
 
-// Tính khoảng ngày cần sinh thêm cho 1 lớp để luôn có buổi học sẵn trước windowDays
-// ngày kể từ hôm nay. Điểm bắt đầu là ngày SAU buổi học cuối cùng đã có (hoặc ngày
-// khai giảng nếu lớp chưa có buổi nào) — không phải "hôm nay" — để không bỏ sót
-// khoảng trống nếu server từng tắt lâu ngày (xem lib/server/scheduling.ts).
 export async function computeAutoSessionWindow(
   classId: string,
-  windowDays = 30
+  windowDays = 30,
 ): Promise<{ fromDate: Date; toDate: Date } | null> {
   const cls = await prisma.class.findUnique({ where: { id: classId } });
   if (!cls) return null;
@@ -60,35 +80,27 @@ export async function computeAutoSessionWindow(
   } else if (cls.startDate) {
     fromDate = new Date(cls.startDate);
   } else {
-    return null; // không có mốc nào để bắt đầu sinh
+    return null;
   }
 
   const targetToDate = new Date(today);
   targetToDate.setUTCDate(targetToDate.getUTCDate() + windowDays);
 
-  if (fromDate.getTime() > targetToDate.getTime()) return null; // đã sinh đủ trước, không có gì để làm
+  if (fromDate.getTime() > targetToDate.getTime()) return null;
 
-  // Lớp "treo" lâu ngày (chưa từng sinh buổi) có thể cần khoảng xa hơn 120 ngày —
-  // giới hạn lại mỗi lần chạy, các lượt sweep ngày sau sẽ tiếp tục đuổi kịp dần.
   let toDate = targetToDate;
   if (toDate.getTime() - fromDate.getTime() > MAX_SPAN_MS) {
     toDate = new Date(fromDate.getTime() + MAX_SPAN_MS);
   }
 
   if (cls.expectedEndDate && toDate.getTime() > cls.expectedEndDate.getTime()) {
-    if (fromDate.getTime() > cls.expectedEndDate.getTime()) return null; // lớp đã qua ngày dự kiến kết thúc
+    if (fromDate.getTime() > cls.expectedEndDate.getTime()) return null;
     toDate = cls.expectedEndDate;
   }
 
   return { fromDate, toDate };
 }
 
-// Tiến độ học của 1 enrollment trong lớp — đếm buổi ĐÃ DIỄN RA (status COMPLETED)
-// kể từ enrollDate của CHÍNH enrollment đó, không phải toàn bộ buổi của lớp. Học
-// viên vào giữa khóa (lớp đã học được vài buổi trước khi họ ghi danh) thì các buổi
-// trước enrollDate không tính vào "đã học" của họ — khớp đúng cách billing-generation
-// đang định nghĩa "buổi đã tiêu" (completed sessions), chỉ khác là ở đây tính mốc bắt
-// đầu theo TỪNG học viên thay vì theo kỳ thu chung.
 export async function computeEnrollmentSessionProgress(classId: string, enrollDate: Date) {
   const [cls, consumed] = await Promise.all([
     prisma.class.findUnique({ where: { id: classId }, select: { totalSessions: true, expectedEndDate: true } }),
@@ -99,9 +111,6 @@ export async function computeEnrollmentSessionProgress(classId: string, enrollDa
 
   const planned = cls?.totalSessions ?? null;
   const remaining = planned !== null ? planned - consumed : null;
-  // Lớp coi như đã hết hạn khi qua ngày dự kiến kết thúc — lúc đó "remaining > 0"
-  // nghĩa là học viên còn bị thiếu buổi (do vào muộn) cần bảo lưu/học bù ở lớp khác,
-  // không phải lỗi tính toán.
   const classEnded = cls?.expectedEndDate ? cls.expectedEndDate.getTime() < Date.now() : false;
 
   return { consumed, planned, remaining, classEnded };

@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/ui/DataTable";
-import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
-import { isManagementRole, isTeachingStaffRole, isFrontDeskRole } from "@/lib/client-roles";
+import type { Column, BulkAction } from "@/components/ui/DataTable";
+import { isFrontDeskRole, isTeachingStaffRole } from "@/lib/client-roles";
 import { exportToExcel } from "@/lib/export-utils";
 
 type GuardianChild = {
@@ -42,6 +42,10 @@ function formatVnd(value: number) {
   return `${value.toLocaleString("vi-VN")}đ`;
 }
 
+function guardianDebt(children: GuardianChild[] | undefined) {
+  return (children ?? []).reduce((sum, child) => sum + Math.max(0, child.outstanding), 0);
+}
+
 export default function GuardiansTable({
   initialData,
   total,
@@ -59,26 +63,26 @@ export default function GuardiansTable({
         fullName: row.fullName,
         phone: row.phone ?? "",
         portalEmail: row.portalEmail ?? "",
-        portalStatus: row.portalEmail ? (row.portalActive ? "Đang hoạt động" : "Đã thu hồi") : "Chưa cấp",
+        portalStatus: row.portalEmail ? (row.portalActive ? "Đang hoạt động" : "Chưa kích hoạt") : "Chưa cấp",
         address: row.address ?? "",
-        leads: row._count?.leads ?? 0,
-        students: row._count?.students ?? 0,
-        firstStudent: row.children?.[0]?.fullName ?? "",
-        firstClass: row.children?.[0]?.className ?? "",
+        studentCount: row._count?.students ?? 0,
+        leadCount: row._count?.leads ?? 0,
+        totalDebt: guardianDebt(row.children),
+        linkedStudents: row.children?.map((child) => child.fullName).join(", ") ?? "",
       })),
       [
-        { key: "fullName", label: "Họ và tên" },
+        { key: "fullName", label: "Phụ huynh" },
         { key: "phone", label: "Số điện thoại" },
-        { key: "portalEmail", label: "Portal phụ huynh" },
+        { key: "portalEmail", label: "Portal" },
         { key: "portalStatus", label: "Trạng thái portal" },
         { key: "address", label: "Địa chỉ" },
-        { key: "leads", label: "Số lead" },
-        { key: "students", label: "Số học viên" },
-        { key: "firstStudent", label: "Con đang theo dõi" },
-        { key: "firstClass", label: "Lớp hiện tại" },
+        { key: "studentCount", label: "Số học viên" },
+        { key: "leadCount", label: "Số lead" },
+        { key: "totalDebt", label: "Tổng công nợ" },
+        { key: "linkedStudents", label: "Học viên liên kết" },
       ],
       "phu-huynh",
-      "PhuHuynh"
+      "PhuHuynh",
     );
   };
 
@@ -89,108 +93,89 @@ export default function GuardiansTable({
       sortable: true,
       render: (value, row) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 text-sm font-bold text-white shadow-md">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 via-cyan-50 to-white text-sm font-bold text-sky-700 shadow-sm ring-1 ring-sky-100">
             {value.charAt(0).toUpperCase()}
           </div>
-          <div>
-            <p className="text-sm font-semibold text-ink">{value}</p>
-            <p className="text-xs font-mono text-ink-muted48">{row.phone ?? "Chưa có SĐT"}</p>
-            {row.leads?.[0] ? <p className="text-xs text-amber-700">Lead gần nhất: {row.leads[0].leadCode}</p> : null}
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-ink">{value}</p>
+            <p className="mt-1 text-xs text-ink-muted48">
+              {(row._count?.students ?? 0) > 0 ? `${row._count?.students} học viên liên kết` : "Chưa liên kết học viên"}
+            </p>
+            {row.address ? <p className="mt-1 truncate text-xs text-ink-muted48">{row.address}</p> : null}
           </div>
         </div>
       ),
     },
     {
-      key: "portalEmail",
-      label: "Portal",
+      key: "phone",
+      label: "Liên hệ / Portal",
       render: (value, row) => (
-        <div>
-          <p className="text-sm font-medium text-ink">{value ?? "Chưa cấp portal"}</p>
-          <p className={`text-xs ${value ? (row.portalActive ? "text-sky-700" : "text-ink-muted48") : "text-ink-muted48"}`}>
-            {value ? (row.portalActive ? "Đang hoạt động" : "Đã thu hồi") : "Cần cấp để phụ huynh xem portal"}
-          </p>
+        <div className="space-y-2">
+          <div>
+            <p className="text-sm font-semibold text-ink">{value ?? "Chưa có số điện thoại"}</p>
+            <p className="mt-1 text-xs text-ink-muted48">{row.portalEmail ?? "Chưa cấp portal"}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className={`badge ${row.portalEmail ? (row.portalActive ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700") : "bg-slate-100 text-slate-600"}`}>
+              {row.portalEmail ? (row.portalActive ? "Portal hoạt động" : "Portal chưa kích hoạt") : "Chưa có portal"}
+            </span>
+            {(row._count?.leads ?? 0) > 0 ? <span className="badge bg-sky-50 text-sky-700">{row._count?.leads} lead liên quan</span> : null}
+          </div>
         </div>
       ),
     },
     {
       key: "children",
-      label: "Học viên liên quan",
+      label: "Học viên đang theo dõi",
       render: (value) =>
         value && value.length > 0 ? (
-          <div className="space-y-1">
+          <div className="space-y-2">
             {value.slice(0, 2).map((child: GuardianChild) => (
-              <div key={child.id}>
-                <p className="text-sm font-medium text-ink">{child.fullName}</p>
-                <p className="text-xs text-ink-muted48">
-                  {child.leadCode ?? "Không gắn lead"} · {child.className ?? "Chưa có lớp"} · Nợ {formatVnd(child.outstanding)}
+              <div key={child.id} className="rounded-2xl border border-hairline bg-canvas-parchment/35 px-3 py-2">
+                <p className="text-sm font-semibold text-ink">{child.fullName}</p>
+                <p className="mt-1 text-xs text-ink-muted48">
+                  {child.className ?? "Chưa có lớp"} {child.leadCode ? `· Lead ${child.leadCode}` : ""}
                 </p>
               </div>
             ))}
+            {value.length > 2 ? <p className="text-xs font-medium text-primary">+ {value.length - 2} học viên khác</p> : null}
           </div>
         ) : (
-          <span className="text-xs text-ink-muted48">Chưa liên kết học viên</span>
+          <div className="rounded-2xl border border-dashed border-hairline bg-canvas-parchment/20 px-3 py-4 text-xs text-ink-muted48">
+            Chưa liên kết học viên
+          </div>
         ),
     },
     {
-      key: "_count",
-      label: "Số lượng",
-      align: "center",
-      render: (value) => (
-        <div className="space-y-1 text-xs font-bold">
-          <div className="inline-flex rounded-lg bg-pink-50 px-2 py-1 text-pink-700">Lead {value?.leads || 0}</div>
-          <div className="inline-flex rounded-lg bg-violet-50 px-2 py-1 text-violet-700">HV {value?.students || 0}</div>
-        </div>
-      ),
-    },
-  ];
-
-  const actions: Action<Guardian>[] = [
-    {
-      label: "Xem",
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
-      ),
-      onClick: (row) => router.push(`/guardians/${row.id}`),
-      variant: "primary",
-    },
-  ];
-
-  if (!isTeachingStaffRole(userRole)) {
-    actions.push({
-      label: "Sửa",
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-        </svg>
-      ),
-      onClick: (row) => router.push(`/guardians/${row.id}`),
-      variant: "secondary",
-    });
-  }
-
-  if (isManagementRole(userRole)) {
-    actions.push({
-      label: "Xóa",
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-        </svg>
-      ),
-      onClick: async (row) => {
-        if (confirm(`Xóa phụ huynh ${row.fullName}?`)) {
-          await fetch(`/api/guardians/${row.id}`, { method: "DELETE" });
-          router.refresh();
-        }
+      key: "id",
+      label: "Công nợ / 360",
+      render: (_, row) => {
+        const totalDebt = guardianDebt(row.children);
+        const firstStudent = row.children?.[0];
+        return (
+          <div className="space-y-3">
+            <div>
+              <p className={`text-sm font-bold ${totalDebt > 0 ? "text-rose-700" : "text-emerald-700"}`}>
+                {formatVnd(totalDebt)}
+              </p>
+              <p className="mt-1 text-xs text-ink-muted48">
+                {totalDebt > 0 ? "Tổng công nợ của các học viên liên kết" : "Hiện không có công nợ"}
+              </p>
+            </div>
+            {firstStudent ? (
+              <button type="button" onClick={() => router.push(`/students/${firstStudent.id}`)} className="btn-360-sm">
+                Mở hồ sơ 360
+              </button>
+            ) : (
+              <button type="button" disabled className="btn-ghost-sm">
+                Chưa có hồ sơ 360
+              </button>
+            )}
+          </div>
+        );
       },
-      variant: "danger",
-      show: (row) => (row._count?.leads || 0) === 0 && (row._count?.students || 0) === 0,
-    });
-  }
+    },
+  ];
 
   const bulkActions: BulkAction<Guardian>[] = [];
 
@@ -199,31 +184,13 @@ export default function GuardiansTable({
       label: "Xuất Excel",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
         </svg>
       ),
       onClick: async (rows) => exportRows(rows),
       variant: "primary",
-    });
-  }
-
-  if (isManagementRole(userRole)) {
-    bulkActions.push({
-      label: "Xóa",
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-        </svg>
-      ),
-      onClick: async (rows) => {
-        await Promise.all(rows.map((row) => fetch(`/api/guardians/${row.id}`, { method: "DELETE" })));
-        router.refresh();
-      },
-      variant: "danger",
-      confirmMessage: "Bạn có chắc muốn xóa phụ huynh? Thao tác này không thể hoàn tác.",
     });
   }
 
@@ -240,13 +207,13 @@ export default function GuardiansTable({
     <DataTable
       data={data}
       columns={columns}
-      actions={actions}
+      actions={[]}
       bulkActions={bulkActions}
       searchable
-      searchPlaceholder="Tìm theo phụ huynh, email portal, học viên, lead..."
+      searchPlaceholder="Tìm theo phụ huynh, portal, số điện thoại, học viên..."
       onSearch={handleSearch}
       sortable
-      selectable={!isTeachingStaffRole(userRole)}
+      selectable={false}
       pagination={{
         total,
         page,

@@ -32,6 +32,14 @@ export default async function BookDetailPage({ params }: { params: { id: string 
   const role = currentUser ? await getUserRole(currentUser.id) : null;
 
   const balance = await computeStockBalance(book.id);
+  const otherBooks = await prisma.book.findMany({
+    where: { branchId: book.branchId, category: { not: null } },
+    select: { category: true },
+    distinct: ["category"],
+  });
+  const categoryOptions = otherBooks
+    .map((b) => b.category!)
+    .sort((left, right) => left.localeCompare(right, "vi"));
 
   return (
     <div className="space-y-6">
@@ -73,6 +81,7 @@ export default async function BookDetailPage({ params }: { params: { id: string 
             usageStatus: book.usageStatus,
             notes: book.notes,
           }}
+          categoryOptions={categoryOptions}
         />
       )}
 

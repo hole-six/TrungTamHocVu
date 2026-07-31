@@ -203,6 +203,30 @@
     transform: translateY(-2px);
     box-shadow: var(--shadow-xl), 0 0 24px 0 rgb(17 153 142 / 0.3);
   }
+
+  .btn-360 {
+    @apply inline-flex items-center justify-center gap-2.5 rounded-2xl px-5 py-2.5
+           text-sm font-bold text-white shadow-lg
+           transition-all duration-300 ease-out
+           active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none;
+    background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  }
+  .btn-360:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-xl), 0 0 26px 0 rgb(37 99 235 / 0.28);
+  }
+
+  .btn-360-sm {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2
+           text-xs font-bold text-white shadow-md
+           transition-all duration-300 ease-out
+           active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none;
+    background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  }
+  .btn-360-sm:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lg), 0 0 22px 0 rgb(37 99 235 / 0.22);
+  }
   
   /* Icon-only buttons */
   .btn-icon {

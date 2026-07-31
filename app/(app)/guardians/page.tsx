@@ -49,7 +49,7 @@ export default async function GuardiansPage({
               },
             },
           },
-          take: 2,
+          take: 3,
           orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
         },
         _count: {
@@ -115,7 +115,7 @@ export default async function GuardiansPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="page-title">Quản lý phụ huynh</h1>
-          <p className="page-subtitle">Danh sách và thông tin chi tiết của {total} phụ huynh</p>
+          <p className="page-subtitle">Danh sách gọn theo đầu mối liên hệ, portal, học viên liên kết và lối tắt sang hồ sơ 360.</p>
         </div>
         {userRole !== "TEACHER" && (
           <Link href="/guardians/new" className="btn-primary">
@@ -129,8 +129,8 @@ export default async function GuardiansPage({
       </div>
 
       <ModuleActionHub
-        title="Phụ huynh là đầu mối nhận hóa đơn, nhắc phí và portal"
-        subtitle="Đây là nơi quản lý mối liên hệ giữa lead, học viên và tài khoản portal để thông tin không bị lệch người nhận."
+        title="Phụ huynh là đầu mối liên hệ, còn hồ sơ 360 nằm ở học viên"
+        subtitle="Trang này chỉ giữ phần liên hệ và portal. Khi cần làm việc sâu về lớp, công nợ, nhật ký học tập hay sách phát sinh, đi thẳng sang hồ sơ 360 của học viên."
         actions={[
           { label: "Thêm phụ huynh", description: "Tạo hồ sơ thủ công khi cần bổ sung ngoài luồng CRM/intake.", href: "/guardians/new", tone: "primary" },
           { label: "Mở CRM tuyển sinh", description: "Quay lại lead nếu cần nối phụ huynh với một nhu cầu tuyển sinh mới.", href: "/leads", tone: "info" },
@@ -139,7 +139,7 @@ export default async function GuardiansPage({
         metrics={[
           { label: "Tổng phụ huynh", value: total, hint: "Toàn bộ hồ sơ phụ huynh" },
           { label: "Portal hoạt động", value: activePortalCount, hint: "Đã đăng nhập/xài được", tone: "info" },
-          { label: "HV liên kết", value: linkedStudentCount, hint: "Số liên kết phụ huynh–học viên", tone: "success" },
+          { label: "HV liên kết", value: linkedStudentCount, hint: "Số liên kết phụ huynh-học viên", tone: "success" },
           { label: "Có công nợ", value: debtGuardianCount, hint: "Ít nhất 1 con đang còn nợ", tone: "danger" },
         ]}
       />

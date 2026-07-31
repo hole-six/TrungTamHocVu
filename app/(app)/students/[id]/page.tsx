@@ -5,6 +5,7 @@ import StudentEditForm from "@/components/students/StudentEditForm";
 import AssignEnrollmentForm from "@/components/students/AssignEnrollmentForm";
 import StudentFinanceDesk from "@/components/students/StudentFinanceDesk";
 import StudentSessionCredits from "@/components/students/StudentSessionCredits";
+import StudentBookIssueUndoPanel from "@/components/students/StudentBookIssueUndoPanel";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import ScholarshipAdjustmentForm from "@/components/students/ScholarshipAdjustmentForm";
 import RefundButton from "@/components/students/RefundButton";
@@ -189,7 +190,8 @@ export default async function StudentDetailPage({
   const autoOpenTuition = showIntakeBanner && searchParams?.focus === "tuition";
 
   const outstanding = await computeOutstandingBalance(student.id);
-  const currentEnrollment = student.enrollments.find((e) => e.status === "ACTIVE") ?? student.enrollments[0] ?? null;
+  const activeEnrollments = student.enrollments.filter((e) => e.status === "ACTIVE");
+  const currentEnrollment = activeEnrollments[0] ?? student.enrollments[0] ?? null;
   const courseProgress = currentEnrollment?.classId
     ? await computeEnrollmentSessionProgress(currentEnrollment.classId, currentEnrollment.enrollDate)
     : null;
@@ -386,6 +388,12 @@ export default async function StudentDetailPage({
         studentName={student.fullName}
         studentCode={student.studentDisplayId ?? student.studentCode}
         outstanding={outstanding}
+        currentClassName={currentEnrollment?.class?.className ?? null}
+        canIssueBooks={activeEnrollments.length > 0}
+        activeClassOptions={activeEnrollments.map((enrollment) => ({
+          id: enrollment.classId,
+          className: enrollment.class?.className ?? "Lớp chưa rõ tên",
+        }))}
         nextDueCharge={nextDueCharge ? nextDueCharge : null}
         charges={chargeSummaries}
         bookIssues={student.bookIssues.map((issue) => ({
@@ -414,6 +422,19 @@ export default async function StudentDetailPage({
         }))}
         canManageFinance={canManageFinance}
         canManageInventory={canManageInventory}
+      />
+      <StudentBookIssueUndoPanel
+        canManageInventory={canManageInventory}
+        issues={student.bookIssues
+          .filter((issue) => issue.paymentStatus === "UNPAID")
+          .map((issue) => ({
+            id: issue.id,
+            bookName: issue.book.name,
+            amount: issue.amount,
+            quantity: issue.quantity,
+            issueDate: issue.issueDate.toISOString(),
+            className: issue.class?.className ?? null,
+          }))}
       />
 
       <StudentSessionCredits
@@ -544,6 +565,54 @@ export default async function StudentDetailPage({
                     </dd>
                   </div>
                 </dl>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Phụ huynh liên kết</p>
+                  <p className="mt-1 text-sm text-ink-muted48">
+                    Hồ sơ 360 này đã gom sẵn thông tin phụ huynh để vận hành lớp, học phí và portal ngay tại đây.
+                  </p>
+                </div>
+                <Link href="/guardians" className="text-sm font-medium text-primary">
+                  Mở danh bạ phụ huynh →
+                </Link>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                {student.guardians.map((item) => (
+                  <div key={item.id} className="rounded-2xl border border-hairline bg-white/80 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-ink">
+                          {item.guardian.fullName}
+                          {item.isPrimary ? <span className="ml-2 rounded-full bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">Chính</span> : null}
+                        </p>
+                        <p className="mt-1 text-xs text-ink-muted48">
+                          {item.relation ?? "Người liên hệ"} · {item.guardian.phone ?? "Chưa có số điện thoại"}
+                        </p>
+                      </div>
+                      <Link href={`/guardians/${item.guardian.id}`} className="text-sm font-medium text-primary">
+                        Mở PH →
+                      </Link>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="badge bg-ink/5 text-ink-muted80">{item.guardian.user?.email ?? "Chưa cấp portal"}</span>
+                      <span className={`badge ${item.guardian.user?.isActive ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                        {item.guardian.user ? (item.guardian.user.isActive ? "Portal hoạt động" : "Portal chưa kích hoạt") : "Chưa có portal"}
+                      </span>
+                    </div>
+                    {item.guardian.address ? <p className="mt-3 text-xs text-ink-muted48">Địa chỉ: {item.guardian.address}</p> : null}
+                    {item.guardian.notes ? <p className="mt-2 text-xs text-ink-muted48">Ghi chú: {item.guardian.notes}</p> : null}
+                  </div>
+                ))}
+                {student.guardians.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-hairline bg-white/60 p-4 text-sm text-ink-muted48">
+                    Chưa liên kết phụ huynh nào cho học viên này.
+                  </div>
+                ) : null}
               </div>
             </div>
 

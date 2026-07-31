@@ -101,6 +101,88 @@ export default async function LeadsPage({
 
   const pipeline = Object.fromEntries(LEAD_STATUSES.map((item) => [item, 0])) as Record<string, number>;
   for (const row of byStatus) pipeline[row.status] = row._count._all;
+  const pipelineCards: Array<{
+    key: string;
+    label: string;
+    value: number;
+    hint: string;
+    accent: string;
+    bg: string;
+    ring: string;
+  }> = [
+    {
+      key: "NEW",
+      label: LEAD_STATUS_LABEL.NEW,
+      value: pipeline.NEW ?? 0,
+      hint: "Lead mới vào, cần chốt người phụ trách và nguồn đến.",
+      accent: "text-sky-700",
+      bg: "from-sky-50 via-white to-sky-100/70",
+      ring: "ring-sky-200",
+    },
+    {
+      key: "CONTACTING",
+      label: LEAD_STATUS_LABEL.CONTACTING,
+      value: pipeline.CONTACTING ?? 0,
+      hint: "Đang gọi lại, nhắn tin hoặc tư vấn bước đầu.",
+      accent: "text-cyan-700",
+      bg: "from-cyan-50 via-white to-cyan-100/70",
+      ring: "ring-cyan-200",
+    },
+    {
+      key: "APPOINTED",
+      label: LEAD_STATUS_LABEL.APPOINTED,
+      value: pipeline.APPOINTED ?? 0,
+      hint: "Đã hẹn test hoặc hẹn đến trung tâm.",
+      accent: "text-violet-700",
+      bg: "from-violet-50 via-white to-violet-100/70",
+      ring: "ring-violet-200",
+    },
+    {
+      key: "TESTED",
+      label: LEAD_STATUS_LABEL.TESTED,
+      value: pipeline.TESTED ?? 0,
+      hint: "Đã có kết quả đầu vào, chờ chốt hướng học.",
+      accent: "text-indigo-700",
+      bg: "from-indigo-50 via-white to-indigo-100/70",
+      ring: "ring-indigo-200",
+    },
+    {
+      key: "QUALIFIED",
+      label: LEAD_STATUS_LABEL.QUALIFIED,
+      value: pipeline.QUALIFIED ?? 0,
+      hint: "Đủ điều kiện đẩy sang intake và gắn lớp.",
+      accent: "text-amber-700",
+      bg: "from-amber-50 via-white to-amber-100/70",
+      ring: "ring-amber-200",
+    },
+    {
+      key: "UNQUALIFIED",
+      label: LEAD_STATUS_LABEL.UNQUALIFIED,
+      value: pipeline.UNQUALIFIED ?? 0,
+      hint: "Chưa phù hợp, cần giữ ghi chú và hướng xử lý lại.",
+      accent: "text-slate-700",
+      bg: "from-slate-50 via-white to-slate-100/80",
+      ring: "ring-slate-200",
+    },
+    {
+      key: "ENROLLED",
+      label: LEAD_STATUS_LABEL.ENROLLED,
+      value: pipeline.ENROLLED ?? 0,
+      hint: "Đã convert thành học viên thực tế.",
+      accent: "text-emerald-700",
+      bg: "from-emerald-50 via-white to-emerald-100/70",
+      ring: "ring-emerald-200",
+    },
+    {
+      key: "LOST",
+      label: LEAD_STATUS_LABEL.LOST,
+      value: pipeline.LOST ?? 0,
+      hint: "Lead rơi rụng, cần nhìn lại nguyên nhân.",
+      accent: "text-rose-700",
+      bg: "from-rose-50 via-white to-rose-100/70",
+      ring: "ring-rose-200",
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -140,19 +222,82 @@ export default async function LeadsPage({
         ) : null}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-        {LEAD_STATUSES.map((item) => (
+      <div className="overflow-hidden rounded-[30px] border border-[#dce7f7] bg-[linear-gradient(135deg,#f7fbff_0%,#eff6ff_52%,#ffffff_100%)] p-4 shadow-[0_24px_70px_-42px_rgba(14,116,144,0.22)] sm:p-5">
+        <div className="flex flex-col gap-2 border-b border-[#e6edf8] px-1 pb-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700">Pipeline CRM</p>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight text-ink">Thống kê lead theo từng chặng xử lý</h2>
+            <p className="mt-1 text-sm text-ink-muted48">Bấm vào từng trạng thái để lọc nhanh danh sách CRM bên dưới. Khối này nên giúp nhìn ra ngay lead đang nghẽn ở đâu.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:min-w-[320px] sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 shadow-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">Tổng lead</p>
+              <p className="mt-2 text-2xl font-semibold text-ink">{total}</p>
+            </div>
+            <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 shadow-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">Đủ điều kiện</p>
+              <p className="mt-2 text-2xl font-semibold text-amber-700">{pipeline.QUALIFIED ?? 0}</p>
+            </div>
+            <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 shadow-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">Đã nhập học</p>
+              <p className="mt-2 text-2xl font-semibold text-emerald-700">{pipeline.ENROLLED ?? 0}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {pipelineCards.map((item, index) => (
           <Link
-            key={item}
-            href={`/leads?status=${item}`}
-            className={`card-sm text-center transition hover:border-primary hover:shadow-md ${
-              status === item ? "border-primary ring-2 ring-primary/20 bg-primary/5" : ""
+            key={item.key}
+            href={`/leads?status=${item.key}`}
+            className={`group rounded-[26px] border border-white/80 bg-gradient-to-br ${item.bg} p-4 shadow-[0_18px_40px_-34px_rgba(15,23,42,0.4)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_50px_-30px_rgba(14,116,144,0.28)] ${
+              status === item.key ? `ring-2 ${item.ring} border-transparent shadow-[0_24px_55px_-30px_rgba(14,116,144,0.34)]` : ""
             }`}
           >
-            <p className="font-display text-2xl font-semibold tracking-tight text-primary">{pipeline[item]}</p>
-            <p className="mt-0.5 text-[11px] leading-tight text-ink-muted48">{LEAD_STATUS_LABEL[item]}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted48">Chặng {index + 1}</p>
+                <p className="mt-2 text-base font-semibold text-ink">{item.label}</p>
+              </div>
+              <span className={`inline-flex rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold ${item.accent}`}>
+                {total > 0 ? Math.round((item.value / total) * 100) : 0}%
+              </span>
+            </div>
+
+            <div className="mt-5 flex items-end justify-between gap-3">
+              <p className={`text-4xl font-semibold tracking-tight ${item.accent}`}>{item.value}</p>
+              <span className={`text-xs font-semibold ${status === item.key ? item.accent : "text-ink-muted48"}`}>
+                {status === item.key ? "Đang lọc" : "Bấm để lọc"}
+              </span>
+            </div>
+
+            <p className="mt-3 min-h-[44px] text-sm leading-5 text-ink-muted64">{item.hint}</p>
+
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/75">
+              <div
+                className={`h-full rounded-full transition-all ${status === item.key ? "opacity-100" : "opacity-80 group-hover:opacity-100"} ${
+                  item.accent.includes("sky")
+                    ? "bg-sky-500"
+                    : item.accent.includes("cyan")
+                      ? "bg-cyan-500"
+                      : item.accent.includes("violet")
+                        ? "bg-violet-500"
+                        : item.accent.includes("indigo")
+                          ? "bg-indigo-500"
+                          : item.accent.includes("amber")
+                            ? "bg-amber-500"
+                            : item.accent.includes("slate")
+                              ? "bg-slate-500"
+                              : item.accent.includes("emerald")
+                                ? "bg-emerald-500"
+                                : "bg-rose-500"
+                }`}
+                style={{ width: `${total > 0 ? Math.max(8, Math.round((item.value / total) * 100)) : 8}%` }}
+              />
+            </div>
           </Link>
         ))}
+      </div>
       </div>
 
       <ModuleActionHub

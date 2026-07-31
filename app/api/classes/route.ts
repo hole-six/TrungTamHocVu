@@ -7,6 +7,7 @@ import { canCreate } from "@/lib/server/role-matrix";
 import { estimateEndDate, estimateEndDateFromRules } from "@/lib/server/class-rules";
 import { syncClassDerivedFields } from "@/lib/server/database-sync";
 import { ensureClassRoadmapItems, normalizeRoadmapItemsInput } from "@/lib/server/class-roadmap";
+import { isValidClassAssignmentRole } from "@/lib/server/class-default-assignments";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -119,6 +120,15 @@ export async function POST(req: NextRequest) {
     estimateEndDateFromRules(normalizedStartDate, normalizedTotalSessions, normalizedRules) ??
     estimateEndDate(normalizedStartDate, normalizedTotalSessions, sessionsPerWeek);
   const roadmapItems = normalizeRoadmapItemsInput(body.roadmapItems, normalizedTotalSessions);
+  const defaultAssignments = Array.isArray(body.defaultAssignments)
+    ? body.defaultAssignments
+        .map((item: { role?: string; employeeId?: string | null; notes?: string | null }) => ({
+          role: String(item.role ?? "").trim(),
+          employeeId: item.employeeId ? String(item.employeeId).trim() : "",
+          notes: String(item.notes ?? "").trim() || null,
+        }))
+        .filter((item: { role: string; employeeId: string }) => item.employeeId && isValidClassAssignmentRole(item.role))
+    : [];
 
   const created = await prisma.class.create({
     data: {
@@ -141,6 +151,11 @@ export async function POST(req: NextRequest) {
       roadmapItems: roadmapItems.length
         ? {
             create: roadmapItems,
+          }
+        : undefined,
+      defaultAssignments: defaultAssignments.length
+        ? {
+            create: defaultAssignments,
           }
         : undefined,
     },

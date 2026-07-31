@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import NewPeriodForm from "@/components/tuition/NewPeriodForm";
+import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
+import SlideOver from "@/components/ui/SlideOver";
 import { BILLING_PERIOD_STATUS_LABEL } from "@/lib/server/tuition-rules";
 import {
   getCreateSnapshotButtonLabel,
@@ -57,6 +59,13 @@ type TuitionSummaryResponse = {
       guardianPhone: string | null;
       guardianPortalEmail: string | null;
       guardianPortalActive: boolean;
+      sessionCount: number;
+      absentCount: number;
+      deductedCount: number;
+      unitPrice: number;
+      tuitionAmount: number;
+      materialsAmount: number;
+      openingBalance: number;
       totalAmount: number;
       paidAmount: number;
       remainingAmount: number;
@@ -98,6 +107,46 @@ function getDefaultPeriodKey() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
+type DebtorRow = {
+  chargeId: string;
+  studentId: string;
+  studentName: string;
+  studentCode: string;
+  leadCode: string | null;
+  className: string;
+  currentClassName: string;
+  guardianName: string | null;
+  guardianPhone: string | null;
+  guardianPortalEmail: string | null;
+  guardianPortalActive: boolean;
+  sessionCount: number;
+  absentCount: number;
+  deductedCount: number;
+  unitPrice: number;
+  tuitionAmount: number;
+  materialsAmount: number;
+  openingBalance: number;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  totalOutstanding: number;
+};
+
+type StudentFinanceSnapshot = {
+  item: {
+    payments: Array<{
+      id: string;
+      paymentNo: string;
+      paidDate: string;
+      amount: number;
+      method: string | null;
+      notes: string | null;
+      status: string;
+    }>;
+  };
+  outstanding: number;
+};
+
 export default function TuitionWorkspace({ canManageTuition }: { canManageTuition: boolean }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -107,6 +156,13 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
   const [loading, setLoading] = useState(true);
   const [creatingSnapshot, setCreatingSnapshot] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [debtorKeyword, setDebtorKeyword] = useState("");
+  const [debtorFilter, setDebtorFilter] = useState<"all" | "has_debt" | "missing_portal" | "inactive_portal" | "high_debt">("all");
+  const [debtorTab, setDebtorTab] = useState<"period_debt" | "portfolio_debt" | "ready" | "missing_portal">("period_debt");
+  const [debtorSort, setDebtorSort] = useState<"period_debt_desc" | "total_debt_desc" | "student_asc" | "class_asc" | "guardian_asc">("period_debt_desc");
+  const [selectedDebtor, setSelectedDebtor] = useState<DebtorRow | null>(null);
+  const [studentFinance, setStudentFinance] = useState<StudentFinanceSnapshot | null>(null);
+  const [studentFinanceLoading, setStudentFinanceLoading] = useState(false);
 
   const [mode, setMode] = useState<"live" | "snapshot">((searchParams.get("mode") as "live" | "snapshot") ?? "live");
   const [periodKey, setPeriodKey] = useState(searchParams.get("periodKey") ?? getDefaultPeriodKey());
@@ -146,6 +202,106 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
       periodCount: data.periods.length,
     };
   }, [data]);
+  const selectedDebtors = data?.selectedPeriod?.debtors ?? [];
+  const debtorTabCounts = useMemo(() => {
+    const base = selectedDebtors;
+    return {
+      period_debt: base.filter((item) => item.remainingAmount > 0).length,
+      portfolio_debt: base.filter((item) => item.totalOutstanding > 0).length,
+      ready: base.filter((item) => item.remainingAmount <= 0 && item.guardianPortalEmail && item.guardianPortalActive).length,
+      missing_portal: base.filter((item) => !item.guardianPortalEmail || !item.guardianPortalActive).length,
+    };
+  }, [selectedDebtors]);
+  const getDebtorReason = (item: (typeof selectedDebtors)[number]) => {
+    const reasons: string[] = [];
+    if (item.remainingAmount > 0) reasons.push("Chưa thu đủ kỳ này");
+    if (item.totalOutstanding > item.remainingAmount) reasons.push("Có nợ cũ kéo sang");
+    if (item.materialsAmount > 0) reasons.push("Có tiền giáo trình / phát sinh");
+    if (item.openingBalance > 0) reasons.push("Có tồn đầu kỳ");
+    if (!item.guardianPortalEmail) reasons.push("Chưa có portal phụ huynh");
+    else if (!item.guardianPortalActive) reasons.push("Portal phụ huynh chưa kích hoạt");
+    if (item.currentClassName !== item.className) reasons.push("Lớp thu phí khác lớp đang học");
+    return reasons.length ? reasons.join(" · ") : "Đã đủ điều kiện, chỉ cần theo dõi";
+  };
+  const filteredDebtors = useMemo(() => {
+    const keyword = debtorKeyword.trim().toLowerCase();
+    const items = selectedDebtors.filter((item) => {
+      const matchesKeyword =
+        !keyword ||
+        item.studentName.toLowerCase().includes(keyword) ||
+        item.studentCode.toLowerCase().includes(keyword) ||
+        item.className.toLowerCase().includes(keyword) ||
+        (item.guardianName ?? "").toLowerCase().includes(keyword) ||
+        (item.guardianPhone ?? "").toLowerCase().includes(keyword);
+
+      if (!matchesKeyword) return false;
+
+      switch (debtorTab) {
+        case "period_debt":
+          if (!(item.remainingAmount > 0)) return false;
+          break;
+        case "portfolio_debt":
+          if (!(item.totalOutstanding > 0)) return false;
+          break;
+        case "ready":
+          if (!(item.remainingAmount <= 0 && item.guardianPortalEmail && item.guardianPortalActive)) return false;
+          break;
+        case "missing_portal":
+          if (!(!item.guardianPortalEmail || !item.guardianPortalActive)) return false;
+          break;
+        default:
+          break;
+      }
+
+      switch (debtorFilter) {
+        case "missing_portal":
+          return !item.guardianPortalEmail;
+        case "inactive_portal":
+          return Boolean(item.guardianPortalEmail) && !item.guardianPortalActive;
+        case "high_debt":
+          return item.totalOutstanding >= 1000000;
+        case "has_debt":
+          return item.remainingAmount > 0;
+        default:
+          return true;
+      }
+    });
+    return [...items].sort((left, right) => {
+      switch (debtorSort) {
+        case "total_debt_desc":
+          return right.totalOutstanding - left.totalOutstanding;
+        case "student_asc":
+          return left.studentName.localeCompare(right.studentName, "vi");
+        case "class_asc":
+          return left.className.localeCompare(right.className, "vi");
+        case "guardian_asc":
+          return (left.guardianName ?? "").localeCompare(right.guardianName ?? "", "vi");
+        case "period_debt_desc":
+        default:
+          return right.remainingAmount - left.remainingAmount;
+      }
+    });
+  }, [debtorFilter, debtorKeyword, debtorSort, debtorTab, selectedDebtors]);
+  const collectionProgress = useMemo(() => {
+    const billed = selectedPeriodSummary?.total ?? 0;
+    const paid = selectedPeriodSummary?.paid ?? 0;
+    const ratio = billed > 0 ? Math.min(100, Math.round((paid / billed) * 100)) : 0;
+    return { billed, paid, ratio, debt: selectedPeriodSummary?.debt ?? 0 };
+  }, [selectedPeriodSummary]);
+  const feeComposition = useMemo(() => {
+    return selectedDebtors.reduce(
+      (sum, item) => {
+        sum.tuitionAmount += item.tuitionAmount;
+        sum.materialsAmount += item.materialsAmount;
+        sum.openingBalance += item.openingBalance;
+        sum.paidAmount += item.paidAmount;
+        sum.remainingAmount += item.remainingAmount;
+        return sum;
+      },
+      { tuitionAmount: 0, materialsAmount: 0, openingBalance: 0, paidAmount: 0, remainingAmount: 0 },
+    );
+  }, [selectedDebtors]);
+  const drawerPayments = studentFinance?.item.payments.slice(0, 8) ?? [];
 
   useEffect(() => {
     setMode((searchParams.get("mode") as "live" | "snapshot") ?? "live");
@@ -177,6 +333,36 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
 
     return () => controller.abort();
   }, [queryString]);
+
+  useEffect(() => {
+    if (!selectedDebtor?.studentId) {
+      setStudentFinance(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setStudentFinanceLoading(true);
+
+    fetch(`/api/students/${selectedDebtor.studentId}`, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload.error ?? "Không tải được lịch sử thu tiền.");
+        }
+        return response.json();
+      })
+      .then((payload: StudentFinanceSnapshot) => setStudentFinance(payload))
+      .catch((fetchError: Error) => {
+        if (fetchError.name !== "AbortError") setStudentFinance(null);
+      })
+      .finally(() => setStudentFinanceLoading(false));
+
+    return () => controller.abort();
+  }, [selectedDebtor?.studentId]);
 
   const applyFilters = () => {
     const next = new URLSearchParams(searchParams.toString());
@@ -401,6 +587,76 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
             </div>
           </div>
 
+          <div className="card">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="font-display text-lg font-semibold tracking-tight">Tiến độ thu của kỳ đang xem</h2>
+                <p className="mt-1 text-sm text-ink-muted48">Một thanh duy nhất để biết kỳ này đã thu tới đâu, còn treo bao nhiêu và cần đẩy tiếp mức nào.</p>
+              </div>
+              <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm">
+                <span className="font-semibold text-ink">{collectionProgress.ratio}% hoàn thành</span>
+                <span className="ml-2 text-ink-muted48">· Đã thu {formatVnd(collectionProgress.paid)} / {formatVnd(collectionProgress.billed)}</span>
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="h-4 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,#22c55e_0%,#16a34a_50%,#0ea5e9_100%)] transition-all"
+                  style={{ width: `${collectionProgress.ratio}%` }}
+                />
+              </div>
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Đã thu</p>
+                  <p className="mt-2 text-lg font-semibold text-emerald-600">{formatVnd(collectionProgress.paid)}</p>
+                </div>
+                <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Còn nợ</p>
+                  <p className="mt-2 text-lg font-semibold text-red-600">{formatVnd(collectionProgress.debt)}</p>
+                </div>
+                <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Phải thu kỳ này</p>
+                  <p className="mt-2 text-lg font-semibold text-ink">{formatVnd(collectionProgress.billed)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="font-display text-lg font-semibold tracking-tight">Cấu phần phí của kỳ đang xem</h2>
+                <p className="mt-1 text-sm text-ink-muted48">Tách riêng từng loại tiền để biết số phải thu này đến từ học phí, giáo trình hay nợ cũ đầu kỳ.</p>
+              </div>
+              <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
+                <p className="font-semibold text-ink">Công thức đọc</p>
+                <p className="mt-1">Học phí + giáo trình / phát sinh + tồn đầu kỳ = tổng khoản phải thu</p>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5">
+              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Học phí buổi học</p>
+                <p className="mt-2 text-lg font-semibold text-ink">{formatVnd(feeComposition.tuitionAmount)}</p>
+              </div>
+              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Giáo trình / phát sinh</p>
+                <p className="mt-2 text-lg font-semibold text-ink">{formatVnd(feeComposition.materialsAmount)}</p>
+              </div>
+              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Tồn đầu kỳ</p>
+                <p className="mt-2 text-lg font-semibold text-ink">{formatVnd(feeComposition.openingBalance)}</p>
+              </div>
+              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Đã thu</p>
+                <p className="mt-2 text-lg font-semibold text-emerald-600">{formatVnd(feeComposition.paidAmount)}</p>
+              </div>
+              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Còn nợ</p>
+                <p className="mt-2 text-lg font-semibold text-red-600">{formatVnd(feeComposition.remainingAmount)}</p>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
             <div className="card">
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -540,41 +796,155 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                   </div>
                 </div>
 
-                <div className="mt-4 space-y-3">
-                  {data.selectedPeriod?.debtors.map((debtor, index) => (
-                    <div key={debtor.chargeId} className="rounded-xl border border-hairline p-4">
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="badge bg-primary/10 text-primary">#{index + 1}</span>
-                            <Link href={`/students/${debtor.studentId}`} className="font-medium text-primary hover:underline">
-                              {debtor.studentName}
-                            </Link>
-                            <span className="text-xs text-ink-muted48">({debtor.studentCode})</span>
-                            {debtor.leadCode ? <span className="badge bg-sky-50 text-sky-700">Lead {debtor.leadCode}</span> : null}
-                            {!debtor.guardianPortalEmail ? <span className="badge bg-amber-100 text-amber-700">Thiếu portal</span> : null}
-                          </div>
-                          <p className="mt-1 text-sm text-ink-muted48">
-                            Lớp thu phí: {debtor.className}
-                            {debtor.currentClassName !== debtor.className ? ` · Lớp đang học: ${debtor.currentClassName}` : ""}
-                          </p>
-                          <p className="mt-1 text-sm text-ink-muted48">
-                            PH chính: {debtor.guardianName ?? "Chưa gắn"} · {debtor.guardianPhone ?? "Chưa có SĐT"}
-                          </p>
-                          <p className="mt-1 text-sm text-ink-muted48">
-                            Portal: {debtor.guardianPortalEmail ?? "Chưa tạo tài khoản"} {debtor.guardianPortalEmail ? (debtor.guardianPortalActive ? "· hoạt động" : "· chưa kích hoạt") : ""}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs uppercase tracking-wide text-ink-muted48">Nợ kỳ này</p>
-                          <p className="font-display text-xl font-semibold text-red-600">{formatVnd(debtor.remainingAmount)}</p>
-                          <p className="mt-1 text-xs text-ink-muted48">Tổng nợ học viên: {formatVnd(debtor.totalOutstanding)}</p>
-                        </div>
-                      </div>
-                    </div>
+                <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-ink-muted48">Tìm nhanh học viên / lớp / phụ huynh</span>
+                    <input
+                      className="input"
+                      value={debtorKeyword}
+                      onChange={(event) => setDebtorKeyword(event.target.value)}
+                      placeholder="Nhập tên học viên, mã HV, lớp, phụ huynh, số điện thoại..."
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-ink-muted48">Bộ lọc xử lý</span>
+                    <select className="input" value={debtorFilter} onChange={(event) => setDebtorFilter(event.target.value as typeof debtorFilter)}>
+                      <option value="all">Tất cả đang hiện</option>
+                      <option value="has_debt">Chỉ còn nợ</option>
+                      <option value="missing_portal">Thiếu portal</option>
+                      <option value="inactive_portal">Portal chưa kích hoạt</option>
+                      <option value="high_debt">Nợ cao từ 1.000.000đ</option>
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-ink-muted48">Sắp xếp</span>
+                    <select className="input" value={debtorSort} onChange={(event) => setDebtorSort(event.target.value as typeof debtorSort)}>
+                      <option value="period_debt_desc">Nợ kỳ này giảm dần</option>
+                      <option value="total_debt_desc">Tổng nợ giảm dần</option>
+                      <option value="student_asc">Tên học viên A → Z</option>
+                      <option value="class_asc">Tên lớp A → Z</option>
+                      <option value="guardian_asc">Tên phụ huynh A → Z</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {[
+                    { key: "period_debt", label: "Nợ kỳ này", count: debtorTabCounts.period_debt },
+                    { key: "portfolio_debt", label: "Nợ cộng dồn", count: debtorTabCounts.portfolio_debt },
+                    { key: "ready", label: "Đã đủ điều kiện", count: debtorTabCounts.ready },
+                    { key: "missing_portal", label: "Thiếu / lỗi portal", count: debtorTabCounts.missing_portal },
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setDebtorTab(tab.key as typeof debtorTab)}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                        debtorTab === tab.key ? "bg-primary text-white shadow-sm" : "border border-hairline bg-white text-ink-muted80 hover:border-primary/30 hover:text-primary"
+                      }`}
+                    >
+                      {tab.label} · {tab.count}
+                    </button>
                   ))}
+                </div>
+
+                <div className="mt-3 rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
+                  <p className="font-semibold text-ink">{filteredDebtors.length} học viên đang khớp</p>
+                  <p className="mt-1">Đang xem nhóm <strong>{debtorTab === "period_debt" ? "Nợ kỳ này" : debtorTab === "portfolio_debt" ? "Nợ cộng dồn" : debtorTab === "ready" ? "Đã đủ điều kiện" : "Thiếu / lỗi portal"}</strong> để đội thu ngân xử lý theo đúng ngữ cảnh.</p>
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full min-w-[1540px] text-left text-sm">
+                    <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
+                      <tr>
+                        <th className="py-3 font-medium">Học viên</th>
+                        <th className="py-3 font-medium">Lớp / phụ huynh</th>
+                        <th className="py-3 font-medium">Cấu phần phí</th>
+                        <th className="py-3 font-medium">Portal</th>
+                        <th className="py-3 font-medium">Nguyên nhân / ngữ cảnh</th>
+                        <th className="py-3 font-medium">Đã thu / còn nợ</th>
+                        <th className="py-3 font-medium">Tổng nợ</th>
+                        <th className="py-3 font-medium text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDebtors.map((debtor, index) => (
+                        <tr key={debtor.chargeId} className="border-b border-hairline last:border-0">
+                          <td className="py-3 align-top">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="badge bg-primary/10 text-primary">#{index + 1}</span>
+                              <Link href={`/students/${debtor.studentId}`} className="font-medium text-primary hover:underline">
+                                {debtor.studentName}
+                              </Link>
+                              <span className="text-xs text-ink-muted48">({debtor.studentCode})</span>
+                              {debtor.leadCode ? <span className="badge bg-sky-50 text-sky-700">Lead {debtor.leadCode}</span> : null}
+                            </div>
+                          </td>
+                          <td className="py-3 align-top">
+                            <p className="font-medium text-ink">{debtor.className}</p>
+                            <p className="mt-1 text-xs text-ink-muted48">
+                              {debtor.currentClassName !== debtor.className ? `Đang học: ${debtor.currentClassName}` : "Đúng lớp thu phí hiện tại"}
+                            </p>
+                            <p className="mt-1 text-xs text-ink-muted48">
+                              PH: {debtor.guardianName ?? "Chưa gắn"} · {debtor.guardianPhone ?? "Chưa có SĐT"}
+                            </p>
+                          </td>
+                          <td className="py-3 align-top">
+                            <div className="rounded-xl border border-hairline bg-canvas-parchment/50 px-3 py-2">
+                              <p className="text-xs text-ink-muted48">
+                                {debtor.sessionCount} buổi · nghỉ {debtor.absentCount} · trừ {debtor.deductedCount} · đơn giá {formatVnd(debtor.unitPrice)}
+                              </p>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <span className="badge bg-sky-50 text-sky-700">Học phí {formatVnd(debtor.tuitionAmount)}</span>
+                                <span className="badge bg-violet-50 text-violet-700">Giáo trình {formatVnd(debtor.materialsAmount)}</span>
+                                <span className="badge bg-amber-50 text-amber-700">Tồn đầu {formatVnd(debtor.openingBalance)}</span>
+                              </div>
+                              <p className="mt-2 text-xs font-semibold text-ink">Tổng khoản thu: {formatVnd(debtor.totalAmount)}</p>
+                            </div>
+                          </td>
+                          <td className="py-3 align-top">
+                            {!debtor.guardianPortalEmail ? (
+                              <span className="badge bg-amber-100 text-amber-700">Thiếu portal</span>
+                            ) : debtor.guardianPortalActive ? (
+                              <div>
+                                <span className="badge bg-emerald-100 text-emerald-700">Đang hoạt động</span>
+                                <p className="mt-1 text-xs text-ink-muted48">{debtor.guardianPortalEmail}</p>
+                              </div>
+                            ) : (
+                              <div>
+                                <span className="badge bg-amber-100 text-amber-700">Chưa kích hoạt</span>
+                                <p className="mt-1 text-xs text-ink-muted48">{debtor.guardianPortalEmail}</p>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 align-top">
+                            <p className="text-sm text-ink">{getDebtorReason(debtor)}</p>
+                          </td>
+                          <td className="py-3 align-top">
+                            <p className="font-semibold text-emerald-600">Đã thu {formatVnd(debtor.paidAmount)}</p>
+                            <p className="mt-1 font-semibold text-red-600">Còn nợ {formatVnd(debtor.remainingAmount)}</p>
+                          </td>
+                          <td className="py-3 align-top text-ink-muted80">{formatVnd(debtor.totalOutstanding)}</td>
+                          <td className="py-3 align-top">
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              <button type="button" onClick={() => setSelectedDebtor(debtor)} className="btn-ghost">
+                                Xem chi tiết
+                              </button>
+                              {canManageTuition ? <QuickPaymentButton studentId={debtor.studentId} suggestedAmount={debtor.remainingAmount} /> : null}
+                              <Link href={`/students/${debtor.studentId}`} className="btn-360">
+                                Mở hồ sơ 360
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                   {(data.selectedPeriod?.debtors.length ?? 0) === 0 ? (
                     <p className="text-sm text-ink-muted48">Không có công nợ mở trong kỳ đang xem.</p>
+                  ) : null}
+                  {(data.selectedPeriod?.debtors.length ?? 0) > 0 && filteredDebtors.length === 0 ? (
+                    <p className="pt-4 text-sm text-ink-muted48">Không có học viên nào khớp bộ lọc đang chọn.</p>
                   ) : null}
                 </div>
               </div>
@@ -675,6 +1045,132 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
               </tbody>
             </table>
           </div>
+
+          <SlideOver
+            open={Boolean(selectedDebtor)}
+            onClose={() => setSelectedDebtor(null)}
+            widthClassName="max-w-3xl"
+            title={selectedDebtor ? `Chi tiết công nợ · ${selectedDebtor.studentName}` : "Chi tiết công nợ"}
+            description={
+              selectedDebtor
+                ? "Xem đầy đủ cấu phần phí, lý do công nợ, tình trạng phụ huynh và các phiếu thu gần nhất của học viên này."
+                : undefined
+            }
+          >
+            {selectedDebtor ? (
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Học viên / lớp thu phí</p>
+                    <p className="mt-2 text-lg font-semibold text-ink">{selectedDebtor.studentName}</p>
+                    <p className="mt-1 text-sm text-ink-muted48">
+                      {selectedDebtor.studentCode} {selectedDebtor.leadCode ? `· Lead ${selectedDebtor.leadCode}` : ""}
+                    </p>
+                    <p className="mt-3 text-sm text-ink">
+                      Lớp thu phí: <strong>{selectedDebtor.className}</strong>
+                    </p>
+                    <p className="mt-1 text-sm text-ink-muted48">
+                      {selectedDebtor.currentClassName !== selectedDebtor.className
+                        ? `Đang học thực tế: ${selectedDebtor.currentClassName}`
+                        : "Lớp thu phí trùng lớp đang học"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Phụ huynh / portal</p>
+                    <p className="mt-2 text-lg font-semibold text-ink">{selectedDebtor.guardianName ?? "Chưa gắn phụ huynh chính"}</p>
+                    <p className="mt-1 text-sm text-ink-muted48">{selectedDebtor.guardianPhone ?? "Chưa có số điện thoại"}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {!selectedDebtor.guardianPortalEmail ? (
+                        <span className="badge bg-amber-100 text-amber-700">Thiếu portal</span>
+                      ) : selectedDebtor.guardianPortalActive ? (
+                        <span className="badge bg-emerald-100 text-emerald-700">Portal hoạt động</span>
+                      ) : (
+                        <span className="badge bg-amber-100 text-amber-700">Portal chưa kích hoạt</span>
+                      )}
+                    </div>
+                    <p className="mt-2 text-sm text-ink-muted48">{selectedDebtor.guardianPortalEmail ?? "Chưa có email portal"}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-[#dbe7ff] bg-[#f8fbff] p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Tổng quan khoản thu của dòng này</p>
+                      <p className="mt-2 text-2xl font-semibold text-ink">{formatVnd(selectedDebtor.totalAmount)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-emerald-600">Đã thu {formatVnd(selectedDebtor.paidAmount)}</p>
+                      <p className="mt-1 text-lg font-semibold text-red-600">Còn nợ {formatVnd(selectedDebtor.remainingAmount)}</p>
+                      <p className="mt-1 text-xs text-ink-muted48">Tổng nợ học viên: {formatVnd(selectedDebtor.totalOutstanding)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="rounded-2xl border border-hairline p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Học phí buổi học</p>
+                    <p className="mt-2 text-lg font-semibold text-ink">{formatVnd(selectedDebtor.tuitionAmount)}</p>
+                    <p className="mt-2 text-xs text-ink-muted48">
+                      {selectedDebtor.sessionCount} buổi · nghỉ {selectedDebtor.absentCount} · trừ {selectedDebtor.deductedCount} · đơn giá {formatVnd(selectedDebtor.unitPrice)}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-hairline p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Giáo trình / phát sinh</p>
+                    <p className="mt-2 text-lg font-semibold text-ink">{formatVnd(selectedDebtor.materialsAmount)}</p>
+                    <p className="mt-2 text-xs text-ink-muted48">Khoản này thường đến từ giáo trình hoặc phát sinh học liệu trong kỳ.</p>
+                  </div>
+                  <div className="rounded-2xl border border-hairline p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Tồn đầu kỳ</p>
+                    <p className="mt-2 text-lg font-semibold text-ink">{formatVnd(selectedDebtor.openingBalance)}</p>
+                    <p className="mt-2 text-xs text-ink-muted48">Đây là phần nợ cũ hoặc số dư được kéo sang đầu kỳ hiện tại.</p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-hairline p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Kết luận vận hành cho dòng này</p>
+                  <p className="mt-2 text-sm leading-7 text-ink">{getDebtorReason(selectedDebtor)}</p>
+                </div>
+
+                <div className="rounded-2xl border border-hairline p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-ink">Phiếu thu gần nhất của học viên</p>
+                      <p className="mt-1 text-xs text-ink-muted48">Hiển thị các phiếu thu mới nhất để đối chiếu nhanh trước khi gọi phụ huynh hoặc thu tiếp.</p>
+                    </div>
+                    {studentFinanceLoading ? <span className="text-xs text-ink-muted48">Đang tải...</span> : null}
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {drawerPayments.map((payment) => (
+                      <div key={payment.id} className="rounded-2xl border border-hairline bg-canvas-parchment/30 p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-ink">{payment.paymentNo}</p>
+                            <p className="mt-1 text-xs text-ink-muted48">
+                              {new Date(payment.paidDate).toLocaleDateString("vi-VN")} · {payment.method ?? "Chưa ghi hình thức"} · {payment.status}
+                            </p>
+                            {payment.notes ? <p className="mt-2 text-xs text-ink-muted48">{payment.notes}</p> : null}
+                          </div>
+                          <p className="text-sm font-semibold text-ink">{formatVnd(payment.amount)}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {!studentFinanceLoading && drawerPayments.length === 0 ? <p className="text-sm text-ink-muted48">Chưa có phiếu thu nào của học viên này.</p> : null}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-end gap-3 border-t border-hairline pt-4">
+                  {canManageTuition ? <QuickPaymentButton studentId={selectedDebtor.studentId} suggestedAmount={selectedDebtor.remainingAmount} /> : null}
+                  <Link href={`/students/${selectedDebtor.studentId}`} className="btn-360">
+                    Mở hồ sơ 360
+                  </Link>
+                  <button type="button" onClick={() => setSelectedDebtor(null)} className="btn-ghost">
+                    Đóng
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </SlideOver>
         </>
       )}
     </div>

@@ -12,6 +12,13 @@ type Course = {
   sessionsPerWeek: number;
 };
 
+type Employee = {
+  id: string;
+  fullName: string;
+  shortName: string;
+  position: string | null;
+};
+
 type ScheduleRuleDraft = {
   weekday: string;
   startTime: string;
@@ -27,6 +34,17 @@ type RoadmapDraft = {
   teacherGuide: string;
   homeworkGuide: string;
 };
+
+type DefaultAssignmentDraft = {
+  employeeId: string;
+  notes: string;
+};
+
+const DEFAULT_ASSIGNMENT_CONFIG = [
+  { role: "TEACHER", label: "Giáo viên chính", helper: "Người dạy cố định của lớp" },
+  { role: "ASSISTANT", label: "Trợ giảng chính", helper: "Người hỗ trợ thường trực cho lớp" },
+  { role: "ASSISTANT2", label: "Trợ giảng bổ sung", helper: "Dùng khi lớp cần thêm 1 TG phụ" },
+] as const;
 
 const WEEKDAY_OPTIONS = [
   { value: "1", label: "Thứ 2" },
@@ -139,7 +157,7 @@ function computeStudySpanLabel(startDate: Date | null, endDate: Date | null) {
   return `${weeks} tuần ${days} ngày`;
 }
 
-export default function NewClassForm({ courses }: { courses: Course[] }) {
+export default function NewClassForm({ courses, employees }: { courses: Course[]; employees: Employee[] }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -157,6 +175,11 @@ export default function NewClassForm({ courses }: { courses: Course[] }) {
   const [scheduleRules, setScheduleRules] = useState<ScheduleRuleDraft[]>([buildEmptyRule()]);
   const [roadmapItems, setRoadmapItems] = useState<RoadmapDraft[]>([]);
   const [visibleRoadmapCount, setVisibleRoadmapCount] = useState(12);
+  const [defaultAssignments, setDefaultAssignments] = useState<Record<string, DefaultAssignmentDraft>>({
+    TEACHER: { employeeId: "", notes: "" },
+    ASSISTANT: { employeeId: "", notes: "" },
+    ASSISTANT2: { employeeId: "", notes: "" },
+  });
 
   const selectedCourse = useMemo(
     () => courses.find((course) => course.id === form.courseId) ?? null,
@@ -216,6 +239,11 @@ export default function NewClassForm({ courses }: { courses: Course[] }) {
     );
     setError(null);
     setImportSummary(null);
+  }
+
+  function patchDefaultAssignment(role: string, key: keyof DefaultAssignmentDraft, value: string) {
+    setDefaultAssignments((prev) => ({ ...prev, [role]: { ...prev[role], [key]: value } }));
+    setError(null);
   }
 
   function addRule() {
@@ -387,6 +415,11 @@ export default function NewClassForm({ courses }: { courses: Course[] }) {
           teacherGuide: item.teacherGuide.trim() || null,
           homeworkGuide: item.homeworkGuide.trim() || null,
         })),
+        defaultAssignments: DEFAULT_ASSIGNMENT_CONFIG.map((item) => ({
+          role: item.role,
+          employeeId: defaultAssignments[item.role].employeeId || null,
+          notes: defaultAssignments[item.role].notes.trim() || null,
+        })).filter((item) => item.employeeId),
       };
 
       const response = await fetch("/api/classes", {
@@ -579,6 +612,47 @@ export default function NewClassForm({ courses }: { courses: Course[] }) {
                       {rule.room ? <> · Phòng <strong className="text-ink">{rule.room}</strong></> : null}
                       {" · "}
                       <strong className="text-ink">{computeDurationLabel(rule.startTime, rule.endTime)}</strong>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-[28px] border border-[#e4ebf8] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_22px_60px_-40px_rgba(15,23,42,0.45)]">
+              <div className="border-b border-[#e8edf5] px-6 py-5">
+                <h2 className="text-sm font-bold text-ink">Nhân sự mặc định của lớp</h2>
+                <p className="mt-1 text-xs leading-5 text-ink-muted48">Chốt luôn giáo viên và trợ giảng chính ngay lúc tạo lớp. Các buổi sinh ra sau này sẽ tự nhận theo cấu hình này, chỉ đổi riêng khi có báo bận, dạy thay hoặc học bù.</p>
+              </div>
+              <div className="space-y-4 px-6 py-5">
+                {DEFAULT_ASSIGNMENT_CONFIG.map((item) => (
+                  <div key={item.role} className="rounded-[24px] border border-[#dbe7ff] bg-white p-4 shadow-sm">
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
+                      <div>
+                        <p className="text-sm font-semibold text-ink">{item.label}</p>
+                        <p className="mt-1 text-xs text-ink-muted48">{item.helper}</p>
+                      </div>
+                      <div className="grid gap-4">
+                        <label className="form-group">
+                          <span className="label">Nhân sự</span>
+                          <select className="input" value={defaultAssignments[item.role].employeeId} onChange={(event) => patchDefaultAssignment(item.role, "employeeId", event.target.value)}>
+                            <option value="">Chưa gắn</option>
+                            {employees.map((employee) => (
+                              <option key={employee.id} value={employee.id}>
+                                {employee.fullName} {employee.shortName ? `(${employee.shortName})` : ""} {employee.position ? `· ${employee.position}` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="form-group">
+                          <span className="label">Ghi chú</span>
+                          <textarea
+                            className="input min-h-[92px]"
+                            value={defaultAssignments[item.role].notes}
+                            onChange={(event) => patchDefaultAssignment(item.role, "notes", event.target.value)}
+                            placeholder="Ví dụ: GV chính của lớp, chỉ đổi khi báo bận trước..."
+                          />
+                        </label>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -783,6 +857,21 @@ export default function NewClassForm({ courses }: { courses: Course[] }) {
                 <li>• `Buổi dời lịch` là buổi gốc được đổi sang ngày khác, nên xử lý ở buổi học cụ thể chứ không sửa cả lịch lớp.</li>
                 <li>• `Buổi học bù` là phát sinh thêm cho một số học viên hoặc cho cả lớp, vẫn nên ghi nhận như buổi thực tế riêng để attendance và journal không bị nhập nhằng.</li>
               </ul>
+            </div>
+
+            <div className="card">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Nhân sự mặc định sẽ đi theo lớp</p>
+              <div className="mt-3 space-y-2 text-sm text-ink-muted80">
+                {DEFAULT_ASSIGNMENT_CONFIG.map((item) => {
+                  const current = defaultAssignments[item.role];
+                  const employee = employees.find((row) => row.id === current.employeeId);
+                  return (
+                    <p key={item.role}>
+                      • {item.label}: <strong className="text-ink">{employee ? `${employee.fullName}${employee.shortName ? ` (${employee.shortName})` : ""}` : "Chưa gắn"}</strong>
+                    </p>
+                  );
+                })}
+              </div>
             </div>
 
             {selectedCourse ? (

@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
 
   const paymentNo = `PM${crypto.randomUUID().slice(0, 10).toUpperCase()}`;
   const discountAmount = Math.round((amount * discountPercent) / 100);
+  const totalDebtReduction = amount + discountAmount;
   const discountNote =
     discountAmount > 0
       ? `Đã giảm ${discountAmount.toLocaleString("vi-VN")}đ do chiết khấu tiền mặt ${discountPercent}%${discountReason ? ` · Lý do: ${discountReason}` : ""}`
@@ -53,6 +54,31 @@ export async function POST(req: NextRequest) {
   const paymentNotes = [String(body.notes ?? "").trim() || null, discountNote].filter(Boolean).join(" | ");
 
   const result = await prisma.$transaction(async (tx) => {
+    const [chargeTotal, allocatedTotal, unusedCredits] = await Promise.all([
+      tx.charge.aggregate({ where: { studentId }, _sum: { totalAmount: true } }),
+      tx.paymentAllocation.aggregate({ where: { charge: { studentId } }, _sum: { amount: true } }),
+      tx.creditBalance.findMany({ where: { studentId, usedAt: null } }),
+    ]);
+
+    const currentOutstanding =
+      (chargeTotal._sum.totalAmount ?? 0) -
+      (allocatedTotal._sum.amount ?? 0) -
+      unusedCredits.reduce((sum, credit) => sum + credit.amount, 0);
+
+    if (currentOutstanding <= 0) {
+      throw new Error("Học viên hiện không còn công nợ để thu.");
+    }
+    if (amount > currentOutstanding) {
+      throw new Error(
+        `Số tiền thực thu ${amount.toLocaleString("vi-VN")}đ đang vượt công nợ còn lại ${currentOutstanding.toLocaleString("vi-VN")}đ.`,
+      );
+    }
+    if (totalDebtReduction > currentOutstanding) {
+      throw new Error(
+        `Tổng số tiền giảm công nợ sau chiết khấu là ${totalDebtReduction.toLocaleString("vi-VN")}đ, đang vượt công nợ còn lại ${currentOutstanding.toLocaleString("vi-VN")}đ.`,
+      );
+    }
+
     const payment = await tx.payment.create({
       data: {
         studentId,
@@ -84,17 +110,6 @@ export async function POST(req: NextRequest) {
         data: { paymentId: payment.id, chargeId: charge.id, amount: allocAmount },
       });
       remaining -= allocAmount;
-    }
-
-    if (remaining > 0) {
-      await tx.creditBalance.create({
-        data: {
-          studentId,
-          paymentId: payment.id,
-          amount: remaining,
-          reason: `Thu dư từ phiếu thu ${paymentNo}`,
-        },
-      });
     }
 
     if (discountAmount > 0) {
@@ -140,7 +155,16 @@ export async function POST(req: NextRequest) {
       discountAmount,
       discountNote,
     };
+  }).catch((error: unknown) => {
+    if (error instanceof Error) {
+      return { error: error.message };
+    }
+    return { error: "Không thể ghi nhận thanh toán." };
   });
+
+  if ("error" in result) {
+    return NextResponse.json({ error: result.error }, { status: 400 });
+  }
 
   return NextResponse.json(
     {

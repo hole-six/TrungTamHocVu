@@ -34,6 +34,7 @@ export default function QuickPaymentButton({
   const [error, setError] = useState<string | null>(null);
 
   const numericAmount = Number(amount) || 0;
+  const maxReceivable = Math.max(0, suggestedAmount);
   const numericDiscountPercent = Math.min(MAX_CASH_DISCOUNT_PERCENT, Math.max(0, Number(discountPercent) || 0));
   const cashDiscountActive = method === CASH_METHOD && enableCashDiscount && numericDiscountPercent > 0;
   const discountAmount = cashDiscountActive ? Math.round((numericAmount * numericDiscountPercent) / 100) : 0;
@@ -48,8 +49,28 @@ export default function QuickPaymentButton({
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    setLoading(true);
     setError(null);
+
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      setError("Số tiền thực thu phải lớn hơn 0.");
+      return;
+    }
+    if (numericAmount > maxReceivable) {
+      setError(`Số tiền thực thu không được lớn hơn công nợ còn lại ${formatVnd(maxReceivable)}.`);
+      return;
+    }
+    if (totalDebtReduction > maxReceivable) {
+      setError(
+        `Tổng số tiền giảm công nợ sau chiết khấu là ${formatVnd(totalDebtReduction)}, đang vượt công nợ còn lại ${formatVnd(maxReceivable)}.`,
+      );
+      return;
+    }
+    if (cashDiscountActive && !discountReason.trim()) {
+      setError("Cần nhập lý do chiết khấu tiền mặt.");
+      return;
+    }
+
+    setLoading(true);
 
     const response = await fetch("/api/payments", {
       method: "POST",
@@ -95,6 +116,18 @@ export default function QuickPaymentButton({
         description="Lưu rõ số tiền đã nhận, ngày thu, hình thức thanh toán và phần giảm riêng cho tiền mặt nếu có."
       >
         <form onSubmit={submit} className="space-y-5">
+          <div className="rounded-3xl border-2 border-rose-200 bg-gradient-to-r from-rose-50 via-amber-50 to-orange-50 px-5 py-4 text-sm text-rose-800 shadow-[0_16px_34px_rgba(244,63,94,0.08)]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-rose-700">Giới hạn thu tiền</p>
+            <p className="mt-2 text-base font-semibold">
+              Còn được thu tối đa <strong>{formatVnd(maxReceivable)}</strong>.
+            </p>
+            {cashDiscountActive ? (
+              <p className="mt-1 text-sm text-rose-700">
+                Tổng giảm công nợ sau chiết khấu hiện là <strong>{formatVnd(totalDebtReduction)}</strong>.
+              </p>
+            ) : null}
+          </div>
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <label className="space-y-2">
               <span className="label-sm">Số tiền thực thu</span>
@@ -102,10 +135,12 @@ export default function QuickPaymentButton({
                 type="number"
                 required
                 min="1"
+                max={maxReceivable > 0 ? maxReceivable : undefined}
                 className="input"
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
               />
+              <p className="text-xs text-ink-muted48">Không được nhập lớn hơn {formatVnd(maxReceivable)}.</p>
             </label>
 
             <label className="space-y-2">
@@ -225,7 +260,7 @@ export default function QuickPaymentButton({
           {error ? <div className="alert-danger">{error}</div> : null}
 
           <div className="flex gap-3 border-t border-hairline pt-4">
-            <button type="submit" disabled={loading} className="btn-primary">
+            <button type="submit" disabled={loading || maxReceivable <= 0} className="btn-primary">
               {loading ? "Đang lưu..." : "Xác nhận đã thu"}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="btn-ghost">

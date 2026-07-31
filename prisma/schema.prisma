@@ -184,6 +184,7 @@ model Employee {
   contracts          EmploymentContract[]
   payPolicies        PayPolicy[]
   sessionAssignments SessionAssignment[]
+  classDefaultAssignments ClassDefaultAssignment[]
   timesheetEntries   TimesheetEntry[]
   payrollLines       PayrollLine[]
   leadInteractions   LeadInteraction[]
@@ -459,6 +460,7 @@ model Class {
   feePolicies   FeePolicy[]
   classTasks    ClassTask[]
   roadmapItems  ClassRoadmapItem[]
+  defaultAssignments ClassDefaultAssignment[]
 
   @@index([status])
   @@map("classes")
@@ -481,6 +483,24 @@ model ClassRoadmapItem {
   @@unique([classId, sessionNumber])
   @@index([classId, sessionNumber])
   @@map("class_roadmap_items")
+}
+
+model ClassDefaultAssignment {
+  id         String   @id @default(uuid())
+  classId     String   @map("class_id")
+  employeeId  String   @map("employee_id")
+  role        String // TEACHER | ASSISTANT | ASSISTANT2
+  notes       String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  class    Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([classId, role])
+  @@index([classId, isActive])
+  @@map("class_default_assignments")
 }
 
 model ScheduleRule {

@@ -41,11 +41,19 @@ type PaymentSummary = {
   discountReason?: string | null;
 };
 
+type ActiveClassOption = {
+  id: string;
+  className: string;
+};
+
 type StudentFinanceDeskProps = {
   studentId: string;
   studentName: string;
   studentCode: string;
   outstanding: number;
+  currentClassName?: string | null;
+  canIssueBooks: boolean;
+  activeClassOptions: ActiveClassOption[];
   nextDueCharge?: ChargeSummary | null;
   charges: ChargeSummary[];
   bookIssues: BookIssueSummary[];
@@ -94,6 +102,9 @@ export default function StudentFinanceDesk({
   studentName,
   studentCode,
   outstanding,
+  currentClassName,
+  canIssueBooks,
+  activeClassOptions,
   nextDueCharge,
   charges,
   bookIssues,
@@ -106,6 +117,7 @@ export default function StudentFinanceDesk({
   const [booksLoaded, setBooksLoaded] = useState(false);
   const [bookPickerOpen, setBookPickerOpen] = useState(false);
   const [selectedBookId, setSelectedBookId] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState(activeClassOptions.length === 1 ? activeClassOptions[0]?.id ?? "" : "");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [bookSearch, setBookSearch] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -116,6 +128,7 @@ export default function StudentFinanceDesk({
   const [issueNotice, setIssueNotice] = useState<string | null>(null);
   const [updatingBookIssueId, setUpdatingBookIssueId] = useState<string | null>(null);
   const [bookStatusError, setBookStatusError] = useState<string | null>(null);
+  const [deletingBookIssueId, setDeletingBookIssueId] = useState<string | null>(null);
 
   const unpaidBooks = useMemo(
     () => bookIssues.filter((issue) => issue.paymentStatus !== "PAID"),
@@ -165,8 +178,17 @@ export default function StudentFinanceDesk({
 
   async function handleIssueBook(event: React.FormEvent) {
     event.preventDefault();
+    if (!canIssueBooks) {
+      setIssueError("Học viên chưa có lớp đang học để gắn phát sinh sách. Hãy gán nhập học trước rồi mới thêm sách.");
+      return;
+    }
     if (!selectedBookId) {
       setIssueError("Bạn cần chọn đầu sách trước khi lưu.");
+      return;
+    }
+
+    if (activeClassOptions.length > 1 && !selectedClassId) {
+      setIssueError("Học viên đang học nhiều lớp. Hãy chọn đúng lớp cần gắn phát sinh sách.");
       return;
     }
 
@@ -179,6 +201,7 @@ export default function StudentFinanceDesk({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         studentId,
+        classId: selectedClassId || activeClassOptions[0]?.id || undefined,
         quantity: Number(quantity),
         issueDate,
         notes: issueNotes,
@@ -197,6 +220,7 @@ export default function StudentFinanceDesk({
       .join(" ");
     setIssueNotice(notices || "Đã thêm dòng phát sinh sách.");
     setSelectedBookId("");
+    setSelectedClassId(activeClassOptions.length === 1 ? activeClassOptions[0]?.id ?? "" : "");
     setSelectedCategory("");
     setBookSearch("");
     setQuantity("1");
@@ -218,6 +242,24 @@ export default function StudentFinanceDesk({
 
     if (!response.ok) {
       setBookStatusError(data.error ?? "Không thể cập nhật tình trạng tiền của giáo trình.");
+      return;
+    }
+
+    router.refresh();
+  }
+
+  async function deleteBookIssue(issueId: string) {
+    if (!confirm("Xóa dòng sách phát sinh này? Hệ thống sẽ hoàn tác khỏi công nợ và tồn kho nếu dòng này còn ở trạng thái chưa thu.")) return;
+
+    setDeletingBookIssueId(issueId);
+    setBookStatusError(null);
+
+    const response = await fetch(`/api/book-issues/${issueId}`, { method: "DELETE" });
+    const data = await response.json().catch(() => ({}));
+    setDeletingBookIssueId(null);
+
+    if (!response.ok) {
+      setBookStatusError(data.error ?? "Không thể hoàn tác dòng sách phát sinh này.");
       return;
     }
 
@@ -308,7 +350,34 @@ export default function StudentFinanceDesk({
 
             {canManageInventory ? (
               <form onSubmit={handleIssueBook} className="mt-4 space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1.4fr)_120px_180px]">
+                {!canIssueBooks ? (
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    Học viên này chưa có lớp đang học, nên chưa nên phát sinh sách. Hãy gán nhập học trước để dòng sách tự bám đúng lớp và công nợ.
+                  </div>
+                ) : currentClassName ? (
+                  <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-700">
+                    Dòng sách phát sinh sẽ được gắn vào lớp hiện tại: <strong>{currentClassName}</strong>.
+                  </div>
+                ) : null}
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_120px_180px]">
+                  <label className="space-y-2">
+                    <span className="label-sm">Lớp gắn phát sinh</span>
+                    <select
+                      className="input"
+                      value={selectedClassId}
+                      onChange={(event) => setSelectedClassId(event.target.value)}
+                      disabled={!canIssueBooks || activeClassOptions.length === 1}
+                    >
+                      {activeClassOptions.length > 1 ? <option value="">Chọn đúng lớp đang dùng giáo trình</option> : null}
+                      {activeClassOptions.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.className}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
                   <div className="space-y-2">
                     <span className="label-sm">Đầu sách</span>
                     <button
@@ -383,7 +452,7 @@ export default function StudentFinanceDesk({
                 {issueError ? <div className="alert-danger">{issueError}</div> : null}
                 {issueNotice ? <div className="alert-success">{issueNotice}</div> : null}
 
-                <button type="submit" disabled={issuing} className="btn-primary">
+                <button type="submit" disabled={issuing || !canIssueBooks} className="btn-primary">
                   {issuing ? "Đang lưu phát sinh..." : "Thêm sách phát sinh"}
                 </button>
               </form>

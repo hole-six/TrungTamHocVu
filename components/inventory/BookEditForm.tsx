@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import CategorySelect from "./CategorySelect";
 
 type BookProfile = {
   id: string;
@@ -13,7 +14,7 @@ type BookProfile = {
   notes: string | null;
 };
 
-export default function BookEditForm({ book }: { book: BookProfile }) {
+export default function BookEditForm({ book, categoryOptions }: { book: BookProfile; categoryOptions: string[] }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -87,7 +88,11 @@ export default function BookEditForm({ book }: { book: BookProfile }) {
           </label>
           <label className="space-y-1 block">
             <span className="text-xs font-medium text-ink-muted48">Danh mục sách</span>
-            <input className="input" placeholder="Để trống nếu là sách khác" value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} />
+            <CategorySelect
+              categoryOptions={categoryOptions}
+              value={form.category}
+              onChange={(next) => setForm((current) => ({ ...current, category: next }))}
+            />
           </label>
           <label className="space-y-1 block">
             <span className="text-xs font-medium text-ink-muted48">Đơn giá</span>

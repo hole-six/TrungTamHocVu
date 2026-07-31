@@ -20,6 +20,7 @@ import ClassEditForm from "@/components/classes/ClassEditForm";
 import RescheduleSessionButton from "@/components/classes/RescheduleSessionButton";
 import AddMakeupSessionButton from "@/components/classes/AddMakeupSessionButton";
 import ClassRoadmapManager from "@/components/classes/ClassRoadmapManager";
+import ClassDefaultAssignmentManager from "@/components/classes/ClassDefaultAssignmentManager";
 import { isTaskDueOn, computeTaskLogStatus } from "@/lib/server/class-task-rules";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
@@ -79,6 +80,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
       course: true,
       scheduleRules: { orderBy: { weekday: "asc" } },
       roadmapItems: { orderBy: { sessionNumber: "asc" } },
+      defaultAssignments: { where: { isActive: true }, include: { employee: true }, orderBy: { role: "asc" } },
       sessions: {
         orderBy: { sessionDate: "desc" },
         include: {
@@ -153,6 +155,12 @@ export default async function ClassDetailPage({ params }: { params: { id: string
   });
 
   const courses = await prisma.course.findMany({ where: { branchId: cls.branchId }, orderBy: { name: "asc" } });
+  const employees = canManageClass
+    ? await prisma.employee.findMany({
+        where: { branchId: cls.branchId, workStatus: "ACTIVE" },
+        orderBy: { fullName: "asc" },
+      })
+    : [];
 
   const completedSessions = cls.sessions.filter((session) => session.status === "COMPLETED").length;
   const activeEnrollments = cls.enrollments.filter((enrollment) => enrollment.status === "ACTIVE");
@@ -228,6 +236,14 @@ export default async function ClassDetailPage({ params }: { params: { id: string
   const openTasks = tasks.filter((task) => task.status === "OPEN");
   const estimatedClassTuition =
     cls.tuitionPerSession && cls.totalSessions ? cls.tuitionPerSession * cls.totalSessions : null;
+  const defaultTeacherNames = cls.defaultAssignments
+    .filter((item) => item.role === "TEACHER")
+    .map((item) => item.employee.fullName)
+    .join(", ");
+  const defaultAssistantNames = cls.defaultAssignments
+    .filter((item) => item.role !== "TEACHER")
+    .map((item) => item.employee.shortName || item.employee.fullName)
+    .join(", ");
 
   return (
     <div className="space-y-6">
@@ -355,6 +371,13 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                     </dd>
                   </div>
                   <div className="flex items-start justify-between gap-4">
+                    <dt className="text-ink-muted48">GV / TG mặc định</dt>
+                    <dd className="text-right font-medium">
+                      {defaultTeacherNames || "Chưa gắn GV"}
+                      <span className="block text-xs font-normal text-ink-muted48">{defaultAssistantNames || "Chưa gắn TG"}</span>
+                    </dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-4">
                     <dt className="text-ink-muted48">Buổi kế tiếp</dt>
                     <dd className="text-right font-medium">{nextSession ? `${formatDate(nextSession.sessionDate)} · ${nextSession.startTime ?? "—"}` : "Chưa có"}</dd>
                   </div>
@@ -396,6 +419,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <ClassDefaultAssignmentManager classId={cls.id} employees={employees} assignments={cls.defaultAssignments} />
               <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Quy tắc lịch lớp</p>
                 <ul className="mt-3 space-y-2 text-sm text-ink-muted80">
