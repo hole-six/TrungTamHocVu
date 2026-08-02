@@ -22,13 +22,38 @@ type DefaultAssignment = {
   };
 };
 
-const ROLE_CONFIG = [
-  { role: "TEACHER", label: "Giáo viên chính", helper: "Người dạy mặc định của lớp" },
-  { role: "ASSISTANT", label: "Trợ giảng chính", helper: "Người hỗ trợ mặc định của lớp" },
-  { role: "ASSISTANT2", label: "Trợ giảng bổ sung", helper: "Người hỗ trợ thêm khi lớp cần 2 TG" },
-] as const;
+type AssignmentDraft = {
+  key: string;
+  roleType: "TEACHER" | "ASSISTANT";
+  employeeId: string;
+  notes: string;
+};
 
-type FormState = Record<string, { employeeId: string; notes: string }>;
+function getRoleType(role: string): "TEACHER" | "ASSISTANT" | null {
+  const normalized = role.trim().toUpperCase();
+  if (normalized === "TEACHER" || /^TEACHER_\d+$/.test(normalized)) return "TEACHER";
+  if (normalized === "ASSISTANT" || normalized === "ASSISTANT2" || /^ASSISTANT_\d+$/.test(normalized)) return "ASSISTANT";
+  return null;
+}
+
+function getRoleLabel(role: string) {
+  const type = getRoleType(role);
+  if (!type) return role;
+  return type === "TEACHER" ? "Giáo viên" : "Trợ giảng";
+}
+
+function createDraft(roleType: "TEACHER" | "ASSISTANT", seed = Math.random().toString(36).slice(2)): AssignmentDraft {
+  return {
+    key: `${roleType}-${seed}`,
+    roleType,
+    employeeId: "",
+    notes: "",
+  };
+}
+
+function normalizeRole(roleType: "TEACHER" | "ASSISTANT", index: number) {
+  return roleType === "TEACHER" ? `TEACHER_${index + 1}` : `ASSISTANT_${index + 1}`;
+}
 
 export default function ClassDefaultAssignmentManager({
   classId,
@@ -46,21 +71,57 @@ export default function ClassDefaultAssignmentManager({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const initialState = useMemo<FormState>(
-    () =>
-      Object.fromEntries(
-        ROLE_CONFIG.map((item) => {
-          const current = assignments.find((assignment) => assignment.role === item.role);
-          return [item.role, { employeeId: current?.employeeId ?? "", notes: current?.notes ?? "" }];
-        }),
-      ),
-    [assignments],
+  const initialDrafts = useMemo<AssignmentDraft[]>(() => {
+    const teacherDrafts = assignments
+      .filter((assignment) => getRoleType(assignment.role) === "TEACHER")
+      .map((assignment, index) => ({
+        key: assignment.id,
+        roleType: "TEACHER" as const,
+        employeeId: assignment.employeeId,
+        notes: assignment.notes ?? "",
+        sort: index,
+      }));
+
+    const assistantDrafts = assignments
+      .filter((assignment) => getRoleType(assignment.role) === "ASSISTANT")
+      .map((assignment, index) => ({
+        key: assignment.id,
+        roleType: "ASSISTANT" as const,
+        employeeId: assignment.employeeId,
+        notes: assignment.notes ?? "",
+        sort: index,
+      }));
+
+    return [...teacherDrafts, ...assistantDrafts].map(({ sort: _sort, ...draft }) => draft);
+  }, [assignments]);
+
+  const [drafts, setDrafts] = useState<AssignmentDraft[]>(
+    initialDrafts.length > 0 ? initialDrafts : [createDraft("TEACHER"), createDraft("ASSISTANT")],
   );
 
-  const [form, setForm] = useState<FormState>(initialState);
+  const summary = useMemo(() => {
+    const teachers = assignments.filter((item) => getRoleType(item.role) === "TEACHER");
+    const assistants = assignments.filter((item) => getRoleType(item.role) === "ASSISTANT");
+    return { teachers, assistants };
+  }, [assignments]);
 
-  function patch(role: string, key: "employeeId" | "notes", value: string) {
-    setForm((current) => ({ ...current, [role]: { ...current[role], [key]: value } }));
+  function patch(key: string, field: "employeeId" | "notes", value: string) {
+    setDrafts((current) => current.map((item) => (item.key === key ? { ...item, [field]: value } : item)));
+    setError(null);
+    setMessage(null);
+  }
+
+  function addDraft(roleType: "TEACHER" | "ASSISTANT") {
+    setDrafts((current) => [...current, createDraft(roleType)]);
+    setError(null);
+    setMessage(null);
+  }
+
+  function removeDraft(key: string) {
+    setDrafts((current) => {
+      const next = current.filter((item) => item.key !== key);
+      return next.length > 0 ? next : [createDraft("TEACHER"), createDraft("ASSISTANT")];
+    });
     setError(null);
     setMessage(null);
   }
@@ -70,11 +131,21 @@ export default function ClassDefaultAssignmentManager({
     setError(null);
     setMessage(null);
 
-    const payload = ROLE_CONFIG.map((item) => ({
-      role: item.role,
-      employeeId: form[item.role]?.employeeId || null,
-      notes: form[item.role]?.notes?.trim() || null,
-    })).filter((item) => item.employeeId);
+    const teachers = drafts.filter((item) => item.roleType === "TEACHER" && item.employeeId);
+    const assistants = drafts.filter((item) => item.roleType === "ASSISTANT" && item.employeeId);
+
+    const payload = [
+      ...teachers.map((item, index) => ({
+        role: normalizeRole("TEACHER", index),
+        employeeId: item.employeeId,
+        notes: item.notes.trim() || null,
+      })),
+      ...assistants.map((item, index) => ({
+        role: normalizeRole("ASSISTANT", index),
+        employeeId: item.employeeId,
+        notes: item.notes.trim() || null,
+      })),
+    ];
 
     const response = await fetch(`/api/classes/${classId}`, {
       method: "PATCH",
@@ -113,34 +184,57 @@ export default function ClassDefaultAssignmentManager({
     router.refresh();
   }
 
-  const summary = ROLE_CONFIG.map((item) => {
-    const current = assignments.find((assignment) => assignment.role === item.role);
-    return {
-      ...item,
-      display: current ? current.employee.shortName || current.employee.fullName : "Chưa gắn",
-    };
-  });
-
   return (
     <>
-      <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3 rounded-[28px] border border-[#dbe7ff] bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_100%)] px-5 py-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Nhân sự mặc định của lớp</p>
-            <p className="mt-2 text-sm text-ink-muted80">Lớp nên có GV/TG chính cố định. Chỉ đổi riêng từng buổi khi bận, dạy thay hoặc học bù.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Nhân sự mặc định</p>
+            <h3 className="mt-1 text-lg font-semibold text-ink">Giáo viên & trợ giảng của lớp</h3>
           </div>
           <button type="button" onClick={() => setOpen(true)} className="btn-ghost">
-            Gắn GV/TG mặc định
+            Chỉnh nhân sự
           </button>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          {summary.map((item) => (
-            <div key={item.role} className="rounded-2xl bg-white px-3 py-3 shadow-sm">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">{item.label}</p>
-              <p className="mt-2 text-sm font-semibold text-ink">{item.display}</p>
-              <p className="mt-1 text-xs text-ink-muted48">{item.helper}</p>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-[24px] border border-hairline px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-ink">Giáo viên</p>
+              <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">{summary.teachers.length}</span>
             </div>
-          ))}
+            <div className="mt-3 space-y-2">
+              {summary.teachers.length > 0 ? (
+                summary.teachers.map((item) => (
+                  <div key={item.id} className="border-b border-hairline py-2 last:border-0">
+                    <p className="text-sm font-medium text-ink">{item.employee.shortName || item.employee.fullName}</p>
+                    {item.notes ? <p className="mt-1 text-xs text-ink-muted48">{item.notes}</p> : null}
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-ink-muted48">Chưa gắn giáo viên.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-hairline px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-ink">Trợ giảng</p>
+              <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700">{summary.assistants.length}</span>
+            </div>
+            <div className="mt-3 space-y-2">
+              {summary.assistants.length > 0 ? (
+                summary.assistants.map((item) => (
+                  <div key={item.id} className="border-b border-hairline py-2 last:border-0">
+                    <p className="text-sm font-medium text-ink">{item.employee.shortName || item.employee.fullName}</p>
+                    {item.notes ? <p className="mt-1 text-xs text-ink-muted48">{item.notes}</p> : null}
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-ink-muted48">Chưa gắn trợ giảng.</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -148,55 +242,70 @@ export default function ClassDefaultAssignmentManager({
         open={open}
         onClose={() => setOpen(false)}
         title="Nhân sự mặc định của lớp"
-        description="Gắn giáo viên và trợ giảng mặc định cho cả lớp. Các buổi sinh mới sẽ tự nhận theo cấu hình này, chỉ sửa riêng khi có đổi ca hoặc dạy bù."
-        widthClassName="max-w-3xl"
+        description="Thêm bao nhiêu giáo viên hoặc trợ giảng tùy nhu cầu. Buổi học sinh mới sẽ tự nhận theo cấu hình này."
+        widthClassName="max-w-4xl"
       >
-        <div className="space-y-5">
-          <div className="grid gap-4">
-            {ROLE_CONFIG.map((item) => (
-              <div key={item.role} className="rounded-[24px] border border-[#dbe7ff] bg-[#f9fcff] p-4">
-                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-                  <div>
-                    <p className="text-sm font-semibold text-ink">{item.label}</p>
-                    <p className="mt-1 text-xs leading-5 text-ink-muted48">{item.helper}</p>
+        <div className="space-y-6">
+          <div className="space-y-4">
+            {(["TEACHER", "ASSISTANT"] as const).map((roleType) => {
+              const rows = drafts.filter((item) => item.roleType === roleType);
+              const label = getRoleLabel(roleType);
+              return (
+                <div key={roleType} className="space-y-3 rounded-[24px] border border-hairline px-4 py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-ink">{label}</p>
+                      <p className="mt-1 text-xs text-ink-muted48">Có thể thêm nhiều người cùng lúc.</p>
+                    </div>
+                    <button type="button" onClick={() => addDraft(roleType)} className="btn-ghost-sm">
+                      + Thêm {label.toLowerCase()}
+                    </button>
                   </div>
-                  <div className="grid gap-3">
-                    <label className="form-group">
-                      <span className="label-sm">Nhân sự mặc định</span>
-                      <select className="input" value={form[item.role]?.employeeId ?? ""} onChange={(event) => patch(item.role, "employeeId", event.target.value)}>
-                        <option value="">Chưa gắn</option>
-                        {employees.map((employee) => (
-                          <option key={employee.id} value={employee.id}>
-                            {employee.fullName} {employee.shortName ? `(${employee.shortName})` : ""} {employee.position ? `· ${employee.position}` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="form-group">
-                      <span className="label-sm">Ghi chú vận hành</span>
-                      <textarea
-                        className="input min-h-[92px]"
-                        placeholder="Ví dụ: GV chính của lớp này, chỉ đổi khi báo bận trước..."
-                        value={form[item.role]?.notes ?? ""}
-                        onChange={(event) => patch(item.role, "notes", event.target.value)}
-                      />
-                    </label>
+
+                  <div className="space-y-3">
+                    {rows.map((item, index) => (
+                      <div key={item.key} className="grid gap-3 rounded-[20px] border border-hairline px-3 py-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto]">
+                        <label className="form-group">
+                          <span className="label-sm">{label} {index + 1}</span>
+                          <select className="input" value={item.employeeId} onChange={(event) => patch(item.key, "employeeId", event.target.value)}>
+                            <option value="">Chưa gắn</option>
+                            {employees.map((employee) => (
+                              <option key={employee.id} value={employee.id}>
+                                {employee.fullName} {employee.shortName ? `(${employee.shortName})` : ""} {employee.position ? `· ${employee.position}` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="form-group">
+                          <span className="label-sm">Ghi chú</span>
+                          <input
+                            className="input"
+                            placeholder="Ghi chú ngắn nếu cần"
+                            value={item.notes}
+                            onChange={(event) => patch(item.key, "notes", event.target.value)}
+                          />
+                        </label>
+
+                        <div className="flex items-end">
+                          <button type="button" onClick={() => removeDraft(item.key)} className="btn-ghost-sm text-rose-600 hover:text-rose-700">
+                            Xóa
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {message ? <div className="alert-success">{message}</div> : null}
           {error ? <div className="alert-danger">{error}</div> : null}
 
-          <div className="rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Sau khi lưu, các buổi sinh mới sẽ tự gắn theo mặc định. Nếu lớp đã có buổi nhưng còn trống phân công, bấm nút áp dụng bên dưới để đổ nhanh xuống các buổi đó.
-          </div>
-
-          <div className="flex flex-wrap gap-3 border-t border-[#e6eefc] pt-4">
+          <div className="flex flex-wrap gap-3 border-t border-hairline pt-4">
             <button type="button" onClick={save} disabled={loading} className="btn-primary">
-              {loading ? "Đang lưu..." : "Lưu nhân sự mặc định"}
+              {loading ? "Đang lưu..." : "Lưu nhân sự"}
             </button>
             <button type="button" onClick={applyToPlannedSessions} disabled={applyLoading} className="btn-ghost">
               {applyLoading ? "Đang áp dụng..." : "Áp dụng cho buổi đã sinh"}

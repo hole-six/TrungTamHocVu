@@ -30,7 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       leadId: lead.id,
       scheduledDate: body.scheduledDate ? new Date(body.scheduledDate) : null,
       testDate,
-      status: body.status || (testDate ? "PASSED" : "SCHEDULED"),
+      status: body.status || "SCHEDULED",
       suggestedClass,
       result: body.result || null,
       notes: body.notes || null,

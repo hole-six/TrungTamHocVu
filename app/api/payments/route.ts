@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { hasPermission } from "@/lib/server/permissions";
+import { computeOutstandingBalance } from "@/lib/server/balance";
 
 const CASH_METHOD = "Tiền mặt";
 const MAX_CASH_DISCOUNT_PERCENT = 10;
@@ -54,16 +55,7 @@ export async function POST(req: NextRequest) {
   const paymentNotes = [String(body.notes ?? "").trim() || null, discountNote].filter(Boolean).join(" | ");
 
   const result = await prisma.$transaction(async (tx) => {
-    const [chargeTotal, allocatedTotal, unusedCredits] = await Promise.all([
-      tx.charge.aggregate({ where: { studentId }, _sum: { totalAmount: true } }),
-      tx.paymentAllocation.aggregate({ where: { charge: { studentId } }, _sum: { amount: true } }),
-      tx.creditBalance.findMany({ where: { studentId, usedAt: null } }),
-    ]);
-
-    const currentOutstanding =
-      (chargeTotal._sum.totalAmount ?? 0) -
-      (allocatedTotal._sum.amount ?? 0) -
-      unusedCredits.reduce((sum, credit) => sum + credit.amount, 0);
+    const currentOutstanding = await computeOutstandingBalance(studentId, tx);
 
     if (currentOutstanding <= 0) {
       throw new Error("Học viên hiện không còn công nợ để thu.");

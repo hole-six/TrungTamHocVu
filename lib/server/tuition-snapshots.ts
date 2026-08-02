@@ -158,7 +158,7 @@ export async function buildTuitionOverviewLivePayload(branchId: string | null, f
                 chargeId: charge.id,
                 studentId: charge.studentId,
                 studentName: charge.student.fullName,
-                studentCode: charge.student.studentDisplayId ?? charge.student.studentCode,
+                studentCode: charge.student.studentCode,
                 leadCode: charge.student.lead?.leadCode ?? null,
                 className: charge.class.className,
                 currentClassName: activeEnrollment?.class.className ?? charge.class.className,

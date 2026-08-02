@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 type Item = {
   id: string;
@@ -9,7 +10,7 @@ type Item = {
   reason: string | null;
   effectiveFrom: string | Date;
   effectiveTo: string | Date | null;
-  enrollment?: { class: { className: string } } | null;
+  enrollment?: { id: string; class: { className: string } } | null;
 };
 
 type EnrollmentOption = { id: string; className: string; status: string };
@@ -33,6 +34,7 @@ export default function ScholarshipAdjustmentForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,10 +47,14 @@ export default function ScholarshipAdjustmentForm({
     setSuccess(false);
     const endpoint =
       tab === "scholarship"
-        ? `/api/students/${studentId}/scholarships`
-        : `/api/students/${studentId}/adjustments`;
+        ? editingId
+          ? `/api/students/${studentId}/scholarships/${editingId}`
+          : `/api/students/${studentId}/scholarships`
+        : editingId
+          ? `/api/students/${studentId}/adjustments/${editingId}`
+          : `/api/students/${studentId}/adjustments`;
     const res = await fetch(endpoint, {
-      method: "POST",
+      method: editingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         percentage: Number(percentage) / 100,
@@ -64,9 +70,36 @@ export default function ScholarshipAdjustmentForm({
     }
     setPercentage("");
     setReason("");
+    setEditingId(null);
     setSuccess(true);
     setTimeout(() => setSuccess(false), 3000);
     router.refresh();
+  }
+
+  async function removeItem(id: string) {
+    setLoading(true);
+    setError(null);
+    const endpoint = tab === "scholarship" ? `/api/students/${studentId}/scholarships/${id}` : `/api/students/${studentId}/adjustments/${id}`;
+    const res = await fetch(endpoint, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    setLoading(false);
+    if (!res.ok) {
+      setError(data.error ?? "Không thể xóa.");
+      return;
+    }
+    if (editingId === id) {
+      setEditingId(null);
+      setPercentage("");
+      setReason("");
+    }
+    router.refresh();
+  }
+
+  function startEdit(item: Item) {
+    setEditingId(item.id);
+    setPercentage(String(Math.round(item.percentage * 100)));
+    setReason(item.reason ?? "");
+    if (isScholarship && item.enrollment?.id) setEnrollmentId(item.enrollment.id);
   }
 
   const list = tab === "scholarship" ? scholarships : adjustments;
@@ -126,9 +159,24 @@ export default function ScholarshipAdjustmentForm({
                   {item.effectiveTo ? ` → ${new Date(item.effectiveTo).toLocaleDateString("vi-VN")}` : " (còn hiệu lực)"}
                 </p>
               </div>
-              <span className={`text-base font-bold ${isScholarship ? "text-emerald-600" : "text-amber-600"}`}>
-                -{Math.round(item.percentage * 100)}%
-              </span>
+              <div className="flex items-center gap-3">
+                <span className={`text-base font-bold ${isScholarship ? "text-emerald-600" : "text-amber-600"}`}>
+                  -{Math.round(item.percentage * 100)}%
+                </span>
+                <button type="button" onClick={() => startEdit(item)} className="btn-ghost-sm">
+                  Sửa
+                </button>
+                <ConfirmActionButton
+                  title="Xác nhận xóa mục này?"
+                  description="Hệ thống sẽ xóa mục này và tính lại học phí tương ứng."
+                  confirmLabel="Xóa mục"
+                  tone="danger"
+                  className="btn-ghost-sm text-red-600 hover:text-red-700"
+                  onConfirm={() => removeItem(item.id)}
+                >
+                  Xóa
+                </ConfirmActionButton>
+              </div>
             </div>
           ))
         )}
@@ -137,7 +185,7 @@ export default function ScholarshipAdjustmentForm({
       {/* Add form */}
       <div className="rounded-xl border border-[#e8edf5] bg-[#fafbff] p-4">
         <p className="text-xs font-bold uppercase tracking-wide text-ink-muted48 mb-3">
-          + {isScholarship ? "Thêm học bổng mới" : "Thêm điều chỉnh mới"}
+          {editingId ? `Đang sửa ${isScholarship ? "học bổng" : "điều chỉnh"}` : `+ ${isScholarship ? "Thêm học bổng mới" : "Thêm điều chỉnh mới"}`}
         </p>
         <form onSubmit={submit} className="space-y-3">
           {isScholarship && (
@@ -185,13 +233,28 @@ export default function ScholarshipAdjustmentForm({
           </div>
           {error && <div className="alert-danger text-xs">{error}</div>}
           {success && <div className="alert-success text-xs">Đã lưu thành công!</div>}
-          <button
-            type="submit"
-            disabled={loading || (isScholarship && enrollments.length === 0)}
-            className="btn-ghost-sm w-full border-dashed hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? "Đang lưu..." : `+ Thêm ${isScholarship ? "học bổng" : "điều chỉnh"}`}
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={loading || (isScholarship && enrollments.length === 0)}
+              className="btn-ghost-sm w-full border-dashed hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? "Đang lưu..." : editingId ? "Lưu chỉnh sửa" : `+ Thêm ${isScholarship ? "học bổng" : "điều chỉnh"}`}
+            </button>
+            {editingId ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingId(null);
+                  setPercentage("");
+                  setReason("");
+                }}
+                className="btn-ghost-sm"
+              >
+                Hủy sửa
+              </button>
+            ) : null}
+          </div>
         </form>
       </div>
     </div>

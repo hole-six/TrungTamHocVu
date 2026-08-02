@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/server/current-user";
+import { getCurrentBranchId } from "@/lib/branch-filter";
 import LeadForm from "@/components/leads/LeadForm";
 
 export default async function NewLeadPage({ searchParams }: { searchParams: { returnTo?: string } }) {
   const returnTo = searchParams.returnTo && searchParams.returnTo.startsWith("/") ? searchParams.returnTo : null;
-  const user = await getCurrentUser();
+  const activeBranchId = await getCurrentBranchId();
   const classes = await prisma.class.findMany({
-    where: { ...(user?.branchId ? { branchId: user.branchId } : {}), status: "ACTIVE" },
+    where: { ...(activeBranchId ? { branchId: activeBranchId } : {}), status: "ACTIVE" },
     orderBy: [{ className: "asc" }],
     select: { id: true, classCode: true, className: true },
   });

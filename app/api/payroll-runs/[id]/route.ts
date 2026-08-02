@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { canTransitionPayrollRun } from "@/lib/server/payroll-rules";
+import { canTransitionPayrollRun, canEditPayroll } from "@/lib/server/payroll-rules";
 import { hasPermission } from "@/lib/server/permissions";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canDeleteWithOverride } from "@/lib/server/role-matrix";
 
 // Trạng thái đích -> quyền cần có. APPROVED/LOCKED/PAID là các bước không thể đảo
 // ngược (chốt lương) nên gác bằng RBAC, không chỉ đăng nhập là đủ (Master Spec §10).
@@ -55,4 +57,26 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   });
 
   return NextResponse.json({ item: updated });
+}
+
+// Chỉ cho xóa khi kỳ lương còn ở trạng thái "có thể sửa" (DRAFT/CALCULATED/REVIEWED)
+// — cùng ngưỡng với canEditPayroll đang gác việc sửa dòng lương, để không xóa được
+// kỳ đã duyệt/khóa/đã trả (Master Spec §10, các bước này không thể đảo ngược).
+// PayrollRun.lines có onDelete: Cascade nên xóa run tự dọn sạch line, không cần xóa tay.
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const { role, override } = await getUserRoleAndOverride(user.id, "hr");
+  if (!canDeleteWithOverride("hr", role, override)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền xóa kỳ lương" }, { status: 403 });
+  }
+
+  const run = await prisma.payrollRun.findUnique({ where: { id: params.id } });
+  if (!run) return NextResponse.json({ error: "Không tìm thấy kỳ lương" }, { status: 404 });
+  if (!canEditPayroll(run.status)) {
+    return NextResponse.json({ error: "Kỳ lương đã duyệt/khóa, không thể xóa." }, { status: 409 });
+  }
+
+  await prisma.payrollRun.delete({ where: { id: params.id } });
+  return NextResponse.json({ ok: true });
 }

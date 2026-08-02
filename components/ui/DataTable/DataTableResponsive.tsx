@@ -13,6 +13,7 @@ type DataTableResponsiveProps<T> = {
   searchable?: boolean;
   searchPlaceholder?: string;
   onSearch?: (query: string) => void;
+  showCountBadge?: boolean;
   sortable?: boolean;
   selectable?: boolean;
   pagination?: {
@@ -35,9 +36,8 @@ type DataTableResponsiveProps<T> = {
   rowKey: keyof T;
   onRowClick?: (row: T) => void;
   className?: string;
-  title?: string;
-  description?: string;
   headerActions?: ReactNode;
+  filterChips?: ReactNode;
   defaultSearchValue?: string;
   mobileConfig?: {
     primaryColumn: string;

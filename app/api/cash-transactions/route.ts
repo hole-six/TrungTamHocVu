@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canCreateWithOverride } from "@/lib/server/role-matrix";
-import { getBranchWhereClause } from "@/lib/branch-filter";
+import { getBranchWhereClause, getValidBranchIdForCreation } from "@/lib/branch-filter";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -35,7 +35,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  if (!user.branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
+  const branchId = await getValidBranchIdForCreation();
+  if (!branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
   const { role, override } = await getUserRoleAndOverride(user.id, "cashbook");
   if (!canCreateWithOverride("cashbook", role, override)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền tạo phiếu thu/chi" }, { status: 403 });
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
 
   const txn = await prisma.cashTransaction.create({
     data: {
-      branchId: user.branchId,
+      branchId,
       type,
       categoryId: body.categoryId || null,
       txnDate: body.txnDate ? new Date(body.txnDate) : new Date(),

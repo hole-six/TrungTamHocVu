@@ -3,12 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
+import { computeExtendedEndDate, estimateEndDate, estimateEndDateFromRules } from "@/lib/server/class-rules";
+import { computeSessionBaseHours } from "@/lib/server/payroll-rules";
+import { getHolidayDateSet } from "@/lib/server/holidays";
 
 // Đổi buổi = 1-1: buổi gốc chuyển RESCHEDULED, tạo đúng 1 buổi bù mới trỏ ngược lại
 // (replacesSessionId) — không được để mất buổi hoặc dư buổi so với tổng đã tính.
-// Phân công GV/TG copy sang buổi bù (đúng người tiếp tục dạy lớp đó), nhưng KHÔNG
-// copy giờ công/tiền công đã snapshot của buổi gốc — buổi bù chưa diễn ra, giờ công
-// phải tính lại từ đầu khi buổi đó thực sự xảy ra, copy số cũ sẽ làm sai lương.
+// Phân công GV/TG copy sang buổi bù (đúng người tiếp tục dạy lớp đó), snapshot lại
+// hours/hourlyRate/amount theo khung giờ của buổi BÙ (giống hệt cách class-generation.ts
+// và assignments/route.ts snapshot lúc phân công) — buổi gốc đã RESCHEDULED nên bị loại
+// khỏi payroll qua filter status COMPLETED, không cần đụng tới số cũ của nó.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
@@ -19,7 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const original = await prisma.classSession.findUnique({
     where: { id: params.id },
-    include: { assignments: true, replacedBySession: true },
+    include: { assignments: { include: { employee: true } }, replacedBySession: true, class: { include: { scheduleRules: true } } },
   });
   if (!original) return NextResponse.json({ error: "Không tìm thấy buổi học" }, { status: 404 });
   if (original.status === "CANCELLED" || original.status === "RESCHEDULED") {
@@ -35,6 +39,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Thiếu hoặc sai ngày bù." }, { status: 400 });
   }
   const reason = body.reason ? String(body.reason).trim() : null;
+
+  const holidayDates = await getHolidayDateSet(original.class.branchId);
+  const currentEnd =
+    original.class.expectedEndDate ??
+    estimateEndDateFromRules(original.class.startDate, original.class.totalSessions, original.class.scheduleRules, holidayDates) ??
+    estimateEndDate(original.class.startDate, original.class.totalSessions, original.class.sessionsPerWeek);
+  const extendedEnd = computeExtendedEndDate(currentEnd, newDate);
 
   const result = await prisma.$transaction(async (tx) => {
     const makeupSession = await tx.classSession.create({
@@ -52,11 +63,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     if (original.assignments.length > 0) {
       await tx.sessionAssignment.createMany({
-        data: original.assignments.map((assignment) => ({
-          sessionId: makeupSession.id,
-          employeeId: assignment.employeeId,
-          role: assignment.role,
-        })),
+        data: original.assignments.map((assignment) => {
+          const hours = computeSessionBaseHours(assignment.employee.payMode, makeupSession.startTime, makeupSession.endTime);
+          const hourlyRate =
+            assignment.role === "TEACHER" ? assignment.employee.teachingHourlyRate ?? 0 : assignment.employee.assistantHourlyRate ?? 0;
+          return {
+            sessionId: makeupSession.id,
+            employeeId: assignment.employeeId,
+            role: assignment.role,
+            hours,
+            hourlyRate,
+            amount: Math.round(hours * hourlyRate),
+          };
+        }),
       });
     }
 
@@ -67,6 +86,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         notes: reason ? `Đã dời sang ${newDate.toLocaleDateString("vi-VN")}: ${reason}` : `Đã dời sang ${newDate.toLocaleDateString("vi-VN")}`,
       },
     });
+
+    // Buổi dời sang rơi sau ngày kết thúc dự kiến hiện tại — giãn ngày kết thúc theo
+    // thực tế thay vì để hiển thị sai lệch với lịch thật của lớp.
+    if (extendedEnd) {
+      await tx.class.update({ where: { id: original.classId }, data: { expectedEndDate: extendedEnd } });
+    }
 
     return { makeupSession, updatedOriginal };
   });

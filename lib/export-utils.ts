@@ -240,7 +240,20 @@ export function formatDateTime(date: Date | string): string {
 /**
  * Print current page
  */
-export function printPage() {
+export function printPage(options?: { pageSize?: string; margin?: string }) {
+  const style = document.createElement("style");
+  style.setAttribute("data-print-style", "dynamic");
+  const pageSize = options?.pageSize ?? "A4";
+  const margin = options?.margin ?? "0";
+  style.textContent = `@media print { @page { size: ${pageSize}; margin: ${margin}; } }`;
+  document.head.appendChild(style);
+
+  const cleanup = () => {
+    style.remove();
+    window.removeEventListener("afterprint", cleanup);
+  };
+
+  window.addEventListener("afterprint", cleanup);
   window.print();
 }
 

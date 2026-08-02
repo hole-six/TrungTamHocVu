@@ -37,7 +37,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const data: Record<string, unknown> = {};
   if ("name" in body) data.name = String(body.name).trim();
   if ("category" in body) data.category = body.category || null;
-  if ("unitPrice" in body) data.unitPrice = Number(body.unitPrice);
+  if ("purchasePrice" in body) {
+    const purchasePrice = Number(body.purchasePrice);
+    if (!Number.isFinite(purchasePrice) || purchasePrice < 0) {
+      return NextResponse.json({ error: "Đơn giá nhập không hợp lệ" }, { status: 400 });
+    }
+    data.purchasePrice = purchasePrice;
+  }
+  if ("unitPrice" in body) {
+    const unitPrice = Number(body.unitPrice);
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+      return NextResponse.json({ error: "Đơn giá bán không hợp lệ" }, { status: 400 });
+    }
+    data.unitPrice = unitPrice;
+  }
   if ("usageStatus" in body) data.usageStatus = body.usageStatus || null;
   if ("notes" in body) data.notes = body.notes || null;
 

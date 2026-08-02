@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdateWithOverride } from "@/lib/server/role-matrix";
+import { refreshEditableChargesForStudent } from "@/lib/server/charge-repricing";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -27,6 +28,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       effectiveTo: body.effectiveTo ? new Date(body.effectiveTo) : null,
     },
   });
+
+  await refreshEditableChargesForStudent(params.id);
 
   return NextResponse.json({ item: adjustment }, { status: 201 });
 }

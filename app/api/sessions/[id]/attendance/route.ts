@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
+import { computeSessionTiming, getVietnamToday } from "@/lib/server/class-rules";
+import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 
 // Điểm danh vẫn cho phép GV/TG (canUpdate("schedule") = false với 2 vai trò này) vì đây
 // là việc dạy học hàng ngày, khác với quản lý lịch/ghi danh — xem giải thích tương tự ở
@@ -59,8 +61,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Vai trò của bạn không có quyền điểm danh" }, { status: 403 });
   }
 
-  const session = await prisma.classSession.findUnique({ where: { id: params.id } });
+  const session = await prisma.classSession.findUnique({ where: { id: params.id }, include: { class: true } });
   if (!session) return NextResponse.json({ error: "Không tìm thấy buổi học" }, { status: 404 });
+  if (computeSessionTiming(session.sessionDate, getVietnamToday()) === "upcoming") {
+    return NextResponse.json({ error: "Buổi học chưa diễn ra, chưa thể điểm danh." }, { status: 409 });
+  }
 
   const body = await req.json();
   const records: { studentId: string; status: string }[] = body.records ?? [];
@@ -73,8 +78,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const newlyAbsentIds = records.filter((r) => !ABSENCE_STATUSES.has(oldStatusByStudent.get(r.studentId) ?? "") && ABSENCE_STATUSES.has(r.status)).map((r) => r.studentId);
   const newlyPresentIds = records.filter((r) => ABSENCE_STATUSES.has(oldStatusByStudent.get(r.studentId) ?? "") && !ABSENCE_STATUSES.has(r.status)).map((r) => r.studentId);
+  const attendancePositiveStatuses = new Set(["PRESENT", "MAKEUP"]);
+  const newlyAttendedIds = records
+    .filter((r) => !attendancePositiveStatuses.has(oldStatusByStudent.get(r.studentId) ?? "") && attendancePositiveStatuses.has(r.status))
+    .map((r) => r.studentId);
 
-  const [courseEnrollments, existingCredits] = await Promise.all([
+  const [courseEnrollments, existingCredits, remedialEnrollments, availableCreditsForRemedial, consumedCreditsForRemedial] = await Promise.all([
     newlyAbsentIds.length > 0
       ? prisma.enrollment.findMany({
           where: {
@@ -86,8 +95,60 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         })
       : Promise.resolve([]),
     prisma.sessionCredit.findMany({ where: { sourceSessionId: session.id, studentId: { in: [...newlyAbsentIds, ...newlyPresentIds] } } }),
+    session.class.isRemedial
+      ? prisma.enrollment.findMany({
+          where: {
+            classId: session.classId,
+            studentId: { in: records.map((r) => r.studentId) },
+            status: "ACTIVE",
+          },
+        })
+      : Promise.resolve([]),
+    session.class.isRemedial
+      ? prisma.sessionCredit.findMany({
+          where: {
+            studentId: { in: records.map((r) => r.studentId) },
+            status: "AVAILABLE",
+          },
+          orderBy: { createdAt: "asc" },
+        })
+      : Promise.resolve([]),
+    session.class.isRemedial
+      ? prisma.sessionCredit.findMany({
+          where: {
+            studentId: { in: records.map((r) => r.studentId) },
+            consumedSessionId: session.id,
+            status: "CONSUMED",
+          },
+        })
+      : Promise.resolve([]),
   ]);
   const existingCreditByStudent = new Map(existingCredits.map((c) => [c.studentId, c]));
+  const remedialEnrollmentByStudent = new Map(remedialEnrollments.map((e) => [e.studentId, e]));
+  const availableCreditQueues = new Map<string, typeof availableCreditsForRemedial>();
+  for (const credit of availableCreditsForRemedial) {
+    const list = availableCreditQueues.get(credit.studentId) ?? [];
+    list.push(credit);
+    availableCreditQueues.set(credit.studentId, list);
+  }
+  const consumedCreditByStudent = new Map(consumedCreditsForRemedial.map((c) => [c.studentId, c]));
+
+  if (session.class.isRemedial) {
+    for (const studentId of newlyAttendedIds) {
+      if (!remedialEnrollmentByStudent.has(studentId)) {
+        return NextResponse.json(
+          { error: "Có học viên chưa được gán vào lớp bổ trợ nhưng đang bị điểm danh ở buổi này." },
+          { status: 409 },
+        );
+      }
+      if (!consumedCreditByStudent.has(studentId) && (availableCreditQueues.get(studentId)?.length ?? 0) <= 0) {
+        return NextResponse.json(
+          { error: "Có học viên đã hết buổi bổ trợ khả dụng, không thể chấm có mặt ở buổi bổ trợ này." },
+          { status: 409 },
+        );
+      }
+    }
+  }
 
   await prisma.$transaction(async (tx) => {
     for (const r of records) {
@@ -114,6 +175,63 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       const credit = existingCreditByStudent.get(studentId);
       if (credit && credit.status === "AVAILABLE") {
         await tx.sessionCredit.update({ where: { id: credit.id }, data: { status: "VOIDED" } });
+      }
+    }
+
+    if (session.class.isRemedial) {
+      for (const record of records) {
+        const oldStatus = oldStatusByStudent.get(record.studentId) ?? "";
+        const becameAttended = !attendancePositiveStatuses.has(oldStatus) && attendancePositiveStatuses.has(record.status);
+        const becameNotAttended = attendancePositiveStatuses.has(oldStatus) && !attendancePositiveStatuses.has(record.status);
+
+        if (becameAttended && !consumedCreditByStudent.has(record.studentId)) {
+          const nextCredit = availableCreditQueues.get(record.studentId)?.shift();
+          if (nextCredit) {
+            await tx.sessionCredit.update({
+              where: { id: nextCredit.id },
+              data: { status: "CONSUMED", consumedSessionId: session.id, consumedAt: new Date() },
+            });
+          }
+        }
+
+        if (becameNotAttended) {
+          const consumed = consumedCreditByStudent.get(record.studentId);
+          if (consumed) {
+            await tx.sessionCredit.update({
+              where: { id: consumed.id },
+              data: { status: "AVAILABLE", consumedSessionId: null, consumedAt: null },
+            });
+          }
+        }
+      }
+
+      const remainingCredits = await tx.sessionCredit.groupBy({
+        by: ["studentId"],
+        where: {
+          studentId: { in: remedialEnrollments.map((e) => e.studentId) },
+          status: "AVAILABLE",
+        },
+        _count: { _all: true },
+      });
+      const remainingCreditMap = new Map(remainingCredits.map((row) => [row.studentId, row._count._all]));
+
+      for (const enrollment of remedialEnrollments) {
+        if ((remainingCreditMap.get(enrollment.studentId) ?? 0) > 0) continue;
+        await tx.enrollment.update({
+          where: { id: enrollment.id },
+          data: { status: "COMPLETED", endDate: new Date() },
+        });
+        await tx.enrollmentStatusHistory.create({
+          data: {
+            studentId: enrollment.studentId,
+            enrollmentId: enrollment.id,
+            fromStatus: enrollment.status,
+            toStatus: "COMPLETED",
+            reason: "Đã dùng hết buổi bổ trợ khả dụng",
+            changedById: user.id,
+          },
+        });
+        await syncStudentDerivedFields(enrollment.studentId, tx);
       }
     }
 

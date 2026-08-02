@@ -30,7 +30,6 @@ type ExistingStudentOption = {
   id: string;
   fullName: string;
   studentCode: string;
-  studentDisplayId: string | null;
   phone: string | null;
   currentClasses: Array<{
     className: string;
@@ -414,7 +413,7 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                       <option value="">-- Chọn học viên đang có trong hệ thống --</option>
                       {students.map((student) => (
                         <option key={student.id} value={student.id}>
-                          [{student.studentDisplayId ?? student.studentCode}] {student.fullName}
+                          [{student.studentCode}] {student.fullName}
                         </option>
                       ))}
                     </select>
@@ -423,7 +422,7 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                   {selectedExistingStudent ? (
                     <div className="rounded-[24px] border border-[#dbe7ff] bg-[#f8fbff] p-4 md:col-span-2">
                       <p className="text-sm font-semibold text-ink">{selectedExistingStudent.fullName}</p>
-                      <p className="mt-1 text-sm text-ink-muted48">{selectedExistingStudent.studentDisplayId ?? selectedExistingStudent.studentCode} · {selectedExistingStudent.phone ?? "Chưa có SĐT riêng"}</p>
+                      <p className="mt-1 text-sm text-ink-muted48">{selectedExistingStudent.studentCode} · {selectedExistingStudent.phone ?? "Chưa có SĐT riêng"}</p>
                       <p className="mt-2 text-xs text-ink-muted48">
                         Lớp hiện có:
                         {" "}
@@ -633,7 +632,7 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                   {form.studentTarget === "EXISTING_STUDENT" ? (
                     <>
                       <p className="mt-2 text-base font-semibold text-ink">{selectedExistingStudent?.fullName || "Chưa chọn học viên"}</p>
-                      <p className="mt-1 text-sm text-ink-muted48">{selectedExistingStudent?.studentDisplayId ?? selectedExistingStudent?.studentCode ?? "Chưa có mã"}</p>
+                      <p className="mt-1 text-sm text-ink-muted48">{selectedExistingStudent?.studentCode ?? "Chưa có mã"}</p>
                       <p className="mt-1 text-sm text-ink-muted48">Luồng này sẽ không tạo hồ sơ học viên mới, chỉ thêm enrollment nếu nhập học ngay.</p>
                     </>
                   ) : (

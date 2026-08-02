@@ -24,6 +24,7 @@ export default function DataTableRow<T extends Record<string, any>>({
 
   return (
     <tr
+      data-dt="row"
       className={`group transition-colors ${onClick ? "cursor-pointer hover:bg-primary/5" : ""} ${selected ? "bg-primary/10" : ""}`}
     >
       {selectable ? (
@@ -62,8 +63,8 @@ export default function DataTableRow<T extends Record<string, any>>({
       })}
 
       {actions.length > 0 ? (
-        <td className="px-4 py-3 text-right align-middle">
-          <div className="flex items-center justify-end gap-2">
+        <td data-dt="actions-cell" className="px-4 py-3 text-right align-middle">
+          <div className="flex flex-nowrap items-center justify-end gap-2">
             {visibleActions.map((action, idx) => {
               const variantClasses = {
                 primary: "border-primary/15 bg-primary/5 text-primary hover:bg-primary/10",
@@ -73,13 +74,14 @@ export default function DataTableRow<T extends Record<string, any>>({
 
               return (
                 <button
+                  data-dt-action={action.variant || "secondary"}
                   key={idx}
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     void action.onClick(row);
                   }}
-                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${variantClasses[action.variant || "secondary"]}`}
+                  className={`inline-flex shrink-0 whitespace-nowrap items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${variantClasses[action.variant || "secondary"]}`}
                   title={action.label}
                 >
                   {action.icon ? <span className="flex h-4 w-4 items-center justify-center">{action.icon}</span> : null}

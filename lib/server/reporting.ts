@@ -24,6 +24,7 @@ export async function getReportsDashboardData(branchId: BranchScope) {
     recentPeriods,
     activeStudents,
     bookIssueSum,
+    stockReceiptSum,
     topBooks,
     payrollRuns,
     cashByType,
@@ -58,6 +59,10 @@ export async function getReportsDashboardData(branchId: BranchScope) {
       },
     }),
     prisma.bookIssue.aggregate({ where: bookIssueWhere, _sum: { amount: true } }),
+    prisma.stockTransaction.aggregate({
+      where: { type: "RECEIPT", book: branchWhere },
+      _sum: { totalAmount: true },
+    }),
     prisma.book.findMany({
       where: branchWhere,
       include: { bookIssues: { select: { amount: true } } },
@@ -76,7 +81,7 @@ export async function getReportsDashboardData(branchId: BranchScope) {
     }),
     prisma.student.findMany({
       where: { ...branchWhere, status: "ACTIVE" },
-      select: { id: true, fullName: true, dob: true, studentCode: true, studentDisplayId: true },
+      select: { id: true, fullName: true, dob: true, studentCode: true },
     }),
     prisma.billingPeriod.findFirst({
       where: branchWhere,
@@ -206,7 +211,6 @@ export async function getReportsDashboardData(branchId: BranchScope) {
         id: student.id,
         fullName: student.fullName,
         studentCode: student.studentCode,
-        studentDisplayId: student.studentDisplayId,
         outstanding,
         guardianName: primaryGuardian?.fullName ?? null,
         guardianPhone: primaryGuardian?.phone ?? null,
@@ -262,6 +266,8 @@ export async function getReportsDashboardData(branchId: BranchScope) {
     convertedStudentsWithoutPortal,
     qualifiedLeadsWithoutClass,
     materialsTotal: bookIssueSum._sum.amount ?? 0,
+    materialsCost: stockReceiptSum._sum.totalAmount ?? 0,
+    materialsProfit: (bookIssueSum._sum.amount ?? 0) - (stockReceiptSum._sum.totalAmount ?? 0),
     bookRanking,
     payrollByPeriod,
     totalThu,

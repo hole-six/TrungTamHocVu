@@ -8,7 +8,6 @@ import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  if (!user.branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
   const role = await getUserRole(user.id);
   if (!canUpdate("leads", role)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền chuyển đổi lead thành học viên" }, { status: 403 });
@@ -25,7 +24,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
   const studentCode = lead.leadCode;
   const now = new Date();
-  const branchId = user.branchId;
+  const branchId = lead.branchId;
 
   const student = await prisma.$transaction(async (tx) => {
     const created = await tx.student.create({
@@ -60,7 +59,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   await prisma.auditLog.create({
     data: {
       userId: user.id,
-      branchId: user.branchId,
+      branchId,
       action: "convert",
       entityType: "Lead",
       entityId: lead.id,

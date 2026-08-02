@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate, canDelete } from "@/lib/server/role-matrix";
-import { canTransition } from "@/lib/server/lead-rules";
+import { canManuallySetStatus } from "@/lib/server/lead-rules";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -39,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const data: Record<string, unknown> = {};
 
   if ("status" in body && body.status !== existing.status) {
-    if (!canTransition(existing.status, body.status)) {
+    if (!canManuallySetStatus(existing.status, body.status)) {
       return NextResponse.json(
         { error: `Không thể chuyển trạng thái từ "${existing.status}" sang "${body.status}"` },
         { status: 409 }

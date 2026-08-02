@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/ui/DataTable";
 import type { Column, BulkAction } from "@/components/ui/DataTable";
 import { isFrontDeskRole, isTeachingStaffRole } from "@/lib/client-roles";
 import { exportToExcel } from "@/lib/export-utils";
+import GuardianDrawer from "@/components/guardians/GuardianDrawer";
 
 type GuardianChild = {
   id: string;
@@ -36,6 +37,13 @@ type GuardiansTableProps = {
   page: number;
   pageSize: number;
   userRole: string;
+  stats?: {
+    total: number;
+    withPortal: number;
+    withStudents: number;
+    withDebt: number;
+    linkedStudents: number;
+  };
 };
 
 function formatVnd(value: number) {
@@ -52,10 +60,24 @@ export default function GuardiansTable({
   page,
   pageSize,
   userRole,
+  stats,
 }: GuardiansTableProps) {
   const router = useRouter();
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
+  const [filterKey, setFilterKey] = useState<"ALL" | "PORTAL" | "DEBT" | "STUDENTS">("ALL");
+  const [showCreateDrawer, setShowCreateDrawer] = useState(false);
+
+  useEffect(() => {
+    setData(initialData);
+  }, [initialData]);
+
+  const visibleData = data.filter((row) => {
+    if (filterKey === "PORTAL") return Boolean(row.portalEmail);
+    if (filterKey === "DEBT") return guardianDebt(row.children) > 0;
+    if (filterKey === "STUDENTS") return (row._count?.students ?? 0) > 0;
+    return true;
+  });
 
   const exportRows = (rows: Guardian[]) => {
     exportToExcel(
@@ -155,9 +177,7 @@ export default function GuardiansTable({
         return (
           <div className="space-y-3">
             <div>
-              <p className={`text-sm font-bold ${totalDebt > 0 ? "text-rose-700" : "text-emerald-700"}`}>
-                {formatVnd(totalDebt)}
-              </p>
+              <p className={`text-sm font-bold ${totalDebt > 0 ? "text-rose-700" : "text-emerald-700"}`}>{formatVnd(totalDebt)}</p>
               <p className="mt-1 text-xs text-ink-muted48">
                 {totalDebt > 0 ? "Tổng công nợ của các học viên liên kết" : "Hiện không có công nợ"}
               </p>
@@ -180,18 +200,7 @@ export default function GuardiansTable({
   const bulkActions: BulkAction<Guardian>[] = [];
 
   if (isFrontDeskRole(userRole)) {
-    bulkActions.push({
-      label: "Xuất Excel",
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="7 10 12 15 17 10" />
-          <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>
-      ),
-      onClick: async (rows) => exportRows(rows),
-      variant: "primary",
-    });
+    bulkActions.push({ label: "Xuất Excel", onClick: async (rows) => exportRows(rows), variant: "primary" });
   }
 
   const handleSearch = async (query: string) => {
@@ -203,38 +212,68 @@ export default function GuardiansTable({
     router.push(`/guardians?q=${encodeURIComponent(query)}&page=1&pageSize=${pageSize}`);
   };
 
+  const filterChips = (
+    <>
+      {[
+        { key: "ALL" as const, label: "Tất cả", count: stats?.total ?? data.length },
+        { key: "PORTAL" as const, label: "Có portal", count: stats?.withPortal ?? data.filter((row) => Boolean(row.portalEmail)).length },
+        { key: "STUDENTS" as const, label: "Có học viên", count: stats?.withStudents ?? data.filter((row) => (row._count?.students ?? 0) > 0).length },
+        { key: "DEBT" as const, label: "Có công nợ", count: stats?.withDebt ?? data.filter((row) => guardianDebt(row.children) > 0).length },
+      ].map((chip) => {
+        const active = filterKey === chip.key;
+        return (
+          <button
+            key={chip.key}
+            type="button"
+            onClick={() => setFilterKey(chip.key)}
+            className={`shrink-0 rounded-full border px-4 py-3 text-sm font-semibold transition ${
+              active ? "border-transparent bg-primary text-white" : "border-hairline bg-white text-ink-muted64 hover:border-primary/30 hover:text-primary"
+            }`}
+          >
+            {chip.label} {chip.count}
+          </button>
+        );
+      })}
+    </>
+  );
+
   return (
-    <DataTable
-      data={data}
-      columns={columns}
-      actions={[]}
-      bulkActions={bulkActions}
-      searchable
-      searchPlaceholder="Tìm theo phụ huynh, portal, số điện thoại, học viên..."
-      onSearch={handleSearch}
-      sortable
-      selectable={false}
-      pagination={{
-        total,
-        page,
-        pageSize,
-        onPageChange: (newPage) => router.push(`/guardians?page=${newPage}&pageSize=${pageSize}`),
-        onPageSizeChange: (newSize) => router.push(`/guardians?page=1&pageSize=${newSize}`),
-      }}
-      emptyState={{
-        title: "Chưa có phụ huynh",
-        description: "Phụ huynh thường được tạo tự động khi thêm lead hoặc học viên.",
-        action: !isTeachingStaffRole(userRole)
-          ? {
-              label: "Thêm phụ huynh",
-              onClick: () => router.push("/guardians/new"),
-            }
-          : undefined,
-      }}
-      loading={loading}
-      stickyHeader
-      rowKey="id"
-      onRowClick={(row) => router.push(`/guardians/${row.id}`)}
-    />
+    <>
+      <DataTable
+        data={visibleData}
+        columns={columns}
+        actions={[]}
+        bulkActions={bulkActions}
+        searchable
+        searchPlaceholder="Tìm phụ huynh, SĐT, học viên..."
+        onSearch={handleSearch}
+        filterChips={filterChips}
+        sortable
+        selectable={false}
+        showCountBadge={false}
+        pagination={{
+          total,
+          page,
+          pageSize,
+          onPageChange: (newPage) => router.push(`/guardians?page=${newPage}&pageSize=${pageSize}`),
+          onPageSizeChange: (newSize) => router.push(`/guardians?page=1&pageSize=${newSize}`),
+        }}
+        emptyState={{
+          title: "Chưa có phụ huynh",
+          description: filterKey === "ALL" ? "Phụ huynh thường được tạo tự động khi thêm lead hoặc học viên." : "Không có phụ huynh nào khớp nhóm đang lọc.",
+          action: !isTeachingStaffRole(userRole)
+            ? {
+                label: "Thêm phụ huynh",
+                onClick: () => setShowCreateDrawer(true),
+              }
+            : undefined,
+        }}
+        loading={loading}
+        stickyHeader
+        rowKey="id"
+        onRowClick={(row) => router.push(`/guardians/${row.id}`)}
+      />
+      <GuardianDrawer isOpen={showCreateDrawer} onClose={() => setShowCreateDrawer(false)} />
+    </>
   );
 }

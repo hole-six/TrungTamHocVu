@@ -41,6 +41,7 @@ model Branch {
   users                User[]
   employees            Employee[]
   leads                Lead[]
+  holidays             Holiday[]
   students             Student[]
   courses              Course[]
   classes              Class[]
@@ -49,6 +50,7 @@ model Branch {
   cashTransactions     CashTransaction[]
   payrollRuns          PayrollRun[]
   billingPeriods       BillingPeriod[]
+  paymentProfile       BranchPaymentProfile?
   timesheetPeriods     TimesheetPeriod[]
   auditLogs            AuditLog[]
   importJobs           ImportJob[]
@@ -343,8 +345,7 @@ model PlacementTest {
 model Student {
   id               String    @id @default(uuid())
   branchId         String    @map("branch_id")
-  studentCode      String    @unique @map("student_code") // MaSo (kế thừa từ Lead)
-  studentDisplayId String?   @map("student_display_id") // MaHV: 3-TenLop-MaSo
+  studentCode      String    @unique @map("student_code") // MaSo/MaHV — kế thừa từ Lead, cố định vĩnh viễn, dùng làm mã định danh duy nhất cho học viên (không đổi theo lớp hiện tại)
   fullName         String    @map("full_name") // TenHV
   leadId           String?   @unique @map("lead_id")
   gender           String?
@@ -372,6 +373,7 @@ model Student {
   adjustments      Adjustment[]
   creditBalances   CreditBalance[]
   bookIssues       BookIssue[]
+  bookRequirements StudentBookRequirement[]
   statusHistory    EnrollmentStatusHistory[]
   schoolExamScores SchoolExamScore[]
   journalEntries   JournalEntry[]
@@ -415,6 +417,23 @@ model EnrollmentStatusHistory {
 // 5. KHÓA / LỚP / LỊCH — nguồn DSLop/T_DSLop, MucLuc/Table1,2,3
 // =============================================================================
 
+// Ngày nghỉ lễ theo chi nhánh — dùng để bỏ qua khi sinh ClassSession
+// (generateSessionDates) và khi ước lượng ngày kết thúc dự kiến
+// (estimateEndDateFromRules), xem lib/server/class-rules.ts + lib/server/holidays.ts.
+model Holiday {
+  id        String   @id @default(uuid())
+  branchId  String   @map("branch_id")
+  date      DateTime // UTC-midnight, cùng dạng với ClassSession.sessionDate
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, date])
+  @@index([branchId, date])
+  @@map("holidays")
+}
+
 model Course {
   id                String  @id @default(uuid())
   branchId          String  @map("branch_id")
@@ -427,6 +446,7 @@ model Course {
   branch      Branch      @relation(fields: [branchId], references: [id])
   classes     Class[]
   feePolicies FeePolicy[]
+  bookRequirements CourseBookRequirement[]
 
   @@unique([branchId, code])
   @@map("courses")
@@ -445,6 +465,10 @@ model Class {
   sessionsPerWeek   Int?      @map("sessions_per_week") // BuoiHoc/Tuan
   tuitionPerSession Int?      @map("tuition_per_session") // HocPhi/Buoi
   status            String    @default("ACTIVE") // ACTIVE | COMPLETED | CANCELLED
+  // Khóa bổ trợ (học bù) — không thu học phí riêng, không có totalSessions/giáo án cố
+  // định. Buổi thuộc lớp này được ưu tiên hiện lên đầu khi học sinh chọn buổi để dùng
+  // "buổi dư" (SessionCredit), xem app/(app)/students/[id]/page.tsx makeupSessionOptions.
+  isRemedial        Boolean   @default(false) @map("is_remedial")
   notes             String?
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
@@ -456,6 +480,7 @@ model Class {
   enrollments   Enrollment[]
   leads         Lead[]
   bookIssues    BookIssue[]
+  bookRequirements StudentBookRequirement[]
   charges       Charge[]
   feePolicies   FeePolicy[]
   classTasks    ClassTask[]
@@ -598,6 +623,9 @@ model Enrollment {
   studentId  String    @map("student_id")
   classId    String    @map("class_id")
   status     String    @default("PENDING") // PENDING→ACTIVE→PAUSED→TRANSFERRED→COMPLETED/WITHDRAWN
+  // Payment choice belongs to each student enrollment, not to the whole class.
+  // COURSE creates one charge at enrollment; PERIOD creates charges in monthly billing runs.
+  billingModel String  @default("COURSE") @map("billing_model") // COURSE | PERIOD
   enrollDate DateTime  @map("enroll_date")
   endDate    DateTime? @map("end_date")
   notes      String?
@@ -609,6 +637,8 @@ model Enrollment {
   statusHistory EnrollmentStatusHistory[]
   scholarships  Scholarship[]
   sessionCredits SessionCredit[]
+  installments  EnrollmentInstallment[]
+  bookRequirements StudentBookRequirement[]
 
   @@index([status])
   @@map("enrollments")
@@ -626,16 +656,19 @@ model SessionCredit {
   id                String    @id @default(uuid())
   studentId         String    @map("student_id")
   enrollmentId      String    @map("enrollment_id")
-  sourceSessionId   String    @map("source_session_id") // buổi bị vắng sinh ra credit này
+  // Buổi bị vắng sinh ra credit này — NULL khi credit sinh ra vì cả KHÓA đã kết thúc
+  // (không còn buổi tương lai nào của lớp để gắn vào, xem lib/server/session-credits.ts);
+  // lúc đó dùng enrollmentId → enrollment.class để biết credit thuộc khóa nào.
+  sourceSessionId   String?   @map("source_session_id")
   status            String    @default("AVAILABLE") // AVAILABLE | CONSUMED | VOIDED
   consumedSessionId String?   @map("consumed_session_id") // buổi học bù đã dùng credit này
   consumedAt        DateTime? @map("consumed_at")
   notes             String?
   createdAt         DateTime  @default(now()) @map("created_at")
 
-  student         Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  enrollment      Enrollment   @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  sourceSession   ClassSession @relation("SessionCreditSource", fields: [sourceSessionId], references: [id], onDelete: Cascade)
+  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollment      Enrollment    @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  sourceSession   ClassSession? @relation("SessionCreditSource", fields: [sourceSessionId], references: [id], onDelete: Cascade)
   consumedSession ClassSession? @relation("SessionCreditConsumed", fields: [consumedSessionId], references: [id])
 
   @@unique([studentId, sourceSessionId])
@@ -666,6 +699,7 @@ model ClassSessionJournal {
   id           String    @id @default(uuid())
   sessionId    String    @unique @map("session_id")
   unitLesson   String?   @map("unit_lesson") // "UNIT 1 - LESSON 1"
+  teacherNote  String?   @map("teacher_note")
   homeworkNote String?   @map("homework_note") // Dặn dò chung cuối buổi (cho phụ huynh)
   createdById  String?   @map("created_by_id")
   publishedAt  DateTime? @map("published_at") // Đã chốt để gửi phụ huynh xem
@@ -783,6 +817,7 @@ model BillingPeriod {
 
   branch  Branch   @relation(fields: [branchId], references: [id])
   charges Charge[]
+  installments EnrollmentInstallment[]
 
   @@unique([branchId, periodName])
   @@map("billing_periods")
@@ -808,6 +843,7 @@ model Charge {
   // cáo, KHÔNG giới hạn theo tháng đó). Sweep tự động hằng tháng phải bỏ qua enrollment
   // đã có charge "COURSE" — xem generateChargesForPeriod trong billing-generation.ts.
   billingModel    String   @default("PERIOD") @map("billing_model")
+  installmentId   String?  @unique @map("installment_id")
   notes           String?
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -818,10 +854,52 @@ model Charge {
   invoice       Invoice?
   allocations   PaymentAllocation[]
   bookIssues    BookIssue[]
+  installment   EnrollmentInstallment? @relation(fields: [installmentId], references: [id])
 
   @@unique([studentId, classId, billingPeriodId])
   @@index([billingPeriodId])
   @@map("charges")
+}
+
+// Thông tin nhận chuyển khoản dùng khi in/gửi phiếu học phí hàng loạt.
+// QR được lưu riêng theo cơ sở để không phải gắn cứng vào mẫu hóa đơn.
+model BranchPaymentProfile {
+  id                 String   @id @default(uuid())
+  branchId           String   @unique @map("branch_id")
+  bankName           String?  @map("bank_name")
+  accountNumber      String?  @map("account_number")
+  accountHolder      String?  @map("account_holder")
+  qrImageData        String?  @map("qr_image_data")
+  paymentInstruction String?  @map("payment_instruction")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@map("branch_payment_profiles")
+}
+
+// Lịch trả góp theo từng ghi danh. Mỗi đợt được gắn với một kỳ thu để batch invoice
+// dùng cùng cơ chế hiện có, nhưng số tiền được chốt theo kế hoạch thay vì đếm buổi.
+model EnrollmentInstallment {
+  id              String   @id @default(uuid())
+  enrollmentId    String   @map("enrollment_id")
+  billingPeriodId String   @map("billing_period_id")
+  sequence        Int
+  label           String
+  amount          Int
+  dueDate         DateTime @map("due_date")
+  status          String   @default("PENDING") // PENDING | CHARGED | WAIVED | CANCELLED
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  enrollment    Enrollment    @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  billingPeriod BillingPeriod @relation(fields: [billingPeriodId], references: [id])
+  charge        Charge?
+
+  @@unique([enrollmentId, sequence])
+  @@unique([enrollmentId, billingPeriodId])
+  @@index([billingPeriodId, status])
+  @@map("enrollment_installments")
 }
 
 model Invoice {
@@ -942,6 +1020,7 @@ model Book {
   bookCode       String? @map("book_code")
   category       String? // Danh mục sách, trống = Sách khác
   name           String // TenSach
+  purchasePrice  Int     @default(0) @map("purchase_price") // DonGiaNhap
   unitPrice      Int     @map("unit_price") // DonGia
   usageStatus    String? @map("usage_status") // Tình trạng sử dụng
   notes          String?
@@ -950,6 +1029,8 @@ model Book {
   branch            Branch             @relation(fields: [branchId], references: [id])
   stockTransactions StockTransaction[]
   bookIssues        BookIssue[]
+  courseRequirements CourseBookRequirement[]
+  studentRequirements StudentBookRequirement[]
 
   @@map("books")
 }
@@ -1005,10 +1086,61 @@ model BookIssue {
   class   Class?  @relation(fields: [classId], references: [id])
   student Student @relation(fields: [studentId], references: [id])
   charge  Charge? @relation(fields: [chargeId], references: [id])
+  requirement StudentBookRequirement?
 
   @@index([chargeId])
   @@index([studentId])
   @@map("book_issues")
+}
+
+model CourseBookRequirement {
+  id        String   @id @default(uuid())
+  courseId  String   @map("course_id")
+  bookId    String   @map("book_id")
+  quantity  Int      @default(1)
+  isRequired Boolean @default(true) @map("is_required")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  studentRequirements StudentBookRequirement[]
+
+  @@unique([courseId, bookId])
+  @@index([bookId])
+  @@map("course_book_requirements")
+}
+
+model StudentBookRequirement {
+  id                       String   @id @default(uuid())
+  enrollmentId             String   @map("enrollment_id")
+  studentId                String   @map("student_id")
+  classId                  String   @map("class_id")
+  bookId                   String   @map("book_id")
+  courseBookRequirementId  String?  @map("course_book_requirement_id")
+  quantity                 Int      @default(1)
+  unitPriceSnapshot        Int      @map("unit_price_snapshot")
+  totalAmount              Int      @map("total_amount")
+  status                   String   @default("PENDING") // PENDING | CONFIRMED | DECLINED
+  notes                    String?
+  confirmedAt              DateTime? @map("confirmed_at")
+  declinedAt               DateTime? @map("declined_at")
+  bookIssueId              String?  @unique @map("book_issue_id")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class      Class      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  book       Book       @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  courseBookRequirement CourseBookRequirement? @relation(fields: [courseBookRequirementId], references: [id], onDelete: SetNull)
+  bookIssue   BookIssue? @relation(fields: [bookIssueId], references: [id], onDelete: SetNull)
+
+  @@unique([enrollmentId, bookId])
+  @@index([studentId, status])
+  @@index([classId, status])
+  @@map("student_book_requirements")
 }
 
 // =============================================================================
@@ -1047,6 +1179,7 @@ model CashTransaction {
   paymentPostings PaymentCashPosting[]
   refundPostings  RefundCashPosting[]
   stockPostings   StockCashPosting[]
+  assetPostings   AssetCashPosting[]
 
   @@index([type, txnDate])
   @@map("cash_transactions")
@@ -1268,17 +1401,37 @@ model Asset {
 model AssetTransaction {
   id        String   @id @default(uuid())
   assetId   String   @map("asset_id")
-  type      String // RECEIPT | TRANSFER | ADJUSTMENT | DISPOSAL
-  quantity  Int // RECEIPT dương; DISPOSAL/ADJUSTMENT âm khi giảm; TRANSFER = 0 (chỉ đổi phòng)
+  type      String // RECEIPT | TRANSFER | ADJUSTMENT | DISPOSAL | MAINTENANCE
+  quantity  Int // RECEIPT dương; DISPOSAL/ADJUSTMENT âm khi giảm; TRANSFER/MAINTENANCE = 0 (không đổi tồn)
+  // Tiền bảo dưỡng — CỘNG vào "Tổng giá trị" tài sản (coi bảo dưỡng là nâng cấp/duy trì
+  // giá trị sử dụng, không phải khấu hao) — chỉ dùng khi type = MAINTENANCE, các loại
+  // giao dịch khác (thuần số lượng) luôn để 0.
+  amount    Int      @default(0)
   toRoom    String?  @map("to_room") // dùng khi type = TRANSFER
   txnDate   DateTime @map("txn_date")
   notes     String?
   createdAt DateTime @default(now()) @map("created_at")
 
-  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  asset       Asset              @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  cashPosting AssetCashPosting?
 
   @@index([assetId, txnDate])
   @@map("asset_transactions")
+}
+
+model AssetCashPosting {
+  id                 String   @id @default(uuid())
+  assetTransactionId String   @unique @map("asset_transaction_id")
+  cashTransactionId  String   @unique @map("cash_transaction_id")
+  amount             Int
+  postingKind        String   @default("MAINTENANCE") @map("posting_kind")
+  createdAt          DateTime @default(now()) @map("created_at")
+  notes              String?
+
+  assetTransaction AssetTransaction @relation(fields: [assetTransactionId], references: [id], onDelete: Cascade)
+  cashTransaction  CashTransaction  @relation(fields: [cashTransactionId], references: [id], onDelete: Cascade)
+
+  @@map("asset_cash_postings")
 }
 
 // =============================================================================

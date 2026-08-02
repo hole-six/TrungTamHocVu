@@ -32,3 +32,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   return NextResponse.json({ item: updated });
 }
+
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const { role, override } = await getUserRoleAndOverride(user.id, "hr");
+  if (!canUpdateWithOverride("hr", role, override)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền xóa dòng lương" }, { status: 403 });
+  }
+
+  const line = await prisma.payrollLine.findUnique({ where: { id: params.id }, include: { payrollRun: true } });
+  if (!line) return NextResponse.json({ error: "Không tìm thấy dòng lương" }, { status: 404 });
+  if (!canEditPayroll(line.payrollRun.status)) {
+    return NextResponse.json({ error: "Kỳ lương đã duyệt/khóa, không thể xóa dòng." }, { status: 409 });
+  }
+
+  await prisma.payrollLine.delete({ where: { id: params.id } });
+  return NextResponse.json({ ok: true });
+}

@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate } from "@/lib/server/role-matrix";
 import { LEAD_STATUSES } from "@/lib/server/lead-rules";
-import { getBranchWhereClause } from "@/lib/branch-filter";
+import { getBranchWhereClause, getValidBranchIdForCreation } from "@/lib/branch-filter";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -17,8 +17,9 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Number(searchParams.get("page") ?? 1));
   const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") ?? 20)));
 
+  const branchWhereClause = await getBranchWhereClause(searchParams.get("branchId"));
   const where = {
-    ...(await getBranchWhereClause(searchParams.get("branchId"))),
+    ...branchWhereClause,
     ...(missingTest ? { status: { notIn: ["ENROLLED", "LOST"] }, placementTests: { none: {} } } : status ? { status } : {}),
     ...(q
       ? {
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
     prisma.lead.count({ where }),
     prisma.lead.groupBy({
       by: ["status"],
-      where: user.branchId ? { branchId: user.branchId } : {},
+      where: branchWhereClause,
       _count: { _all: true },
     }),
   ]);
@@ -104,7 +105,7 @@ export async function GET(req: NextRequest) {
     guardianName: item.guardian?.fullName ?? null,
     guardianPortalEmail: item.guardian?.user?.email ?? null,
     guardianPortalActive: item.guardian?.user?.isActive ?? false,
-    convertedStudentCode: item.student?.studentDisplayId ?? item.student?.studentCode ?? null,
+    convertedStudentCode: item.student?.studentCode ?? null,
     convertedClassName: item.student?.enrollments[0]?.class.className ?? null,
     outstanding: item.student ? (chargeByStudent.get(item.student.id) ?? 0) - (paidByStudent.get(item.student.id) ?? 0) : null,
     duplicatePhoneNames: item.phone ? (duplicatesByPhone.get(item.phone) ?? []) : [],
@@ -123,7 +124,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  if (!user.branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
+  const branchId = await getValidBranchIdForCreation();
+  if (!branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
   const role = await getUserRole(user.id);
   if (!canCreate("leads", role)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền tạo lead mới" }, { status: 403 });
@@ -149,7 +151,7 @@ export async function POST(req: NextRequest) {
 
   const lead = await prisma.lead.create({
     data: {
-      branchId: user.branchId,
+      branchId,
       leadCode,
       fullName,
       gender: body.gender || null,
@@ -174,7 +176,7 @@ export async function POST(req: NextRequest) {
   });
 
   await prisma.auditLog.create({
-    data: { userId: user.id, branchId: user.branchId, action: "create", entityType: "Lead", entityId: lead.id, after: JSON.stringify(lead) },
+    data: { userId: user.id, branchId, action: "create", entityType: "Lead", entityId: lead.id, after: JSON.stringify(lead) },
   });
 
   return NextResponse.json({ item: lead }, { status: 201 });

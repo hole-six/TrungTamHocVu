@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { ASSET_STATUS_LABEL, ASSET_TXN_TYPE_LABEL } from "@/lib/server/asset-rules";
+import { ASSET_STATUS_LABEL, ASSET_TXN_TYPE_LABEL, computeAssetTotalValue } from "@/lib/server/asset-rules";
 import AssetTransactionForm from "@/components/assets/AssetTransactionForm";
 import AssetEditForm from "@/components/assets/AssetEditForm";
 import DeleteAssetButton from "@/components/assets/DeleteAssetButton";
@@ -32,29 +32,46 @@ export default async function AssetDetailPage({ params }: { params: { id: string
   const canRemoveAsset = canDelete("assets", role);
 
   const quantity = asset.transactions.reduce((s, t) => s + t.quantity, 0);
-  const totalValue = quantity * (asset.unitValue ?? 0);
+  const totalValue = computeAssetTotalValue(asset.unitValue, quantity, asset.transactions);
   const unitName = unitLabel(asset.unitName);
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-4">
         <Link href="/assets" className="text-sm text-primary">
           ← Quay lại Tài sản & Trang thiết bị
         </Link>
-        <div className="mt-2 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{asset.name}</h1>
-            <p className="mt-1 text-sm text-ink-muted48">
-              {asset.assetCode && <>Mã: <strong>{asset.assetCode}</strong> · </>}
-              {asset.category ?? "Chưa phân loại"} {asset.room && `· ${asset.room}`} · Đơn vị tính: {unitName}
-            </p>
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="space-y-2">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">{asset.name}</h1>
+              <p className="mt-1 text-sm text-ink-muted48">
+                {asset.assetCode && <>Mã <strong>{asset.assetCode}</strong> · </>}
+                {asset.category ?? "Chưa phân loại"} {asset.room && `· ${asset.room}`} · Đơn vị tính {unitName}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 font-medium text-sky-700">Số lượng {quantity}</span>
+              <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 font-medium text-violet-700">Giá trị {formatVnd(totalValue)}</span>
+              <span
+                className={`rounded-full border px-3 py-1 font-medium ${
+                  asset.status === "ACTIVE"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : asset.status === "BROKEN"
+                      ? "border-rose-200 bg-rose-50 text-rose-700"
+                      : "border-slate-200 bg-slate-100 text-slate-600"
+                }`}
+              >
+                {ASSET_STATUS_LABEL[asset.status] ?? asset.status}
+              </span>
+            </div>
           </div>
+
           <div className="flex items-center gap-2">
-            <span
-              className={`badge ${asset.status === "ACTIVE" ? "bg-primary/10 text-primary" : asset.status === "BROKEN" ? "bg-red-100 text-red-700" : "bg-ink/5 text-ink-muted48"}`}
-            >
-              {ASSET_STATUS_LABEL[asset.status] ?? asset.status}
-            </span>
+            <Link href="/assets" className="btn-ghost">
+              Danh sách TS
+            </Link>
             {canRemoveAsset && <DeleteAssetButton assetId={asset.id} assetName={asset.name} redirectTo="/assets" />}
           </div>
         </div>
@@ -78,7 +95,10 @@ export default async function AssetDetailPage({ params }: { params: { id: string
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <div className="card overflow-x-auto">
-            <h2 className="font-display text-lg font-semibold tracking-tight">Lịch sử giao dịch</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-display text-lg font-semibold tracking-tight">Lịch sử giao dịch</h2>
+              <span className="badge bg-ink/5 text-ink-muted80">{asset.transactions.length} dòng</span>
+            </div>
             <table className="mt-3 w-full text-left text-sm">
               <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
                 <tr>
@@ -95,7 +115,9 @@ export default async function AssetDetailPage({ params }: { params: { id: string
                     <td className="py-2 text-ink-muted80">
                       {ASSET_TXN_TYPE_LABEL[t.type] ?? t.type} {t.toRoom && `→ ${t.toRoom}`}
                     </td>
-                    <td className="py-2 font-medium">{t.quantity > 0 ? `+${t.quantity}` : t.quantity}</td>
+                    <td className="py-2 font-medium">
+                      {t.type === "MAINTENANCE" ? formatVnd(t.amount) : t.quantity > 0 ? `+${t.quantity}` : t.quantity}
+                    </td>
                     <td className="py-2 text-ink-muted48">{t.notes ?? "—"}</td>
                   </tr>
                 ))}

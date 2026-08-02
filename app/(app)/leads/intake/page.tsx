@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/server/current-user";
+import { getCurrentBranchId } from "@/lib/branch-filter";
 import EnrollmentIntakeWizard from "@/components/admissions/EnrollmentIntakeWizard";
 
 export default async function EnrollmentIntakePage() {
-  const user = await getCurrentUser();
-  const branchWhere = user?.branchId ? { branchId: user.branchId } : {};
+  const activeBranchId = await getCurrentBranchId();
+  const branchWhere = activeBranchId ? { branchId: activeBranchId } : {};
 
   const [courses, classes, students] = await Promise.all([
     prisma.course.findMany({
@@ -52,7 +52,6 @@ export default async function EnrollmentIntakePage() {
         id: true,
         fullName: true,
         studentCode: true,
-        studentDisplayId: true,
         phone: true,
         enrollments: {
           where: { status: { in: ["ACTIVE", "PAUSED", "PENDING"] } },
@@ -91,7 +90,6 @@ export default async function EnrollmentIntakePage() {
         id: item.id,
         fullName: item.fullName,
         studentCode: item.studentCode,
-        studentDisplayId: item.studentDisplayId,
         phone: item.phone,
         currentClasses: item.enrollments.map((enrollment) => ({
           className: enrollment.class.className,

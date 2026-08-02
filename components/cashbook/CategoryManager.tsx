@@ -6,7 +6,17 @@ import { CASH_TXN_TYPE_LABEL } from "@/lib/server/cash-rules";
 
 type Category = { id: string; type: string; name: string; detail: string | null };
 
-export default function CategoryManager({ categories }: { categories: Category[] }) {
+function formatVnd(amount: number) {
+  return `${amount.toLocaleString("vi-VN")}đ`;
+}
+
+export default function CategoryManager({
+  categories,
+  amountByCategory = {},
+}: {
+  categories: Category[];
+  amountByCategory?: Record<string, number>;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ type: "CHI", name: "", detail: "" });
@@ -48,12 +58,12 @@ export default function CategoryManager({ categories }: { categories: Category[]
     <div className="card">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Cấu hình phụ trợ</p>
-          <h2 className="mt-1 font-display text-lg font-semibold tracking-tight">Danh mục phân loại thu chi</h2>
-          <p className="mt-1 text-sm text-ink-muted48">Đây là bảng mã để gắn cho giao dịch. Nó không phải bảng tiền chính nên được đặt riêng để tránh rối sổ quỹ.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Phân loại giao dịch</p>
+          <h2 className="mt-1 font-display text-lg font-semibold tracking-tight">Danh mục thu chi</h2>
+          <p className="mt-1 text-sm text-ink-muted48">Dùng để gắn đúng loại cho từng giao dịch thu hoặc chi.</p>
         </div>
         <button className="btn-ghost text-xs" onClick={() => setOpen((current) => !current)}>
-          {open ? "Đóng thêm danh mục" : "+ Thêm danh mục"}
+          {open ? "Đóng form" : "+ Thêm danh mục"}
         </button>
       </div>
 
@@ -75,6 +85,7 @@ export default function CategoryManager({ categories }: { categories: Category[]
                   <tr>
                     <th className="px-4 py-3 font-medium">Tên danh mục</th>
                     <th className="px-4 py-3 font-medium">Chi tiết</th>
+                    <th className="px-4 py-3 text-right font-medium">Số tiền kỳ này</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -82,11 +93,14 @@ export default function CategoryManager({ categories }: { categories: Category[]
                     <tr key={category.id} className="border-b border-hairline last:border-0">
                       <td className="px-4 py-3 font-medium text-ink">{category.name}</td>
                       <td className="px-4 py-3 text-ink-muted80">{category.detail || "—"}</td>
+                      <td className={`px-4 py-3 text-right font-semibold ${type === "THU" ? "text-emerald-700" : "text-rose-700"}`}>
+                        {amountByCategory[category.name] ? formatVnd(amountByCategory[category.name]) : "—"}
+                      </td>
                     </tr>
                   ))}
                   {grouped[type].length === 0 ? (
                     <tr>
-                      <td colSpan={2} className="px-4 py-4 text-center text-ink-muted48">
+                      <td colSpan={3} className="px-4 py-4 text-center text-ink-muted48">
                         Chưa có danh mục nào.
                       </td>
                     </tr>
@@ -99,7 +113,7 @@ export default function CategoryManager({ categories }: { categories: Category[]
       </div>
 
       {open ? (
-        <form onSubmit={submit} className="mt-5 grid gap-4 border-t border-hairline pt-5">
+        <form onSubmit={submit} className="mt-5 grid gap-4 rounded-3xl border border-line/70 bg-surface/70 p-4">
           <div className="grid gap-4 md:grid-cols-3">
             <label className="form-group">
               <span className="label-sm">Loại danh mục</span>

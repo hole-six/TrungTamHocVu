@@ -188,7 +188,7 @@ export default function QuickPaymentButton({
           </div>
 
           {method === CASH_METHOD ? (
-            <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4">
+            <div className="rounded-3xl border border-[#f6d67b] bg-[#fff8e8] p-4">
               <label className="flex items-start gap-3">
                 <input
                   type="checkbox"
@@ -204,8 +204,8 @@ export default function QuickPaymentButton({
                   }}
                 />
                 <div className="space-y-1">
-                  <p className="text-sm font-semibold text-amber-900">Áp dụng chiết khấu tiền mặt</p>
-                  <p className="text-xs text-amber-800">
+                  <p className="text-sm font-semibold text-[#8a5a00]">Áp dụng chiết khấu tiền mặt</p>
+                  <p className="text-xs text-[#c76700]">
                     Chỉ dùng cho thu tiền mặt. Mức giảm bị chặn tối đa {MAX_CASH_DISCOUNT_PERCENT}% và bắt buộc ghi lý do.
                   </p>
                 </div>
@@ -224,7 +224,7 @@ export default function QuickPaymentButton({
                       value={discountPercent}
                       onChange={(event) => setDiscountPercent(event.target.value)}
                     />
-                    <p className="text-xs text-amber-700">Tối đa {MAX_CASH_DISCOUNT_PERCENT}%.</p>
+                    <p className="text-xs text-[#c76700]">Tối đa {MAX_CASH_DISCOUNT_PERCENT}%.</p>
                   </label>
 
                   <label className="space-y-2">
@@ -239,7 +239,7 @@ export default function QuickPaymentButton({
                   </label>
 
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 md:col-span-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Tác động sau khi thu</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#c76700]">Tác động sau khi thu</p>
                     <p className="mt-2 text-sm font-semibold text-ink">{discountSummary ?? "Chưa có chiết khấu hợp lệ."}</p>
                   </div>
                 </div>

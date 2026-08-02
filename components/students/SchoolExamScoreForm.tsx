@@ -53,7 +53,10 @@ export default function SchoolExamScoreForm({ studentId, scores }: { studentId: 
   return (
     <div className="card">
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold tracking-tight">Điểm học lực tại trường</h2>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted48">Hồ sơ</p>
+          <h2 className="mt-1 font-display text-lg font-semibold tracking-tight">Điểm học lực tại trường</h2>
+        </div>
         <button onClick={() => setOpen(!open)} className="btn-ghost-sm">
           {open ? "Đóng" : existing ? "Sửa" : "+ Thêm"}
         </button>
@@ -89,7 +92,7 @@ export default function SchoolExamScoreForm({ studentId, scores }: { studentId: 
             <input className="input" placeholder="Cuối HKII" value={finalTerm2} onChange={(e) => setFinalTerm2(e.target.value)} />
           </div>
           <button type="submit" disabled={loading} className="btn-primary w-full">
-            {loading ? "..." : "Lưu điểm"}
+            {loading ? "Đang lưu..." : "Lưu điểm"}
           </button>
           {error && <p className="text-sm text-red-600">{error}</p>}
         </form>

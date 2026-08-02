@@ -6,9 +6,11 @@ import SmartForm, { FormSection } from "@/components/ui/SmartForm/SmartForm";
 type GuardianFormProps = {
   initialData?: any;
   guardianId?: string;
+  onSuccess?: (guardianId: string) => void;
+  onCancel?: () => void;
 };
 
-export default function GuardianForm({ initialData, guardianId }: GuardianFormProps) {
+export default function GuardianForm({ initialData, guardianId, onSuccess, onCancel }: GuardianFormProps) {
   const router = useRouter();
   const isEdit = !!guardianId;
 
@@ -154,12 +156,18 @@ export default function GuardianForm({ initialData, guardianId }: GuardianFormPr
     }
 
     const result = await res.json();
-    router.push(`/guardians/${result.item.id}`);
-    router.refresh();
+    if (onSuccess) {
+      onSuccess(result.item.id);
+    } else {
+      router.push(`/guardians/${result.item.id}`);
+      router.refresh();
+    }
   };
 
   const handleCancel = () => {
-    if (isEdit) {
+    if (onCancel) {
+      onCancel();
+    } else if (isEdit) {
       router.push(`/guardians/${guardianId}`);
     } else {
       router.push("/guardians");

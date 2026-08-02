@@ -17,13 +17,63 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!existing) return NextResponse.json({ error: "Không tìm thấy khóa học" }, { status: 404 });
 
   const body = await req.json();
+  const rawBookRequirements = Array.isArray(body.bookRequirements) ? body.bookRequirements : null;
   const data: Record<string, unknown> = {};
+  if ("code" in body) data.code = String(body.code).trim();
   if ("name" in body) data.name = String(body.name).trim();
   if ("tuitionPerSession" in body) data.tuitionPerSession = Number(body.tuitionPerSession);
   if ("sessionsPerWeek" in body) data.sessionsPerWeek = Number(body.sessionsPerWeek);
   if ("isActive" in body) data.isActive = !!body.isActive;
 
-  const course = await prisma.course.update({ where: { id: params.id }, data });
+  if (typeof data.code === "string" && !data.code) {
+    return NextResponse.json({ error: "Mã khóa học không được để trống" }, { status: 400 });
+  }
+  if (typeof data.name === "string" && !data.name) {
+    return NextResponse.json({ error: "Tên khóa học không được để trống" }, { status: 400 });
+  }
+  if ("tuitionPerSession" in data && (!Number.isFinite(Number(data.tuitionPerSession)) || Number(data.tuitionPerSession) < 0)) {
+    return NextResponse.json({ error: "Học phí / buổi không hợp lệ" }, { status: 400 });
+  }
+  if ("sessionsPerWeek" in data && (!Number.isFinite(Number(data.sessionsPerWeek)) || Number(data.sessionsPerWeek) <= 0)) {
+    return NextResponse.json({ error: "Số buổi / tuần không hợp lệ" }, { status: 400 });
+  }
+
+  if (typeof data.code === "string" && data.code !== existing.code) {
+    const duplicate = await prisma.course.findFirst({
+      where: {
+        branchId: existing.branchId,
+        code: data.code,
+        NOT: { id: existing.id },
+      },
+      select: { id: true },
+    });
+    if (duplicate) {
+      return NextResponse.json({ error: "Mã khóa học đã tồn tại" }, { status: 409 });
+    }
+  }
+
+  if (rawBookRequirements) {
+    data.bookRequirements = {
+      deleteMany: {},
+      create: rawBookRequirements
+        .map((item: { bookId?: unknown; quantity?: unknown }, index: number) => ({
+          bookId: String(item.bookId ?? "").trim(),
+          quantity: Math.max(1, Number(item.quantity ?? 1)),
+          sortOrder: index,
+        }))
+        .filter((item: { bookId: string; quantity: number; sortOrder: number }) => item.bookId),
+    };
+  }
+
+  const course = await prisma.course.update({
+    where: { id: params.id },
+    data,
+    include: {
+      bookRequirements: {
+        include: { book: true },
+      },
+    },
+  });
   await syncCourseClasses(course.id, {
     tuitionPerSession: existing.tuitionPerSession,
     sessionsPerWeek: existing.sessionsPerWeek,

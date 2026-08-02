@@ -451,7 +451,6 @@ async function main() {
       data: {
         branchId: branch.id,
         studentCode: "STU-0001",
-        studentDisplayId: "3-FFA1-STU0001",
         fullName: "Nguyễn Bảo Ngọc",
         leadId: lead.id,
         gender: "FEMALE",

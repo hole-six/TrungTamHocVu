@@ -212,6 +212,14 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
       missing_portal: base.filter((item) => !item.guardianPortalEmail || !item.guardianPortalActive).length,
     };
   }, [selectedDebtors]);
+  const carryForwardCount = useMemo(
+    () => selectedDebtors.filter((item) => item.remainingAmount > 0 && item.openingBalance > 0).length,
+    [selectedDebtors],
+  );
+  const materialsPendingCount = useMemo(
+    () => selectedDebtors.filter((item) => item.remainingAmount > 0 && item.materialsAmount > 0).length,
+    [selectedDebtors],
+  );
   const getDebtorReason = (item: (typeof selectedDebtors)[number]) => {
     const reasons: string[] = [];
     if (item.remainingAmount > 0) reasons.push("Chưa thu đủ kỳ này");
@@ -483,8 +491,8 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
       <div className="card">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="page-title">Học phí</h1>
-            <p className="page-subtitle">Theo dõi kỳ thu, phải thu, đã thu, còn nợ và bản đã chốt theo tháng.</p>
+            <h1 className="page-title">Thu học phí</h1>
+            <p className="page-subtitle">Chọn kỳ, xem danh sách cần thu, thu tiền hoặc xuất phiếu.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {canManageTuition ? <NewPeriodForm /> : null}
@@ -501,14 +509,14 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
 
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
           <label className="space-y-1">
-            <span className="text-xs font-medium text-ink-muted48">Chế độ dữ liệu</span>
+            <span className="text-xs font-medium text-ink-muted48">Nguồn dữ liệu</span>
             <select value={mode} onChange={(event) => setMode(event.target.value as "live" | "snapshot")} className="input">
               <option value="live">{getReportModeLabel("live")}</option>
               <option value="snapshot">{getReportModeLabel("snapshot")}</option>
             </select>
           </label>
           <label className="space-y-1">
-            <span className="text-xs font-medium text-ink-muted48">Kỳ báo cáo</span>
+            <span className="text-xs font-medium text-ink-muted48">Kỳ cần thu</span>
             <input type="month" value={periodKey} onChange={(event) => setPeriodKey(event.target.value)} className="input" />
           </label>
           <div className="flex items-end">
@@ -539,59 +547,39 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
         </div>
       ) : (
         <>
-          <div className="card">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <h2 className="font-display text-xl font-semibold tracking-tight text-ink">Bức tranh kỳ đang xem</h2>
-                <p className="mt-1 text-sm text-ink-muted48">
-                  Mọi số chính ở hàng dưới đều bám theo kỳ <strong>{selectedPeriodSummary?.periodName ?? data.meta.periodKey ?? periodKey}</strong>, để tránh nhầm với số cộng dồn toàn hệ thống.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
-                <p className="font-semibold text-ink">Nguyên tắc đọc trang này</p>
-                <p className="mt-1">1 kỳ đang xem → 1 nhóm tổng quan → 1 danh sách cần thu → 1 bảng theo lớp → 1 lịch sử các kỳ.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
             <div className="stat-card">
-              <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">Phải thu kỳ này</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">Phải thu</p>
               <p className="mt-1 font-display text-2xl font-semibold tracking-tight">{formatVnd(selectedPeriodSummary?.total ?? 0)}</p>
-              <p className="mt-1 text-xs text-ink-muted48">{selectedPeriodSummary?.chargeCount ?? 0} khoản thu trong kỳ</p>
+              <p className="mt-1 text-xs text-ink-muted48">{selectedPeriodSummary?.chargeCount ?? 0} khoản trong kỳ</p>
             </div>
             <div className="stat-card">
-              <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">Đã thu kỳ này</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">Đã thu</p>
               <p className="mt-1 font-display text-2xl font-semibold tracking-tight text-emerald-600">{formatVnd(selectedPeriodSummary?.paid ?? 0)}</p>
-              <p className="mt-1 text-xs text-ink-muted48">Số đã thu của đúng kỳ đang xem</p>
+              <p className="mt-1 text-xs text-ink-muted48">Của kỳ đang xem</p>
             </div>
             <div className="stat-card-accent">
-              <p className="text-xs font-semibold uppercase tracking-widest text-white/70">Còn nợ kỳ này</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-white/70">Còn nợ</p>
               <p className="mt-1 font-display text-2xl font-semibold tracking-tight text-white">{formatVnd(selectedPeriodSummary?.debt ?? 0)}</p>
-              <p className="mt-1 text-xs text-white/75">Ưu tiên xử lý theo kỳ hiện hành</p>
+              <p className="mt-1 text-xs text-white/75">Ưu tiên xử lý trước</p>
             </div>
             <div className="stat-card">
-              <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">HV cần xử lý</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">Học viên cần thu</p>
               <p className="mt-1 font-display text-2xl font-semibold tracking-tight">{board?.debtorCount ?? 0}</p>
-              <p className="mt-1 text-xs text-ink-muted48">Trong kỳ {data.selectedPeriod?.periodName ?? data.meta.periodKey ?? periodKey}</p>
+              <p className="mt-1 text-xs text-ink-muted48">Kỳ {data.selectedPeriod?.periodName ?? data.meta.periodKey ?? periodKey}</p>
             </div>
             <div className="stat-card">
-              <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">PH thiếu portal</p>
-              <p className="mt-1 font-display text-2xl font-semibold tracking-tight">{board?.portalMissingCount ?? 0}</p>
-              <p className="mt-1 text-xs text-ink-muted48">{board?.portalInactiveCount ?? 0} portal chưa kích hoạt</p>
-            </div>
-            <div className="stat-card">
-              <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">Lớp còn nợ</p>
-              <p className="mt-1 font-display text-2xl font-semibold tracking-tight">{board?.classWithDebtCount ?? 0}</p>
-              <p className="mt-1 text-xs text-ink-muted48">Nợ bình quân: {formatVnd(board?.averageDebt ?? 0)}</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">Nợ cũ / sách</p>
+              <p className="mt-1 font-display text-2xl font-semibold tracking-tight">{carryForwardCount + materialsPendingCount}</p>
+              <p className="mt-1 text-xs text-ink-muted48">{carryForwardCount} nợ cũ · {materialsPendingCount} có sách</p>
             </div>
           </div>
 
           <div className="card">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="font-display text-lg font-semibold tracking-tight">Tiến độ thu của kỳ đang xem</h2>
-                <p className="mt-1 text-sm text-ink-muted48">Một thanh duy nhất để biết kỳ này đã thu tới đâu, còn treo bao nhiêu và cần đẩy tiếp mức nào.</p>
+                <h2 className="font-display text-lg font-semibold tracking-tight">Tiến độ kỳ {selectedPeriodSummary?.periodName ?? data.meta.periodKey ?? periodKey}</h2>
+                <p className="mt-1 text-sm text-ink-muted48">Nhìn nhanh đã thu bao nhiêu và còn nợ bao nhiêu.</p>
               </div>
               <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm">
                 <span className="font-semibold text-ink">{collectionProgress.ratio}% hoàn thành</span>
@@ -625,12 +613,8 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
           <div className="card">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="font-display text-lg font-semibold tracking-tight">Cấu phần phí của kỳ đang xem</h2>
-                <p className="mt-1 text-sm text-ink-muted48">Tách riêng từng loại tiền để biết số phải thu này đến từ học phí, giáo trình hay nợ cũ đầu kỳ.</p>
-              </div>
-              <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
-                <p className="font-semibold text-ink">Công thức đọc</p>
-                <p className="mt-1">Học phí + giáo trình / phát sinh + tồn đầu kỳ = tổng khoản phải thu</p>
+                <h2 className="font-display text-lg font-semibold tracking-tight">Tiền trong kỳ này gồm</h2>
+                <p className="mt-1 text-sm text-ink-muted48">Tách riêng học phí, sách và nợ cũ để thu cho đúng.</p>
               </div>
             </div>
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5">
@@ -661,8 +645,8 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
             <div className="card">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <h2 className="font-display text-lg font-semibold tracking-tight">Tổng quan toàn bộ danh mục học phí</h2>
-                  <p className="mt-1 text-sm text-ink-muted48">Khối này để quản lý nhìn sức khỏe tài chính chung, tách riêng khỏi số của kỳ đang xem.</p>
+                  <h2 className="font-display text-lg font-semibold tracking-tight">Tổng nợ toàn hệ thống</h2>
+                  <p className="mt-1 text-sm text-ink-muted48">Khối này chỉ để quản lý nhìn số cộng dồn.</p>
                 </div>
                 <span className="badge bg-ink/5 text-ink-muted80">{portfolioTotals?.periodCount ?? 0} kỳ thu đã ghi nhận</span>
               </div>
@@ -683,15 +667,14 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
             </div>
 
             <div className="card">
-              <h2 className="font-display text-base font-bold tracking-tight text-ink">Việc cần minh mẫn ngay</h2>
+              <h2 className="font-display text-base font-bold tracking-tight text-ink">Lưu ý nhanh</h2>
               <div className="mt-3 space-y-3 text-sm">
                 <div className="rounded-2xl border border-hairline p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Checklist vận hành</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Đọc trang này</p>
                   <ul className="mt-2 space-y-2">
-                    <li>• Mọi số lớn ở đầu trang đọc theo kỳ đang xem, không lấy số cộng dồn để đi thu tiền.</li>
-                    <li>• Khi lớp còn nợ cao, phải đối chiếu attendance, giáo trình và giảm trừ trước khi nhắc phụ huynh.</li>
-                    <li>• Portal phụ huynh thiếu hoặc chưa kích hoạt phải xử lý sớm, để hóa đơn và nhật ký gửi được đồng bộ.</li>
-                    <li>• Snapshot chỉ dùng đối soát kỳ cũ, không coi là nơi chỉnh dữ liệu gốc.</li>
+                    <li>• Số ở đầu trang là số của kỳ đang xem.</li>
+                    <li>• Nợ cũ và sách đã được tách riêng để tránh thu nhầm.</li>
+                    <li>• Dữ liệu đã chốt chỉ dùng để đối soát.</li>
                   </ul>
                 </div>
               </div>
@@ -703,8 +686,8 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
               <div className="card">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <h2 className="font-display text-lg font-semibold tracking-tight">Bảng điều hành kỳ thu</h2>
-                    <p className="mt-1 text-sm text-ink-muted48">Giữ lại ngữ cảnh của đúng kỳ đang xem: kỳ nào, bản nào, nợ ai, portal nào thiếu.</p>
+                    <h2 className="font-display text-lg font-semibold tracking-tight">Tình trạng kỳ thu</h2>
+                    <p className="mt-1 text-sm text-ink-muted48">Nhìn nhanh kỳ nào đang mở, còn bao nhiêu học viên cần xử lý.</p>
                   </div>
                   {data.selectedPeriod ? (
                     <Link href={`/tuition/${data.selectedPeriod.id}`} className="text-sm font-medium text-primary hover:underline">
@@ -737,12 +720,11 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                   </div>
 
                   <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                    <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Ưu tiên quản lý</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Việc cần làm</p>
                     <ul className="mt-3 space-y-2 text-sm">
-                      <li>• Thu ngân ưu tiên nợ kỳ này trước, sau đó mới xử lý các khoản treo cũ.</li>
-                      <li>• Quản lý ưu tiên phụ huynh chưa có portal hoặc portal chưa kích hoạt.</li>
-                      <li>• Lớp nợ cao phải đối chiếu sĩ số thực học, giáo trình và điều chỉnh phát sinh.</li>
-                      <li>• Khi cần chứng từ khóa sổ mới dùng snapshot để đối soát.</li>
+                      <li>• Thu nợ kỳ này trước.</li>
+                      <li>• Sau đó xử lý nợ cũ và sách.</li>
+                      <li>• Nếu lệch số, đối chiếu buổi học và phát sinh sách.</li>
                     </ul>
                   </div>
                 </div>
@@ -752,7 +734,7 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <h2 className="font-display text-lg font-semibold tracking-tight">Tổng hợp theo lớp</h2>
-                    <p className="mt-1 text-sm text-ink-muted48">Nhìn lớp nào thu tốt, lớp nào đang treo nợ, lớp nào vướng tồn đầu hoặc giáo trình.</p>
+                    <p className="mt-1 text-sm text-ink-muted48">Nhìn lớp nào còn nợ để xử lý nhanh.</p>
                   </div>
                 </div>
                 <table className="mt-3 w-full text-left text-sm">
@@ -789,16 +771,16 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
               <div className="card">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <h2 className="font-display text-lg font-semibold tracking-tight">Công nợ cần xử lý ngay</h2>
+                    <h2 className="font-display text-lg font-semibold tracking-tight">Danh sách cần thu</h2>
                     <p className="mt-1 text-sm text-ink-muted48">
-                      Danh sách nợ của kỳ {data.selectedPeriod?.periodName ?? data.meta.periodKey ?? periodKey}, ưu tiên cho thu ngân và quản lý xử lý nhanh.
+                      Chọn đúng nhóm học viên cần thu trong kỳ {data.selectedPeriod?.periodName ?? data.meta.periodKey ?? periodKey}.
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
                   <label className="space-y-1">
-                    <span className="text-xs font-medium text-ink-muted48">Tìm nhanh học viên / lớp / phụ huynh</span>
+                    <span className="text-xs font-medium text-ink-muted48">Tìm học viên / lớp / phụ huynh</span>
                     <input
                       className="input"
                       value={debtorKeyword}
@@ -807,7 +789,7 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                     />
                   </label>
                   <label className="space-y-1">
-                    <span className="text-xs font-medium text-ink-muted48">Bộ lọc xử lý</span>
+                    <span className="text-xs font-medium text-ink-muted48">Lọc</span>
                     <select className="input" value={debtorFilter} onChange={(event) => setDebtorFilter(event.target.value as typeof debtorFilter)}>
                       <option value="all">Tất cả đang hiện</option>
                       <option value="has_debt">Chỉ còn nợ</option>
@@ -832,8 +814,8 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                   {[
                     { key: "period_debt", label: "Nợ kỳ này", count: debtorTabCounts.period_debt },
                     { key: "portfolio_debt", label: "Nợ cộng dồn", count: debtorTabCounts.portfolio_debt },
-                    { key: "ready", label: "Đã đủ điều kiện", count: debtorTabCounts.ready },
-                    { key: "missing_portal", label: "Thiếu / lỗi portal", count: debtorTabCounts.missing_portal },
+                    { key: "ready", label: "Đủ điều kiện", count: debtorTabCounts.ready },
+                    { key: "missing_portal", label: "Thiếu portal", count: debtorTabCounts.missing_portal },
                   ].map((tab) => (
                     <button
                       key={tab.key}
@@ -843,14 +825,14 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                         debtorTab === tab.key ? "bg-primary text-white shadow-sm" : "border border-hairline bg-white text-ink-muted80 hover:border-primary/30 hover:text-primary"
                       }`}
                     >
-                      {tab.label} · {tab.count}
+                      {tab.label} {tab.count}
                     </button>
                   ))}
                 </div>
 
                 <div className="mt-3 rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
                   <p className="font-semibold text-ink">{filteredDebtors.length} học viên đang khớp</p>
-                  <p className="mt-1">Đang xem nhóm <strong>{debtorTab === "period_debt" ? "Nợ kỳ này" : debtorTab === "portfolio_debt" ? "Nợ cộng dồn" : debtorTab === "ready" ? "Đã đủ điều kiện" : "Thiếu / lỗi portal"}</strong> để đội thu ngân xử lý theo đúng ngữ cảnh.</p>
+                  <p className="mt-1">Nhóm đang xem: <strong>{debtorTab === "period_debt" ? "Nợ kỳ này" : debtorTab === "portfolio_debt" ? "Nợ cộng dồn" : debtorTab === "ready" ? "Đã đủ điều kiện" : "Thiếu / lỗi portal"}</strong>.</p>
                 </div>
 
                 <div className="mt-4 overflow-x-auto">
@@ -888,6 +870,14 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                             <p className="mt-1 text-xs text-ink-muted48">
                               PH: {debtor.guardianName ?? "Chưa gắn"} · {debtor.guardianPhone ?? "Chưa có SĐT"}
                             </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {debtor.currentClassName !== debtor.className ? (
+                                <span className="badge bg-sky-50 text-sky-700">Lệch lớp thu phí</span>
+                              ) : null}
+                              {debtor.openingBalance > 0 ? (
+                                <span className="badge bg-rose-50 text-rose-700">Gánh nợ cũ</span>
+                              ) : null}
+                            </div>
                           </td>
                           <td className="py-3 align-top">
                             <div className="rounded-xl border border-hairline bg-canvas-parchment/50 px-3 py-2">
@@ -896,10 +886,10 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                               </p>
                               <div className="mt-2 flex flex-wrap gap-2">
                                 <span className="badge bg-sky-50 text-sky-700">Học phí {formatVnd(debtor.tuitionAmount)}</span>
-                                <span className="badge bg-violet-50 text-violet-700">Giáo trình {formatVnd(debtor.materialsAmount)}</span>
-                                <span className="badge bg-amber-50 text-amber-700">Tồn đầu {formatVnd(debtor.openingBalance)}</span>
+                                <span className="badge bg-violet-50 text-violet-700">Sách / phát sinh {formatVnd(debtor.materialsAmount)}</span>
+                                <span className="badge bg-amber-50 text-amber-700">Nợ đầu kỳ {formatVnd(debtor.openingBalance)}</span>
                               </div>
-                              <p className="mt-2 text-xs font-semibold text-ink">Tổng khoản thu: {formatVnd(debtor.totalAmount)}</p>
+                              <p className="mt-2 text-xs font-semibold text-ink">Tổng phiếu: {formatVnd(debtor.totalAmount)}</p>
                             </div>
                           </td>
                           <td className="py-3 align-top">
@@ -931,8 +921,8 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                                 Xem chi tiết
                               </button>
                               {canManageTuition ? <QuickPaymentButton studentId={debtor.studentId} suggestedAmount={debtor.remainingAmount} /> : null}
-                              <Link href={`/students/${debtor.studentId}`} className="btn-360">
-                                Mở hồ sơ 360
+                              <Link href={`/students/${debtor.studentId}?tab=hocphi`} className="btn-360">
+                                Mở học phí HV
                               </Link>
                             </div>
                           </td>
@@ -952,17 +942,17 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
 
             <div className="space-y-6">
               <div className="card">
-                <h2 className="font-display text-base font-bold tracking-tight text-ink">Panel điều hành</h2>
+                <h2 className="font-display text-base font-bold tracking-tight text-ink">Hỗ trợ nhanh</h2>
                 <div className="mt-3 space-y-3 text-sm">
                   <div className="rounded-2xl border border-hairline p-4">
                     <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Cảnh báo</p>
                     <ul className="mt-2 space-y-2">
                       {(selectedPeriodSummary?.debt ?? 0) > 0 ? <li>• Công nợ của kỳ đang xem là {formatVnd(selectedPeriodSummary?.debt ?? 0)}.</li> : null}
                       {(portfolioTotals?.debt ?? 0) > 0 ? <li>• Công nợ cộng dồn toàn bộ hệ thống đang là {formatVnd(portfolioTotals?.debt ?? 0)}.</li> : null}
-                      {(board?.portalMissingCount ?? 0) > 0 ? <li>• Có {board?.portalMissingCount} phụ huynh chưa có portal để nhận reminder/journal.</li> : null}
+                      {(board?.portalMissingCount ?? 0) > 0 ? <li>• Có {board?.portalMissingCount} phụ huynh chưa có portal.</li> : null}
                       {(board?.portalInactiveCount ?? 0) > 0 ? <li>• Có {board?.portalInactiveCount} portal phụ huynh chưa kích hoạt.</li> : null}
-                      {(board?.classWithDebtCount ?? 0) > 0 ? <li>• Có {board?.classWithDebtCount} lớp còn nợ, cần đối chiếu cùng vận hành lớp.</li> : null}
-                      {data.meta.effectiveMode === "live" ? <li>• Đang xem dữ liệu live, số liệu có thể đổi khi có thu tiền mới.</li> : <li>• Đang xem snapshot kỳ cũ, không sửa trực tiếp trên report.</li>}
+                      {(board?.classWithDebtCount ?? 0) > 0 ? <li>• Có {board?.classWithDebtCount} lớp còn nợ.</li> : null}
+                      {data.meta.effectiveMode === "live" ? <li>• Đang xem dữ liệu hiện tại.</li> : <li>• Đang xem dữ liệu đã chốt.</li>}
                     </ul>
                   </div>
 
@@ -985,7 +975,7 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                   </div>
 
                   <div className="rounded-2xl border border-hairline p-4">
-                    <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Lối đi nhanh</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Đi nhanh</p>
                     <div className="mt-2 flex flex-wrap gap-3 text-sm">
                       {data.selectedPeriod ? (
                         <Link href={`/tuition/${data.selectedPeriod.id}`} className="text-primary hover:underline">

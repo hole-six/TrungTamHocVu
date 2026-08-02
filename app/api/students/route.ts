@@ -25,7 +25,6 @@ export async function GET(req: NextRequest) {
           OR: [
             { fullName: { contains: q } },
             { studentCode: { contains: q } },
-            { studentDisplayId: { contains: q } },
             { phone: { contains: q } },
             { lead: { leadCode: { contains: q } } },
             { guardians: { some: { guardian: { fullName: { contains: q } } } } },

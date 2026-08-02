@@ -24,7 +24,7 @@ export default function RescheduleSessionButton({
   async function save(event: React.FormEvent) {
     event.preventDefault();
     if (!newDate) {
-      setError("Chọn ngày bù trước đã.");
+      setError("Chọn ngày mới trước đã.");
       return;
     }
     setSaving(true);
@@ -44,7 +44,7 @@ export default function RescheduleSessionButton({
     setSaving(false);
 
     if (!res.ok) {
-      setError(data.error ?? "Không đổi được buổi.");
+      setError(data.error ?? "Không dời lịch được buổi này.");
       return;
     }
 
@@ -54,37 +54,41 @@ export default function RescheduleSessionButton({
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="text-xs font-medium text-amber-700 hover:underline">
-        Đổi buổi
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:border-amber-300 hover:bg-amber-100"
+      >
+        Dời lịch
       </button>
 
       <SlideOver
         open={open}
         onClose={() => setOpen(false)}
-        title="Đổi buổi học"
-        description={`Buổi ngày ${sessionDateLabel} sẽ chuyển sang "Đã dời lịch" — hệ thống tạo đúng 1 buổi bù thay thế, giữ nguyên tổng số buổi của khóa. GV/TG đang phân công buổi này sẽ tự động phân công lại vào buổi bù.`}
+        title="Dời lịch buổi học"
+        description={`Chuyển buổi ${sessionDateLabel} sang ngày mới. Hệ thống sẽ tạo đúng 1 buổi thay thế và giữ nguyên tổng số buổi của khóa.`}
       >
         <form onSubmit={save} className="space-y-5">
           <div className="form-group">
-            <label className="label">Ngày bù</label>
-            <DatePicker value={newDate} onChange={setNewDate} placeholder="Chọn ngày bù" />
+            <label className="label">Ngày mới</label>
+            <DatePicker value={newDate} onChange={setNewDate} placeholder="Chọn ngày mới" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <label className="form-group">
-              <span className="label">Giờ bắt đầu (nếu khác giờ cũ)</span>
+              <span className="label">Giờ bắt đầu nếu khác</span>
               <input type="time" className="input" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
             </label>
             <label className="form-group">
-              <span className="label">Giờ kết thúc (nếu khác giờ cũ)</span>
+              <span className="label">Giờ kết thúc nếu khác</span>
               <input type="time" className="input" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
             </label>
           </div>
           <label className="form-group">
-            <span className="label">Lý do đổi buổi</span>
+            <span className="label">Lý do dời lịch</span>
             <textarea
               className="input resize-none"
               rows={3}
-              placeholder="VD: GV nghỉ đột xuất, trùng lịch phòng..."
+              placeholder="VD: trùng phòng, GV bận đột xuất..."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
@@ -94,7 +98,7 @@ export default function RescheduleSessionButton({
 
           <div className="flex flex-wrap gap-3 border-t border-[#e6eefc] pt-4">
             <button type="submit" disabled={saving} className="btn-primary">
-              {saving ? "Đang lưu..." : "Xác nhận đổi buổi"}
+              {saving ? "Đang lưu..." : "Xác nhận dời lịch"}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
               Hủy

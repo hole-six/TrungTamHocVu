@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdateWithOverride, canDeleteWithOverride } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
+import { computeOutstandingBalance } from "@/lib/server/balance";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -20,15 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   });
   if (!student) return NextResponse.json({ error: "Không tìm thấy học viên" }, { status: 404 });
 
-  const [chargeTotal, paidTotal] = await Promise.all([
-    prisma.charge.aggregate({ where: { studentId: student.id }, _sum: { totalAmount: true } }),
-    prisma.paymentAllocation.aggregate({
-      where: { charge: { studentId: student.id } },
-      _sum: { amount: true },
-    }),
-  ]);
-
-  const outstanding = (chargeTotal._sum.totalAmount ?? 0) - (paidTotal._sum.amount ?? 0);
+  const outstanding = await computeOutstandingBalance(student.id);
 
   return NextResponse.json({ item: student, outstanding });
 }
@@ -55,8 +48,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   await prisma.student.update({ where: { id: params.id }, data });
   // FR-0041: status luôn suy ra từ leaveDate — syncStudentDerivedFields tính lại
-  // ngay dưới đây (kèm enrollDate/studentDisplayId/cascade sang Lead), nên không
-  // cần set data.status thủ công ở trên nữa (tránh 2 nơi cùng tính 1 giá trị).
+  // ngay dưới đây (kèm enrollDate/cascade sang Lead), nên không cần set
+  // data.status thủ công ở trên nữa (tránh 2 nơi cùng tính 1 giá trị).
   const updated = await syncStudentDerivedFields(params.id);
 
   await prisma.auditLog.create({

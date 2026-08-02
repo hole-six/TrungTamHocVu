@@ -48,6 +48,18 @@ export function nextStatuses(from: string): LeadStatus[] {
   return TRANSITIONS[from as LeadStatus] ?? [];
 }
 
+// Nhân sự cần đổi trạng thái vượt bước (VD: NEW -> QUALIFIED thẳng) khi thực tế đã
+// biết trước kết quả, không phải đi tuần tự từng bước như TRANSITIONS gợi ý — đúng
+// tinh thần "gợi ý tự động hóa, không phải quyết định cứng" ở đầu file. Chỉ khóa
+// đúng 1 chỗ bắt buộc: ENROLLED phải đi qua POST /api/leads/[id]/convert (nơi thực
+// sự tạo Student), và một khi đã ENROLLED (đã có Student thật) thì không đổi lung
+// tung ra khỏi đó qua PATCH thường được nữa.
+export function canManuallySetStatus(from: string, to: string): boolean {
+  if (from === "ENROLLED") return false;
+  if (to === "ENROLLED") return false;
+  return true;
+}
+
 // FR-0029: tuoi = YEAR(TODAY()) - YEAR(DoB)
 export function calculateAge(dob: Date | null): number | null {
   if (!dob) return null;

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 export default function DeleteAssetButton({
   assetId,
@@ -19,7 +20,6 @@ export default function DeleteAssetButton({
   const [error, setError] = useState<string | null>(null);
 
   async function handleDelete() {
-    if (!confirm(`Xóa tài sản "${assetName}"? Thao tác này không thể hoàn tác.`)) return;
     setDeleting(true);
     setError(null);
     const res = await fetch(`/api/assets/${assetId}`, { method: "DELETE" });
@@ -37,22 +37,25 @@ export default function DeleteAssetButton({
 
   return (
     <div className={compact ? "inline-block" : ""}>
-      <button
-        type="button"
-        onClick={handleDelete}
+      <ConfirmActionButton
+        title="Xác nhận xóa tài sản?"
+        description={`Tài sản "${assetName}" sẽ bị xóa khỏi hệ thống. Thao tác này không thể hoàn tác.`}
+        confirmLabel="Xóa tài sản"
+        tone="danger"
         disabled={deleting}
         className={
           compact
             ? "inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-700 hover:bg-red-100"
             : "btn-ghost border border-red-200 text-red-700 hover:bg-red-50"
         }
+        onConfirm={handleDelete}
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="3 6 5 6 21 6" />
           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </svg>
         {deleting ? "Đang xóa..." : "Xóa"}
-      </button>
+      </ConfirmActionButton>
       {error && <p className="mt-1 max-w-[220px] text-right text-[11px] text-red-600">{error}</p>}
     </div>
   );

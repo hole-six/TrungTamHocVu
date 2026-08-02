@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 type Branch = {
   id: string;
@@ -10,25 +10,30 @@ type Branch = {
   isActive: boolean;
 };
 
-export default function BranchSelector({ 
-  branches, 
-  currentBranchId 
-}: { 
+const ACTIVE_BRANCH_COOKIE = "active_branch_id";
+
+export default function BranchSelector({
+  branches,
+  currentBranchId
+}: {
   branches: Branch[];
   currentBranchId?: string;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
-  
-  const currentBranch = branches.find(b => b.id === currentBranchId) || branches[0];
+
+  const currentBranch = branches.find(b => b.id === currentBranchId) ?? null;
   const activeBranches = branches.filter(b => b.isActive);
 
   function selectBranch(branchId: string) {
-    const params = new URLSearchParams(searchParams);
-    params.set("branchId", branchId);
-    router.push(`${pathname}?${params.toString()}`);
+    document.cookie = `${ACTIVE_BRANCH_COOKIE}=${branchId}; path=/; max-age=31536000; samesite=lax`;
+    router.refresh();
+    setOpen(false);
+  }
+
+  function viewAllBranches() {
+    document.cookie = `${ACTIVE_BRANCH_COOKIE}=; path=/; max-age=0; samesite=lax`;
+    router.refresh();
     setOpen(false);
   }
 
@@ -67,8 +72,14 @@ export default function BranchSelector({
         <div className="text-left">
           <p className="text-xs text-ink-muted48">Cơ sở</p>
           <p className="text-sm font-bold text-ink flex items-center gap-1.5">
-            <span className="font-mono text-xs text-primary">[{currentBranch.code}]</span>
-            {currentBranch.name}
+            {currentBranch ? (
+              <>
+                <span className="font-mono text-xs text-primary">[{currentBranch.code}]</span>
+                {currentBranch.name}
+              </>
+            ) : (
+              "Tất cả cơ sở"
+            )}
           </p>
         </div>
         <svg 
@@ -98,9 +109,40 @@ export default function BranchSelector({
 
           {/* List */}
           <div className="max-h-[400px] overflow-y-auto">
+            <button
+              onClick={viewAllBranches}
+              className={`w-full flex items-center gap-3 px-4 py-3 transition-all hover:bg-primary/5 ${
+                currentBranch === null ? "bg-primary/10" : ""
+              }`}
+            >
+              <div className={`flex h-10 w-10 items-center justify-center rounded-lg shrink-0 ${
+                currentBranch === null
+                  ? "bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-md shadow-indigo-500/30"
+                  : "bg-gradient-to-br from-gray-200 to-gray-300"
+              }`}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={currentBranch === null ? "white" : "#64748b"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7" rx="1"/>
+                  <rect x="14" y="3" width="7" height="7" rx="1"/>
+                  <rect x="3" y="14" width="7" height="7" rx="1"/>
+                  <rect x="14" y="14" width="7" height="7" rx="1"/>
+                </svg>
+              </div>
+              <div className="flex-1 text-left">
+                <p className={`text-sm font-bold ${currentBranch === null ? "text-primary" : "text-ink"}`}>Tất cả cơ sở</p>
+                <p className={`text-xs ${currentBranch === null ? "text-primary/70" : "text-ink-muted48"}`}>Xem gộp dữ liệu mọi cơ sở</p>
+              </div>
+              {currentBranch === null && (
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+              )}
+            </button>
+            <div className="border-t border-[#eef1f8]" />
             {activeBranches.map((branch) => {
-              const isSelected = branch.id === currentBranch.id;
-              
+              const isSelected = branch.id === currentBranch?.id;
+
               return (
                 <button
                   key={branch.id}

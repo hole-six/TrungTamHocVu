@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Action, BulkAction, Column } from "@/components/ui/DataTable";
@@ -11,7 +11,6 @@ import { canDelete, canUpdate } from "@/lib/server/role-matrix";
 type Student = {
   id: string;
   studentCode: string;
-  studentDisplayId?: string | null;
   fullName: string;
   phone?: string | null;
   dob?: string | Date | null;
@@ -25,6 +24,22 @@ type Student = {
   currentClassCode?: string | null;
   outstanding?: number;
   enrollmentsCount?: number;
+  currentBillingModel?: string | null;
+  totalCharged?: number;
+  totalPaid?: number;
+  tuitionCharged?: number;
+  materialsCharged?: number;
+  openingBalanceTotal?: number;
+  unpaidChargeCount?: number;
+  latestChargePeriod?: string | null;
+  billingModes?: string[];
+  bookIssueAmount?: number;
+  unpaidBookIssueCount?: number;
+  bookIssueQuantity?: number;
+  chargeCount?: number;
+  scholarshipCount?: number;
+  adjustmentCount?: number;
+  sessionCreditCount?: number;
   primaryGuardian?: {
     id: string;
     fullName: string;
@@ -43,15 +58,30 @@ type StudentsTableProps = {
   pageSize: number;
   userRole: string;
   searchQuery?: string;
+  status?: string;
+  stats?: {
+    total: number;
+    active: number;
+    left: number;
+    portal: number;
+    debt: number;
+  };
 };
 
-function formatVnd(value: number | undefined) {
+function formatVnd(value: number | null | undefined) {
   return `${(value ?? 0).toLocaleString("vi-VN")}đ`;
 }
 
 function formatDate(value: string | Date | null | undefined) {
   if (!value) return "—";
   return new Date(value).toLocaleDateString("vi-VN");
+}
+
+function billingModeLabel(value?: string | null) {
+  if (value === "COURSE") return "Thu khóa";
+  if (value === "PERIOD") return "Thu tháng";
+  if (value === "INSTALLMENT") return "Trả góp";
+  return value ?? "";
 }
 
 export default function StudentsTable({
@@ -61,18 +91,14 @@ export default function StudentsTable({
   pageSize,
   userRole,
   searchQuery = "",
+  status = "",
+  stats,
 }: StudentsTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [assigningStudent, setAssigningStudent] = useState<Student | null>(null);
-
-  const unassignedStudents = useMemo(
-    () => initialData.filter((student) => !student.currentClassName),
-    [initialData],
-  );
-  const firstUnassignedStudent = unassignedStudents[0] ?? null;
 
   function updateParams(patch: Record<string, string | null>) {
     const next = new URLSearchParams(searchParams.toString());
@@ -86,7 +112,6 @@ export default function StudentsTable({
   const exportRows = (rows: Student[]) => {
     exportToExcel(
       rows.map((row) => ({
-        studentDisplayId: row.studentDisplayId ?? row.studentCode,
         studentCode: row.studentCode,
         leadCode: row.leadCode ?? "",
         fullName: row.fullName,
@@ -95,6 +120,7 @@ export default function StudentsTable({
         enrollDate: formatDate(row.enrollDate),
         currentClassCode: row.currentClassCode ?? "",
         currentClassName: row.currentClassName ?? "",
+        currentBillingModel: billingModeLabel(row.currentBillingModel),
         enrollmentsCount: row.enrollmentsCount ?? 0,
         guardianName: row.primaryGuardian?.fullName ?? "",
         guardianPhone: row.primaryGuardian?.phone ?? "",
@@ -106,12 +132,26 @@ export default function StudentsTable({
           : "Chưa cấp",
         referredBy: row.referredBy ?? "",
         address: row.address ?? "",
+        chargeCount: row.chargeCount ?? 0,
+        latestChargePeriod: row.latestChargePeriod ?? "",
+        billingModes: (row.billingModes ?? []).map((item) => billingModeLabel(item)).join(", "),
+        totalCharged: formatVnd(row.totalCharged),
+        totalPaid: formatVnd(row.totalPaid),
+        tuitionCharged: formatVnd(row.tuitionCharged),
+        materialsCharged: formatVnd(row.materialsCharged),
+        openingBalanceTotal: formatVnd(row.openingBalanceTotal),
         outstanding: formatVnd(row.outstanding),
+        unpaidChargeCount: row.unpaidChargeCount ?? 0,
+        bookIssueAmount: formatVnd(row.bookIssueAmount),
+        bookIssueQuantity: row.bookIssueQuantity ?? 0,
+        unpaidBookIssueCount: row.unpaidBookIssueCount ?? 0,
+        scholarshipCount: row.scholarshipCount ?? 0,
+        adjustmentCount: row.adjustmentCount ?? 0,
+        sessionCreditCount: row.sessionCreditCount ?? 0,
         status: row.status === "ACTIVE" ? "Đang học" : "Đã nghỉ",
       })),
       [
-        { key: "studentDisplayId", label: "Mã HV hiển thị" },
-        { key: "studentCode", label: "Mã số gốc" },
+        { key: "studentCode", label: "Mã HV" },
         { key: "leadCode", label: "Lead gốc" },
         { key: "fullName", label: "Họ và tên" },
         { key: "studentPhone", label: "SĐT học viên" },
@@ -119,6 +159,7 @@ export default function StudentsTable({
         { key: "enrollDate", label: "Ngày nhập học" },
         { key: "currentClassCode", label: "Mã lớp hiện tại" },
         { key: "currentClassName", label: "Tên lớp hiện tại" },
+        { key: "currentBillingModel", label: "Kiểu thu hiện tại" },
         { key: "enrollmentsCount", label: "Số enrollment" },
         { key: "guardianName", label: "Phụ huynh chính" },
         { key: "guardianPhone", label: "SĐT phụ huynh" },
@@ -126,7 +167,22 @@ export default function StudentsTable({
         { key: "guardianPortalStatus", label: "Trạng thái portal" },
         { key: "referredBy", label: "Nguồn / giới thiệu" },
         { key: "address", label: "Địa chỉ" },
+        { key: "chargeCount", label: "Số kỳ thu" },
+        { key: "latestChargePeriod", label: "Kỳ thu gần nhất" },
+        { key: "billingModes", label: "Mode charge" },
+        { key: "totalCharged", label: "Tổng đã tính" },
+        { key: "totalPaid", label: "Tổng đã thu" },
+        { key: "tuitionCharged", label: "Tổng học phí" },
+        { key: "materialsCharged", label: "Tổng giáo trình" },
+        { key: "openingBalanceTotal", label: "Tổng tồn đầu" },
         { key: "outstanding", label: "Công nợ" },
+        { key: "unpaidChargeCount", label: "Kỳ còn nợ" },
+        { key: "bookIssueAmount", label: "Tổng tiền sách" },
+        { key: "bookIssueQuantity", label: "SL sách đã phát" },
+        { key: "unpaidBookIssueCount", label: "Dòng sách chưa thu" },
+        { key: "scholarshipCount", label: "Số học bổng" },
+        { key: "adjustmentCount", label: "Số điều chỉnh HP" },
+        { key: "sessionCreditCount", label: "Số credit buổi" },
         { key: "status", label: "Trạng thái" },
       ],
       "hoc-vien-day-du",
@@ -136,28 +192,11 @@ export default function StudentsTable({
 
   const columns: Column<Student>[] = [
     {
-      key: "studentDisplayId",
+      key: "studentCode",
       label: "Mã HV",
       sortable: true,
-      width: "150px",
-      render: (value, row) => (
-        <div className="leading-tight">
-          <span className="font-mono text-sm font-semibold text-primary">{value || row.studentCode}</span>
-          <p className="text-[11px] text-ink-muted48">{row.studentCode}</p>
-        </div>
-      ),
-    },
-    {
-      key: "leadCode",
-      label: "Lead / Nguồn",
-      sortable: true,
-      width: "170px",
-      render: (value, row) => (
-        <div>
-          <p className="text-sm font-semibold text-ink">{value ?? "Chưa gắn lead"}</p>
-          <p className="text-xs text-ink-muted48">{row.referredBy ?? "Chưa có nguồn"}</p>
-        </div>
-      ),
+      width: "130px",
+      render: (value) => <span className="font-mono text-sm font-semibold text-primary">{value}</span>,
     },
     {
       key: "fullName",
@@ -181,7 +220,7 @@ export default function StudentsTable({
       key: "enrollDate",
       label: "Nhập học / Lớp hiện tại",
       sortable: true,
-      width: "280px",
+      width: "300px",
       render: (value, row) => (
         <div className="space-y-2">
           <p className="text-sm font-medium text-ink">{formatDate(value)}</p>
@@ -191,7 +230,9 @@ export default function StudentsTable({
                 {row.currentClassCode ? `[${row.currentClassCode}] ` : ""}
                 {row.currentClassName}
               </p>
-              <p className="text-xs text-ink-muted48">{row.enrollmentsCount ?? 0} enrollment</p>
+              <p className="text-xs text-ink-muted48">
+                {row.enrollmentsCount ?? 0} enrollment · {billingModeLabel(row.currentBillingModel) || "Chưa rõ mode"}
+              </p>
             </>
           ) : (
             <>
@@ -231,41 +272,30 @@ export default function StudentsTable({
         ),
     },
     {
-      key: "primaryGuardianPortal",
-      label: "Portal phụ huynh",
-      width: "220px",
-      render: (_value, row) =>
-        row.primaryGuardian ? (
-          <div>
-            <p className="text-sm font-medium text-ink">{row.primaryGuardian.user?.email ?? "Chưa cấp portal"}</p>
-            <p className={`text-xs ${row.primaryGuardian.user?.isActive ? "text-sky-700" : "text-ink-muted48"}`}>
-              {row.primaryGuardian.user ? (row.primaryGuardian.user.isActive ? "Đang hoạt động" : "Đã thu hồi") : "Chưa cấp"}
-            </p>
-          </div>
-        ) : (
-          <span className="text-xs text-ink-muted48">Chưa có phụ huynh</span>
-        ),
-    },
-    {
-      key: "address",
-      label: "Địa chỉ",
-      width: "240px",
-      render: (value) => <div className="max-w-[240px] line-clamp-2 text-sm text-ink">{value ?? "Chưa có địa chỉ"}</div>,
+      key: "sessionCreditCount",
+      label: "Buổi bổ trợ",
+      sortable: true,
+      width: "110px",
+      render: (value) => {
+        const count = value ?? 0;
+        return <span className="text-sm font-semibold text-ink">{count > 0 ? count : "—"}</span>;
+      },
     },
     {
       key: "outstanding",
-      label: "Công nợ",
+      label: "Tài chính",
       sortable: true,
-      align: "center",
-      width: "130px",
-      render: (value) => (
-        <span
-          className={`inline-flex rounded-lg px-2 py-1 text-xs font-bold ${
-            (value ?? 0) > 0 ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"
-          }`}
-        >
-          {formatVnd(value)}
-        </span>
+      width: "230px",
+      render: (value, row) => (
+        <div className="space-y-1">
+          <p className={`text-sm font-bold ${(value ?? 0) > 0 ? "text-rose-700" : "text-emerald-700"}`}>{formatVnd(value)}</p>
+          <p className="text-xs text-ink-muted48">
+            Thu {formatVnd(row.totalPaid)} / Tính {formatVnd(row.totalCharged)}
+          </p>
+          <p className="text-xs text-ink-muted48">
+            HP {formatVnd(row.tuitionCharged)} · Sách {formatVnd(row.materialsCharged)}
+          </p>
+        </div>
       ),
     },
     {
@@ -275,47 +305,25 @@ export default function StudentsTable({
       width: "140px",
       render: (value, row) => {
         const missingClass = !row.currentClassName;
-        const statusConfig: Record<string, { label: string; color: string; icon: string }> = {
-          ACTIVE: {
-            label: missingClass ? "Cần gán lớp" : "Đang học",
-            color: missingClass ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-emerald-100 text-emerald-700 border-emerald-200",
-            icon: "●",
-          },
-          LEFT: { label: "Đã nghỉ", color: "bg-red-100 text-red-700 border-red-200", icon: "●" },
-        };
-        const config = statusConfig[value] || statusConfig.ACTIVE;
-        return (
-          <span className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-bold ${config.color}`}>
-            <span>{config.icon}</span>
-            {config.label}
-          </span>
-        );
+        const config =
+          value === "LEFT"
+            ? { label: "Đã nghỉ", color: "bg-red-100 text-red-700 border-red-200" }
+            : missingClass
+              ? { label: "Cần gán lớp", color: "bg-amber-100 text-amber-700 border-amber-200" }
+              : { label: "Đang học", color: "bg-emerald-100 text-emerald-700 border-emerald-200" };
+        return <span className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-bold ${config.color}`}>{config.label}</span>;
       },
     },
   ];
 
-  const actions: Action<Student>[] = [
-    {
-      label: "Xem",
-      onClick: (row) => router.push(`/students/${row.id}`),
-      variant: "primary",
-    },
-  ];
+  const actions: Action<Student>[] = [{ label: "Xem", onClick: (row) => router.push(`/students/${row.id}`), variant: "primary" }];
 
   if (canUpdate("schedule", userRole)) {
-    actions.push({
-      label: "Gán nhập học",
-      onClick: (row) => setAssigningStudent(row),
-      variant: "secondary",
-    });
+    actions.push({ label: "Gán nhập học", onClick: (row) => setAssigningStudent(row), variant: "secondary" });
   }
 
   if (canUpdate("students", userRole)) {
-    actions.push({
-      label: "Sửa",
-      onClick: (row) => router.push(`/students/${row.id}`),
-      variant: "secondary",
-    });
+    actions.push({ label: "Sửa", onClick: (row) => router.push(`/students/${row.id}`), variant: "secondary" });
   }
 
   if (canDelete("students", userRole)) {
@@ -334,46 +342,58 @@ export default function StudentsTable({
 
   const bulkActions: BulkAction<Student>[] = [];
 
+  if (canUpdate("students", userRole) || canDelete("students", userRole)) {
+    bulkActions.push({ label: "Xuất Excel", onClick: async (rows) => exportRows(rows), variant: "primary" });
+  }
+
   if (canDelete("students", userRole)) {
-    bulkActions.push(
-      {
-        label: "Xuất Excel",
-        onClick: async (rows) => exportRows(rows),
-        variant: "primary",
+    bulkActions.push({
+      label: "Xóa",
+      onClick: async (rows) => {
+        await Promise.all(rows.map((row) => fetch(`/api/students/${row.id}`, { method: "DELETE" })));
+        router.refresh();
       },
-      {
-        label: "Xóa",
-        onClick: async (rows) => {
-          await Promise.all(rows.map((row) => fetch(`/api/students/${row.id}`, { method: "DELETE" })));
-          router.refresh();
-        },
-        variant: "danger",
-        confirmMessage: "Bạn có chắc muốn xóa các học viên đã chọn? Thao tác này không thể hoàn tác.",
-      },
-    );
+      variant: "danger",
+      confirmMessage: "Bạn có chắc muốn xóa các học viên đã chọn? Thao tác này không thể hoàn tác.",
+    });
   }
 
   const handleSearch = (query: string) => {
     updateParams({ q: query || null, page: "1" });
   };
 
-  const headerActions = (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
-        <span className="text-[10px]">●</span>
-        {unassignedStudents.length} học viên chưa ghi danh trong trang này
-      </div>
-      {firstUnassignedStudent && canUpdate("schedule", userRole) ? (
-        <button
-          type="button"
-          onClick={() => setAssigningStudent(firstUnassignedStudent)}
-          className="inline-flex items-center rounded-full border border-primary/20 bg-white px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/5"
-        >
-          Xử lý nhanh học viên đầu tiên chưa có lớp
-        </button>
-      ) : null}
+  const headerActions = stats ? (
+    <div className="flex flex-wrap gap-2">
+      {[
+        { label: "Tất cả", value: stats.total, href: "/students", active: !status, activeClass: "bg-primary text-white", idleValueClass: "text-primary" },
+        { label: "Đang học", value: stats.active, href: "/students?status=ACTIVE", active: status === "ACTIVE", activeClass: "bg-emerald-500 text-white", idleValueClass: "text-emerald-700" },
+        { label: "Đã nghỉ", value: stats.left, href: "/students?status=LEFT", active: status === "LEFT", activeClass: "bg-rose-500 text-white", idleValueClass: "text-rose-700" },
+        { label: "Portal", value: stats.portal, href: null, active: false, activeClass: "", idleValueClass: "text-sky-700" },
+        { label: "Công nợ", value: stats.debt, href: null, active: false, activeClass: "", idleValueClass: "text-amber-700" },
+      ].map((item) => {
+        const className = `inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+          item.active ? `${item.activeClass} border-transparent` : "border-[#dbe7ff] bg-white text-ink hover:border-primary/30"
+        }`;
+
+        const content = (
+          <>
+            <span>{item.label}</span>
+            <span className={item.active ? "text-white" : item.idleValueClass}>{item.value}</span>
+          </>
+        );
+
+        return item.href ? (
+          <a key={item.label} href={item.href} className={className}>
+            {content}
+          </a>
+        ) : (
+          <span key={item.label} className={className}>
+            {content}
+          </span>
+        );
+      })}
     </div>
-  );
+  ) : null;
 
   return (
     <>
@@ -382,15 +402,14 @@ export default function StudentsTable({
         columns={columns}
         actions={actions}
         bulkActions={bulkActions}
-        title="Danh sách học viên"
-        description="Bảng đầy đủ theo kiểu sổ dữ liệu: mã, lead, học viên, lớp, phụ huynh, portal, công nợ và trạng thái."
         headerActions={headerActions}
         searchable
         searchPlaceholder="Tìm theo tên, mã học viên, lead, phụ huynh, số điện thoại..."
         onSearch={handleSearch}
         defaultSearchValue={searchQuery}
+        showCountBadge={false}
         sortable
-        selectable={canUpdate("students", userRole)}
+        selectable={canUpdate("students", userRole) || canDelete("students", userRole)}
         pagination={{
           total,
           page,
@@ -413,13 +432,19 @@ export default function StudentsTable({
         className="[&_table]:min-w-[1750px]"
         mobileConfig={{
           primaryColumn: "fullName",
-          secondaryColumns: ["studentDisplayId", "status", "outstanding"],
+          secondaryColumns: ["studentCode", "status", "outstanding"],
         }}
       />
 
       {assigningStudent ? (
         <AssignEnrollmentForm
-          student={assigningStudent}
+          student={{
+            id: assigningStudent.id,
+            fullName: assigningStudent.fullName,
+            studentCode: assigningStudent.studentCode,
+            currentClassName: assigningStudent.currentClassName,
+            sessionCreditCount: assigningStudent.sessionCreditCount,
+          }}
           open
           onOpenChange={(open) => {
             if (!open) setAssigningStudent(null);

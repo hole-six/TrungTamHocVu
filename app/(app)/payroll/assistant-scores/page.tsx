@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/server/current-user";
+import { getCurrentBranchId } from "@/lib/branch-filter";
 import { computeAssistantScorecard } from "@/lib/server/assistant-score-rules";
 
 function currentMonth() {
@@ -9,12 +9,12 @@ function currentMonth() {
 }
 
 export default async function AssistantScoresPage({ searchParams }: { searchParams: { month?: string } }) {
-  const user = await getCurrentUser();
+  const activeBranchId = await getCurrentBranchId();
   const month = searchParams.month || currentMonth();
 
   const employees = await prisma.employee.findMany({
     where: {
-      ...(user?.branchId ? { branchId: user.branchId } : {}),
+      ...(activeBranchId ? { branchId: activeBranchId } : {}),
       sessionAssignments: { some: { role: { in: ["TEACHER", "ASSISTANT", "ASSISTANT2"] } } },
     },
     orderBy: { fullName: "asc" },

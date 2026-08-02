@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import SlideOver from "@/components/ui/SlideOver";
 
 type StudentHit = { id: string; fullName: string; studentCode: string };
 
 export default function IssueBookForm({ bookId }: { bookId: string }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [results, setResults] = useState<StudentHit[]>([]);
   const [selected, setSelected] = useState<StudentHit | null>(null);
@@ -48,45 +50,60 @@ export default function IssueBookForm({ bookId }: { bookId: string }) {
     setResults([]);
     setQ("");
     setQuantity("1");
+    setOpen(false);
     router.refresh();
   }
 
   return (
-    <div className="card">
-      <h2 className="font-display text-lg font-semibold tracking-tight">Xuất cho học viên</h2>
-      <form onSubmit={search} className="mt-3 flex gap-2">
-        <input className="input" placeholder="Tìm học viên..." value={q} onChange={(e) => setQ(e.target.value)} />
-        <button type="submit" className="btn-ghost whitespace-nowrap" disabled={searching}>
-          {searching ? "..." : "Tìm"}
-        </button>
-      </form>
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="btn-primary">
+        Xuất cho học viên
+      </button>
 
-      {results.length > 0 && (
-        <div className="mt-3 space-y-1">
-          {results.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setSelected(s)}
-              className={`block w-full rounded-lg border px-3 py-2 text-left text-sm transition ${
-                selected?.id === s.id ? "border-primary bg-primary/5" : "border-hairline hover:bg-canvas-parchment"
-              }`}
-            >
-              {s.fullName} <span className="text-ink-muted48">({s.studentCode})</span>
+      <SlideOver
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Xuất giáo trình"
+        description="Tìm đúng học viên, chọn số lượng rồi ghi nhận xuất kho."
+      >
+        <div className="space-y-4">
+          <form onSubmit={search} className="flex gap-2">
+            <input className="input" placeholder="Tìm học viên..." value={q} onChange={(e) => setQ(e.target.value)} />
+            <button type="submit" className="btn-ghost whitespace-nowrap" disabled={searching}>
+              {searching ? "Đang tìm..." : "Tìm"}
             </button>
-          ))}
-        </div>
-      )}
+          </form>
 
-      {selected && (
-        <div className="mt-3 flex items-center gap-2">
-          <input type="number" min="1" className="input w-20" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-          <button onClick={issue} disabled={loading} className="btn-primary flex-1">
-            {loading ? "Đang xuất..." : `Xuất cho ${selected.fullName}`}
-          </button>
+          {results.length > 0 ? (
+            <div className="space-y-1">
+              {results.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSelected(s)}
+                  className={`block w-full rounded-lg border px-3 py-2 text-left text-sm transition ${
+                    selected?.id === s.id ? "border-primary bg-primary/5" : "border-hairline hover:bg-canvas-parchment"
+                  }`}
+                >
+                  {s.fullName} <span className="text-ink-muted48">({s.studentCode})</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {selected ? (
+            <div className="flex items-center gap-2">
+              <input type="number" min="1" className="input w-24" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+              <button type="button" onClick={issue} disabled={loading} className="btn-primary flex-1">
+                {loading ? "Đang xuất..." : `Xuất cho ${selected.fullName}`}
+              </button>
+            </div>
+          ) : null}
+
+          {warning ? <p className="text-sm text-amber-600">{warning}</p> : null}
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
         </div>
-      )}
-      {warning && <p className="mt-2 text-sm text-amber-600">{warning}</p>}
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-    </div>
+      </SlideOver>
+    </>
   );
 }

@@ -108,9 +108,17 @@ function renderCommentLines(comment: string) {
   );
 }
 
+function getScorePrintCellClass(score: number | null | undefined) {
+  if (score === null || score === undefined) return "text-[#2f5ea6] bg-white";
+  if (score < 7) return "bg-[#fee2e2] text-[#b91c1c]";
+  if (score === 7) return "bg-[#fef3c7] text-[#b45309]";
+  return "bg-[#dcfce7] text-[#15803d]";
+}
+
 export default function ClassJournalForm({
   sessionId,
   roster,
+  careAlertStudentIds = [],
   journal,
   publishedUrl,
   plannedRoadmap,
@@ -118,18 +126,21 @@ export default function ClassJournalForm({
 }: {
   sessionId: string;
   roster: Student[];
-  journal: { unitLesson: string | null; homeworkNote: string | null; publishedAt: string | Date | null; entries: any[] } | null;
+  careAlertStudentIds?: string[];
+  journal: { unitLesson: string | null; teacherNote?: string | null; homeworkNote: string | null; publishedAt: string | Date | null; entries: any[] } | null;
   publishedUrl: string;
   plannedRoadmap: PlannedRoadmap;
   printMeta: PrintMeta;
 }) {
   const router = useRouter();
+  const careAlertSet = useMemo(() => new Set(careAlertStudentIds), [careAlertStudentIds]);
   const initialLabels =
     journal && journal.entries.length > 0 && journal.entries[0].scores.length > 0
       ? journal.entries[0].scores.map((score: any) => score.label)
       : DEFAULT_LABELS;
 
   const [unitLesson, setUnitLesson] = useState(journal?.unitLesson ?? plannedRoadmap?.title ?? "");
+  const [teacherNote, setTeacherNote] = useState(journal?.teacherNote ?? plannedRoadmap?.teacherGuide ?? "");
   const [homeworkNote, setHomeworkNote] = useState(journal?.homeworkNote ?? plannedRoadmap?.homeworkGuide ?? "");
   const [labels, setLabels] = useState<string[]>(initialLabels);
   const [rows, setRows] = useState<Record<string, Entry>>(() => buildInitialRows(roster, initialLabels, journal?.entries ?? []));
@@ -149,6 +160,7 @@ export default function ClassJournalForm({
       if (!raw) return;
       const draft = JSON.parse(raw);
       if (draft.unitLesson !== undefined) setUnitLesson(draft.unitLesson);
+      if (draft.teacherNote !== undefined) setTeacherNote(draft.teacherNote);
       if (draft.homeworkNote !== undefined) setHomeworkNote(draft.homeworkNote);
       if (Array.isArray(draft.labels)) setLabels(draft.labels);
       if (draft.rows) setRows(draft.rows);
@@ -167,14 +179,14 @@ export default function ClassJournalForm({
 
     const timeout = setTimeout(() => {
       try {
-        window.localStorage.setItem(draftKey, JSON.stringify({ unitLesson, homeworkNote, labels, rows }));
+        window.localStorage.setItem(draftKey, JSON.stringify({ unitLesson, teacherNote, homeworkNote, labels, rows }));
       } catch {
         // ignore local storage issues
       }
     }, 400);
 
     return () => clearTimeout(timeout);
-  }, [draftKey, homeworkNote, isPublished, labels, rows, unitLesson]);
+  }, [draftKey, homeworkNote, isPublished, labels, rows, teacherNote, unitLesson]);
 
   const printLabels = useMemo(() => normalizePrintOrder(labels), [labels]);
   const homeworkLines = useMemo(() => buildHomeworkLines(homeworkNote), [homeworkNote]);
@@ -237,6 +249,7 @@ export default function ClassJournalForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         unitLesson,
+        teacherNote,
         homeworkNote,
         publish,
         entries: Object.values(rows).map((row) => ({
@@ -288,8 +301,12 @@ export default function ClassJournalForm({
             </p>
           </div>
           <div className="no-print flex items-center gap-3">
-            <button type="button" onClick={printPage} className="text-xs font-semibold text-primary hover:underline">
-              Xuất PDF mẫu phụ huynh
+            <button
+              type="button"
+              onClick={() => printPage({ pageSize: "A4 landscape", margin: "8mm" })}
+              className="text-xs font-semibold text-primary hover:underline"
+            >
+              Lưu PDF phụ huynh
             </button>
             {isPublished ? (
               <Link href={publishedUrl} target="_blank" className="text-xs font-semibold text-primary">
@@ -316,10 +333,43 @@ export default function ClassJournalForm({
           <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
             <p className="font-semibold text-ink">Bản in PDF sẽ theo mẫu biểu</p>
             <p className="mt-1">
-              Khi in, hệ thống sẽ tự đổi sang layout tài liệu chuẩn, chỉ giữ lại bảng nhật ký và phần dặn dò cuối buổi.
+              Khi bấm lưu PDF, hệ thống sẽ mở đúng bản màu gửi phụ huynh theo khổ ngang A4, chỉ giữ lại nội dung cần gửi.
             </p>
           </div>
         </div>
+
+        <label className="form-group">
+          <span className="label">Ghi chú buổi dạy cho giáo viên / CSO (không gửi phụ huynh)</span>
+          <textarea
+            className="input min-h-[110px] resize-y"
+            value={teacherNote}
+            onChange={(event) => {
+              setTeacherNote(event.target.value);
+              setSaved(false);
+            }}
+            placeholder="VD: Hôm nay lớp chậm phần speaking, buổi sau ôn lại worksheet trang 12, nhắc GV giữ tốc độ dạy vừa hơn..."
+          />
+        </label>
+
+        {plannedRoadmap ? (
+          <details className="rounded-[24px] border border-[#cfe3ff] bg-[#f9fbff] p-4">
+            <summary className="cursor-pointer list-none text-sm font-semibold text-primary">Mở giáo trình buổi này</summary>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Tên bài</p>
+                <p className="mt-2 text-sm leading-6 text-ink">{plannedRoadmap.title?.trim() || `Buổi ${plannedRoadmap.sessionNumber}`}</p>
+              </div>
+              <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Tài liệu / giáo trình</p>
+                <p className="mt-2 text-sm leading-6 text-ink">{plannedRoadmap.materials?.trim() || "Chưa có tài liệu / học cụ."}</p>
+              </div>
+              <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Ghi chú GV</p>
+                <p className="mt-2 text-sm leading-6 text-ink">{plannedRoadmap.teacherGuide?.trim() || plannedRoadmap.homeworkGuide?.trim() || "Chưa có ghi chú thêm cho buổi học này."}</p>
+              </div>
+            </div>
+          </details>
+        ) : null}
 
         {plannedRoadmap ? (
           <div className="rounded-[24px] border border-[#dbe7ff] bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_100%)] p-4">
@@ -383,12 +433,25 @@ export default function ClassJournalForm({
                 return (
                   <tr key={student.id}>
                     <td className="px-3 py-3 align-top">
-                      <p className="font-medium text-ink">{student.fullName}</p>
+                      <p className="flex items-center gap-1.5 font-medium text-ink">
+                        {student.fullName}
+                        {careAlertSet.has(student.id) ? (
+                          <span
+                            className="no-print badge bg-red-100 text-red-700"
+                            title="Điểm dưới 7 ở cả 3 buổi gần nhất liên tiếp — cần chăm sóc"
+                          >
+                            ⚠ Cần chăm sóc
+                          </span>
+                        ) : null}
+                      </p>
                       <p className="mt-1 text-xs text-ink-muted48">{student.studentCode}</p>
                     </td>
 
                     {labels.map((label) => {
                       const score = row.scores.find((item) => item.label === label);
+                      const scoreValue = score?.score ?? null;
+                      const scoreColorClass =
+                        scoreValue === null ? "" : scoreValue < 7 ? "border-red-300 bg-red-50 text-red-700 font-semibold" : "border-emerald-300 bg-emerald-50 text-emerald-700 font-semibold";
                       return (
                         <td key={label} className="px-3 py-3 align-top">
                           <input
@@ -396,7 +459,7 @@ export default function ClassJournalForm({
                             step="0.25"
                             min="0"
                             max={score?.maxScore ?? 10}
-                            className="input w-24"
+                            className={`input w-24 ${scoreColorClass}`}
                             value={score?.score ?? ""}
                             onChange={(event) => updateScore(student.id, label, event.target.value)}
                           />
@@ -482,7 +545,7 @@ export default function ClassJournalForm({
       </div>
 
       <div className="hidden bg-white print:block">
-        <div className="mx-auto min-h-[1122px] w-[794px] bg-white px-1 py-2 text-[12px] leading-5 text-black">
+        <div className="mx-auto min-h-[794px] w-[1122px] bg-white px-2 py-2 text-[12px] leading-5 text-black">
           <div className="border border-slate-700">
             <div className="border-b border-slate-700 px-3 py-1 text-center">
               <p className="text-[15px] font-bold uppercase tracking-[0.08em]">
@@ -574,7 +637,9 @@ export default function ClassJournalForm({
                         {scoreHeaders.map((label) => (
                           <td
                             key={`${student.id}-${label}`}
-                            className="border-r border-b border-slate-700 px-1 py-2 text-center text-[14px] font-bold text-[#2f5ea6]"
+                            className={`border-r border-b border-slate-700 px-1 py-2 text-center text-[14px] font-bold ${getScorePrintCellClass(
+                              scoreMap[label]
+                            )}`}
                           >
                             {scoreMap[label] ?? ""}
                           </td>

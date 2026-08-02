@@ -1,13 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import SlideOver from "@/components/ui/SlideOver";
 
 type Course = { id: string; code: string; name: string };
 
+type RoadmapDraft = {
+  sessionNumber: number;
+  title: string;
+  objective: string;
+  materials: string;
+  teacherGuide: string;
+  homeworkGuide: string;
+};
+
 type ClassProfile = {
   id: string;
+  classCode: string;
   className: string;
   classGroup: string | null;
   courseId: string | null;
@@ -17,6 +27,7 @@ type ClassProfile = {
   startDate: string | null;
   expectedEndDate: string | null;
   notes: string | null;
+  roadmapItems: RoadmapDraft[];
 };
 
 function toDateInput(value: string | null) {
@@ -28,11 +39,36 @@ function formatVnd(amount: number | null) {
   return amount != null ? `${amount.toLocaleString("vi-VN")}đ` : "—";
 }
 
-export default function ClassEditForm({ cls, courses }: { cls: ClassProfile; courses: Course[] }) {
+function buildRoadmapDraft(sessionNumber: number): RoadmapDraft {
+  return {
+    sessionNumber,
+    title: `Buổi ${sessionNumber}`,
+    objective: "",
+    materials: "",
+    teacherGuide: "",
+    homeworkGuide: "",
+  };
+}
+
+export default function ClassEditForm({
+  cls,
+  courses,
+  triggerClassName,
+  triggerLabel = "Sửa thông tin lớp",
+  renderSummary = true,
+}: {
+  cls: ClassProfile;
+  courses: Course[];
+  triggerClassName?: string;
+  triggerLabel?: string;
+  renderSummary?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [importSummary, setImportSummary] = useState<string | null>(null);
+  const [visibleRoadmapCount, setVisibleRoadmapCount] = useState(12);
   const [form, setForm] = useState({
     className: cls.className,
     classGroup: cls.classGroup ?? "",
@@ -44,6 +80,109 @@ export default function ClassEditForm({ cls, courses }: { cls: ClassProfile; cou
     expectedEndDate: toDateInput(cls.expectedEndDate),
     notes: cls.notes ?? "",
   });
+  const [roadmapItems, setRoadmapItems] = useState<RoadmapDraft[]>(cls.roadmapItems ?? []);
+
+  const totalSessions = form.totalSessions === "" ? 0 : Number(form.totalSessions);
+  const visibleRoadmapItems = roadmapItems.slice(0, visibleRoadmapCount);
+
+  useEffect(() => {
+    const normalizedTotal = Number.isFinite(totalSessions) && totalSessions > 0 ? totalSessions : 0;
+    setRoadmapItems((prev) => {
+      if (normalizedTotal <= 0) return [];
+      const next: RoadmapDraft[] = [];
+      for (let sessionNumber = 1; sessionNumber <= normalizedTotal; sessionNumber += 1) {
+        const existing = prev.find((item) => item.sessionNumber === sessionNumber);
+        next.push(existing ?? buildRoadmapDraft(sessionNumber));
+      }
+      return next;
+    });
+    setVisibleRoadmapCount((current) => {
+      if (normalizedTotal <= 0) return 12;
+      return Math.max(12, Math.min(normalizedTotal, current));
+    });
+  }, [totalSessions]);
+
+  function patchRoadmap(sessionNumber: number, key: keyof Omit<RoadmapDraft, "sessionNumber">, value: string) {
+    setRoadmapItems((prev) => prev.map((item) => (item.sessionNumber === sessionNumber ? { ...item, [key]: value } : item)));
+    setError(null);
+    setImportSummary(null);
+  }
+
+  async function downloadRoadmapTemplate() {
+    if (!roadmapItems.length) {
+      setError("Cần nhập tổng số buổi trước rồi mới tải được file mẫu lộ trình.");
+      return;
+    }
+
+    setError(null);
+    setImportSummary(null);
+
+    const query = new URLSearchParams({
+      totalSessions: String(roadmapItems.length),
+      classCode: cls.classCode.trim() || "lop-hoc",
+    });
+
+    const response = await fetch(`/api/classes/roadmap-template?${query.toString()}`);
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      setError(result.error ?? "Không thể tạo file mẫu Excel.");
+      return;
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `mau-lo-trinh-${cls.classCode.trim() || "lop-hoc"}-${roadmapItems.length}-buoi.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setImportSummary("Đã tải file mẫu .xlsx để điền giáo án/tài liệu theo từng buổi.");
+  }
+
+  async function importRoadmapFile(file: File) {
+    if (!roadmapItems.length) {
+      setError("Cần nhập tổng số buổi trước rồi mới nhập file lộ trình.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/classes/roadmap-import", {
+      method: "POST",
+      body: formData,
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(result.error ?? "Không thể đọc file lộ trình đã tải lên.");
+      return;
+    }
+
+    const importedRows: RoadmapDraft[] = Array.isArray(result.items) ? result.items : [];
+
+    let mergedCount = 0;
+    setRoadmapItems((prev) =>
+      prev.map((item) => {
+        const imported = importedRows.find((row) => row.sessionNumber === item.sessionNumber);
+        if (!imported) return item;
+        mergedCount += 1;
+        return {
+          ...item,
+          title: imported.title || item.title,
+          objective: imported.objective || item.objective,
+          materials: imported.materials || item.materials,
+          teacherGuide: imported.teacherGuide || item.teacherGuide,
+          homeworkGuide: imported.homeworkGuide || item.homeworkGuide,
+        };
+      }),
+    );
+
+    setError(null);
+    setImportSummary(`Đã merge ${mergedCount} buổi từ file "${file.name}" vào lộ trình lớp.`);
+  }
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
@@ -53,7 +192,17 @@ export default function ClassEditForm({ cls, courses }: { cls: ClassProfile; cou
     const response = await fetch(`/api/classes/${cls.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({
+        ...form,
+        roadmapItems: roadmapItems.map((item) => ({
+          sessionNumber: item.sessionNumber,
+          title: item.title,
+          objective: item.objective,
+          materials: item.materials,
+          teacherGuide: item.teacherGuide,
+          homeworkGuide: item.homeworkGuide,
+        })),
+      }),
     });
     const result = await response.json().catch(() => ({}));
     setLoading(false);
@@ -68,55 +217,84 @@ export default function ClassEditForm({ cls, courses }: { cls: ClassProfile; cou
   }
 
   const course = courses.find((item) => item.id === cls.courseId);
+  const estimatedCourseAmount =
+    form.tuitionPerSession !== "" && form.totalSessions !== ""
+      ? Number(form.tuitionPerSession) * Number(form.totalSessions)
+      : null;
 
   return (
     <>
-      <div className="card">
-        <div className="flex items-center justify-between gap-3">
+      {renderSummary ? (
+      <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
+        <div className="mb-5 flex items-center justify-between gap-3">
           <div>
-            <h2 className="font-display text-lg font-semibold tracking-tight">Thông tin lớp học</h2>
-            <p className="mt-1 text-sm text-ink-muted48">Tóm tắt khóa học, học phí, tiến độ và ghi chú vận hành của lớp.</p>
+            <h2 className="text-lg font-bold text-[#0f1729]">Thông tin lớp học</h2>
+            <p className="mt-1 text-sm text-[#64748b]">Tóm tắt khóa học, học phí, tiến độ và ghi chú vận hành của lớp.</p>
           </div>
-          <button onClick={() => setOpen(true)} className="btn-ghost">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm transition-all hover:border-[#3b82f6] hover:text-[#3b82f6]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
             Sửa thông tin lớp
           </button>
         </div>
 
-        <dl className="mt-5 space-y-3 text-sm">
-          <div className="detail-row">
-            <dt className="detail-label">Nhóm lớp</dt>
-            <dd className="detail-value">{cls.classGroup ?? "Chưa khai báo"}</dd>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-4">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#64748b]">Nhóm lớp</p>
+            <p className="font-semibold text-[#0f1729]">{cls.classGroup ?? "Chưa khai báo"}</p>
           </div>
-          <div className="detail-row">
-            <dt className="detail-label">Khóa học</dt>
-            <dd className="detail-value">{course ? `[${course.code}] ${course.name}` : "Chưa gắn khóa học chuẩn"}</dd>
+          <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-4">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#64748b]">Khóa học</p>
+            <p className="font-semibold text-[#0f1729]">{course ? `[${course.code}] ${course.name}` : "Chưa gắn"}</p>
           </div>
-          <div className="detail-row">
-            <dt className="detail-label">Học phí / buổi</dt>
-            <dd className="detail-value">{formatVnd(cls.tuitionPerSession)}</dd>
+          <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-4">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#64748b]">Học phí / buổi</p>
+            <p className="font-semibold text-[#0f1729]">{formatVnd(cls.tuitionPerSession)}</p>
           </div>
-          <div className="detail-row">
-            <dt className="detail-label">Số buổi / tuần</dt>
-            <dd className="detail-value">{cls.sessionsPerWeek ?? "—"}</dd>
+          <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-4">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#64748b]">Số buổi / tuần</p>
+            <p className="font-semibold text-[#0f1729]">{cls.sessionsPerWeek ?? "—"}</p>
           </div>
-          <div className="detail-row">
-            <dt className="detail-label">Tổng số buổi</dt>
-            <dd className="detail-value">{cls.totalSessions ?? "—"}</dd>
+          <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-4">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#64748b]">Tổng số buổi</p>
+            <p className="font-semibold text-[#0f1729]">{cls.totalSessions ?? "—"}</p>
           </div>
-          <div className="detail-row">
-            <dt className="detail-label">Ghi chú</dt>
-            <dd className="detail-value">{cls.notes ?? "Chưa có ghi chú nội bộ"}</dd>
+          <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-4">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#64748b]">Ghi chú</p>
+            <p className="font-semibold text-[#0f1729]">{cls.notes ?? "Chưa có ghi chú"}</p>
           </div>
-        </dl>
+        </div>
       </div>
+      ) : null}
+
+      {!renderSummary ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={triggerClassName ?? "inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm transition-all hover:border-[#3b82f6] hover:text-[#3b82f6]"}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+          {triggerLabel}
+        </button>
+      ) : null}
 
       <SlideOver
+        widthClassName="max-w-5xl"
         open={open}
         onClose={() => setOpen(false)}
         title="Sửa thông tin lớp học"
-        description="Cập nhật khóa học, học phí, số buổi học, mốc thời gian và ghi chú để dữ liệu lớp luôn rõ ràng, dễ vận hành."
+        description="Cập nhật khóa học, học phí, số buổi, lộ trình từng buổi và ghi chú vận hành của lớp."
       >
-        <form onSubmit={save} className="space-y-5">
+        <form onSubmit={save} className="space-y-6">
           <label className="form-group">
             <span className="label">Tên lớp</span>
             <input required className="input" value={form.className} onChange={(event) => setForm((current) => ({ ...current, className: event.target.value }))} />
@@ -164,6 +342,108 @@ export default function ClassEditForm({ cls, courses }: { cls: ClassProfile; cou
               <span className="label">Ngày dự kiến kết thúc</span>
               <input type="date" className="input" value={form.expectedEndDate} onChange={(event) => setForm((current) => ({ ...current, expectedEndDate: event.target.value }))} />
             </label>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-[#e5eaf7] bg-[#fbfdff] px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#64748b]">Mã lớp</p>
+              <p className="mt-2 text-base font-semibold text-[#0f1729]">{cls.classCode}</p>
+            </div>
+            <div className="rounded-2xl border border-[#e5eaf7] bg-[#fbfdff] px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#64748b]">Số buổi lộ trình</p>
+              <p className="mt-2 text-base font-semibold text-[#0f1729]">{roadmapItems.length}</p>
+            </div>
+            <div className="rounded-2xl border border-[#e5eaf7] bg-[#fbfdff] px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#64748b]">Tạm tính toàn khóa</p>
+              <p className="mt-2 text-base font-semibold text-[#0f1729]">{formatVnd(estimatedCourseAmount)}</p>
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-[24px] border border-[#dbe7ff] bg-[#f8fbff] p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[#0f1729]">Tài liệu học tập theo từng buổi</p>
+                <p className="mt-1 text-xs text-[#64748b]">Sửa trực tiếp từng buổi hoặc tải file Excel mẫu để điền rồi merge lại.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={downloadRoadmapTemplate} className="btn-ghost-sm">
+                  Tải file Excel mẫu
+                </button>
+                <label className="inline-flex cursor-pointer items-center rounded-full border border-[#dbe7ff] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] transition hover:border-primary/40 hover:text-primary">
+                  Merge file Excel
+                  <input
+                    type="file"
+                    accept=".xlsx,.csv"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void importRoadmapFile(file);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {importSummary ? <div className="rounded-2xl border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-sm text-[#1d4ed8]">{importSummary}</div> : null}
+
+            {roadmapItems.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-[#dbe7ff] bg-white px-4 py-8 text-center text-sm text-[#64748b]">
+                Cần nhập tổng số buổi để tạo khung tài liệu học tập.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {visibleRoadmapItems.map((item) => (
+                  <div key={item.sessionNumber} className="rounded-[22px] border border-[#e5eaf7] bg-white p-4">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-[#0f1729]">Buổi {item.sessionNumber}</p>
+                        <p className="mt-1 text-xs text-[#64748b]">Tên bài, mục tiêu, tài liệu và ghi chú cho giáo viên.</p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="form-group md:col-span-2">
+                        <span className="label">Tên bài / tiêu đề buổi</span>
+                        <input className="input" value={item.title} onChange={(event) => patchRoadmap(item.sessionNumber, "title", event.target.value)} />
+                      </label>
+
+                      <label className="form-group">
+                        <span className="label">Mục tiêu buổi học</span>
+                        <textarea className="input min-h-[96px] resize-y" value={item.objective} onChange={(event) => patchRoadmap(item.sessionNumber, "objective", event.target.value)} />
+                      </label>
+
+                      <label className="form-group">
+                        <span className="label">Tài liệu / học cụ</span>
+                        <textarea className="input min-h-[96px] resize-y" value={item.materials} onChange={(event) => patchRoadmap(item.sessionNumber, "materials", event.target.value)} />
+                      </label>
+
+                      <label className="form-group">
+                        <span className="label">Hướng dẫn giáo viên</span>
+                        <textarea className="input min-h-[96px] resize-y" value={item.teacherGuide} onChange={(event) => patchRoadmap(item.sessionNumber, "teacherGuide", event.target.value)} />
+                      </label>
+
+                      <label className="form-group">
+                        <span className="label">Bài tập / dặn dò</span>
+                        <textarea className="input min-h-[96px] resize-y" value={item.homeworkGuide} onChange={(event) => patchRoadmap(item.sessionNumber, "homeworkGuide", event.target.value)} />
+                      </label>
+                    </div>
+                  </div>
+                ))}
+
+                {visibleRoadmapCount < roadmapItems.length ? (
+                  <div className="flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setVisibleRoadmapCount((current) => Math.min(current + 12, roadmapItems.length))}
+                      className="btn-ghost-sm"
+                    >
+                      Xem thêm {Math.min(12, roadmapItems.length - visibleRoadmapCount)} buổi nữa
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            )}
           </div>
 
           <label className="form-group">

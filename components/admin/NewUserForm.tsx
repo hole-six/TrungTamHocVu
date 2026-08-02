@@ -6,7 +6,21 @@ import { useRouter } from "next/navigation";
 type Branch = { id: string; code: string; name: string };
 type Role = { id: string; code: string; name: string };
 
-export default function NewUserForm({ branches, roles }: { branches: Branch[]; roles: Role[] }) {
+type NewUserFormProps = {
+  branches: Branch[];
+  roles: Role[];
+  onCancel?: () => void;
+  onSuccess?: () => void;
+  compact?: boolean;
+};
+
+export default function NewUserForm({
+  branches,
+  roles,
+  onCancel,
+  onSuccess,
+  compact = false,
+}: NewUserFormProps) {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -24,7 +38,13 @@ export default function NewUserForm({ branches, roles }: { branches: Branch[]; r
     const res = await fetch("/api/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullName, email, password, roleId: roleId || null, branchId: branchId || null }),
+      body: JSON.stringify({
+        fullName,
+        email,
+        password,
+        roleId: roleId || null,
+        branchId: branchId || null,
+      }),
     });
     const data = await res.json();
     setLoading(false);
@@ -34,12 +54,28 @@ export default function NewUserForm({ branches, roles }: { branches: Branch[]; r
       return;
     }
 
+    onSuccess?.();
     router.push("/admin");
     router.refresh();
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card space-y-5">
+    <form onSubmit={handleSubmit} className={compact ? "space-y-5" : "card space-y-5"}>
+      <div className="grid gap-3 rounded-[24px] border border-[#dbe7ff] bg-[#f8fbff] px-4 py-4 sm:grid-cols-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8aa0ba]">Luồng tạo</p>
+          <p className="mt-1 text-sm font-semibold text-[#16324a]">Tạo nhanh ngay tại admin</p>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8aa0ba]">Vai trò</p>
+          <p className="mt-1 text-sm font-semibold text-[#16324a]">{roles.length} quyền khả dụng</p>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8aa0ba]">Chi nhánh</p>
+          <p className="mt-1 text-sm font-semibold text-[#16324a]">{branches.length} cơ sở hoạt động</p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="form-group">
           <label className="label">
@@ -53,6 +89,7 @@ export default function NewUserForm({ branches, roles }: { branches: Branch[]; r
             onChange={(e) => setFullName(e.target.value)}
           />
         </div>
+
         <div className="form-group">
           <label className="label">
             Email <span className="text-red-500">*</span>
@@ -66,6 +103,7 @@ export default function NewUserForm({ branches, roles }: { branches: Branch[]; r
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
+
         <div className="form-group">
           <label className="label">
             Mật khẩu ban đầu <span className="text-red-500">*</span>
@@ -78,8 +116,9 @@ export default function NewUserForm({ branches, roles }: { branches: Branch[]; r
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <p className="mt-1 text-xs text-ink-muted48">Gửi mật khẩu này cho nhân viên qua kênh riêng tư, không qua nhóm chat chung.</p>
+          <p className="mt-1 text-xs text-ink-muted48">Gửi riêng cho nhân sự, không nên gửi ở nhóm chung.</p>
         </div>
+
         <div className="form-group">
           <label className="label">Vai trò</label>
           <select className="input" value={roleId} onChange={(e) => setRoleId(e.target.value)}>
@@ -91,7 +130,8 @@ export default function NewUserForm({ branches, roles }: { branches: Branch[]; r
             ))}
           </select>
         </div>
-        <div className="form-group">
+
+        <div className="form-group sm:col-span-2">
           <label className="label">Chi nhánh</label>
           <select className="input" value={branchId} onChange={(e) => setBranchId(e.target.value)}>
             <option value="">— Chưa gán chi nhánh —</option>
@@ -104,10 +144,10 @@ export default function NewUserForm({ branches, roles }: { branches: Branch[]; r
         </div>
       </div>
 
-      {error && <div className="alert-danger">{error}</div>}
+      {error ? <div className="alert-danger">{error}</div> : null}
 
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <button type="button" onClick={() => router.back()} className="btn-ghost">
+      <div className="flex flex-col-reverse gap-3 border-t border-[#e6edf6] pt-4 sm:flex-row sm:justify-end">
+        <button type="button" onClick={() => (onCancel ? onCancel() : router.back())} className="btn-ghost">
           Hủy
         </button>
         <button type="submit" disabled={loading} className="btn-primary">

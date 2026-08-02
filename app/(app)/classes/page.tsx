@@ -6,6 +6,7 @@ import CourseManager from "@/components/classes/CourseManager";
 import ClassesTable from "@/components/classes/ClassesTable";
 import { canCreate } from "@/lib/server/role-matrix";
 import { getVietnamToday } from "@/lib/server/class-rules";
+import { getCurrentBranchId } from "@/lib/branch-filter";
 
 const PAGE_SIZE = 20;
 
@@ -29,13 +30,14 @@ export default async function ClassesPage({
 }) {
   const user = await getCurrentUser();
   const userRole = user ? await getUserRole(user.id) : null;
+  const activeBranchId = await getCurrentBranchId();
 
   const q = searchParams.q?.trim() ?? "";
   const status = searchParams.status?.trim() ?? "";
   const page = Math.max(1, Number(searchParams.page ?? 1));
   const pageSize = Number(searchParams.pageSize ?? PAGE_SIZE);
 
-  const branchWhere = user?.branchId ? { branchId: user.branchId } : {};
+  const branchWhere = activeBranchId ? { branchId: activeBranchId } : {};
   const where = {
     ...branchWhere,
     ...(status ? { status } : {}),
@@ -46,7 +48,7 @@ export default async function ClassesPage({
   const nextWeekEnd = endOfUpcomingWeek(today);
   const nextMonth = addDays(today, 30);
 
-  const [classes, courses, total, grouped, activeEnrollments, upcomingSessions, endingSoon, unscheduledClasses] = await Promise.all([
+  const [classes, courses, books, total, grouped, activeEnrollments, upcomingSessions, endingSoon, unscheduledClasses] = await Promise.all([
     prisma.class.findMany({
       where,
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
@@ -77,6 +79,16 @@ export default async function ClassesPage({
     prisma.course.findMany({
       where: branchWhere,
       orderBy: [{ isActive: "desc" }, { name: "asc" }],
+      include: {
+        bookRequirements: {
+          include: { book: true },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        },
+      },
+    }),
+    prisma.book.findMany({
+      where: branchWhere,
+      orderBy: [{ category: "asc" }, { name: "asc" }],
     }),
     prisma.class.count({ where }),
     prisma.class.groupBy({
@@ -87,7 +99,7 @@ export default async function ClassesPage({
     prisma.enrollment.count({
       where: {
         status: "ACTIVE",
-        ...(user?.branchId ? { class: { branchId: user.branchId } } : {}),
+        ...(activeBranchId ? { class: { branchId: activeBranchId } } : {}),
       },
     }),
     prisma.classSession.count({
@@ -114,9 +126,8 @@ export default async function ClassesPage({
   ]);
 
   const classStats = Object.fromEntries(grouped.map((row) => [row.status, row._count._all])) as Record<string, number>;
-  const activeCourses = courses.filter((course) => course.isActive).length;
   const statusPills = [
-    { key: "", label: "Tất cả lớp", count: grouped.reduce((sum, row) => sum + row._count._all, 0) },
+    { key: "", label: "Tất cả", count: grouped.reduce((sum, row) => sum + row._count._all, 0) },
     { key: "ACTIVE", label: "Đang chạy", count: classStats.ACTIVE ?? 0 },
     { key: "COMPLETED", label: "Đã kết thúc", count: classStats.COMPLETED ?? 0 },
     { key: "CANCELLED", label: "Đã hủy", count: classStats.CANCELLED ?? 0 },
@@ -124,98 +135,34 @@ export default async function ClassesPage({
 
   return (
     <div className="space-y-6">
-      <div className="overflow-hidden rounded-[32px] border border-[#dbe7ff] bg-[linear-gradient(135deg,#f8fcff_0%,#eef7ff_42%,#ffffff_100%)] p-6 shadow-[0_28px_80px_-48px_rgba(14,116,144,0.45)]">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-          <div className="space-y-3">
-            <span className="inline-flex w-fit rounded-full border border-sky-200 bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-              Vận hành lớp học
-            </span>
-            <div>
-              <h1 className="page-title">Lớp học nhìn theo ngữ cảnh vận hành thực tế</h1>
-              <p className="page-subtitle max-w-3xl">
-                Một nơi để biết ngay lớp nào đang chạy, lịch cố định ra sao, buổi kế tiếp là khi nào, học phí mỗi buổi bao nhiêu và lớp nào đang cần chú ý.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Đang lọc</p>
-              <p className="mt-2 text-lg font-semibold text-ink">{status ? statusPills.find((item) => item.key === status)?.label ?? status : "Toàn bộ lớp"}</p>
-              <p className="mt-1 text-xs text-ink-muted48">{q ? `Từ khóa: ${q}` : "Không lọc theo từ khóa"}</p>
-            </div>
-            <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">7 ngày tới</p>
-              <p className="mt-2 text-lg font-semibold text-ink">{upcomingSessions} buổi học</p>
-              <p className="mt-1 text-xs text-ink-muted48">Để giáo vụ rà lịch và phân công nhanh</p>
-            </div>
-            <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Khóa chuẩn</p>
-              <p className="mt-2 text-lg font-semibold text-ink">{activeCourses}/{courses.length} đang áp dụng</p>
-              <p className="mt-1 text-xs text-ink-muted48">Dùng làm mẫu khi tạo lớp mới</p>
-            </div>
-          </div>
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <h1 className="page-title">Quản lý lớp học</h1>
+          <p className="page-subtitle">Theo dõi lịch, sĩ số, tiến độ và học phí từng lớp</p>
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          {statusPills.map((pill) => {
-            const href = `/classes${pill.key || q ? `?${new URLSearchParams({
-              ...(pill.key ? { status: pill.key } : {}),
-              ...(q ? { q } : {}),
-            }).toString()}` : ""}`;
-            const active = status === pill.key;
-            return (
-              <Link
-                key={pill.key || "all"}
-                href={href}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  active ? "bg-primary text-white shadow-sm" : "bg-white text-ink-muted80 hover:bg-[#eef5ff]"
-                }`}
-              >
-                {pill.label} · {pill.count}
-              </Link>
-            );
-          })}
-
+        <div className="flex flex-wrap items-center gap-3">
+        
           {canCreate("schedule", userRole) ? (
-            <Link href="/classes/new" className="btn-primary ml-auto">
+            <Link href="/classes/new" className="btn-primary">
               + Thêm lớp học
             </Link>
           ) : null}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {[
-          { label: "Tổng số lớp", value: total, tone: "text-slate-900", bg: "from-slate-50 to-white" },
-          { label: "Lớp đang hoạt động", value: classStats.ACTIVE ?? 0, tone: "text-emerald-700", bg: "from-emerald-50 to-white" },
-          { label: "Học viên đang học", value: activeEnrollments, tone: "text-sky-700", bg: "from-sky-50 to-white" },
-          { label: "Sắp kết thúc 30 ngày", value: endingSoon, tone: "text-amber-700", bg: "from-amber-50 to-white" },
-          { label: "Chưa có lịch chuẩn", value: unscheduledClasses, tone: "text-rose-700", bg: "from-rose-50 to-white" },
-        ].map((card) => (
-          <div
-            key={card.label}
-            className={`rounded-[26px] border border-[#e4ebf8] bg-gradient-to-br ${card.bg} p-5 shadow-[0_20px_55px_-40px_rgba(15,23,42,0.45)]`}
-          >
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">{card.label}</p>
-            <p className={`mt-3 text-3xl font-semibold tracking-tight ${card.tone}`}>{card.value}</p>
-          </div>
-        ))}
-      </div>
+      <ClassesTable
+        initialData={classes}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        userRole={userRole || "TEACHER"}
+        searchQuery={q}
+        statusFilter={status}
+        statusOptions={statusPills}
+      />
 
-      <div className="rounded-[28px] border border-[#e4ebf8] bg-white p-4 shadow-[0_24px_70px_-45px_rgba(15,23,42,0.45)]">
-        <ClassesTable
-          initialData={classes}
-          total={total}
-          page={page}
-          pageSize={pageSize}
-          userRole={userRole || "TEACHER"}
-          searchQuery={q}
-          statusFilter={status}
-        />
-      </div>
-
-      {canCreate("schedule", userRole) ? <CourseManager courses={courses} /> : null}
+      {canCreate("schedule", userRole) ? <CourseManager courses={courses} books={books} /> : null}
     </div>
   );
 }

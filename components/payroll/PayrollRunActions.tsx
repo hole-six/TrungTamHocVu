@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 const NEXT: Record<string, { to: string; label: string; confirm?: string }[]> = {
   DRAFT: [],
@@ -51,8 +52,22 @@ export default function PayrollRunActions({ runId, status }: { runId: string; st
     router.refresh();
   }
 
+  async function remove() {
+    setLoading("DELETE");
+    setError(null);
+    const res = await fetch(`/api/payroll-runs/${runId}`, { method: "DELETE" });
+    setLoading(null);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Không thể xóa kỳ lương.");
+      return;
+    }
+    router.push("/payroll");
+  }
+
   const options = NEXT[status] ?? [];
   const canGenerate = status === "DRAFT" || status === "CALCULATED" || status === "REVIEWED";
+  const canDelete = canGenerate;
 
   return (
     <div className="card">
@@ -68,6 +83,19 @@ export default function PayrollRunActions({ runId, status }: { runId: string; st
             {loading === o.to ? "..." : o.label}
           </button>
         ))}
+        {canDelete && (
+          <ConfirmActionButton
+            title="Xác nhận xóa kỳ lương?"
+            description="Toàn bộ dòng lương trong kỳ này sẽ bị xóa theo và không thể hoàn tác."
+            confirmLabel="Xóa kỳ lương"
+            tone="danger"
+            disabled={loading === "DELETE"}
+            className="btn-danger-sm"
+            onConfirm={remove}
+          >
+            {loading === "DELETE" ? "..." : "Xóa kỳ lương"}
+          </ConfirmActionButton>
+        )}
       </div>
       {result && <p className="mt-2 text-sm text-primary">{result}</p>}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}

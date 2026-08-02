@@ -66,8 +66,8 @@ export default function AssetEditForm({
       <SlideOver
         open={open}
         onClose={() => setOpen(false)}
-        title="Sửa thông tin tài sản"
-        description="Chỉnh lại tên, nhóm, vị trí, đơn vị tính, giá trị trên từng đơn vị và trạng thái sử dụng của tài sản."
+        title="Sửa tài sản"
+        description="Cập nhật tên, nhóm, vị trí, giá trị và trạng thái sử dụng."
       >
         <form onSubmit={save} className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
@@ -77,7 +77,7 @@ export default function AssetEditForm({
             </label>
 
             <label className="form-group">
-              <span className="label">Nhóm tài sản</span>
+              <span className="label">Nhóm</span>
               <input className="input" value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} />
             </label>
 
@@ -92,7 +92,7 @@ export default function AssetEditForm({
             </label>
 
             <label className="form-group">
-              <span className="label">Giá trị / 1 đơn vị</span>
+              <span className="label">Giá trị / đơn vị</span>
               <input
                 type="number"
                 min={0}

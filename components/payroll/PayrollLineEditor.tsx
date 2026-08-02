@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
-export default function PayrollLineEditor({ lineId, bonus, penalty }: { lineId: string; bonus: number; penalty: number }) {
+export default function PayrollLineEditor({ lineId, bonus, penalty, employeeName }: { lineId: string; bonus: number; penalty: number; employeeName: string }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ bonus: String(bonus), penalty: String(penalty) });
@@ -21,11 +22,36 @@ export default function PayrollLineEditor({ lineId, bonus, penalty }: { lineId: 
     router.refresh();
   }
 
+  async function removeLine() {
+    setLoading(true);
+    const res = await fetch(`/api/payroll-lines/${lineId}`, { method: "DELETE" });
+    setLoading(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error ?? "Không thể xóa dòng lương.");
+      return;
+    }
+    router.refresh();
+  }
+
   if (!editing) {
     return (
-      <button onClick={() => setEditing(true)} className="text-xs text-primary">
-        Sửa thưởng/phạt
-      </button>
+      <div className="flex items-center gap-2">
+        <button onClick={() => setEditing(true)} className="text-xs text-primary">
+          Sửa thưởng/phạt
+        </button>
+        <ConfirmActionButton
+          title="Xác nhận xóa dòng lương?"
+          description={`Dòng lương của ${employeeName} sẽ bị xóa khỏi kỳ hiện tại.`}
+          confirmLabel="Xóa dòng lương"
+          tone="danger"
+          disabled={loading}
+          className="text-xs text-red-600"
+          onConfirm={removeLine}
+        >
+          Xóa dòng
+        </ConfirmActionButton>
+      </div>
     );
   }
 

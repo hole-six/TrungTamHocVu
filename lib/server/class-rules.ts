@@ -17,12 +17,32 @@ export function estimateEndDate(
   return end;
 }
 
+// Buổi bù/đổi buổi rơi SAU ngày kết thúc dự kiến hiện tại thì ngày kết thúc phải
+// giãn theo đúng buổi đó — lớp thiếu buổi (nghỉ lễ, GV ốm...) thì phải học bù chứ
+// không phải giữ nguyên cam kết ban đầu bất chấp thực tế đã thay đổi. Đây là phản
+// ứng lại 1 sự việc ĐÃ xảy ra (nhân sự đã chủ động thêm/dời buổi), khác với việc
+// thuật toán ước lượng tự đoán trước ngoại lệ — không mâu thuẫn với ghi chú "không
+// tự động quyết định ngoại lệ" ở estimateEndDateFromRules phía trên.
+export function computeExtendedEndDate(currentEnd: Date | null, candidateSessionDate: Date): Date | null {
+  if (!currentEnd) return null;
+  const candidate = new Date(Date.UTC(candidateSessionDate.getUTCFullYear(), candidateSessionDate.getUTCMonth(), candidateSessionDate.getUTCDate()));
+  const current = new Date(Date.UTC(currentEnd.getUTCFullYear(), currentEnd.getUTCMonth(), currentEnd.getUTCDate()));
+  return candidate.getTime() > current.getTime() ? candidate : null;
+}
+
 export type ScheduleRuleLike = { weekday: number; startTime: string; endTime: string; room: string | null };
+
+// Khóa "YYYY-MM-DD" (UTC) dùng chung để tra ngày lễ — cùng định dạng với cách
+// class-generation.ts so trùng ngày (candidate.sessionDate.toISOString().slice(0, 10)).
+export function dateKey(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
 
 export function estimateEndDateFromRules(
   startDate: Date | null,
   totalSessions: number | null,
-  rules: ScheduleRuleLike[]
+  rules: ScheduleRuleLike[],
+  holidayDates: Set<string> = new Set()
 ): Date | null {
   if (!startDate || !totalSessions || totalSessions <= 0 || rules.length === 0) return null;
 
@@ -41,11 +61,15 @@ export function estimateEndDateFromRules(
   let guard = 0;
 
   while (guard < 3660) {
-    const todayRules = normalizedRules.filter((rule) => rule.weekday === cursor.getUTCDay());
-    for (const _rule of todayRules) {
-      countedSessions += 1;
-      if (countedSessions === totalSessions) {
-        return new Date(cursor);
+    // Ngày lễ trùng lịch học bị bỏ qua hoàn toàn (không tính là buổi đã dạy) — đẩy lùi
+    // ngày kết thúc dự kiến đúng bằng số ngày lễ trùng lịch, xem lib/server/holidays.ts.
+    if (!holidayDates.has(dateKey(cursor))) {
+      const todayRules = normalizedRules.filter((rule) => rule.weekday === cursor.getUTCDay());
+      for (const _rule of todayRules) {
+        countedSessions += 1;
+        if (countedSessions === totalSessions) {
+          return new Date(cursor);
+        }
       }
     }
     cursor.setUTCDate(cursor.getUTCDate() + 1);
@@ -66,7 +90,8 @@ export function estimateEndDateFromRules(
 export function generateSessionDates(
   rules: ScheduleRuleLike[],
   fromDate: Date,
-  toDate: Date
+  toDate: Date,
+  holidayDates: Set<string> = new Set()
 ): { sessionDate: Date; startTime: string; endTime: string; room: string | null }[] {
   const results: { sessionDate: Date; startTime: string; endTime: string; room: string | null }[] = [];
   const cursor = new Date(fromDate);
@@ -75,14 +100,16 @@ export function generateSessionDates(
   end.setUTCHours(0, 0, 0, 0);
 
   while (cursor.getTime() <= end.getTime()) {
-    for (const rule of rules) {
-      if (cursor.getUTCDay() === rule.weekday) {
-        results.push({
-          sessionDate: new Date(cursor),
-          startTime: rule.startTime,
-          endTime: rule.endTime,
-          room: rule.room,
-        });
+    if (!holidayDates.has(dateKey(cursor))) {
+      for (const rule of rules) {
+        if (cursor.getUTCDay() === rule.weekday) {
+          results.push({
+            sessionDate: new Date(cursor),
+            startTime: rule.startTime,
+            endTime: rule.endTime,
+            room: rule.room,
+          });
+        }
       }
     }
     cursor.setUTCDate(cursor.getUTCDate() + 1);

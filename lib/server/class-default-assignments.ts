@@ -4,7 +4,20 @@ import { computeSessionBaseHours } from "@/lib/server/payroll-rules";
 export const CLASS_ASSIGNMENT_ROLES = ["TEACHER", "ASSISTANT", "ASSISTANT2"] as const;
 
 export function isValidClassAssignmentRole(role: string): role is (typeof CLASS_ASSIGNMENT_ROLES)[number] {
-  return CLASS_ASSIGNMENT_ROLES.includes(role as (typeof CLASS_ASSIGNMENT_ROLES)[number]);
+  return getClassAssignmentRoleType(role) !== null;
+}
+
+export function getClassAssignmentRoleType(role: string): "TEACHER" | "ASSISTANT" | null {
+  const normalized = role.trim().toUpperCase();
+  if (normalized === "TEACHER" || /^TEACHER_\d+$/.test(normalized)) return "TEACHER";
+  if (normalized === "ASSISTANT" || normalized === "ASSISTANT2" || /^ASSISTANT_\d+$/.test(normalized)) return "ASSISTANT";
+  return null;
+}
+
+export function getClassAssignmentRoleLabel(role: string) {
+  const type = getClassAssignmentRoleType(role);
+  if (!type) return role;
+  return type === "TEACHER" ? "Giáo viên" : "Trợ giảng";
 }
 
 function buildSessionAssignmentSnapshot(input: {
@@ -18,7 +31,7 @@ function buildSessionAssignmentSnapshot(input: {
   assistantHourlyRate: number | null;
 }) {
   const hours = computeSessionBaseHours(input.payMode, input.startTime, input.endTime);
-  const hourlyRate = input.role === "TEACHER" ? input.teachingHourlyRate ?? 0 : input.assistantHourlyRate ?? 0;
+  const hourlyRate = getClassAssignmentRoleType(input.role) === "TEACHER" ? input.teachingHourlyRate ?? 0 : input.assistantHourlyRate ?? 0;
   return {
     sessionId: input.sessionId,
     employeeId: input.employeeId,

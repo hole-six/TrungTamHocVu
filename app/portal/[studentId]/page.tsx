@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { computeOutstandingBalance } from "@/lib/server/balance";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -56,9 +57,8 @@ export default async function PortalStudentPage({ params }: { params: { studentI
   });
   if (!student) notFound();
 
-  const [chargeTotal, paidTotal, attendances, journalEntries] = await Promise.all([
-    prisma.charge.aggregate({ where: { studentId: student.id }, _sum: { totalAmount: true } }),
-    prisma.paymentAllocation.aggregate({ where: { charge: { studentId: student.id } }, _sum: { amount: true } }),
+  const [outstanding, attendances, journalEntries] = await Promise.all([
+    computeOutstandingBalance(student.id),
     prisma.studentAttendance.findMany({
       where: { studentId: student.id },
       include: { session: { include: { class: true } } },
@@ -74,8 +74,6 @@ export default async function PortalStudentPage({ params }: { params: { studentI
       take: 20,
     }),
   ]);
-
-  const outstanding = (chargeTotal._sum.totalAmount ?? 0) - (paidTotal._sum.amount ?? 0);
   const primaryGuardian = student.guardians.find((item) => item.isPrimary)?.guardian ?? student.guardians[0]?.guardian ?? null;
 
   return (
@@ -86,7 +84,7 @@ export default async function PortalStudentPage({ params }: { params: { studentI
         </Link>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">{student.fullName}</h1>
         <p className="mt-1 text-sm text-ink-muted48">
-          Mã HV: {student.studentDisplayId ?? student.studentCode}
+          Mã HV: {student.studentCode}
           {student.enrollments[0] && <> · Lớp: {student.enrollments[0].class.className}</>}
         </p>
       </div>

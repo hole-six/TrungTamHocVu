@@ -9,8 +9,8 @@ type AssignEnrollmentFormProps = {
     id: string;
     fullName: string;
     studentCode: string;
-    studentDisplayId?: string | null;
     currentClassName?: string | null;
+    sessionCreditCount?: number;
   };
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -21,6 +21,7 @@ type ClassHit = {
   id: string;
   classCode: string;
   className: string;
+  isRemedial?: boolean;
   totalSessions?: number | null;
   tuitionPerSession?: number | null;
   course?: {
@@ -136,7 +137,7 @@ export default function AssignEnrollmentForm({
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Học viên đang xử lý</p>
             <p className="mt-2 text-lg font-semibold text-ink">{student.fullName}</p>
             <p className="mt-1 text-sm text-ink-muted80">
-              {student.studentDisplayId ?? student.studentCode}
+              {student.studentCode}
               {student.currentClassName ? ` · Đang học: ${student.currentClassName}` : " · Chưa có lớp hiện tại"}
             </p>
           </div>
@@ -175,14 +176,23 @@ export default function AssignEnrollmentForm({
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-1">
-                        <p className="text-sm font-semibold text-primary">{item.classCode}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-primary">{item.classCode}</p>
+                          {item.isRemedial ? (
+                            <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold text-violet-700">
+                              🎯 Lớp bổ trợ
+                            </span>
+                          ) : null}
+                        </div>
                         <p className="text-base font-semibold text-ink">{item.className}</p>
-                        <p className="text-sm text-ink-muted80">{item.course?.name ?? "Không gắn khóa học"}</p>
+                        <p className="text-sm text-ink-muted80">
+                          {item.isRemedial ? "Không thu học phí riêng · dùng để xếp học bù/bổ trợ" : item.course?.name ?? "Không gắn khóa học"}
+                        </p>
                       </div>
                       <div className="grid grid-cols-2 gap-3 text-sm text-ink-muted80 lg:min-w-[280px]">
                         <div>
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-ink-muted48">Học phí / buổi</p>
-                          <p className="mt-1 font-semibold text-ink">{formatVnd(item.tuitionPerSession)}</p>
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-ink-muted48">{item.isRemedial ? "Điều kiện" : "Học phí / buổi"}</p>
+                          <p className="mt-1 font-semibold text-ink">{item.isRemedial ? "Phải có buổi bổ trợ khả dụng" : formatVnd(item.tuitionPerSession)}</p>
                         </div>
                         <div>
                           <p className="text-[11px] uppercase tracking-[0.18em] text-ink-muted48">Tổng số buổi</p>
@@ -217,9 +227,20 @@ export default function AssignEnrollmentForm({
               <p className="mt-2 text-base font-semibold text-emerald-950">
                 [{selected.classCode}] {selected.className}
               </p>
-              <p className="mt-1 text-sm text-emerald-800">
-                Học phí {formatVnd(selected.tuitionPerSession)} / buổi · Tổng {selected.totalSessions ?? "chưa đặt"} buổi
-              </p>
+              {selected.isRemedial ? (
+                <div className="mt-2 space-y-1">
+                  <p className="text-sm text-emerald-800">
+                    Lớp bổ trợ không thu học phí riêng. CSO chỉ gán khi phụ huynh có nhu cầu học bù/bổ trợ.
+                  </p>
+                  <p className="text-sm font-semibold text-emerald-900">
+                    Học viên hiện có {student.sessionCreditCount ?? 0} buổi bổ trợ khả dụng.
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-1 text-sm text-emerald-800">
+                  Học phí {formatVnd(selected.tuitionPerSession)} / buổi · Tổng {selected.totalSessions ?? "chưa đặt"} buổi
+                </p>
+              )}
             </div>
           ) : null}
 
@@ -227,7 +248,12 @@ export default function AssignEnrollmentForm({
           {success ? <div className="alert-success">{success}</div> : null}
 
           <div className="flex flex-col gap-3 border-t border-hairline pt-4 sm:flex-row">
-            <button type="button" onClick={handleAssign} disabled={!selected || submitting} className="btn-primary">
+            <button
+              type="button"
+              onClick={handleAssign}
+              disabled={!selected || submitting || Boolean(selected?.isRemedial && (student.sessionCreditCount ?? 0) <= 0)}
+              className="btn-primary"
+            >
               {submitting ? "Đang ghi danh..." : "Xác nhận gán nhập học"}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="btn-ghost">

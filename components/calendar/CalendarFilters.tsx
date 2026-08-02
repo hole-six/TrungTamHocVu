@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import DatePicker from "@/components/ui/DatePicker";
 
@@ -17,17 +17,29 @@ function startOfWeek(value: string) {
   return toYmd(next);
 }
 
+function shiftWeek(value: string, days: number) {
+  const base = value ? new Date(`${value}T00:00:00`) : new Date();
+  base.setDate(base.getDate() + days);
+  return toYmd(base);
+}
+
+const SEARCH_DEBOUNCE_MS = 400;
+
 type CalendarFiltersProps = {
   initialWeek: string;
   initialQuery: string;
-  initialStatus: string;
   initialTimePreset: string;
+};
+
+const TIME_PRESET_LABEL: Record<string, string> = {
+  morning: "Sáng",
+  afternoon: "Chiều",
+  evening: "Tối",
 };
 
 export default function CalendarFilters({
   initialWeek,
   initialQuery,
-  initialStatus,
   initialTimePreset,
 }: CalendarFiltersProps) {
   const router = useRouter();
@@ -35,29 +47,27 @@ export default function CalendarFilters({
   const [isPending, startTransition] = useTransition();
   const [week, setWeek] = useState(initialWeek);
   const [query, setQuery] = useState(initialQuery);
-  const [status, setStatus] = useState(initialStatus);
   const [timePreset, setTimePreset] = useState(initialTimePreset || "all");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const quickPresets = useMemo(
     () => [
-      { id: "all", label: "Toàn ngày" },
-      { id: "morning", label: "Ca sáng" },
-      { id: "afternoon", label: "Ca chiều" },
-      { id: "evening", label: "Ca tối" },
+      { id: "all", label: "Cả ngày" },
+      { id: "morning", label: "Sáng" },
+      { id: "afternoon", label: "Chiều" },
+      { id: "evening", label: "Tối" },
     ],
     [],
   );
 
-  function pushFilters(next: { week?: string; query?: string; status?: string; timePreset?: string }) {
+  function pushFilters(next: { week?: string; query?: string; timePreset?: string }) {
     const params = new URLSearchParams();
     const resolvedWeek = next.week ?? week;
     const resolvedQuery = next.query ?? query;
-    const resolvedStatus = next.status ?? status;
     const resolvedTimePreset = next.timePreset ?? timePreset;
 
     if (resolvedWeek) params.set("week", startOfWeek(resolvedWeek));
     if (resolvedQuery.trim()) params.set("q", resolvedQuery.trim());
-    if (resolvedStatus) params.set("status", resolvedStatus);
     if (resolvedTimePreset && resolvedTimePreset !== "all") params.set("timePreset", resolvedTimePreset);
 
     startTransition(() => {
@@ -65,17 +75,35 @@ export default function CalendarFilters({
     });
   }
 
-  return (
-    <div className="rounded-[30px] border border-[#e4ebf8] bg-white p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.45)]">
-      <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Bộ lọc lịch</p>
-          <h2 className="mt-1 text-xl font-semibold tracking-tight text-ink">Lọc đúng tuần, đúng ca, đúng buổi cần xử lý</h2>
-          <p className="mt-1 text-sm text-ink-muted48">
-            Chọn một ngày bất kỳ trong tuần, tìm theo lớp hoặc người dạy, rồi bóc riêng ca sáng, chiều hoặc tối.
-          </p>
-        </div>
+  function handleQueryChange(value: string) {
+    setQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => pushFilters({ query: value }), SEARCH_DEBOUNCE_MS);
+  }
 
+  function clearQuery() {
+    setQuery("");
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    pushFilters({ query: "" });
+  }
+
+  function clearTimePreset() {
+    setTimePreset("all");
+    pushFilters({ timePreset: "all" });
+  }
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  const hasQuery = query.trim().length > 0;
+  const hasTimePreset = timePreset !== "all";
+
+  return (
+    <div className="rounded-[24px] border border-[#dce7f3] bg-white p-3 shadow-[0_8px_24px_rgba(39,72,120,0.06)]">
+      <div className="grid gap-3 xl:grid-cols-[auto_auto_1fr] xl:items-center">
         <div className="flex flex-wrap items-center gap-2">
           {quickPresets.map((preset) => (
             <button
@@ -86,82 +114,105 @@ export default function CalendarFilters({
                 pushFilters({ timePreset: preset.id });
               }}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                timePreset === preset.id ? "bg-primary text-white shadow-sm" : "bg-[#f4f8ff] text-ink-muted80 hover:bg-[#e9f1ff]"
+                timePreset === preset.id
+                  ? "border border-transparent bg-[linear-gradient(135deg,#1389e8,#087bd7)] text-white shadow-[0_7px_16px_rgba(19,137,232,0.22)]"
+                  : "border border-[#dce7f3] bg-white text-[#18304f] hover:border-primary/30"
               }`}
             >
               {preset.label}
             </button>
           ))}
         </div>
-      </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[220px_minmax(0,1fr)_220px_220px]">
-        <label className="space-y-2">
-          <span className="label-sm">Tuần cần xem</span>
-          <DatePicker
-            value={week}
-            onChange={(value) => {
-              setWeek(value);
-              pushFilters({ week: value });
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              const next = shiftWeek(week, -7);
+              setWeek(next);
+              pushFilters({ week: next });
             }}
-            placeholder="Chọn ngày trong tuần"
-          />
-        </label>
-
-        <label className="space-y-2">
-          <span className="label-sm">Tìm lớp, mã lớp, phòng, giáo viên</span>
-          <input
-            className="input"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") pushFilters({ query });
-            }}
-            placeholder="Ví dụ: Cambridge A1, P.102, Minh Anh..."
-          />
-        </label>
-
-        <label className="space-y-2">
-          <span className="label-sm">Trạng thái buổi</span>
-          <select
-            className="input"
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value);
-              pushFilters({ status: event.target.value });
-            }}
+            className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] border border-[#dce7f3] bg-white text-xl font-bold text-[#5d7290] transition hover:border-primary/25 hover:text-primary"
+            aria-label="Tuần trước"
+            title="Tuần trước"
           >
-            <option value="">Tất cả trạng thái</option>
-            <option value="PLANNED">Dự kiến</option>
-            <option value="CONFIRMED">Đã xác nhận</option>
-            <option value="COMPLETED">Đã hoàn thành</option>
-            <option value="RESCHEDULED">Đã dời lịch</option>
-            <option value="CANCELLED">Đã hủy</option>
-          </select>
-        </label>
-
-        <div className="flex items-end gap-2">
-          <button type="button" onClick={() => pushFilters({ query })} className="btn-primary flex-1">
-            {isPending ? "Đang lọc..." : "Lọc lịch"}
+            &#8249;
+          </button>
+          <div className="w-[170px]">
+            <DatePicker
+              value={week}
+              onChange={(value) => {
+                setWeek(value);
+                pushFilters({ week: value });
+              }}
+              placeholder="Chọn ngày trong tuần"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const next = shiftWeek(week, 7);
+              setWeek(next);
+              pushFilters({ week: next });
+            }}
+            className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] border border-[#dce7f3] bg-white text-xl font-bold text-[#5d7290] transition hover:border-primary/25 hover:text-primary"
+            aria-label="Tuần sau"
+            title="Tuần sau"
+          >
+            &#8250;
           </button>
           <button
             type="button"
             onClick={() => {
-              const today = toYmd(new Date());
-              setWeek(today);
-              setQuery("");
-              setStatus("");
-              setTimePreset("all");
-              startTransition(() => {
-                router.push(`${pathname}?week=${startOfWeek(today)}`);
-              });
+              const next = toYmd(new Date());
+              setWeek(next);
+              pushFilters({ week: next });
             }}
-            className="btn-ghost"
+            className="inline-flex h-[42px] shrink-0 items-center justify-center rounded-[11px] border border-[#dce7f3] bg-white px-4 text-sm font-semibold text-[#18304f] transition hover:border-primary/25 hover:text-primary"
           >
-            Reset
+            Hôm nay
           </button>
         </div>
+
+        <div className="flex items-center gap-3 rounded-[14px] border border-[#dce7f3] bg-white px-4">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[#7b8da5]" aria-hidden>
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+          <input
+            className="h-[42px] min-w-0 flex-1 border-0 bg-transparent text-sm font-medium text-[#18304f] outline-none placeholder:text-[#98a7bb]"
+            value={query}
+            onChange={(event) => handleQueryChange(event.target.value)}
+            placeholder="Lớp, phòng, giáo viên..."
+          />
+          {isPending ? <span className="text-xs font-medium text-ink-muted48">Đang lọc...</span> : null}
+        </div>
       </div>
+
+      {hasQuery || hasTimePreset ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#eef3f9] pt-4">
+          {hasQuery ? (
+            <button
+              type="button"
+              onClick={clearQuery}
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary"
+            >
+              {query}
+              <span aria-hidden>✕</span>
+            </button>
+          ) : null}
+          {hasTimePreset ? (
+            <button
+              type="button"
+              onClick={clearTimePreset}
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary"
+            >
+              Ca {TIME_PRESET_LABEL[timePreset]}
+              <span aria-hidden>✕</span>
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

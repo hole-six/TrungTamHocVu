@@ -44,6 +44,7 @@ type DataTableProps<T> = {
   searchable?: boolean;
   searchPlaceholder?: string;
   onSearch?: (query: string) => void;
+  showCountBadge?: boolean;
   sortable?: boolean;
   selectable?: boolean;
   pagination?: {
@@ -66,9 +67,8 @@ type DataTableProps<T> = {
   rowKey: keyof T;
   onRowClick?: (row: T) => void;
   className?: string;
-  title?: string;
-  description?: string;
   headerActions?: ReactNode;
+  filterChips?: ReactNode;
   defaultSearchValue?: string;
 };
 
@@ -80,6 +80,7 @@ export default function DataTable<T extends Record<string, any>>({
   searchable = true,
   searchPlaceholder = "Tìm kiếm...",
   onSearch,
+  showCountBadge = true,
   sortable = true,
   selectable = true,
   pagination,
@@ -89,9 +90,8 @@ export default function DataTable<T extends Record<string, any>>({
   rowKey,
   onRowClick,
   className = "",
-  title,
-  description,
   headerActions,
+  filterChips,
   defaultSearchValue = "",
 }: DataTableProps<T>) {
   const [selectedRows, setSelectedRows] = useState<Set<any>>(new Set());
@@ -144,15 +144,15 @@ export default function DataTable<T extends Record<string, any>>({
   const isSomeSelected = selectedRows.size > 0 && selectedRows.size < data.length;
 
   return (
-    <div className={`space-y-4 ${className}`}>
+    <div data-dt="root" className={`space-y-4 ${className}`}>
       <DataTableHeader
         searchable={searchable}
         searchPlaceholder={searchPlaceholder}
         onSearch={onSearch}
         totalCount={pagination?.total || data.length}
-        title={title}
-        description={description}
+        showCountBadge={showCountBadge}
         actions={headerActions}
+        filterChips={filterChips}
         defaultSearchValue={defaultSearchValue}
       />
 
@@ -165,10 +165,13 @@ export default function DataTable<T extends Record<string, any>>({
         />
       ) : null}
 
-      <div className="overflow-hidden rounded-[28px] border border-[#e4ebf8] bg-white shadow-[0_24px_70px_-45px_rgba(15,23,42,0.45)]">
+      <div
+        data-dt="table-shell"
+        className="overflow-hidden rounded-[28px] border border-[#e4ebf8] bg-white shadow-[0_24px_70px_-45px_rgba(15,23,42,0.45)]"
+      >
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className={`border-b border-[#e8edf5] bg-[linear-gradient(135deg,#fbfcff_0%,#f4f8ff_100%)] ${stickyHeader ? "sticky top-0 z-10" : ""}`}>
+          <table data-dt="table" className="w-full">
+            <thead data-dt="thead" className={`border-b border-[#e8edf5] bg-[linear-gradient(135deg,#fbfcff_0%,#f4f8ff_100%)] ${stickyHeader ? "sticky top-0 z-10" : ""}`}>
               <tr>
                 {selectable ? (
                   <th className="w-12 px-4 py-3">
@@ -220,14 +223,14 @@ export default function DataTable<T extends Record<string, any>>({
                 ))}
 
                 {actions.length > 0 ? (
-                  <th className="w-32 px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-ink-muted48">
+                  <th className="w-[220px] px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-ink-muted48">
                     Actions
                   </th>
                 ) : null}
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-[#e8edf5]">
+            <tbody data-dt="tbody" className="divide-y divide-[#e8edf5]">
               {loading ? (
                 <tr>
                   <td

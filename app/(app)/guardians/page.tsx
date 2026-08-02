@@ -2,8 +2,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
+import { getCurrentBranchId } from "@/lib/branch-filter";
 import GuardiansTable from "@/components/guardians/GuardiansTable";
-import ModuleActionHub from "@/components/navigation/ModuleActionHub";
+import NewGuardianButton from "@/components/guardians/NewGuardianButton";
 
 const PAGE_SIZE = 20;
 
@@ -14,12 +15,26 @@ export default async function GuardiansPage({
 }) {
   const user = await getCurrentUser();
   const userRole = user ? await getUserRole(user.id) : null;
+  const activeBranchId = await getCurrentBranchId();
 
   const q = searchParams.q?.trim() ?? "";
   const page = Math.max(1, Number(searchParams.page ?? 1));
   const pageSize = Number(searchParams.pageSize ?? PAGE_SIZE);
 
-  const where = q
+  // Guardian không có cột branchId riêng (dùng chung cho mọi cơ sở) — chỉ suy ra được
+  // cơ sở qua lead/học viên đang liên kết. Phụ huynh chưa liên kết gì (mồ côi) không
+  // thuộc cơ sở nào nên chỉ hiện ở chế độ "Tất cả cơ sở", không hiện khi đang xem
+  // riêng 1 cơ sở cụ thể.
+  const branchFilter = activeBranchId
+    ? {
+        OR: [
+          { leads: { some: { branchId: activeBranchId } } },
+          { students: { some: { student: { branchId: activeBranchId } } } },
+        ],
+      }
+    : {};
+
+  const searchFilter = q
     ? {
         OR: [
           { fullName: { contains: q } },
@@ -31,7 +46,12 @@ export default async function GuardiansPage({
       }
     : {};
 
-  const [guardians, total] = await Promise.all([
+  // branchFilter và searchFilter đều có thể tự khai báo "OR" riêng — gộp bằng AND để
+  // 2 điều kiện không đè lên nhau (spread trực tiếp sẽ làm key "OR" sau ghi đè key
+  // "OR" trước).
+  const where = { AND: [branchFilter, searchFilter] };
+
+  const [guardians, total, guardiansForStats] = await Promise.all([
     prisma.guardian.findMany({
       where,
       orderBy: { fullName: "asc" },
@@ -58,6 +78,14 @@ export default async function GuardiansPage({
       },
     }),
     prisma.guardian.count({ where }),
+    prisma.guardian.findMany({
+      where,
+      select: {
+        id: true,
+        user: { select: { email: true, isActive: true } },
+        students: { select: { studentId: true } },
+      },
+    }),
   ]);
 
   const studentIds = guardians.flatMap((guardian) => guardian.students.map((link) => link.student.id));
@@ -106,43 +134,59 @@ export default async function GuardiansPage({
     };
   });
 
-  const activePortalCount = normalizedGuardians.filter((guardian) => guardian.portalActive).length;
-  const debtGuardianCount = normalizedGuardians.filter((guardian) => guardian.children?.some((child) => child.outstanding > 0)).length;
-  const linkedStudentCount = normalizedGuardians.reduce((sum, guardian) => sum + (guardian._count?.students ?? 0), 0);
+  const statStudentIds = [...new Set(guardiansForStats.flatMap((guardian) => guardian.students.map((link) => link.studentId)))];
+  const statCharges = statStudentIds.length
+    ? await prisma.charge.findMany({
+        where: { studentId: { in: statStudentIds } },
+        select: { id: true, studentId: true, totalAmount: true },
+      })
+    : [];
+  const statAllocations = statCharges.length
+    ? await prisma.paymentAllocation.findMany({
+        where: { chargeId: { in: statCharges.map((charge) => charge.id) } },
+        select: { chargeId: true, amount: true },
+      })
+    : [];
+
+  const statChargeOwner = new Map(statCharges.map((charge) => [charge.id, charge.studentId]));
+  const statChargeByStudent = new Map<string, number>();
+  for (const charge of statCharges) {
+    statChargeByStudent.set(charge.studentId, (statChargeByStudent.get(charge.studentId) ?? 0) + charge.totalAmount);
+  }
+  const statPaidByStudent = new Map<string, number>();
+  for (const allocation of statAllocations) {
+    const studentId = statChargeOwner.get(allocation.chargeId);
+    if (!studentId) continue;
+    statPaidByStudent.set(studentId, (statPaidByStudent.get(studentId) ?? 0) + allocation.amount);
+  }
+
+  const stats = {
+    total,
+    withPortal: guardiansForStats.filter((guardian) => Boolean(guardian.user?.email)).length,
+    withStudents: guardiansForStats.filter((guardian) => guardian.students.length > 0).length,
+    withDebt: guardiansForStats.filter((guardian) =>
+      guardian.students.some((link) => (statChargeByStudent.get(link.studentId) ?? 0) - (statPaidByStudent.get(link.studentId) ?? 0) > 0),
+    ).length,
+    linkedStudents: statStudentIds.length,
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="page-title">Quản lý phụ huynh</h1>
-          <p className="page-subtitle">Danh sách gọn theo đầu mối liên hệ, portal, học viên liên kết và lối tắt sang hồ sơ 360.</p>
         </div>
-        {userRole !== "TEACHER" && (
-          <Link href="/guardians/new" className="btn-primary">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Thêm phụ huynh
-          </Link>
-        )}
-      </div>
 
-      <ModuleActionHub
-        title="Phụ huynh là đầu mối liên hệ, còn hồ sơ 360 nằm ở học viên"
-        subtitle="Trang này chỉ giữ phần liên hệ và portal. Khi cần làm việc sâu về lớp, công nợ, nhật ký học tập hay sách phát sinh, đi thẳng sang hồ sơ 360 của học viên."
-        actions={[
-          { label: "Thêm phụ huynh", description: "Tạo hồ sơ thủ công khi cần bổ sung ngoài luồng CRM/intake.", href: "/guardians/new", tone: "primary" },
-          { label: "Mở CRM tuyển sinh", description: "Quay lại lead nếu cần nối phụ huynh với một nhu cầu tuyển sinh mới.", href: "/leads", tone: "info" },
-          { label: "Kiểm tra học phí", description: "Đi sang học phí để xử lý các phụ huynh có con đang còn nợ.", href: "/tuition", tone: "warning" },
-        ]}
-        metrics={[
-          { label: "Tổng phụ huynh", value: total, hint: "Toàn bộ hồ sơ phụ huynh" },
-          { label: "Portal hoạt động", value: activePortalCount, hint: "Đã đăng nhập/xài được", tone: "info" },
-          { label: "HV liên kết", value: linkedStudentCount, hint: "Số liên kết phụ huynh-học viên", tone: "success" },
-          { label: "Có công nợ", value: debtGuardianCount, hint: "Ít nhất 1 con đang còn nợ", tone: "danger" },
-        ]}
-      />
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href="/leads" className="btn-ghost">
+            CRM
+          </Link>
+          <Link href="/tuition" className="btn-ghost">
+            Học phí
+          </Link>
+          {userRole !== "TEACHER" ? <NewGuardianButton /> : null}
+        </div>
+      </div>
 
       <GuardiansTable
         initialData={normalizedGuardians}
@@ -150,6 +194,7 @@ export default async function GuardiansPage({
         page={page}
         pageSize={pageSize}
         userRole={userRole || "TEACHER"}
+        stats={stats}
       />
     </div>
   );

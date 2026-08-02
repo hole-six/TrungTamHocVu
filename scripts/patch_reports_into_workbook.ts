@@ -486,7 +486,7 @@ async function main() {
       const latestEnrollment = student.enrollments[0];
       return {
         studentCode: student.studentCode,
-        displayId: student.studentDisplayId ?? "",
+        displayId: student.studentCode,
         fullName: student.fullName,
         classCode: latestEnrollment?.class.classCode ?? "",
         className: latestEnrollment?.class.className ?? "",

@@ -6,12 +6,28 @@ import SlideOver from "@/components/ui/SlideOver";
 
 type StudentHit = { id: string; fullName: string; studentCode: string };
 
-export default function EnrollStudentForm({ classId }: { classId: string }) {
+type InstallmentDraft = { dueMonth: string; amount: string };
+
+function monthOffset(offset: number) {
+  const date = new Date();
+  date.setDate(1);
+  date.setMonth(date.getMonth() + offset);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function splitInstallments(total: number, count: number): InstallmentDraft[] {
+  const base = Math.floor(total / count / 1000) * 1000;
+  return Array.from({ length: count }, (_, index) => ({ dueMonth: monthOffset(index), amount: String(index === count - 1 ? total - base * (count - 1) : base) }));
+}
+
+export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { classId: string; courseTotalAmount?: number }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [results, setResults] = useState<StudentHit[]>([]);
   const [selected, setSelected] = useState<StudentHit | null>(null);
+  const [billingModel, setBillingModel] = useState<"COURSE" | "PERIOD" | "INSTALLMENT">("COURSE");
+  const [installments, setInstallments] = useState<InstallmentDraft[]>(() => splitInstallments(courseTotalAmount, 3));
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +57,7 @@ export default function EnrollStudentForm({ classId }: { classId: string }) {
     const response = await fetch(`/api/classes/${classId}/enrollments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ studentId: selected.id }),
+      body: JSON.stringify({ studentId: selected.id, billingModel, installments: billingModel === "INSTALLMENT" ? installments.map((item) => ({ ...item, amount: Number(item.amount) })) : undefined }),
     });
     const result = await response.json().catch(() => ({}));
     setLoading(false);
@@ -116,10 +132,36 @@ export default function EnrollStudentForm({ classId }: { classId: string }) {
           ) : null}
 
           {selected ? (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="space-y-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Sẵn sàng ghi danh</p>
               <p className="mt-2 text-base font-semibold text-emerald-950">{selected.fullName}</p>
               <p className="mt-1 text-sm text-emerald-800">{selected.studentCode}</p>
+              <div className="border-t border-emerald-200 pt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Kế hoạch đóng học phí</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <button type="button" onClick={() => setBillingModel("COURSE")} className={`rounded-xl border p-3 text-left transition ${billingModel === "COURSE" ? "border-emerald-500 bg-white shadow-sm" : "border-emerald-200 bg-emerald-50/50"}`}>
+                    <p className="text-sm font-semibold text-ink">Đóng trọn khóa</p>
+                    <p className="mt-1 text-xs leading-5 text-ink-muted80">Tạo một khoản thu sau khi ghi danh; các kỳ tháng sau sẽ tự bỏ qua học viên này.</p>
+                  </button>
+                  <button type="button" onClick={() => setBillingModel("PERIOD")} className={`rounded-xl border p-3 text-left transition ${billingModel === "PERIOD" ? "border-emerald-500 bg-white shadow-sm" : "border-emerald-200 bg-emerald-50/50"}`}>
+                    <p className="text-sm font-semibold text-ink">Đóng theo tháng</p>
+                    <p className="mt-1 text-xs leading-5 text-ink-muted80">Sinh khoản thu theo từng kỳ tháng và chỉ tính các buổi thực tế từ ngày ghi danh.</p>
+                  </button>
+                  <button type="button" onClick={() => setBillingModel("INSTALLMENT")} className={`rounded-xl border p-3 text-left transition ${billingModel === "INSTALLMENT" ? "border-emerald-500 bg-white shadow-sm" : "border-emerald-200 bg-emerald-50/50"}`}>
+                    <p className="text-sm font-semibold text-ink">Trả góp theo đợt</p>
+                    <p className="mt-1 text-xs leading-5 text-ink-muted80">Chốt số tiền và tháng thu của từng đợt; batch sẽ sinh đúng hóa đơn đến hạn.</p>
+                  </button>
+                </div>
+                {billingModel === "INSTALLMENT" ? (
+                  <div className="mt-3 rounded-xl border border-emerald-200 bg-white/80 p-3">
+                    <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-ink">Lịch trả góp</p><p className="text-xs text-ink-muted48">Tổng phải bằng {courseTotalAmount.toLocaleString("vi-VN")}đ</p></div>
+                    <div className="mt-3 space-y-2">
+                      {installments.map((item, index) => <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2"><input aria-label={`Tháng thu đợt ${index + 1}`} type="month" value={item.dueMonth} onChange={(event) => setInstallments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, dueMonth: event.target.value } : row))} className="input-sm" /><input aria-label={`Số tiền đợt ${index + 1}`} type="number" min="1" step="1000" value={item.amount} onChange={(event) => setInstallments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, amount: event.target.value } : row))} className="input-sm" />{installments.length > 2 ? <button type="button" onClick={() => setInstallments((current) => current.filter((_, rowIndex) => rowIndex !== index))} className="btn-ghost-sm px-3 text-red-600">×</button> : <span />}</div>)}
+                    </div>
+                    <button type="button" disabled={installments.length >= 12} onClick={() => setInstallments((current) => [...current, { dueMonth: monthOffset(current.length), amount: "0" }])} className="mt-3 text-xs font-semibold text-primary">+ Thêm đợt</button>
+                  </div>
+                ) : null}
+              </div>
             </div>
           ) : null}
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 type Branch = { id: string; name: string };
 type Role = { id: string; code: string; name: string };
@@ -73,14 +74,21 @@ export default function UserRoleEditor({
           </option>
         ))}
       </select>
-      <button
-        onClick={() => update({ isActive: !isActive })}
+      <ConfirmActionButton
+        title={isActive ? "Xác nhận khóa tài khoản?" : "Xác nhận mở khóa tài khoản?"}
+        description={
+          isActive
+            ? "Người dùng này sẽ không thể đăng nhập cho đến khi được mở khóa lại."
+            : "Người dùng này sẽ có thể đăng nhập và sử dụng lại hệ thống ngay sau khi xác nhận."
+        }
+        confirmLabel={isActive ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+        tone={isActive ? "danger" : "default"}
         disabled={loading || (isSelf && isActive)}
         className={`text-xs ${isActive ? "text-red-600" : "text-primary"}`}
-        title={isSelf && isActive ? "Không thể tự khóa tài khoản của chính mình" : ""}
+        onConfirm={() => update({ isActive: !isActive })}
       >
         {isActive ? "Khóa" : "Mở khóa"}
-      </button>
+      </ConfirmActionButton>
       {error && <p className="w-full text-xs text-red-600">{error}</p>}
     </div>
   );

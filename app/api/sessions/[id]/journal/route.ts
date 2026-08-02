@@ -48,6 +48,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   const body = await req.json();
   const unitLesson = String(body.unitLesson ?? "").trim() || null;
+  const teacherNote = String(body.teacherNote ?? "").trim() || null;
   const homeworkNote = String(body.homeworkNote ?? "").trim() || null;
   const entries: Array<{
     studentId: string;
@@ -64,12 +65,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const j = existing
       ? await tx.classSessionJournal.update({
           where: { id: existing.id },
-          data: { unitLesson, homeworkNote, publishedAt: publish ? new Date() : existing.publishedAt },
+          data: { unitLesson, teacherNote, homeworkNote, publishedAt: publish ? new Date() : existing.publishedAt },
         })
       : await tx.classSessionJournal.create({
           data: {
             sessionId: session.id,
             unitLesson,
+            teacherNote,
             homeworkNote,
             createdById: user.id,
             publishedAt: publish ? new Date() : null,

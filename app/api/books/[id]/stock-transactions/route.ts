@@ -50,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (postToCash) {
       const cashTxn = await tx.cashTransaction.create({
         data: {
-          branchId: user.branchId!,
+          branchId: book.branchId,
           categoryId: body.categoryId || null,
           type: cashType,
           txnDate,

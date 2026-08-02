@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 
-// Đăng ký "lớp bảo trợ" (học bù) bằng 1 buổi dư — chọn buổi đích (bất kỳ buổi nào,
+// Đăng ký "lớp bảo trợ" (học bù) bằng 1 buổi bổ trợ — chọn buổi đích (bất kỳ buổi nào,
 // thường cùng khóa/trình độ, không nhất thiết cùng lớp học viên đang ghi danh) rồi
 // đánh dấu điểm danh MAKEUP ở đó cho học viên. Credit chuyển CONSUMED, gắn với đúng
 // buổi đã dùng để tra soát sau này (buổi nào bù cho buổi nào).
@@ -17,9 +17,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const credit = await prisma.sessionCredit.findUnique({ where: { id: params.id } });
-  if (!credit) return NextResponse.json({ error: "Không tìm thấy buổi dư" }, { status: 404 });
+  if (!credit) return NextResponse.json({ error: "Không tìm thấy buổi bổ trợ" }, { status: 404 });
   if (credit.status !== "AVAILABLE") {
-    return NextResponse.json({ error: `Buổi dư này đang ở trạng thái "${credit.status}", không thể đăng ký học bù.` }, { status: 409 });
+    return NextResponse.json({ error: `Buổi bổ trợ này đang ở trạng thái "${credit.status}", không thể đăng ký học bù.` }, { status: 409 });
   }
 
   const body = await req.json();

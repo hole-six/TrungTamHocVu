@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { BILLING_PERIOD_STATUS_LABEL, chargePaymentStatus, PAYMENT_STATUS_LABEL, canEditCharges } from "@/lib/server/tuition-rules";
 import BillingPeriodActions from "@/components/tuition/BillingPeriodActions";
+import BillingPeriodExceptionQueue from "@/components/tuition/BillingPeriodExceptionQueue";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import ChargeDeductionEditor from "@/components/tuition/ChargeDeductionEditor";
 import { getCurrentUser } from "@/lib/server/current-user";
@@ -55,7 +56,12 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
             <h1 className="text-2xl font-semibold tracking-tight">Kỳ thu {period.periodName}</h1>
             <p className="mt-1 text-sm text-ink-muted48">{period.charges.length} khoản phải thu</p>
           </div>
-          <span className="badge bg-ink/5 text-ink-muted80">{BILLING_PERIOD_STATUS_LABEL[period.status] ?? period.status}</span>
+          <div className="flex items-center gap-2">
+            <Link href={`/invoices/batch/${period.id}`} target="_blank" className="btn-ghost">
+              Xuất phiếu hàng loạt
+            </Link>
+            <span className="badge bg-ink/5 text-ink-muted80">{BILLING_PERIOD_STATUS_LABEL[period.status] ?? period.status}</span>
+          </div>
         </div>
       </div>
 
@@ -75,6 +81,7 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
       </div>
 
       {canManageTuition && <BillingPeriodActions periodId={period.id} status={period.status} />}
+      {canManageTuition && <BillingPeriodExceptionQueue periodId={period.id} />}
 
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-left text-sm">
@@ -104,7 +111,7 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
                 <tr key={c.id} className="border-b border-hairline last:border-0 hover:bg-canvas-parchment/40">
                   <td className="px-4 py-3">
                     <Link href={`/students/${c.studentId}`} className="font-medium text-primary">
-                      {c.student.fullName} <span className="text-ink-muted48">({c.student.studentDisplayId ?? c.student.studentCode})</span>
+                      {c.student.fullName} <span className="text-ink-muted48">({c.student.studentCode})</span>
                     </Link>
                     {c.student.lead?.leadCode ? <p className="mt-1 text-xs text-ink-muted48">Lead: {c.student.lead.leadCode}</p> : null}
                   </td>
@@ -136,9 +143,9 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       {canManageTuition && <QuickPaymentButton studentId={c.studentId} suggestedAmount={c.totalAmount - paid} />}
-                      <Link href={`/invoices/${c.id}`} target="_blank" className="text-xs text-ink-muted48">
-                        Hóa đơn
-                      </Link>
+                      <a href={`/api/invoices/${c.id}/pdf`} className="text-xs text-ink-muted48 hover:text-primary">
+                        Tải phiếu
+                      </a>
                     </div>
                   </td>
                 </tr>

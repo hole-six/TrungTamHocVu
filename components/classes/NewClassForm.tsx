@@ -36,14 +36,15 @@ type RoadmapDraft = {
 };
 
 type DefaultAssignmentDraft = {
+  key: string;
+  roleType: "TEACHER" | "ASSISTANT";
   employeeId: string;
   notes: string;
 };
 
-const DEFAULT_ASSIGNMENT_CONFIG = [
-  { role: "TEACHER", label: "Giáo viên chính", helper: "Người dạy cố định của lớp" },
-  { role: "ASSISTANT", label: "Trợ giảng chính", helper: "Người hỗ trợ thường trực cho lớp" },
-  { role: "ASSISTANT2", label: "Trợ giảng bổ sung", helper: "Dùng khi lớp cần thêm 1 TG phụ" },
+const DEFAULT_ASSIGNMENT_GROUPS = [
+  { roleType: "TEACHER" as const, label: "Giáo viên", helper: "Có thể thêm nhiều giáo viên cho lớp" },
+  { roleType: "ASSISTANT" as const, label: "Trợ giảng", helper: "Có thể thêm nhiều trợ giảng cho lớp" },
 ] as const;
 
 const WEEKDAY_OPTIONS = [
@@ -85,6 +86,19 @@ function buildRoadmapDraft(sessionNumber: number): RoadmapDraft {
   };
 }
 
+function buildAssignmentDraft(roleType: "TEACHER" | "ASSISTANT", seed = Math.random().toString(36).slice(2)): DefaultAssignmentDraft {
+  return {
+    key: `${roleType}-${seed}`,
+    roleType,
+    employeeId: "",
+    notes: "",
+  };
+}
+
+function normalizeAssignmentRole(roleType: "TEACHER" | "ASSISTANT", index: number) {
+  return roleType === "TEACHER" ? `TEACHER_${index + 1}` : `ASSISTANT_${index + 1}`;
+}
+
 function computeDurationLabel(startTime: string, endTime: string) {
   if (!startTime || !endTime) return "Chưa đủ giờ";
   const [startHour, startMinute] = startTime.split(":").map(Number);
@@ -111,7 +125,12 @@ function formatDateLabel(value: Date | null) {
   return value.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-function estimateEndDateFromRules(startDate: Date | null, totalSessions: number | null, rules: ScheduleRuleDraft[]) {
+function estimateEndDateFromRules(
+  startDate: Date | null,
+  totalSessions: number | null,
+  rules: ScheduleRuleDraft[],
+  holidayDates: Set<string> = new Set()
+) {
   if (!startDate || !totalSessions || totalSessions <= 0 || rules.length === 0) return null;
 
   const normalizedRules = rules
@@ -133,11 +152,13 @@ function estimateEndDateFromRules(startDate: Date | null, totalSessions: number 
   let guard = 0;
 
   while (guard < 3660) {
-    const todayRules = normalizedRules.filter((rule) => Number(rule.weekday) === cursor.getUTCDay());
-    for (const _rule of todayRules) {
-      countedSessions += 1;
-      if (countedSessions === totalSessions) {
-        return new Date(cursor);
+    if (!holidayDates.has(cursor.toISOString().slice(0, 10))) {
+      const todayRules = normalizedRules.filter((rule) => Number(rule.weekday) === cursor.getUTCDay());
+      for (const _rule of todayRules) {
+        countedSessions += 1;
+        if (countedSessions === totalSessions) {
+          return new Date(cursor);
+        }
       }
     }
     cursor.setUTCDate(cursor.getUTCDate() + 1);
@@ -157,8 +178,17 @@ function computeStudySpanLabel(startDate: Date | null, endDate: Date | null) {
   return `${weeks} tuần ${days} ngày`;
 }
 
-export default function NewClassForm({ courses, employees }: { courses: Course[]; employees: Employee[] }) {
+export default function NewClassForm({
+  courses,
+  employees,
+  holidayDates = [],
+}: {
+  courses: Course[];
+  employees: Employee[];
+  holidayDates?: string[];
+}) {
   const router = useRouter();
+  const holidayDateSet = useMemo(() => new Set(holidayDates), [holidayDates]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [importSummary, setImportSummary] = useState<string | null>(null);
@@ -171,15 +201,15 @@ export default function NewClassForm({ courses, employees }: { courses: Course[]
     totalSessions: "",
     startDate: "",
     notes: "",
+    isRemedial: false,
   });
   const [scheduleRules, setScheduleRules] = useState<ScheduleRuleDraft[]>([buildEmptyRule()]);
   const [roadmapItems, setRoadmapItems] = useState<RoadmapDraft[]>([]);
   const [visibleRoadmapCount, setVisibleRoadmapCount] = useState(12);
-  const [defaultAssignments, setDefaultAssignments] = useState<Record<string, DefaultAssignmentDraft>>({
-    TEACHER: { employeeId: "", notes: "" },
-    ASSISTANT: { employeeId: "", notes: "" },
-    ASSISTANT2: { employeeId: "", notes: "" },
-  });
+  const [defaultAssignments, setDefaultAssignments] = useState<DefaultAssignmentDraft[]>([
+    buildAssignmentDraft("TEACHER"),
+    buildAssignmentDraft("ASSISTANT"),
+  ]);
 
   const selectedCourse = useMemo(
     () => courses.find((course) => course.id === form.courseId) ?? null,
@@ -191,8 +221,8 @@ export default function NewClassForm({ courses, employees }: { courses: Course[]
   const sessionsPerWeek = scheduleRules.length;
   const normalizedStartDate = useMemo(() => parseYmdToUtc(form.startDate), [form.startDate]);
   const estimatedEndDate = useMemo(
-    () => estimateEndDateFromRules(normalizedStartDate, totalSessions, scheduleRules),
-    [normalizedStartDate, totalSessions, scheduleRules],
+    () => estimateEndDateFromRules(normalizedStartDate, totalSessions, scheduleRules, holidayDateSet),
+    [normalizedStartDate, totalSessions, scheduleRules, holidayDateSet],
   );
   const estimatedWeeks =
     totalSessions != null && sessionsPerWeek > 0 ? Math.ceil(totalSessions / sessionsPerWeek) : null;
@@ -241,8 +271,21 @@ export default function NewClassForm({ courses, employees }: { courses: Course[]
     setImportSummary(null);
   }
 
-  function patchDefaultAssignment(role: string, key: keyof DefaultAssignmentDraft, value: string) {
-    setDefaultAssignments((prev) => ({ ...prev, [role]: { ...prev[role], [key]: value } }));
+  function patchDefaultAssignment(rowKey: string, key: "employeeId" | "notes", value: string) {
+    setDefaultAssignments((prev) => prev.map((item) => (item.key === rowKey ? { ...item, [key]: value } : item)));
+    setError(null);
+  }
+
+  function addDefaultAssignment(roleType: "TEACHER" | "ASSISTANT") {
+    setDefaultAssignments((prev) => [...prev, buildAssignmentDraft(roleType)]);
+    setError(null);
+  }
+
+  function removeDefaultAssignment(rowKey: string) {
+    setDefaultAssignments((prev) => {
+      const next = prev.filter((item) => item.key !== rowKey);
+      return next.length > 0 ? next : [buildAssignmentDraft("TEACHER"), buildAssignmentDraft("ASSISTANT")];
+    });
     setError(null);
   }
 
@@ -351,11 +394,13 @@ export default function NewClassForm({ courses, employees }: { courses: Course[]
     if (!form.classCode.trim() || !form.className.trim()) {
       return "Mã lớp và tên lớp là bắt buộc.";
     }
-    if (!form.totalSessions || Number(form.totalSessions) <= 0) {
-      return "Cần nhập tổng số buổi hợp lệ.";
-    }
-    if (!form.tuitionPerSession || Number(form.tuitionPerSession) < 0) {
-      return "Cần nhập học phí trên mỗi buổi.";
+    if (!form.isRemedial) {
+      if (!form.totalSessions || Number(form.totalSessions) <= 0) {
+        return "Cần nhập tổng số buổi hợp lệ.";
+      }
+      if (!form.tuitionPerSession || Number(form.tuitionPerSession) < 0) {
+        return "Cần nhập học phí trên mỗi buổi.";
+      }
     }
     if (scheduleRules.length === 0) {
       return "Phải có ít nhất 1 buổi học cố định trong tuần.";
@@ -395,10 +440,11 @@ export default function NewClassForm({ courses, employees }: { courses: Course[]
         classCode: form.classCode.trim(),
         className: form.className.trim(),
         classGroup: form.classGroup.trim() || null,
-        courseId: form.courseId || null,
-        totalSessions: Number(form.totalSessions),
+        isRemedial: form.isRemedial,
+        courseId: form.isRemedial ? null : form.courseId || null,
+        totalSessions: form.totalSessions ? Number(form.totalSessions) : null,
         startDate: form.startDate || null,
-        tuitionPerSession: Number(form.tuitionPerSession),
+        tuitionPerSession: form.isRemedial ? null : Number(form.tuitionPerSession),
         sessionsPerWeek,
         notes: form.notes.trim() || null,
         scheduleRules: scheduleRules.map((rule) => ({
@@ -407,19 +453,32 @@ export default function NewClassForm({ courses, employees }: { courses: Course[]
           endTime: rule.endTime,
           room: rule.room.trim() || null,
         })),
-        roadmapItems: roadmapItems.map((item) => ({
-          sessionNumber: item.sessionNumber,
-          title: item.title.trim(),
-          objective: item.objective.trim() || null,
-          materials: item.materials.trim() || null,
-          teacherGuide: item.teacherGuide.trim() || null,
-          homeworkGuide: item.homeworkGuide.trim() || null,
-        })),
-        defaultAssignments: DEFAULT_ASSIGNMENT_CONFIG.map((item) => ({
-          role: item.role,
-          employeeId: defaultAssignments[item.role].employeeId || null,
-          notes: defaultAssignments[item.role].notes.trim() || null,
-        })).filter((item) => item.employeeId),
+        roadmapItems: form.isRemedial
+          ? []
+          : roadmapItems.map((item) => ({
+              sessionNumber: item.sessionNumber,
+              title: item.title.trim(),
+              objective: item.objective.trim() || null,
+              materials: item.materials.trim() || null,
+              teacherGuide: item.teacherGuide.trim() || null,
+              homeworkGuide: item.homeworkGuide.trim() || null,
+            })),
+        defaultAssignments: [
+          ...defaultAssignments
+            .filter((item) => item.roleType === "TEACHER" && item.employeeId)
+            .map((item, index) => ({
+              role: normalizeAssignmentRole("TEACHER", index),
+              employeeId: item.employeeId || null,
+              notes: item.notes.trim() || null,
+            })),
+          ...defaultAssignments
+            .filter((item) => item.roleType === "ASSISTANT" && item.employeeId)
+            .map((item, index) => ({
+              role: normalizeAssignmentRole("ASSISTANT", index),
+              employeeId: item.employeeId || null,
+              notes: item.notes.trim() || null,
+            })),
+        ],
       };
 
       const response = await fetch("/api/classes", {
@@ -444,10 +503,10 @@ export default function NewClassForm({ courses, employees }: { courses: Course[]
 
   return (
     <div className="page-shell mx-auto w-full max-w-[1700px] px-4 pb-10 sm:px-6 2xl:max-w-[1840px]">
-      <div className="space-y-4">
+      <div className="space-y-5">
         <Link
           href="/classes"
-          className="inline-flex items-center gap-2 text-sm font-medium text-ink-muted48 transition hover:text-primary"
+          className="inline-flex items-center gap-2 text-sm font-medium text-[#6b7280] transition-colors hover:text-[#f97316]"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
@@ -455,32 +514,37 @@ export default function NewClassForm({ courses, employees }: { courses: Course[]
           Quay lại quản lý lớp học
         </Link>
 
-        <div className="overflow-hidden rounded-[32px] border border-[#dbe7ff] bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_45%,#60a5fa_100%)] p-6 text-white shadow-[0_30px_80px_-45px_rgba(29,78,216,0.75)]">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div className="rounded-2xl border-2 border-[#e5e7eb] bg-white overflow-hidden">
+          <div className="flex flex-col gap-5 px-6 py-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl space-y-3">
-              <span className="inline-flex w-fit rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-white/85">
-                Thiết lập lớp thực tế
-              </span>
+              <div className="inline-flex items-center gap-2 rounded-lg bg-[#fff7ed] border border-[#fed7aa] px-3 py-1.5">
+                <div className="h-2 w-2 rounded-full bg-[#f97316]" />
+                <span className="text-xs font-bold uppercase tracking-wider text-[#f97316]">
+                  Thiết lập lớp mới
+                </span>
+              </div>
               <div>
-                <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Tạo lớp với lịch và lộ trình rõ ràng</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-white/80 sm:text-base">
-                  Chốt buổi học cố định ngay từ lúc tạo lớp, đồng thời nhập luôn chương trình đào tạo theo từng buổi để giáo viên mở buổi là nhìn thấy ngay hôm nay phải dạy gì.
+                <h1 className="text-3xl font-bold tracking-tight text-[#111827] sm:text-4xl">
+                  Tạo lớp học với lịch rõ ràng
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6b7280] sm:text-base">
+                  Chốt buổi học cố định ngay từ lúc tạo lớp, đồng thời nhập chương trình đào tạo theo từng buổi để giáo viên biết hôm nay dạy gì.
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs uppercase tracking-[0.18em] text-white/70">Khóa khả dụng</p>
-                <p className="mt-2 text-2xl font-semibold">{courses.length}</p>
+              <div className="rounded-xl border-2 border-[#e5e7eb] bg-white px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[#9ca3af]">Khóa khả dụng</p>
+                <p className="mt-2 text-2xl font-black text-[#111827]">{courses.length}</p>
               </div>
-              <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs uppercase tracking-[0.18em] text-white/70">Buổi cố định / tuần</p>
-                <p className="mt-2 text-2xl font-semibold">{sessionsPerWeek}</p>
+              <div className="rounded-xl border-2 border-[#e5e7eb] bg-white px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[#9ca3af]">Buổi/tuần</p>
+                <p className="mt-2 text-2xl font-black text-[#111827]">{sessionsPerWeek}</p>
               </div>
-              <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs uppercase tracking-[0.18em] text-white/70">Khung lộ trình</p>
-                <p className="mt-2 text-2xl font-semibold">{roadmapItems.length}</p>
+              <div className="rounded-xl border-2 border-[#e5e7eb] bg-white px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[#9ca3af]">Lộ trình</p>
+                <p className="mt-2 text-2xl font-black text-[#111827]">{roadmapItems.length}</p>
               </div>
             </div>
           </div>
@@ -494,6 +558,20 @@ export default function NewClassForm({ courses, employees }: { courses: Course[]
               <div className="border-b border-[#e8edf5] px-6 py-5">
                 <h2 className="text-sm font-bold text-ink">Thông tin lớp và khóa học</h2>
                 <p className="mt-1 text-xs leading-5 text-ink-muted48">Nhận diện lớp rõ ràng để sau này nhìn vào biết học gì, học lúc nào, thu bao nhiêu.</p>
+                <label className="mt-4 flex items-start gap-3 rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={form.isRemedial}
+                    onChange={(event) => patchForm("isRemedial", event.target.checked)}
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-ink">Đây là khóa bổ trợ</span>
+                    <span className="mt-0.5 block text-xs text-ink-muted48">
+                      Không thu học phí riêng, không cần giáo án cố định — dùng để xếp buổi học bù cho học sinh có "buổi dư". Form sẽ rút gọn bớt các mục không cần.
+                    </span>
+                  </span>
+                </label>
               </div>
               <div className="grid grid-cols-1 gap-5 px-6 py-5 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="form-group">
@@ -508,27 +586,31 @@ export default function NewClassForm({ courses, employees }: { courses: Course[]
                   <span className="label">Nhóm lớp</span>
                   <input className="input" value={form.classGroup} onChange={(event) => patchForm("classGroup", event.target.value)} placeholder="Thiếu nhi, THCS, IELTS..." />
                 </label>
-                <label className="form-group">
-                  <span className="label">Khóa học chuẩn</span>
-                  <select className="input" value={form.courseId} onChange={(event) => applyCourseTemplate(event.target.value)}>
-                    <option value="">-- Nhập tay / chưa gắn khóa --</option>
-                    {courses.map((course) => (
-                      <option key={course.id} value={course.id}>
-                        [{course.code}] {course.name} · {formatVnd(course.tuitionPerSession)}/buổi
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {!form.isRemedial ? (
+                  <label className="form-group">
+                    <span className="label">Khóa học chuẩn</span>
+                    <select className="input" value={form.courseId} onChange={(event) => applyCourseTemplate(event.target.value)}>
+                      <option value="">-- Nhập tay / chưa gắn khóa --</option>
+                      {courses.map((course) => (
+                        <option key={course.id} value={course.id}>
+                          [{course.code}] {course.name} · {formatVnd(course.tuitionPerSession)}/buổi
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 <label className="form-group">
                   <span className="label">Ngày khai giảng</span>
                   <input type="date" className="input" value={form.startDate} onChange={(event) => patchForm("startDate", event.target.value)} />
                 </label>
+                {!form.isRemedial ? (
+                  <label className="form-group">
+                    <span className="label">Học phí / buổi *</span>
+                    <input type="number" min={0} className="input" value={form.tuitionPerSession} onChange={(event) => patchForm("tuitionPerSession", event.target.value)} placeholder="100000" />
+                  </label>
+                ) : null}
                 <label className="form-group">
-                  <span className="label">Học phí / buổi *</span>
-                  <input type="number" min={0} className="input" value={form.tuitionPerSession} onChange={(event) => patchForm("tuitionPerSession", event.target.value)} placeholder="100000" />
-                </label>
-                <label className="form-group">
-                  <span className="label">Tổng số buổi *</span>
+                  <span className="label">Tổng số buổi{form.isRemedial ? " (không bắt buộc)" : " *"}</span>
                   <input type="number" min={1} className="input" value={form.totalSessions} onChange={(event) => patchForm("totalSessions", event.target.value)} placeholder="50" />
                 </label>
                 <div className="form-group">
@@ -621,44 +703,63 @@ export default function NewClassForm({ courses, employees }: { courses: Course[]
             <div className="overflow-hidden rounded-[28px] border border-[#e4ebf8] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_22px_60px_-40px_rgba(15,23,42,0.45)]">
               <div className="border-b border-[#e8edf5] px-6 py-5">
                 <h2 className="text-sm font-bold text-ink">Nhân sự mặc định của lớp</h2>
-                <p className="mt-1 text-xs leading-5 text-ink-muted48">Chốt luôn giáo viên và trợ giảng chính ngay lúc tạo lớp. Các buổi sinh ra sau này sẽ tự nhận theo cấu hình này, chỉ đổi riêng khi có báo bận, dạy thay hoặc học bù.</p>
+                <p className="mt-1 text-xs leading-5 text-ink-muted48">Thêm bao nhiêu giáo viên hoặc trợ giảng tùy nhu cầu. Các buổi sinh ra sau này sẽ tự nhận theo cấu hình này.</p>
               </div>
               <div className="space-y-4 px-6 py-5">
-                {DEFAULT_ASSIGNMENT_CONFIG.map((item) => (
-                  <div key={item.role} className="rounded-[24px] border border-[#dbe7ff] bg-white p-4 shadow-sm">
-                    <div className="grid gap-4 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
-                      <div>
-                        <p className="text-sm font-semibold text-ink">{item.label}</p>
-                        <p className="mt-1 text-xs text-ink-muted48">{item.helper}</p>
+                {DEFAULT_ASSIGNMENT_GROUPS.map((group) => {
+                  const rows = defaultAssignments.filter((item) => item.roleType === group.roleType);
+                  return (
+                    <div key={group.roleType} className="rounded-[24px] border border-[#dbe7ff] bg-white p-4 shadow-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-ink">{group.label}</p>
+                          <p className="mt-1 text-xs text-ink-muted48">{group.helper}</p>
+                        </div>
+                        <button type="button" onClick={() => addDefaultAssignment(group.roleType)} className="btn-ghost-sm">
+                          + Thêm {group.label.toLowerCase()}
+                        </button>
                       </div>
-                      <div className="grid gap-4">
-                        <label className="form-group">
-                          <span className="label">Nhân sự</span>
-                          <select className="input" value={defaultAssignments[item.role].employeeId} onChange={(event) => patchDefaultAssignment(item.role, "employeeId", event.target.value)}>
-                            <option value="">Chưa gắn</option>
-                            {employees.map((employee) => (
-                              <option key={employee.id} value={employee.id}>
-                                {employee.fullName} {employee.shortName ? `(${employee.shortName})` : ""} {employee.position ? `· ${employee.position}` : ""}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="form-group">
-                          <span className="label">Ghi chú</span>
-                          <textarea
-                            className="input min-h-[92px]"
-                            value={defaultAssignments[item.role].notes}
-                            onChange={(event) => patchDefaultAssignment(item.role, "notes", event.target.value)}
-                            placeholder="Ví dụ: GV chính của lớp, chỉ đổi khi báo bận trước..."
-                          />
-                        </label>
+
+                      <div className="mt-4 space-y-3">
+                        {rows.map((item, index) => (
+                          <div key={item.key} className="grid gap-3 rounded-[20px] border border-[#e6eefc] px-3 py-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto]">
+                            <label className="form-group">
+                              <span className="label">{group.label} {index + 1}</span>
+                              <select className="input" value={item.employeeId} onChange={(event) => patchDefaultAssignment(item.key, "employeeId", event.target.value)}>
+                                <option value="">Chưa gắn</option>
+                                {employees.map((employee) => (
+                                  <option key={employee.id} value={employee.id}>
+                                    {employee.fullName} {employee.shortName ? `(${employee.shortName})` : ""} {employee.position ? `· ${employee.position}` : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label className="form-group">
+                              <span className="label">Ghi chú</span>
+                              <input
+                                className="input"
+                                value={item.notes}
+                                onChange={(event) => patchDefaultAssignment(item.key, "notes", event.target.value)}
+                                placeholder="Ghi chú ngắn nếu cần"
+                              />
+                            </label>
+
+                            <div className="flex items-end">
+                              <button type="button" onClick={() => removeDefaultAssignment(item.key)} className="btn-ghost-sm text-rose-600 hover:text-rose-700">
+                                Xóa
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
+            {!form.isRemedial ? (
             <div className="overflow-hidden rounded-[28px] border border-[#e4ebf8] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_22px_60px_-40px_rgba(15,23,42,0.45)]">
               <div className="flex flex-col gap-3 border-b border-[#e8edf5] px-6 py-5 lg:flex-row lg:items-end lg:justify-between">
                 <div>
@@ -779,6 +880,7 @@ export default function NewClassForm({ courses, employees }: { courses: Course[]
                 )}
               </div>
             </div>
+            ) : null}
           </div>
 
           <aside className="space-y-5">
@@ -862,12 +964,22 @@ export default function NewClassForm({ courses, employees }: { courses: Course[]
             <div className="card">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Nhân sự mặc định sẽ đi theo lớp</p>
               <div className="mt-3 space-y-2 text-sm text-ink-muted80">
-                {DEFAULT_ASSIGNMENT_CONFIG.map((item) => {
-                  const current = defaultAssignments[item.role];
-                  const employee = employees.find((row) => row.id === current.employeeId);
+                {DEFAULT_ASSIGNMENT_GROUPS.map((group) => {
+                  const rows = defaultAssignments.filter((item) => item.roleType === group.roleType && item.employeeId);
                   return (
-                    <p key={item.role}>
-                      • {item.label}: <strong className="text-ink">{employee ? `${employee.fullName}${employee.shortName ? ` (${employee.shortName})` : ""}` : "Chưa gắn"}</strong>
+                    <p key={group.roleType}>
+                      • {group.label}:{" "}
+                      <strong className="text-ink">
+                        {rows.length > 0
+                          ? rows
+                              .map((item) => {
+                                const employee = employees.find((row) => row.id === item.employeeId);
+                                return employee ? `${employee.fullName}${employee.shortName ? ` (${employee.shortName})` : ""}` : null;
+                              })
+                              .filter(Boolean)
+                              .join(", ")
+                          : "Chưa gắn"}
+                      </strong>
                     </p>
                   );
                 })}

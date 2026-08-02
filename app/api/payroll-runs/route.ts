@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { ensurePayrollRun } from "@/lib/server/payroll-generation";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdateWithOverride } from "@/lib/server/role-matrix";
-import { getBranchWhereClause } from "@/lib/branch-filter";
+import { getBranchWhereClause, getValidBranchIdForCreation } from "@/lib/branch-filter";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  if (!user.branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
+  const branchId = await getValidBranchIdForCreation();
+  if (!branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
   const { role, override } = await getUserRoleAndOverride(user.id, "hr");
   if (!canUpdateWithOverride("hr", role, override)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền tạo kỳ lương" }, { status: 403 });
@@ -35,10 +36,10 @@ export async function POST(req: NextRequest) {
   }
 
   const existing = await prisma.payrollRun.findUnique({
-    where: { branchId_periodName: { branchId: user.branchId, periodName } },
+    where: { branchId_periodName: { branchId, periodName } },
   });
   if (existing) return NextResponse.json({ error: "Kỳ lương này đã tồn tại" }, { status: 409 });
 
-  const run = await ensurePayrollRun(user.branchId, periodName);
+  const run = await ensurePayrollRun(branchId, periodName);
   return NextResponse.json({ item: run }, { status: 201 });
 }

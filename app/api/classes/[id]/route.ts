@@ -5,7 +5,7 @@ import { getUserRole } from "@/lib/permissions";
 import { canUpdate, canDelete } from "@/lib/server/role-matrix";
 import { estimateEndDate } from "@/lib/server/class-rules";
 import { syncClassDerivedFields } from "@/lib/server/database-sync";
-import { ensureClassRoadmapItems } from "@/lib/server/class-roadmap";
+import { ensureClassRoadmapItems, normalizeRoadmapItemsInput } from "@/lib/server/class-roadmap";
 import { isValidClassAssignmentRole } from "@/lib/server/class-default-assignments";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -86,6 +86,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const defaultAssignments = Array.isArray(body.defaultAssignments) ? body.defaultAssignments : null;
+  const roadmapItems = "roadmapItems" in body ? normalizeRoadmapItemsInput(body.roadmapItems, nextTotalSessions) : null;
 
   const updated = await prisma.$transaction(async (tx) => {
     const classUpdated = await tx.class.update({ where: { id: params.id }, data });
@@ -128,6 +129,23 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
             notes: assignment.notes,
             isActive: true,
           },
+        });
+      }
+    }
+
+    if (roadmapItems) {
+      await tx.classRoadmapItem.deleteMany({ where: { classId: params.id } });
+      if (roadmapItems.length > 0) {
+        await tx.classRoadmapItem.createMany({
+          data: roadmapItems.map((item) => ({
+            classId: params.id,
+            sessionNumber: item.sessionNumber,
+            title: item.title,
+            objective: item.objective,
+            materials: item.materials,
+            teacherGuide: item.teacherGuide,
+            homeworkGuide: item.homeworkGuide,
+          })),
         });
       }
     }

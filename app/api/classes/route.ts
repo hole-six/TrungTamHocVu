@@ -8,6 +8,7 @@ import { estimateEndDate, estimateEndDateFromRules } from "@/lib/server/class-ru
 import { syncClassDerivedFields } from "@/lib/server/database-sync";
 import { ensureClassRoadmapItems, normalizeRoadmapItemsInput } from "@/lib/server/class-roadmap";
 import { isValidClassAssignmentRole } from "@/lib/server/class-default-assignments";
+import { getHolidayDateSet } from "@/lib/server/holidays";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -108,6 +109,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const isRemedial = Boolean(body.isRemedial);
   const normalizedStartDate = body.startDate ? new Date(body.startDate) : null;
   const normalizedTotalSessions = body.totalSessions ? Number(body.totalSessions) : null;
   const normalizedRules = scheduleRules.map((rule: { weekday: number; startTime: string; endTime: string; room?: string | null }) => ({
@@ -116,8 +118,9 @@ export async function POST(req: NextRequest) {
     endTime: String(rule.endTime).trim(),
     room: rule.room ? String(rule.room).trim() : null,
   }));
+  const holidayDates = await getHolidayDateSet(branchId);
   const expectedEndDate =
-    estimateEndDateFromRules(normalizedStartDate, normalizedTotalSessions, normalizedRules) ??
+    estimateEndDateFromRules(normalizedStartDate, normalizedTotalSessions, normalizedRules, holidayDates) ??
     estimateEndDate(normalizedStartDate, normalizedTotalSessions, sessionsPerWeek);
   const roadmapItems = normalizeRoadmapItemsInput(body.roadmapItems, normalizedTotalSessions);
   const defaultAssignments = Array.isArray(body.defaultAssignments)
@@ -137,6 +140,7 @@ export async function POST(req: NextRequest) {
       classCode,
       classGroup: body.classGroup || null,
       className,
+      isRemedial,
       totalSessions: normalizedTotalSessions,
       startDate: normalizedStartDate,
       expectedEndDate,
@@ -161,7 +165,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  if (roadmapItems.length === 0) {
+  if (roadmapItems.length === 0 && !isRemedial) {
     await ensureClassRoadmapItems(created.id, normalizedTotalSessions);
   }
   const synced = await syncClassDerivedFields(created.id);

@@ -56,7 +56,11 @@ export default function AddMakeupSessionButton({
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="text-xs font-medium text-sky-700 hover:underline">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center justify-center rounded-xl border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-violet-100"
+      >
         Thêm buổi bù
       </button>
 

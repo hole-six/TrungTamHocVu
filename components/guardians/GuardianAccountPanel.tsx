@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 export default function GuardianAccountPanel({
   guardianId,
@@ -52,7 +53,8 @@ export default function GuardianAccountPanel({
 
   return (
     <div className="card">
-      <h2 className="font-display text-lg font-semibold tracking-tight">Tài khoản cổng phụ huynh</h2>
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted48">Phụ huynh</p>
+      <h2 className="mt-1 font-display text-lg font-semibold tracking-tight">Tài khoản cổng phụ huynh</h2>
       <p className="mt-1 text-xs text-ink-muted48">
         Cấp tài khoản để phụ huynh tự đăng nhập xem học phí, nhật ký lớp học và lịch học của con.
       </p>
@@ -66,9 +68,17 @@ export default function GuardianAccountPanel({
             </span>
           </div>
           {account.isActive && (
-            <button type="button" onClick={revoke} disabled={loading} className="text-xs font-semibold text-red-600">
+            <ConfirmActionButton
+              title="Xác nhận thu hồi tài khoản?"
+              description={`Tài khoản phụ huynh ${account.email} sẽ bị thu hồi quyền truy cập portal ngay.`}
+              confirmLabel="Thu hồi tài khoản"
+              tone="danger"
+              disabled={loading}
+              className="btn-danger-sm"
+              onConfirm={revoke}
+            >
               Thu hồi
-            </button>
+            </ConfirmActionButton>
           )}
         </div>
       )}

@@ -1,13 +1,14 @@
 /* eslint-disable no-restricted-globals */
 
-const CACHE_NAME = "tach-v1";
-const RUNTIME_CACHE = "tach-runtime-v1";
+const CACHE_NAME = "tach-v2";
+const RUNTIME_CACHE = "tach-runtime-v2";
 
 // Assets to cache on install
 const PRECACHE_URLS = [
-  "/",
   "/offline",
-  // Add other critical assets here
+  "/manifest.webmanifest",
+  "/pwa-icons/icon-192.png",
+  "/pwa-icons/icon-512.png",
 ];
 
 // Install event - precache resources
@@ -40,36 +41,45 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event — chọn chiến lược theo LOẠI request, không dùng chung 1 kiểu cho tất cả:
+// - Điều hướng trang (HTML): network-first — đây là app quản lý dữ liệu thật (học phí,
+//   điểm danh, lương...), ưu tiên bản mới nhất khi còn mạng, cache chỉ để lỡ mất mạng
+//   thì còn cái mà xem, không để lỡ tay hiện lại dashboard cũ khi đang online.
+// - API (/api/...): không đụng cache, luôn đi thẳng network — dữ liệu nghiệp vụ không
+//   được phép trả bản cache.
+// - Tài nguyên tĩnh (_next/static, ảnh...): cache-first — các file này có hash trong
+//   tên nên không đổi nội dung, cache-first vừa nhanh vừa không rủi ro.
 self.addEventListener("fetch", (event) => {
-  // Skip cross-origin requests
-  if (event.request.url.startsWith(self.location.origin)) {
-    event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
+  const { request } = event;
+  if (!request.url.startsWith(self.location.origin)) return;
+  if (request.method !== "GET") return;
+  if (request.url.includes("/api/")) return;
 
-        return caches.open(RUNTIME_CACHE).then((cache) => {
-          return fetch(event.request).then((response) => {
-            // Only cache successful responses
-            if (response.status === 200) {
-              // Don't cache API calls or dynamic content
-              if (!event.request.url.includes("/api/")) {
-                cache.put(event.request, response.clone());
-              }
-            }
-            return response;
-          }).catch(() => {
-            // Return offline page if available
-            if (event.request.mode === "navigate") {
-              return caches.match("/offline");
-            }
-          });
-        });
-      })
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.status === 200) {
+            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, response.clone()));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request).then((cached) => cached ?? caches.match("/offline"))),
     );
+    return;
   }
+
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      if (cached) return cached;
+      return fetch(request).then((response) => {
+        if (response.status === 200) {
+          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, response.clone()));
+        }
+        return response;
+      });
+    }),
+  );
 });
 
 // Background sync for offline actions
@@ -90,8 +100,8 @@ self.addEventListener("push", (event) => {
   
   const options = {
     body: data.body || "Bạn có thông báo mới",
-    icon: "/icon-192.png",
-    badge: "/badge-72.png",
+    icon: "/pwa-icons/icon-192.png",
+    badge: "/pwa-icons/badge-72.png",
     vibrate: [100, 50, 100],
     data: {
       dateOfArrival: Date.now(),

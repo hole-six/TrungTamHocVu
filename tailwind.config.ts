@@ -9,9 +9,9 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: "#0EA5E9",
-          focus: "#0284C7",
-          onDark: "#38BDF8",
+          DEFAULT: "#F97316",
+          focus: "#EA580C",
+          onDark: "#FB923C",
         },
         ink: {
           DEFAULT: "#1d1d1f",

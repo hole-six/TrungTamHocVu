@@ -28,6 +28,7 @@ type Class = {
   classCode: string;
   className: string;
   classGroup?: string | null;
+  isRemedial?: boolean;
   status: string;
   startDate?: string | Date | null;
   expectedEndDate?: string | Date | null;
@@ -54,6 +55,7 @@ type ClassesTableProps = {
   userRole: string;
   searchQuery?: string;
   statusFilter?: string;
+  statusOptions?: { key: string; label: string; count: number }[];
 };
 
 const WEEKDAY_LABEL = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -83,13 +85,13 @@ function formatUpcomingSession(session?: UpcomingSession | null) {
 
 function statusConfig(status: string) {
   if (status === "ACTIVE") {
-    return { label: "Đang hoạt động", color: "bg-emerald-100 text-emerald-700 border-emerald-200" };
+    return { label: "Đang chạy", color: "bg-[#ebf8f1] text-[#159d65] border-[#cdeedb]" };
   }
   if (status === "COMPLETED") {
-    return { label: "Đã kết thúc", color: "bg-sky-100 text-sky-700 border-sky-200" };
+    return { label: "Đã kết thúc", color: "bg-[#eef5ff] text-[#1f6feb] border-[#d7e7ff]" };
   }
   if (status === "CANCELLED") {
-    return { label: "Đã hủy", color: "bg-rose-100 text-rose-700 border-rose-200" };
+    return { label: "Đã hủy", color: "bg-[#fff1f2] text-[#e11d48] border-[#ffd7df]" };
   }
   return { label: status, color: "bg-slate-100 text-slate-700 border-slate-200" };
 }
@@ -107,6 +109,7 @@ export default function ClassesTable({
   userRole,
   searchQuery = "",
   statusFilter = "",
+  statusOptions = [],
 }: ClassesTableProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -182,8 +185,9 @@ export default function ClassesTable({
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-primary/8 px-3 py-1 text-xs font-bold text-primary">{row.classCode}</span>
             {row.classGroup ? <span className="rounded-full bg-[#eef5ff] px-3 py-1 text-xs font-semibold text-ink-muted80">{row.classGroup}</span> : null}
+            {row.isRemedial ? <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-700">🎯 Khóa bổ trợ</span> : null}
           </div>
-          <p className="mt-2 text-sm font-semibold text-ink">{value}</p>
+          <p className="mt-2 text-[15px] font-extrabold leading-6 text-ink">{value}</p>
           <p className="mt-1 text-xs text-ink-muted48">
             {row.course ? `[${row.course.code ?? "Khóa"}] ${row.course.name}` : "Chưa gắn khóa chuẩn"}
           </p>
@@ -231,16 +235,16 @@ export default function ClassesTable({
       key: "_count",
       label: "Vận hành & học phí",
       render: (value, row) => (
-        <div className="min-w-[220px] space-y-2 text-sm">
-          <div className="flex items-center justify-between gap-3">
+        <div className="grid min-w-[220px] gap-2 text-sm">
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#f7faff] px-3 py-2.5">
             <span className="text-ink-muted48">Sĩ số active</span>
             <span className="font-semibold text-ink">{value?.enrollments ?? 0} học viên</span>
           </div>
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#f7faff] px-3 py-2.5">
             <span className="text-ink-muted48">Học phí / buổi</span>
             <span className="font-semibold text-ink">{formatVnd(row.tuitionPerSession)}</span>
           </div>
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#edf5ff] px-3 py-2.5">
             <span className="text-ink-muted48">Tạm tính toàn khóa</span>
             <span className="font-semibold text-primary">
               {row.tuitionPerSession != null && row.totalSessions != null ? formatVnd(row.tuitionPerSession * row.totalSessions) : "—"}
@@ -258,7 +262,7 @@ export default function ClassesTable({
         const nextSession = row.sessions?.[0] ?? null;
         return (
           <div className="space-y-2 text-center">
-            <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${config.color}`}>
+            <span className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-bold ${config.color}`}>
               {config.label}
             </span>
             <p className="text-xs text-ink-muted48">{nextSession ? `Buổi tới ${formatDate(nextSession.sessionDate)}` : "Chưa có buổi tới"}</p>
@@ -402,20 +406,72 @@ export default function ClassesTable({
     });
   };
 
+  const filterChips = statusOptions.map((option) => {
+    const isActive = (statusFilter || "") === option.key;
+    return (
+      <button
+        key={option.key || "all"}
+        type="button"
+        onClick={() => {
+          const params = buildParams({ status: option.key, page: 1 });
+          startTransition(() => {
+            router.push(`${pathname}?${params.toString()}`);
+          });
+        }}
+        className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+          isActive
+            ? "border-[#1f6feb] bg-[linear-gradient(135deg,#1f6feb,#2f80ed)] text-white shadow-[0_10px_20px_-12px_rgba(31,111,235,0.8)]"
+            : "border-[#dbe7ff] bg-white text-ink hover:border-primary/40 hover:bg-[#f8fbff] hover:text-primary"
+        }`}
+      >
+        <span>{option.label}</span>
+        <span className={`rounded-full px-2 py-0.5 text-xs ${isActive ? "bg-white/20 text-white" : "bg-[#f3f7ff] text-primary"}`}>
+          {option.count}
+        </span>
+      </button>
+    );
+  });
+
   return (
     <DataTableResponsive
       data={data}
       columns={columns}
       actions={actions}
       bulkActions={bulkActions}
-      title="Danh sách lớp đang vận hành"
-      description="Mỗi dòng gom đủ thông tin để quyết định nhanh: lớp nào, lịch nào, tiến độ tới đâu, sắp học khi nào và học phí đang áp cho lớp."
       searchable
       searchPlaceholder="Tìm theo tên lớp, mã lớp..."
       onSearch={handleSearch}
       defaultSearchValue={searchQuery}
+      showCountBadge={false}
+      filterChips={filterChips}
       sortable
       selectable={canUpdate("schedule", userRole)}
+      className="
+        [&_[data-dt='header']]:rounded-[28px]
+        [&_[data-dt='header']]:border-[#dce6f5]
+        [&_[data-dt='header']]:bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)]
+        [&_[data-dt='header']]:px-5
+        [&_[data-dt='header']]:py-3.5
+        [&_[data-dt='table-shell']]:rounded-[30px]
+        [&_[data-dt='table-shell']]:border-[#dce6f5]
+        [&_[data-dt='table-shell']]:shadow-[0_30px_80px_-52px_rgba(15,23,42,0.45)]
+        [&_[data-dt='thead']]:bg-[linear-gradient(180deg,#fbfdff_0%,#f3f8ff_100%)]
+        [&_[data-dt='thead']_th]:px-5
+        [&_[data-dt='thead']_th]:py-4
+        [&_[data-dt='thead']_th]:text-[11px]
+        [&_[data-dt='thead']_th]:font-extrabold
+        [&_[data-dt='thead']_th]:tracking-[0.22em]
+        [&_[data-dt='tbody']_[data-dt='row']]:hover:bg-[#fbfdff]
+        [&_[data-dt='tbody']_[data-dt='row']_td]:px-5
+        [&_[data-dt='tbody']_[data-dt='row']_td]:py-5
+        [&_[data-dt='actions-cell']_[data-dt-action]]:min-w-[86px]
+        [&_[data-dt='actions-cell']_[data-dt-action]]:justify-center
+        [&_[data-dt='actions-cell']_[data-dt-action]]:rounded-[14px]
+        [&_[data-dt='actions-cell']_[data-dt-action]]:px-3.5
+        [&_[data-dt='actions-cell']_[data-dt-action]]:py-2.5
+        [&_[data-dt='actions-cell']_[data-dt-action]]:text-[12px]
+        [&_[data-dt='actions-cell']_[data-dt-action]]:font-bold
+      "
       pagination={{
         total,
         page,

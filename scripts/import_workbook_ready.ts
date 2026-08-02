@@ -910,7 +910,6 @@ async function importStudents(
 
     const studentData = {
       branchId,
-      studentDisplayId: row.studentDisplayId,
       fullName: row.fullName,
       leadId: row.leadRef ? leadMap.get(row.leadRef) : undefined,
       phone: row.phone,

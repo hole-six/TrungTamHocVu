@@ -1,6 +1,5 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import LogoutButton from "./LogoutButton";
 import BranchSelector from "./branches/BranchSelector";
 
@@ -11,18 +10,17 @@ type Branch = {
   isActive: boolean;
 };
 
-export default function Topbar({ 
-  fullName, 
+export default function Topbar({
+  fullName,
   branchName,
-  branches = []
-}: { 
-  fullName: string; 
+  branches = [],
+  currentBranchId,
+}: {
+  fullName: string;
   branchName?: string;
   branches?: Branch[];
+  currentBranchId?: string;
 }) {
-  const searchParams = useSearchParams();
-  const currentBranchId = searchParams?.get("branchId") || undefined;
-  
   const initials = fullName
     .split(" ")
     .slice(-2)

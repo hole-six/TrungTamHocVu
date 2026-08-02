@@ -1,8 +1,10 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import {
   estimateEndDate,
+  estimateEndDateFromRules,
   generateSessionDates,
   getVietnamToday,
   isSameUtcDay,
@@ -10,6 +12,8 @@ import {
   SESSION_STATUS_LABEL,
   ENROLLMENT_STATUS_LABEL,
 } from "@/lib/server/class-rules";
+import { getHolidayDateSet } from "@/lib/server/holidays";
+import DetailTabs from "@/components/ui/DetailTabs";
 import ScheduleRuleManager from "@/components/classes/ScheduleRuleManager";
 import GenerateSessionsForm from "@/components/classes/GenerateSessionsForm";
 import EnrollStudentForm from "@/components/classes/EnrollStudentForm";
@@ -19,59 +23,82 @@ import ClassRecurringTaskManager from "@/components/classes/ClassRecurringTaskMa
 import ClassEditForm from "@/components/classes/ClassEditForm";
 import RescheduleSessionButton from "@/components/classes/RescheduleSessionButton";
 import AddMakeupSessionButton from "@/components/classes/AddMakeupSessionButton";
-import ClassRoadmapManager from "@/components/classes/ClassRoadmapManager";
 import ClassDefaultAssignmentManager from "@/components/classes/ClassDefaultAssignmentManager";
 import { isTaskDueOn, computeTaskLogStatus } from "@/lib/server/class-task-rules";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { ensureClassRoadmapItems } from "@/lib/server/class-roadmap";
+import { getClassAssignmentRoleType } from "@/lib/server/class-default-assignments";
 
 function formatDate(d: Date | null) {
   return d ? new Date(d).toLocaleDateString("vi-VN") : "—";
 }
-
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
 }
-
 function weekdayLabel(weekday: number) {
   return ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][weekday] ?? String(weekday);
 }
-
 function attendanceLabel(status: string) {
   switch (status) {
-    case "PRESENT":
-      return "Có mặt";
-    case "ABSENT":
-      return "Vắng";
-    case "MAKEUP":
-      return "Học bù";
-    case "EXCUSED":
-      return "Có phép";
-    default:
-      return status;
+    case "PRESENT": return "Có mặt";
+    case "ABSENT": return "Vắng";
+    case "MAKEUP": return "Học bù";
+    case "EXCUSED": return "Có phép";
+    default: return status;
   }
 }
 
 function badgeClass(status: string) {
-  if (status === "ACTIVE" || status === "COMPLETED" || status === "DONE_ON_TIME") return "bg-primary/10 text-primary";
-  if (status === "UNPAID" || status === "OVERDUE" || status === "CANCELLED") return "bg-red-100 text-red-700";
-  if (status === "PENDING" || status === "PLANNED") return "bg-amber-100 text-amber-700";
-  return "bg-ink/5 text-ink-muted48";
+  if (status === "ACTIVE" || status === "COMPLETED" || status === "DONE_ON_TIME") return "bg-[#dcfce7] text-[#166534]";
+  if (status === "UNPAID" || status === "OVERDUE" || status === "CANCELLED") return "bg-[#fee2e2] text-[#991b1b]";
+  if (status === "PENDING" || status === "PLANNED") return "bg-[#fef9c3] text-[#854d0e]";
+  return "bg-[#f1f5f9] text-[#475569]";
 }
-
 function timingLabel(timing: "past" | "today" | "upcoming") {
   if (timing === "past") return "Đã qua";
   if (timing === "today") return "Hôm nay";
   return "Sắp tới";
 }
-
 function timingClass(timing: "past" | "today" | "upcoming") {
-  if (timing === "past") return "text-ink-muted48";
-  if (timing === "today") return "text-primary font-semibold";
-  return "text-ink-muted48";
+  if (timing === "past") return "text-[#94a3b8]";
+  if (timing === "today") return "text-[#f97316] font-semibold";
+  return "text-[#64748b]";
 }
+
+function SectionHeading({ icon, eyebrow, title, description, action }: {
+  icon?: ReactNode; eyebrow?: string; title: string; description?: string; action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
+        {icon ? <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#fff7ed] text-[#f97316]">{icon}</span> : null}
+        <div>
+          {eyebrow ? <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#64748b]">{eyebrow}</p> : null}
+          <h2 className="text-base font-bold tracking-tight text-[#0f1729]">{title}</h2>
+          {description ? <p className="mt-1 text-sm text-[#64748b]">{description}</p> : null}
+        </div>
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
+
+const ICON_CLOCK = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>;
+const ICON_ALERT = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>;
+const ICON_CHECKLIST = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>;
+const ICON_LINK = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>;
+const ICON_LIST = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>;
+const ICON_USERS = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
+const ICON_SETTINGS = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" /></svg>;
+
+const ATTENTION_STYLE = {
+  critical: { dot: "bg-red-500", text: "text-red-800", bg: "bg-red-50", border: "border-red-200" },
+  warning: { dot: "bg-amber-500", text: "text-amber-800", bg: "bg-amber-50", border: "border-amber-200" },
+  ok: { dot: "bg-emerald-500", text: "text-emerald-800", bg: "bg-emerald-50", border: "border-emerald-200" },
+};
+type AttentionSeverity = keyof typeof ATTENTION_STYLE;
 
 export default async function ClassDetailPage({ params }: { params: { id: string } }) {
   const cls = await prisma.class.findUnique({
@@ -145,67 +172,57 @@ export default async function ClassDetailPage({ params }: { params: { id: string
   const today = new Date();
   const classTasks = classTasksRaw.map((task) => {
     const dueToday = task.isActive && isTaskDueOn(task, today);
-    const todayLog = task.logs.find(
-      (log) =>
-        log.dueDate.getFullYear() === today.getFullYear() &&
-        log.dueDate.getMonth() === today.getMonth() &&
-        log.dueDate.getDate() === today.getDate()
+    const todayLog = task.logs.find((log) =>
+      log.dueDate.getFullYear() === today.getFullYear() &&
+      log.dueDate.getMonth() === today.getMonth() &&
+      log.dueDate.getDate() === today.getDate()
     );
     return { ...task, dueToday, todayStatus: dueToday ? computeTaskLogStatus(today, todayLog?.completedAt ?? null, today) : null };
   });
 
   const courses = await prisma.course.findMany({ where: { branchId: cls.branchId }, orderBy: { name: "asc" } });
   const employees = canManageClass
-    ? await prisma.employee.findMany({
-        where: { branchId: cls.branchId, workStatus: "ACTIVE" },
-        orderBy: { fullName: "asc" },
-      })
+    ? await prisma.employee.findMany({ where: { branchId: cls.branchId, workStatus: "ACTIVE" }, orderBy: { fullName: "asc" } })
     : [];
 
-  const completedSessions = cls.sessions.filter((session) => session.status === "COMPLETED").length;
-  const activeEnrollments = cls.enrollments.filter((enrollment) => enrollment.status === "ACTIVE");
-  const suggestedEnd = cls.expectedEndDate ?? estimateEndDate(cls.startDate, cls.totalSessions, cls.sessionsPerWeek);
-  const nextSession = [...cls.sessions].find((session) => session.sessionDate >= today) ?? null;
+  const completedSessions = cls.sessions.filter((s) => s.status === "COMPLETED").length;
+  const activeEnrollments = cls.enrollments.filter((e) => e.status === "ACTIVE");
+  const holidayDates = await getHolidayDateSet(cls.branchId);
+  const suggestedEnd =
+    cls.expectedEndDate ??
+    estimateEndDateFromRules(cls.startDate, cls.totalSessions, cls.scheduleRules, holidayDates) ??
+    estimateEndDate(cls.startDate, cls.totalSessions, cls.sessionsPerWeek);
+  const nextSession = [...cls.sessions].find((s) => s.sessionDate >= today) ?? null;
   const latestSession = cls.sessions[0] ?? null;
-  const latestCompletedSession = cls.sessions.find((session) => session.status === "COMPLETED") ?? latestSession ?? null;
-
+  const latestCompletedSession = cls.sessions.find((s) => s.status === "COMPLETED") ?? latestSession ?? null;
   const vietnamToday = getVietnamToday();
 
-  // Buổi số N tính theo thứ tự ngày thực tế trong cls.sessions — buổi CANCELLED
-  // không chiếm số thứ tự vì thực tế chưa từng diễn ra.
   const sessionsChronological = [...cls.sessions]
-    .filter((session) => session.status !== "CANCELLED")
+    .filter((s) => s.status !== "CANCELLED")
     .sort((a, b) => a.sessionDate.getTime() - b.sessionDate.getTime());
-  const sessionNumberById = new Map(sessionsChronological.map((session, index) => [session.id, index + 1]));
+  const sessionNumberById = new Map(sessionsChronological.map((s, i) => [s.id, i + 1]));
 
-  // Lịch trình dự kiến TOÀN KHÓA tính thẳng từ Lịch chuẩn (scheduleRules) trải suốt
-  // startDate→suggestedEnd — khác với cls.sessions (chỉ những buổi ĐÃ bấm sinh trong
-  // hệ thống, có thể chưa phủ hết cả khóa). Ghép theo ngày với buổi thực tế nếu có,
-  // để biết buổi nào đã có trong hệ thống, buổi nào mới chỉ là dự kiến theo lịch.
   const projectedSlots =
     cls.startDate && suggestedEnd && cls.scheduleRules.length > 0
-      ? generateSessionDates(cls.scheduleRules, cls.startDate, suggestedEnd)
+      ? generateSessionDates(cls.scheduleRules, cls.startDate, suggestedEnd, holidayDates)
       : [];
-  const projectedSchedule = (cls.totalSessions ? projectedSlots.slice(0, cls.totalSessions) : projectedSlots).map((slot, index) => {
-    const matchedSession = cls.sessions.find((session) => isSameUtcDay(session.sessionDate, slot.sessionDate)) ?? null;
-    return {
-      number: index + 1,
-      sessionDate: slot.sessionDate,
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      timing: computeSessionTiming(slot.sessionDate, vietnamToday),
-      session: matchedSession,
-    };
-  });
-  const occurredByCalendar = projectedSchedule.filter((slot) => slot.timing === "past" || slot.timing === "today").length;
+  const projectedSchedule = (cls.totalSessions ? projectedSlots.slice(0, cls.totalSessions) : projectedSlots).map((slot, index) => ({
+    number: index + 1,
+    sessionDate: slot.sessionDate,
+    startTime: slot.startTime,
+    endTime: slot.endTime,
+    timing: computeSessionTiming(slot.sessionDate, vietnamToday),
+    session: cls.sessions.find((s) => isSameUtcDay(s.sessionDate, slot.sessionDate)) ?? null,
+  }));
+  const occurredByCalendar = projectedSchedule.filter((s) => s.timing === "past" || s.timing === "today").length;
 
   const latestAttendanceStats = latestCompletedSession
     ? latestCompletedSession.attendances.reduce(
-        (acc, attendance) => {
-          if (attendance.status === "PRESENT") acc.present += 1;
-          if (attendance.status === "ABSENT") acc.absent += 1;
-          if (attendance.status === "MAKEUP") acc.makeup += 1;
-          if (attendance.status === "EXCUSED") acc.excused += 1;
+        (acc, a) => {
+          if (a.status === "PRESENT") acc.present += 1;
+          if (a.status === "ABSENT") acc.absent += 1;
+          if (a.status === "MAKEUP") acc.makeup += 1;
+          if (a.status === "EXCUSED") acc.excused += 1;
           return acc;
         },
         { present: 0, absent: 0, makeup: 0, excused: 0 }
@@ -213,610 +230,547 @@ export default async function ClassDetailPage({ params }: { params: { id: string
     : { present: 0, absent: 0, makeup: 0, excused: 0 };
 
   const totalOutstanding = cls.enrollments.reduce((sum, enrollment) => {
-    const classCharges = enrollment.student.charges.filter((charge) => charge.classId === cls.id);
-    const total = classCharges.reduce((chargeSum, charge) => chargeSum + charge.totalAmount, 0);
-    const paid = classCharges.reduce(
-      (paidSum, charge) => paidSum + charge.allocations.reduce((allocationSum, allocation) => allocationSum + allocation.amount, 0),
-      0
-    );
+    const cc = enrollment.student.charges.filter((c) => c.classId === cls.id);
+    const total = cc.reduce((s, c) => s + c.totalAmount, 0);
+    const paid = cc.reduce((s, c) => s + c.allocations.reduce((ss, a) => ss + a.amount, 0), 0);
     return sum + (total - paid);
   }, 0);
 
   const overdueEnrollments = cls.enrollments.filter((enrollment) => {
-    const classCharges = enrollment.student.charges.filter((charge) => charge.classId === cls.id);
-    const total = classCharges.reduce((chargeSum, charge) => chargeSum + charge.totalAmount, 0);
-    const paid = classCharges.reduce(
-      (paidSum, charge) => paidSum + charge.allocations.reduce((allocationSum, allocation) => allocationSum + allocation.amount, 0),
-      0
-    );
+    const cc = enrollment.student.charges.filter((c) => c.classId === cls.id);
+    const total = cc.reduce((s, c) => s + c.totalAmount, 0);
+    const paid = cc.reduce((s, c) => s + c.allocations.reduce((ss, a) => ss + a.amount, 0), 0);
     return total - paid > 0;
   }).length;
 
-  const dueTodayTasks = classTasks.filter((task) => task.dueToday);
-  const openTasks = tasks.filter((task) => task.status === "OPEN");
-  const estimatedClassTuition =
-    cls.tuitionPerSession && cls.totalSessions ? cls.tuitionPerSession * cls.totalSessions : null;
-  const defaultTeacherNames = cls.defaultAssignments
-    .filter((item) => item.role === "TEACHER")
-    .map((item) => item.employee.fullName)
-    .join(", ");
-  const defaultAssistantNames = cls.defaultAssignments
-    .filter((item) => item.role !== "TEACHER")
-    .map((item) => item.employee.shortName || item.employee.fullName)
-    .join(", ");
+  const dueTodayTasks = classTasks.filter((t) => t.dueToday);
+
+  const attentionItems: { text: string; severity: AttentionSeverity }[] = [];
+  if (!cls.scheduleRules.length) attentionItems.push({ text: "Chưa cấu hình lịch học chuẩn cho lớp.", severity: "critical" });
+  if (!cls.sessions.length) attentionItems.push({ text: "Chưa sinh buổi học — lớp chưa có dữ liệu vận hành.", severity: "critical" });
+  if (latestSession && !latestSession.assignments.length) attentionItems.push({ text: "Buổi gần nhất chưa phân công GV/TG thực tế.", severity: "critical" });
+  if (latestSession && !latestSession.attendances.length) attentionItems.push({ text: "Buổi gần nhất chưa điểm danh.", severity: "warning" });
+  if (latestSession && !latestSession.journal) attentionItems.push({ text: "Buổi gần nhất chưa có journal.", severity: "warning" });
+  if (totalOutstanding > 0) attentionItems.push({ text: `Lớp còn tổng nợ ${formatVnd(totalOutstanding)}.`, severity: "warning" });
+  if (dueTodayTasks.some((t) => t.todayStatus !== "DONE_ON_TIME")) attentionItems.push({ text: "Có nhắc việc hôm nay chưa hoàn tất đúng hạn.", severity: "warning" });
+
+  const estimatedClassTuition = cls.tuitionPerSession && cls.totalSessions ? cls.tuitionPerSession * cls.totalSessions : null;
+  const defaultTeacherNames = cls.defaultAssignments.filter((i) => getClassAssignmentRoleType(i.role) === "TEACHER").map((i) => i.employee.fullName).join(", ");
+  const defaultAssistantNames = cls.defaultAssignments.filter((i) => getClassAssignmentRoleType(i.role) === "ASSISTANT").map((i) => i.employee.shortName || i.employee.fullName).join(", ");
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Link href="/classes" className="text-sm text-primary">
-          ← Quay lại Lớp & Lịch
+    <div className="space-y-5 pb-16">
+
+      {/* ── HEADER ── */}
+      <div className="rounded-2xl border border-[#e5eaf7] bg-gradient-to-b from-white to-[#f8faff] p-8 shadow-sm">
+        <Link href="/classes" className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold text-[#f97316] hover:bg-[#f97316]/10 transition-colors">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Quay lại Lớp &amp; Lịch
         </Link>
-        <div className="mt-2 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight">{cls.className}</h1>
-              <span className={`badge ${badgeClass(cls.status)}`}>{cls.status === "ACTIVE" ? "Đang hoạt động" : cls.status}</span>
-              {latestCompletedSession?.journal?.publishedAt ? <span className="badge bg-emerald-100 text-emerald-700">Nhật ký buổi gần nhất đã gửi</span> : null}
-              {totalOutstanding > 0 ? <span className="badge bg-amber-100 text-amber-700">Còn nợ {formatVnd(totalOutstanding)}</span> : null}
+        <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#f97316] to-[#ea580c] shadow-lg">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
             </div>
-            <p className="mt-2 text-sm text-ink-muted48">
-              Mã lớp: <strong>{cls.classCode}</strong>
-              {cls.course ? <span> · Khóa học: {cls.course.name}</span> : null}
-              {" · "}Sĩ số hoạt động: {activeEnrollments.length}
-              {" · "}Buổi gần nhất: {formatDate(latestSession?.sessionDate ?? null)}
-              {nextSession ? ` · Buổi tới: ${formatDate(nextSession.sessionDate)}` : ""}
-            </p>
-            <p className="mt-1 text-sm text-ink-muted48">
-              Lịch chuẩn: {cls.scheduleRules.length ? cls.scheduleRules.map((rule) => `${weekdayLabel(rule.weekday)} ${rule.startTime}-${rule.endTime}`).join(" · ") : "Chưa cấu hình"}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {latestSession ? (
-              <Link
-                href={`/classes/${cls.id}/sessions/${latestSession.id}`}
-                className="inline-flex min-h-[52px] items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#0ea5e9_0%,#0284c7_100%)] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_-24px_rgba(2,132,199,0.9)] transition hover:translate-y-[-1px] hover:shadow-[0_22px_46px_-24px_rgba(2,132,199,0.95)]"
-              >
-                Mở buổi học gần nhất
-              </Link>
-            ) : null}
-            {canManageClass ? <GenerateSessionsForm classId={cls.id} /> : null}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
-        <div className="card">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Sĩ số hiện tại</p>
-          <p className="mt-2 font-display text-2xl font-semibold tracking-tight">{activeEnrollments.length}</p>
-          <p className="mt-1 text-xs text-ink-muted48">{cls.enrollments.length} tổng enrollment</p>
-        </div>
-        <div className="card">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Buổi đã học</p>
-          <p className="mt-2 font-display text-2xl font-semibold tracking-tight">
-            {completedSessions}
-            {cls.totalSessions ? ` / ${cls.totalSessions}` : ""}
-          </p>
-          <p className="mt-1 text-xs text-ink-muted48">{latestSession ? `Buổi gần nhất ${SESSION_STATUS_LABEL[latestSession.status] ?? latestSession.status}` : "Chưa có buổi"}</p>
-        </div>
-        <div className="card">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Điểm danh buổi gần nhất</p>
-          <p className="mt-2 font-display text-2xl font-semibold tracking-tight">{latestAttendanceStats.present}</p>
-          <p className="mt-1 text-xs text-ink-muted48">
-            Có mặt · {latestAttendanceStats.absent} vắng · {latestAttendanceStats.makeup} bù
-          </p>
-        </div>
-        <div className="card">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Công nợ lớp</p>
-          <p className="mt-2 font-display text-2xl font-semibold tracking-tight">{formatVnd(totalOutstanding)}</p>
-          <p className="mt-1 text-xs text-ink-muted48">{overdueEnrollments} học viên còn nợ</p>
-        </div>
-        <div className="card">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Nhắc việc hôm nay</p>
-          <p className="mt-2 font-display text-2xl font-semibold tracking-tight">{dueTodayTasks.length}</p>
-          <p className="mt-1 text-xs text-ink-muted48">{openTasks.length} task mở</p>
-        </div>
-        <div className="card">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Mốc lớp</p>
-          <p className="mt-2 font-display text-lg font-semibold tracking-tight">{formatDate(cls.startDate)}</p>
-          <p className="mt-1 text-xs text-ink-muted48">Dự kiến KT: {formatDate(suggestedEnd)}</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,0.9fr)]">
-        <div className="space-y-6">
-          {cls.sessions.length === 0 ? (
-            <div className="rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-amber-900">Lớp này chưa có buổi học thực tế nên chưa thể bấm đổi buổi hoặc thêm buổi bù</p>
-                  <p className="mt-1 text-sm text-amber-800">
-                    Trước tiên hãy bấm <strong>Sinh buổi học</strong> để tạo các buổi thực tế từ lịch chuẩn. Sau đó ở từng dòng buổi sẽ hiện rõ nút
-                    <strong> Đổi buổi</strong> và <strong>Thêm buổi bù</strong>.
-                  </p>
-                </div>
-                {canManageClass ? <GenerateSessionsForm classId={cls.id} /> : null}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="card">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="font-display text-lg font-semibold tracking-tight">Tổng quan vận hành lớp</h2>
-                <p className="mt-1 text-sm text-ink-muted48">Một nơi để điều hành lớp: lịch, buổi học, nhân sự, học viên, học phí và nhắc việc.</p>
-              </div>
-              {canManageClass ? <EnrollStudentForm classId={cls.id} /> : null}
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Ngữ cảnh lớp</p>
-                <dl className="mt-3 space-y-2 text-sm">
-                  <div className="flex items-start justify-between gap-4">
-                    <dt className="text-ink-muted48">Khóa học</dt>
-                    <dd className="text-right font-medium">{cls.course?.name ?? "Chưa gắn khóa"}</dd>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <dt className="text-ink-muted48">Buổi/tuần · HP/buổi</dt>
-                    <dd className="text-right font-medium">{cls.sessionsPerWeek ?? "—"} · {cls.tuitionPerSession ? formatVnd(cls.tuitionPerSession) : "—"}</dd>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <dt className="text-ink-muted48">Tổng buổi · Tạm tính khóa</dt>
-                    <dd className="text-right font-medium">{cls.totalSessions ?? "—"} · {estimatedClassTuition ? formatVnd(estimatedClassTuition) : "—"}</dd>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <dt className="text-ink-muted48">Lịch học chuẩn</dt>
-                    <dd className="text-right font-medium">
-                      {cls.scheduleRules.length ? cls.scheduleRules.map((rule) => `${weekdayLabel(rule.weekday)} ${rule.startTime}`).join(", ") : "Chưa có"}
-                    </dd>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <dt className="text-ink-muted48">GV / TG mặc định</dt>
-                    <dd className="text-right font-medium">
-                      {defaultTeacherNames || "Chưa gắn GV"}
-                      <span className="block text-xs font-normal text-ink-muted48">{defaultAssistantNames || "Chưa gắn TG"}</span>
-                    </dd>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <dt className="text-ink-muted48">Buổi kế tiếp</dt>
-                    <dd className="text-right font-medium">{nextSession ? `${formatDate(nextSession.sessionDate)} · ${nextSession.startTime ?? "—"}` : "Chưa có"}</dd>
-                  </div>
-                </dl>
-              </div>
-
-              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Buổi gần nhất</p>
-                {latestSession ? (
-                  <div className="mt-3 space-y-2 text-sm">
-                    <div className="flex items-start justify-between gap-4">
-                      <span className="text-ink-muted48">Ngày / trạng thái</span>
-                      <span className="text-right font-medium">
-                        {formatDate(latestSession.sessionDate)} · {SESSION_STATUS_LABEL[latestSession.status] ?? latestSession.status}
-                      </span>
-                    </div>
-                    <div className="flex items-start justify-between gap-4">
-                      <span className="text-ink-muted48">GV / TG thực tế</span>
-                      <span className="text-right font-medium">
-                        {latestSession.assignments.filter((item) => item.role === "TEACHER").map((item) => item.employee.fullName).join(", ") || "Chưa phân công"}
-                        {" · "}
-                        {latestSession.assignments.filter((item) => item.role !== "TEACHER").map((item) => item.employee.shortName || item.employee.fullName).join(", ") || "Không có TG"}
-                      </span>
-                    </div>
-                    <div className="flex items-start justify-between gap-4">
-                      <span className="text-ink-muted48">Điểm danh / nhật ký lớp</span>
-                      <span className="text-right font-medium">
-                        {latestSession.attendances.length} dòng · {latestSession.journal?.publishedAt ? "Đã gửi phụ huynh" : latestSession.journal ? "Đang lưu nháp" : "Chưa có"}
-                      </span>
-                    </div>
-                    <Link href={`/classes/${cls.id}/sessions/${latestSession.id}`} className="inline-flex text-sm font-medium text-primary">
-                      Mở buổi học này →
-                    </Link>
-                  </div>
-                ) : (
-                  <p className="mt-3 text-sm text-ink-muted48">Chưa có buổi học nào.</p>
+            <div>
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide mb-2 ${cls.status === "ACTIVE" ? "bg-[#10b981] text-white" : "bg-[#64748b] text-white"}`}>
+                <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                {cls.status === "ACTIVE" ? "ĐANG HOẠT ĐỘNG" : cls.status}
+              </span>
+              <h1 className="text-3xl font-black tracking-tight text-[#0f1729] mb-3">{cls.className}</h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center rounded-lg bg-[#f97316] px-2.5 py-1 text-xs font-bold text-white">{cls.classCode}</span>
+                {cls.course && <span className="inline-flex items-center rounded-lg bg-[#ea580c] px-2.5 py-1 text-xs font-bold text-white">{cls.course.name}</span>}
+                {cls.isRemedial && <span className="inline-flex items-center rounded-lg bg-[#f97316] px-2.5 py-1 text-xs font-bold text-white">Khóa bổ trợ</span>}
+                {totalOutstanding > 0 && <span className="inline-flex items-center rounded-lg bg-[#f59e0b] px-2.5 py-1 text-xs font-bold text-white">Còn nợ {formatVnd(totalOutstanding)}</span>}
+                {nextSession && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#f97316] px-2.5 py-1 text-xs font-bold text-white">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Buổi tới {formatDate(nextSession.sessionDate)}
+                  </span>
                 )}
               </div>
             </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <ClassDefaultAssignmentManager classId={cls.id} employees={employees} assignments={cls.defaultAssignments} />
-              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Quy tắc lịch lớp</p>
-                <ul className="mt-3 space-y-2 text-sm text-ink-muted80">
-                  <li>• Lịch ở đây là lịch chuẩn cố định để sinh buổi học theo tuần.</li>
-                  <li>• Nếu lớp có nghỉ, dời lịch hoặc học bù thì xử lý ở từng buổi thực tế, không làm méo lịch chuẩn của cả khóa.</li>
-                  <li>• Học viên học bù sang ngày khác vẫn giữ được lớp gốc và được ghi nhận ở điểm danh buổi phát sinh.</li>
-                </ul>
-              </div>
-              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Cách nhìn tiền lớp</p>
-                <ul className="mt-3 space-y-2 text-sm text-ink-muted80">
-                  <li>• Mức chuẩn của lớp đang là {cls.tuitionPerSession ? formatVnd(cls.tuitionPerSession) : "—"} mỗi buổi.</li>
-                  <li>• Tạm tính toàn khóa đang lấy theo công thức học phí/buổi × tổng số buổi.</li>
-                  <li>• Tiền thực thu từng học viên vẫn phải theo charge, scholarship và thanh toán của chính học viên đó.</li>
-                </ul>
-              </div>
-            </div>
           </div>
-
-          {canManageClass ? (
-            <>
-              <ScheduleRuleManager classId={cls.id} rules={cls.scheduleRules} />
-            </>
-          ) : null}
-
-          {projectedSchedule.length > 0 && (
-            <div className="card">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="font-display text-lg font-semibold tracking-tight">Lịch trình khóa học</h2>
-                  <p className="mt-1 text-sm text-ink-muted48">
-                    Tính thẳng từ Lịch chuẩn ({cls.scheduleRules.map((r) => weekdayLabel(r.weekday)).join(", ")}) trải từ {formatDate(cls.startDate)} đến{" "}
-                    {formatDate(suggestedEnd)} — buổi nào cũng có ngày cụ thể dù hệ thống đã sinh buổi hay chưa.
-                  </p>
-                </div>
-                <span className="badge bg-primary/10 text-primary">
-                  Đã qua theo lịch: {occurredByCalendar}/{projectedSchedule.length}
-                </span>
-              </div>
-              <div className="mt-4 max-h-80 overflow-y-auto rounded-2xl border border-hairline">
-                <table className="w-full text-left text-sm">
-                  <thead className="sticky top-0 border-b border-hairline bg-canvas-parchment/80 text-xs uppercase tracking-wide text-ink-muted48">
-                    <tr>
-                      <th className="py-2 pl-3 font-medium">Buổi</th>
-                      <th className="py-2 font-medium">Ngày dự kiến</th>
-                      <th className="py-2 font-medium">Giờ</th>
-                      <th className="py-2 font-medium">Tình trạng</th>
-                      <th className="py-2 font-medium">Hệ thống</th>
-                      <th className="py-2 pr-3 text-right font-medium">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {projectedSchedule.map((slot) => (
-                      <tr key={slot.number} className="border-b border-hairline last:border-0">
-                        <td className="py-1.5 pl-3 font-mono text-xs text-ink-muted48">
-                          #{slot.number}/{projectedSchedule.length}
-                        </td>
-                        <td className="py-1.5">{formatDate(slot.sessionDate)}</td>
-                        <td className="py-1.5 text-ink-muted80">
-                          {slot.startTime}–{slot.endTime}
-                        </td>
-                        <td className={`py-1.5 ${timingClass(slot.timing)}`}>{timingLabel(slot.timing)}</td>
-                        <td className="py-1.5 pr-3">
-                          {slot.session ? (
-                            <Link href={`/classes/${cls.id}/sessions/${slot.session.id}`} className="text-xs text-primary hover:underline">
-                              {SESSION_STATUS_LABEL[slot.session.status] ?? slot.session.status} →
-                            </Link>
-                          ) : (
-                            <span className="text-xs text-ink-muted48">Chưa sinh buổi</span>
-                          )}
-                        </td>
-                        <td className="py-1.5 pr-3 text-right">
-                          {slot.session ? (
-                            <div className="flex flex-col items-end gap-1">
-                              {canManageClass && slot.session.status !== "CANCELLED" ? (
-                                <AddMakeupSessionButton sessionId={slot.session.id} sessionDateLabel={formatDate(slot.session.sessionDate)} />
-                              ) : null}
-                              {canManageClass && slot.session.status !== "CANCELLED" && slot.session.status !== "RESCHEDULED" && !slot.session.replacedBySession ? (
-                                <RescheduleSessionButton sessionId={slot.session.id} sessionDateLabel={formatDate(slot.session.sessionDate)} />
-                              ) : null}
-                            </div>
-                          ) : canManageClass ? (
-                            <span className="text-xs text-amber-700">Sinh buổi trước để thao tác</span>
-                          ) : (
-                            <span className="text-xs text-ink-muted48">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          <div className="card overflow-x-auto">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="font-display text-lg font-semibold tracking-tight">Danh sách buổi học</h2>
-                <p className="mt-1 text-sm text-ink-muted48">Nhìn nhanh attendance, assignment và journal của từng buổi.</p>
-              </div>
-            </div>
-            <table className="mt-3 w-full text-left text-sm">
-              <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
-                <tr>
-                  <th className="py-2 font-medium">Buổi</th>
-                  <th className="py-2 font-medium">Ngày</th>
-                  <th className="py-2 font-medium">Giờ</th>
-                  <th className="py-2 font-medium">GV / TG</th>
-                  <th className="py-2 font-medium">Điểm danh</th>
-                  <th className="py-2 font-medium">Nhật ký lớp</th>
-                  <th className="py-2 font-medium">Trạng thái</th>
-                  <th className="py-2 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {cls.sessions.map((session) => {
-                  const present = session.attendances.filter((item) => item.status === "PRESENT").length;
-                  const absent = session.attendances.filter((item) => item.status === "ABSENT").length;
-                  const teacherNames = session.assignments.filter((item) => item.role === "TEACHER").map((item) => item.employee.fullName).join(", ");
-                  const assistantNames = session.assignments.filter((item) => item.role !== "TEACHER").map((item) => item.employee.shortName || item.employee.fullName).join(", ");
-                  const timing = computeSessionTiming(session.sessionDate, vietnamToday);
-                  return (
-                    <tr key={session.id} className="border-b border-hairline last:border-0 align-top">
-                      <td className="py-2 font-mono text-xs text-ink-muted48">
-                        {sessionNumberById.has(session.id) ? `#${sessionNumberById.get(session.id)}${cls.totalSessions ? `/${cls.totalSessions}` : ""}` : "—"}
-                      </td>
-                      <td className="py-2">
-                        {formatDate(session.sessionDate)}
-                        <p className={`text-[11px] ${timingClass(timing)}`}>{timingLabel(timing)}</p>
-                      </td>
-                      <td className="py-2 text-ink-muted80">{session.startTime ?? "—"}–{session.endTime ?? "—"}</td>
-                      <td className="py-2 text-ink-muted80">
-                        <p>{teacherNames || "Chưa phân công GV"}</p>
-                        <p className="text-xs text-ink-muted48">{assistantNames || "Không có TG"}</p>
-                      </td>
-                      <td className="py-2 text-ink-muted80">
-                        {session.attendances.length ? (
-                          <>
-                            {present} có mặt
-                            <p className="text-xs text-ink-muted48">{absent} vắng · {session.attendances.filter((item) => item.status === "MAKEUP").length} bù</p>
-                          </>
-                        ) : (
-                          "Chưa điểm danh"
-                        )}
-                      </td>
-                      <td className="py-2 text-ink-muted80">{session.journal?.publishedAt ? "Đã gửi phụ huynh" : session.journal ? "Đang lưu nháp" : "Chưa có"}</td>
-                      <td className="py-2">
-                        <span className={`badge ${badgeClass(session.status)}`}>{SESSION_STATUS_LABEL[session.status] ?? session.status}</span>
-                        {session.status === "RESCHEDULED" && session.replacedBySession ? (
-                          <p className="mt-1 text-[11px] text-amber-700">
-                            Bù sang{" "}
-                            <Link href={`/classes/${cls.id}/sessions/${session.replacedBySession.id}`} className="underline">
-                              {formatDate(session.replacedBySession.sessionDate)}
-                            </Link>
-                          </p>
-                        ) : null}
-                        {session.replacesSession ? (
-                          <p className="mt-1 text-[11px] text-ink-muted48">Buổi bù cho {formatDate(session.replacesSession.sessionDate)}</p>
-                        ) : null}
-                      </td>
-                      <td className="py-2 text-right">
-                        <div className="flex flex-col items-end gap-1">
-                          <Link
-                            href={`/classes/${cls.id}/sessions/${session.id}`}
-                            className="inline-flex min-h-[42px] items-center justify-center rounded-2xl border border-sky-200 bg-sky-50 px-4 text-sm font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-100"
-                          >
-                            Mở buổi học
-                          </Link>
-                          {canManageClass && session.status !== "CANCELLED" ? (
-                            <AddMakeupSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} />
-                          ) : null}
-                          {canManageClass && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession ? (
-                            <RescheduleSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} />
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {cls.sessions.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-6 text-center text-ink-muted48">
-                      <div className="flex flex-col items-center gap-3 py-2">
-                        <p>Chưa có buổi học thực tế nào.</p>
-                        <p className="text-xs text-ink-muted48">Bạn cần bấm "Sinh buổi học" trước, sau đó nút "Đổi buổi" và "Thêm buổi bù" mới hiện ở từng dòng buổi.</p>
-                        {canManageClass ? <GenerateSessionsForm classId={cls.id} /> : null}
-                      </div>
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
+          <div className="flex flex-wrap items-center gap-3">
+            {latestSession && (
+              <Link href={`/classes/${cls.id}/sessions/${latestSession.id}`} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#f97316] to-[#ea580c] px-5 py-3 text-sm font-bold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="10 8 16 12 10 16"/></svg>
+                Mở buổi học
+              </Link>
+            )}
+            {canManageClass && <GenerateSessionsForm classId={cls.id} />}
+            <ClassEditForm
+              cls={{
+                id: cls.id,
+                classCode: cls.classCode,
+                className: cls.className,
+                classGroup: cls.classGroup,
+                courseId: cls.courseId,
+                tuitionPerSession: cls.tuitionPerSession,
+                sessionsPerWeek: cls.sessionsPerWeek,
+                totalSessions: cls.totalSessions,
+                startDate: cls.startDate ? cls.startDate.toISOString() : null,
+                expectedEndDate: cls.expectedEndDate ? cls.expectedEndDate.toISOString() : null,
+                notes: cls.notes,
+                roadmapItems: roadmapItems.map((item) => ({
+                  sessionNumber: item.sessionNumber,
+                  title: item.title ?? `Buổi ${item.sessionNumber}`,
+                  objective: item.objective ?? "",
+                  materials: item.materials ?? "",
+                  teacherGuide: item.teacherGuide ?? "",
+                  homeworkGuide: item.homeworkGuide ?? "",
+                })),
+              }}
+              courses={courses}
+              renderSummary={false}
+              triggerLabel="Chỉnh sửa"
+              triggerClassName="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-5 py-3 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] hover:-translate-y-0.5 transition-all"
+            />
+            <Link href={`/classes/${cls.id}/edit`} className="hidden">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Chỉnh sửa
+            </Link>
           </div>
-
-          <ClassRoadmapManager
-            classId={cls.id}
-            items={roadmapItems}
-            totalSessions={cls.totalSessions}
-            editable={canManageClass}
-          />
-
-          <div className="card overflow-x-auto">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="font-display text-lg font-semibold tracking-tight">Danh sách học viên trong lớp</h2>
-                <p className="mt-1 text-sm text-ink-muted48">Đối chất học viên, phụ huynh, scholarship, công nợ và lịch sử học gần nhất ngay trên 1 bảng.</p>
-              </div>
-            </div>
-            <table className="mt-3 w-full text-left text-sm">
-              <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
-                <tr>
-                  <th className="py-2 font-medium">Học viên</th>
-                  <th className="py-2 font-medium">Phụ huynh</th>
-                  <th className="py-2 font-medium">Tài khoản phụ huynh</th>
-                  <th className="py-2 font-medium">Ưu đãi học phí</th>
-                  <th className="py-2 font-medium">Kỳ gần nhất</th>
-                  <th className="py-2 font-medium">Công nợ</th>
-                  <th className="py-2 font-medium">Học gần nhất</th>
-                  <th className="py-2 font-medium">Sách</th>
-                  <th className="py-2 font-medium">Trạng thái</th>
-                  <th className="py-2 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {cls.enrollments.map((enrollment) => {
-                  const primaryGuardian = enrollment.student.guardians.find((item) => item.isPrimary)?.guardian ?? enrollment.student.guardians[0]?.guardian ?? null;
-                  const classCharges = enrollment.student.charges.filter((charge) => charge.classId === cls.id);
-                  const latestCharge = classCharges[0] ?? null;
-                  const outstanding =
-                    classCharges.reduce((sum, charge) => sum + charge.totalAmount, 0) -
-                    classCharges.reduce(
-                      (sum, charge) => sum + charge.allocations.reduce((allocationSum, allocation) => allocationSum + allocation.amount, 0),
-                      0
-                    );
-                  const now = new Date();
-                  const activeScholarship = enrollment.scholarships.find(
-                    (scholarship) => scholarship.effectiveFrom <= now && (!scholarship.effectiveTo || scholarship.effectiveTo >= now)
-                  );
-                  const latestAttendance = enrollment.student.attendances[0] ?? null;
-                  const latestBookIssue = enrollment.student.bookIssues[0] ?? null;
-
-                  return (
-                    <tr key={enrollment.id} className="border-b border-hairline last:border-0 align-top">
-                      <td className="py-2">
-                        <Link href={`/students/${enrollment.studentId}`} className="font-medium text-primary">
-                          {enrollment.student.fullName}
-                        </Link>
-                        <p className="text-xs text-ink-muted48">
-                          {enrollment.student.studentDisplayId ?? enrollment.student.studentCode}
-                          {enrollment.student.lead?.leadCode ? ` · ${enrollment.student.lead.leadCode}` : ""}
-                        </p>
-                        <p className="text-xs text-ink-muted48">Từ {formatDate(enrollment.enrollDate)}</p>
-                      </td>
-                      <td className="py-2 text-ink-muted80">
-                        <p>{primaryGuardian?.fullName ?? "Chưa gắn"}</p>
-                        <p className="text-xs text-ink-muted48">{primaryGuardian?.phone ?? "Chưa có SĐT"}</p>
-                      </td>
-                      <td className="py-2 text-ink-muted80">
-                        {primaryGuardian?.user?.email ?? "Chưa cấp"}
-                        <p className="text-xs text-ink-muted48">{primaryGuardian?.user ? (primaryGuardian.user.isActive ? "Hoạt động" : "Đã thu hồi") : "Cần cấp"}</p>
-                      </td>
-                      <td className="py-2">
-                        {activeScholarship ? (
-                          <span className="badge bg-emerald-50 text-emerald-700" title={activeScholarship.reason ?? undefined}>
-                            {Math.round(activeScholarship.percentage * 100)}%
-                          </span>
-                        ) : (
-                          <span className="text-xs text-ink-muted48">Không</span>
-                        )}
-                      </td>
-                      <td className="py-2 text-ink-muted80">
-                        {latestCharge ? (
-                          <>
-                            <p>{latestCharge.billingPeriod.periodName}</p>
-                            <p className="text-xs text-ink-muted48">{latestCharge.sessionCount} buổi · {formatVnd(latestCharge.totalAmount)}</p>
-                          </>
-                        ) : (
-                          "Chưa sinh"
-                        )}
-                      </td>
-                      <td className={`py-2 font-medium ${outstanding > 0 ? "text-red-600" : "text-emerald-600"}`}>{formatVnd(outstanding)}</td>
-                      <td className="py-2 text-ink-muted80">
-                        {latestAttendance ? (
-                          <>
-                            <p>{formatDate(latestAttendance.session.sessionDate)}</p>
-                            <p className="text-xs text-ink-muted48">{attendanceLabel(latestAttendance.status)}</p>
-                          </>
-                        ) : (
-                          "Chưa có"
-                        )}
-                      </td>
-                      <td className="py-2 text-ink-muted80">
-                        {latestBookIssue ? (
-                          <>
-                            <p>{latestBookIssue.book.name}</p>
-                            <p className="text-xs text-ink-muted48">SL {latestBookIssue.quantity} · {latestBookIssue.paymentStatus}</p>
-                          </>
-                        ) : (
-                          "Chưa phát"
-                        )}
-                      </td>
-                      <td className="py-2">
-                        <span className={`badge ${badgeClass(enrollment.status)}`}>
-                          {ENROLLMENT_STATUS_LABEL[enrollment.status as keyof typeof ENROLLMENT_STATUS_LABEL] ?? enrollment.status}
-                        </span>
-                      </td>
-                      <td className="py-2">{canManageClass && <EnrollmentRowActions enrollmentId={enrollment.id} status={enrollment.status} />}</td>
-                    </tr>
-                  );
-                })}
-                {cls.enrollments.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="py-6 text-center text-ink-muted48">
-                      Chưa có học viên ghi danh.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="card">
-            <h2 className="font-display text-base font-bold tracking-tight text-ink">Bảng điều hành lớp</h2>
-            <div className="mt-3 space-y-3 text-sm">
-              <div className="rounded-2xl border border-hairline p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Cảnh báo lớp</p>
-                <ul className="mt-2 space-y-2 text-sm">
-                  {!cls.scheduleRules.length ? <li>• Chưa cấu hình lịch học chuẩn cho lớp.</li> : null}
-                  {!cls.sessions.length ? <li>• Chưa sinh buổi học — lớp chưa có dữ liệu vận hành.</li> : null}
-                  {latestSession && !latestSession.assignments.length ? <li>• Buổi gần nhất chưa phân công GV/TG thực tế.</li> : null}
-                  {latestSession && !latestSession.attendances.length ? <li>• Buổi gần nhất chưa điểm danh.</li> : null}
-                  {latestSession && !latestSession.journal ? <li>• Buổi gần nhất chưa có journal.</li> : null}
-                  {totalOutstanding > 0 ? <li>• Lớp còn tổng nợ {formatVnd(totalOutstanding)}.</li> : null}
-                  {dueTodayTasks.some((task) => task.todayStatus !== "DONE_ON_TIME") ? <li>• Có nhắc việc hôm nay chưa hoàn tất đúng hạn.</li> : null}
-                </ul>
-              </div>
-
-              <div className="rounded-2xl border border-hairline p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Nhắc việc hôm nay</p>
-                <div className="mt-2 space-y-2">
-                  {dueTodayTasks.map((task) => (
-                    <div key={task.id} className="rounded-xl bg-canvas-parchment/50 px-3 py-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="font-medium text-ink">{task.title}</span>
-                        {task.todayStatus ? <span className={`badge ${badgeClass(task.todayStatus)}`}>{task.todayStatus}</span> : null}
-                      </div>
-                    </div>
-                  ))}
-                  {dueTodayTasks.length === 0 ? <p className="text-sm text-ink-muted48">Không có việc định kỳ tới hạn hôm nay.</p> : null}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-hairline p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Liên kết nhanh</p>
-                <div className="mt-2 flex flex-wrap gap-3 text-sm">
-                  {latestSession ? (
-                    <Link href={`/classes/${cls.id}/sessions/${latestSession.id}`} className="text-primary">
-                      Điểm danh buổi gần nhất →
-                    </Link>
-                  ) : null}
-                  <Link href="/tuition" className="text-primary">
-                    Mở học phí →
-                  </Link>
-                  <Link href="/inventory" className="text-primary">
-                    Mở giáo trình →
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {canManageClass ? (
-            <>
-              <ClassEditForm
-                cls={{
-                  id: cls.id,
-                  className: cls.className,
-                  classGroup: cls.classGroup,
-                  courseId: cls.courseId,
-                  tuitionPerSession: cls.tuitionPerSession,
-                  sessionsPerWeek: cls.sessionsPerWeek,
-                  totalSessions: cls.totalSessions,
-                  startDate: cls.startDate ? cls.startDate.toISOString() : null,
-                  expectedEndDate: cls.expectedEndDate ? cls.expectedEndDate.toISOString() : null,
-                  notes: cls.notes,
-                }}
-                courses={courses}
-              />
-              <ClassTaskManager classId={cls.id} tasks={tasks} />
-              <ClassRecurringTaskManager classId={cls.id} tasks={classTasks} />
-            </>
-          ) : null}
         </div>
       </div>
+
+      {/* ── KPI 5 CARDS ── */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          </div>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Sĩ số</p>
+          <p className="text-2xl font-black text-[#0f1729] mb-1">{activeEnrollments.length}</p>
+          <p className="text-xs font-semibold text-[#64748b]">học sinh</p>
+        </div>
+        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Buổi đã học</p>
+          <p className="text-2xl font-black text-[#0f1729] mb-1">{completedSessions}{cls.totalSessions ? <span className="text-lg text-[#64748b]"> / {cls.totalSessions}</span> : ""}</p>
+          <p className="text-xs font-semibold text-[#64748b]">buổi hoàn thành</p>
+        </div>
+        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Công nợ</p>
+          <p className="text-2xl font-black text-[#0f1729] mb-1">{formatVnd(totalOutstanding)}</p>
+          <p className="text-xs font-semibold text-[#64748b]">{overdueEnrollments} học viên nợ</p>
+        </div>
+        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          </div>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Điểm danh</p>
+          <p className="text-2xl font-black text-[#0f1729] mb-1">{latestAttendanceStats.present}</p>
+          <p className="text-xs font-semibold text-[#64748b]">có mặt / {latestAttendanceStats.absent} vắng</p>
+        </div>
+        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Thời gian</p>
+          <p className="text-lg font-black text-[#0f1729] mb-1">{formatDate(cls.startDate)}</p>
+          <p className="text-xs font-semibold text-[#64748b]">đến {formatDate(suggestedEnd)}</p>
+        </div>
+      </div>
+
+      {/* ── TABS ── */}
+      <DetailTabs
+        defaultTabKey="tongquan"
+        tabs={[
+          {
+            key: "tongquan",
+            label: "Tổng quan",
+            content: (
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                {/* Buổi học gần nhất */}
+                <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
+                  <SectionHeading icon={ICON_CLOCK} eyebrow="Trọng tâm vận hành" title="Buổi học gần nhất"
+                    action={latestSession ? (
+                      <Link href={`/classes/${cls.id}/sessions/${latestSession.id}`} className="inline-flex items-center gap-1 text-sm font-bold text-[#f97316] hover:text-[#ea580c]">
+                        Mở chi tiết <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                      </Link>
+                    ) : null}
+                  />
+                  {latestSession ? (
+                    <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div className="rounded-xl bg-[#f8faff] p-4 border border-[#e5eaf7]">
+                        <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">Ngày &amp; giờ</p>
+                        <p className="font-bold text-[#0f1729]">{formatDate(latestSession.sessionDate)}</p>
+                        <p className="text-sm text-[#64748b] mt-1">{latestSession.startTime ?? "—"}</p>
+                      </div>
+                      <div className="rounded-xl bg-[#f8faff] p-4 border border-[#e5eaf7]">
+                        <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">Điểm danh</p>
+                        <p className="font-bold text-[#0f1729]">{latestAttendanceStats.present} có mặt</p>
+                        <p className="text-sm text-[#64748b] mt-1">{latestAttendanceStats.absent} vắng</p>
+                      </div>
+                      <div className="rounded-xl bg-[#f8faff] p-4 border border-[#e5eaf7]">
+                        <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">Nhật ký</p>
+                        <p className="font-bold text-[#0f1729]">{latestSession.journal?.publishedAt ? "Đã gửi" : latestSession.journal ? "Lưu nháp" : "Chưa có"}</p>
+                      </div>
+                      <div className="rounded-xl bg-[#f8faff] p-4 border border-[#e5eaf7]">
+                        <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">Nhân sự</p>
+                        <p className="font-bold text-[#0f1729] truncate">
+                          {latestSession.assignments.filter((i) => getClassAssignmentRoleType(i.role) === "TEACHER").map((i) => i.employee.fullName).join(", ") || "Chưa phân công"}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-sm text-[#64748b] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">Chưa có buổi học nào.</p>
+                  )}
+                </div>
+
+                {/* Cần chú ý */}
+                <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
+                  <SectionHeading icon={ICON_ALERT} title="Cần chú ý"
+                    action={<span className="inline-flex items-center rounded-full bg-[#f97316] px-3 py-1 text-xs font-bold text-white">{dueTodayTasks.length} việc hôm nay</span>}
+                  />
+                  <div className="mt-4 space-y-2">
+                    {attentionItems.length === 0 ? (
+                      <div className="flex items-center gap-3 rounded-xl bg-[#ecfdf5] border border-[#a7f3d0] px-4 py-3">
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-[#10b981]" />
+                        <span className="text-sm font-semibold text-[#065f46]">Lớp đang không có cảnh báo cần xử lý.</span>
+                      </div>
+                    ) : attentionItems.map((item, i) => (
+                      <div key={i} className={`flex items-center gap-3 rounded-xl px-4 py-3 ${ATTENTION_STYLE[item.severity].bg} border ${ATTENTION_STYLE[item.severity].border}`}>
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${ATTENTION_STYLE[item.severity].dot}`} />
+                        <span className={`text-sm font-semibold ${ATTENTION_STYLE[item.severity].text}`}>{item.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Nhắc việc hôm nay */}
+                <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
+                  <SectionHeading icon={ICON_CHECKLIST} title="Nhắc việc hôm nay" />
+                  <div className="mt-4 space-y-2">
+                    {dueTodayTasks.map((task) => (
+                      <div key={task.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between gap-3">
+                        <span className="font-semibold text-[#0f1729]">{task.title}</span>
+                        {task.todayStatus ? <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${badgeClass(task.todayStatus)}`}>{task.todayStatus}</span> : null}
+                      </div>
+                    ))}
+                    {dueTodayTasks.length === 0 && <p className="text-sm text-[#64748b] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">Không có việc tới hạn hôm nay.</p>}
+                  </div>
+                </div>
+
+                {/* Liên kết nhanh */}
+                <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
+                  <SectionHeading icon={ICON_LINK} title="Liên kết nhanh" />
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {latestSession && (
+                      <Link href={`/classes/${cls.id}/sessions/${latestSession.id}`} className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] transition-all">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                        Điểm danh buổi gần nhất
+                      </Link>
+                    )}
+                    <Link href="/tuition" className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] transition-all">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                      Mở học phí
+                    </Link>
+                    <Link href="/inventory" className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] transition-all">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                      Mở giáo trình
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ),
+          },
+
+          {
+            key: "buoihoc",
+            label: "Buổi học",
+            content: (
+              <div className="space-y-5">
+                <div className="rounded-2xl border border-[#e5eaf7] bg-white shadow-sm overflow-hidden">
+                  <div className="px-6 py-5 border-b border-[#e5eaf7]">
+                    <SectionHeading
+                      icon={ICON_LIST}
+                      title="Lịch học & nội dung từng buổi"
+                      description="Mỗi dòng là một buổi: ngày học, giáo viên, giáo án, điểm danh, nhật ký và thao tác đều nằm chung một chỗ."
+                    />
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-[#f8fbff] text-xs uppercase tracking-[0.18em] text-[#7b8ea5]">
+                        <tr>
+                          <th className="py-3 px-5 font-bold">Buổi</th>
+                          <th className="py-3 px-5 font-bold">Nội dung buổi</th>
+                          <th className="py-3 px-5 font-bold">GV / TG</th>
+                          <th className="py-3 px-5 font-bold">Điểm danh</th>
+                          <th className="py-3 px-5 font-bold">Nhật ký &amp; trạng thái</th>
+                          <th className="py-3 px-5 font-bold"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {projectedSchedule.map((slot) => {
+                          const session = slot.session;
+                          const roadmapItem = roadmapItems.find((item) => item.sessionNumber === slot.number) ?? null;
+                          const present = session ? session.attendances.filter((a) => a.status === "PRESENT").length : 0;
+                          const absent = session ? session.attendances.filter((a) => a.status === "ABSENT").length : 0;
+                          const teacherNames = session
+                            ? session.assignments.filter((a) => getClassAssignmentRoleType(a.role) === "TEACHER").map((a) => a.employee.fullName).join(", ")
+                            : "";
+                          const assistantNames = session
+                            ? session.assignments.filter((a) => getClassAssignmentRoleType(a.role) === "ASSISTANT").map((a) => a.employee.shortName || a.employee.fullName).join(", ")
+                            : "";
+                          const timing = slot.timing;
+                          return (
+                            <tr key={slot.number} className="border-b border-[#eef3f9] align-top hover:bg-[#fbfdff] last:border-0 transition-colors">
+                              <td className="px-5 py-5">
+                                <p className="inline-flex rounded-full bg-[#eff6ff] px-3 py-1 font-mono text-xs font-bold text-[#2563eb]">#{slot.number}/{projectedSchedule.length}</p>
+                                <p className="mt-2 text-base font-bold text-[#12304a]">{formatDate(slot.sessionDate)}</p>
+                                <p className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${timingClass(timing)}`}>{timingLabel(timing)}</p>
+                                <p className="mt-2 inline-flex rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-3 py-1 text-xs font-semibold text-[#4b6480]">{slot.startTime ?? "—"}–{slot.endTime ?? "—"}</p>
+                                {!session ? <p className="mt-2 inline-flex rounded-full border border-[#ffe0b2] bg-[#fff8eb] px-3 py-1 text-xs font-semibold text-[#c67c14]">Chưa sinh buổi thực tế</p> : null}
+                              </td>
+                              <td className="px-5 py-5">
+                                <p className="text-base font-bold text-[#12304a]">
+                                  {roadmapItem?.title?.trim() || `Buổi ${slot.number}`}
+                                </p>
+                                <p className="mt-2 text-sm leading-6 text-[#64748b]">
+                                  {roadmapItem?.objective?.trim() || "Chưa có mục tiêu / giáo án cho buổi này."}
+                                </p>
+                                {roadmapItem?.materials?.trim() ? (
+                                  <p className="mt-3 inline-flex rounded-2xl border border-[#e8eef8] bg-[#f8fbff] px-3 py-2 text-xs font-medium text-[#0f1729]">
+                                    Tài liệu: <span className="text-[#64748b]">{roadmapItem.materials}</span>
+                                  </p>
+                                ) : null}
+                              </td>
+                              <td className="px-5 py-5">
+                                <p className="text-base font-bold text-[#12304a]">{teacherNames || "Chưa phân công GV"}</p>
+                                <p className="mt-2 inline-flex rounded-full border border-[#e8eef8] bg-[#f8fbff] px-3 py-1 text-xs font-semibold text-[#64748b]">{assistantNames || "Không có TG"}</p>
+                              </td>
+                              <td className="px-5 py-5">
+                                {session && session.attendances.length ? (
+                                  <>
+                                    <p className="inline-flex rounded-full bg-[#ecfdf3] px-3 py-1 text-sm font-bold text-[#15803d]">{present} có mặt</p>
+                                    <p className="mt-2 inline-flex rounded-full bg-[#fff1f2] px-3 py-1 text-xs font-semibold text-[#e11d48]">{absent} vắng</p>
+                                  </>
+                                ) : <p className="inline-flex rounded-2xl border border-[#e8eef8] bg-[#f8fbff] px-3 py-2 text-sm font-semibold text-[#7b8ea5]">{session ? "Chưa điểm danh" : "Chưa có buổi thực tế"}</p>}
+                              </td>
+                              <td className="px-5 py-5">
+                                {session ? (
+                                  <>
+                                    <p className="inline-flex rounded-2xl border border-[#e8eef8] bg-white px-3 py-2 text-sm font-semibold text-[#64748b]">{session.journal?.publishedAt ? "Đã gửi phụ huynh" : session.journal ? "Đang lưu nháp" : "Chưa có nhật ký"}</p>
+                                    <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${badgeClass(session.status)}`}>{SESSION_STATUS_LABEL[session.status] ?? session.status}</span>
+                                    {session.status === "RESCHEDULED" && session.replacedBySession && (
+                                      <p className="mt-2 text-xs text-[#f59e0b] font-semibold">Bù sang <Link href={`/classes/${cls.id}/sessions/${session.replacedBySession.id}`} className="underline">{formatDate(session.replacedBySession.sessionDate)}</Link></p>
+                                    )}
+                                    {session.replacesSession ? <p className="mt-2 text-xs text-[#64748b]">Buổi bù cho {formatDate(session.replacesSession.sessionDate)}</p> : null}
+                                  </>
+                                ) : (
+                                  <p className="text-sm text-[#94a3b8]">Chưa có trạng thái vì chưa sinh buổi.</p>
+                                )}
+                              </td>
+                              <td className="px-5 py-5 text-right">
+                                {session ? (
+                                  <div className="flex flex-col items-end gap-2">
+                                    <Link href={`/classes/${cls.id}/sessions/${session.id}`} className="inline-flex min-w-[140px] items-center justify-center rounded-xl bg-[#0ea5e9] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#0284c7]">Mở buổi học</Link>
+                                    {canManageClass && session.status !== "CANCELLED" ? <AddMakeupSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} /> : null}
+                                    {canManageClass && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession ? <RescheduleSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} /> : null}
+                                  </div>
+                                ) : canManageClass ? (
+                                  <span className="text-xs text-[#f59e0b] font-semibold">Sinh buổi trước</span>
+                                ) : <span className="text-xs text-[#94a3b8]">—</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {projectedSchedule.length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="py-12 text-center">
+                              <div className="flex flex-col items-center gap-4">
+                                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f8faff]">
+                                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                </div>
+                                <div>
+                                  <p className="font-bold text-[#0f1729] mb-2">Chưa có buổi học thực tế nào</p>
+                                  <p className="text-sm text-[#64748b] mb-4">Bấm <strong>Sinh buổi học</strong> để tạo buổi từ lịch chuẩn</p>
+                                  {canManageClass && <GenerateSessionsForm classId={cls.id} />}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ),
+          },
+
+          {
+            key: "hocvien",
+            label: "Học viên",
+            content: (
+              <div className="rounded-2xl border border-[#e5eaf7] bg-white shadow-sm overflow-hidden">
+                <div className="px-6 py-5 border-b border-[#e5eaf7] flex items-center justify-between">
+                  <SectionHeading icon={ICON_USERS} title="Danh sách học viên trong lớp" />
+                  {canManageClass && <EnrollStudentForm classId={cls.id} courseTotalAmount={(cls.tuitionPerSession ?? 0) * (cls.totalSessions ?? 0)} />}
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-[#f8faff] text-xs uppercase tracking-wide text-[#64748b]">
+                      <tr>
+                        <th className="py-3 px-5 font-bold">Học viên</th>
+                        <th className="py-3 px-5 font-bold">Liên hệ</th>
+                        <th className="py-3 px-5 font-bold">Học phí</th>
+                        <th className="py-3 px-5 font-bold">Học tập</th>
+                        <th className="py-3 px-5 font-bold">Trạng thái</th>
+                        <th className="py-3 px-5 font-bold"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cls.enrollments.map((enrollment) => {
+                        const primaryGuardian = enrollment.student.guardians.find((g) => g.isPrimary)?.guardian ?? enrollment.student.guardians[0]?.guardian ?? null;
+                        const classCharges = enrollment.student.charges.filter((c) => c.classId === cls.id);
+                        const latestCharge = classCharges[0] ?? null;
+                        const outstanding = classCharges.reduce((s, c) => s + c.totalAmount, 0) - classCharges.reduce((s, c) => s + c.allocations.reduce((ss, a) => ss + a.amount, 0), 0);
+                        const now = new Date();
+                        const activeScholarship = enrollment.scholarships.find((sc) => sc.effectiveFrom <= now && (!sc.effectiveTo || sc.effectiveTo >= now));
+                        const latestAttendance = enrollment.student.attendances[0] ?? null;
+                        const latestBookIssue = enrollment.student.bookIssues[0] ?? null;
+                        return (
+                          <tr key={enrollment.id} className="border-b border-[#f0f4f8] align-top hover:bg-[#f8faff] last:border-0 transition-colors">
+                            <td className="py-4 px-5">
+                              <div className="flex items-start gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#f97316] to-[#ea580c] text-sm font-bold text-white shadow-md">
+                                  {enrollment.student.fullName.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <Link href={`/students/${enrollment.studentId}`} className="font-bold text-[#f97316] hover:text-[#ea580c]">{enrollment.student.fullName}</Link>
+                                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                    <span className="rounded-lg bg-[#f97316] px-2 py-0.5 text-xs font-bold text-white">{enrollment.student.studentCode}</span>
+                                    {enrollment.student.lead?.leadCode && <span className="text-xs text-[#64748b]">{enrollment.student.lead.leadCode}</span>}
+                                  </div>
+                                  <p className="mt-1 text-xs text-[#64748b]">Từ {formatDate(enrollment.enrollDate)} · {enrollment.billingModel === "COURSE" ? "Trọn khóa" : enrollment.billingModel === "INSTALLMENT" ? "Trả góp" : "Theo tháng"}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-5">
+                              <p className="font-semibold text-[#0f1729]">{primaryGuardian?.fullName ?? "Chưa gắn"}</p>
+                              <p className="text-xs text-[#64748b] mt-1">{primaryGuardian?.phone ?? "Chưa có SĐT"}</p>
+                              <p className="text-xs text-[#64748b] mt-0.5">{primaryGuardian?.user?.email ?? "Chưa cấp tài khoản"}</p>
+                            </td>
+                            <td className="py-4 px-5">
+                              {latestCharge ? (
+                                <>
+                                  <p className="font-semibold text-[#0f1729] mb-2">{latestCharge.billingPeriod.periodName}</p>
+                                  <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${outstanding > 0 ? "bg-[#fee2e2] text-[#991b1b]" : "bg-[#d1fae5] text-[#065f46]"}`}>
+                                    {outstanding > 0 ? `Còn nợ ${formatVnd(outstanding)}` : "Đã thanh toán"}
+                                  </span>
+                                  {activeScholarship && <p className="mt-2 text-xs font-semibold text-[#10b981]">Ưu đãi {Math.round(activeScholarship.percentage * 100)}%</p>}
+                                </>
+                              ) : <span className="text-sm text-[#94a3b8]">Chưa sinh</span>}
+                            </td>
+                            <td className="py-4 px-5">
+                              <p className="font-semibold text-[#0f1729] mb-1">{latestAttendance ? `${attendanceLabel(latestAttendance.status)} · ${formatDate(latestAttendance.session.sessionDate)}` : "Chưa có dữ liệu"}</p>
+                              <p className="text-xs text-[#64748b]">{latestBookIssue ? `${latestBookIssue.book.name} · SL ${latestBookIssue.quantity}` : "Chưa phát giáo trình"}</p>
+                            </td>
+                            <td className="py-4 px-5">
+                              <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${badgeClass(enrollment.status)}`}>
+                                {ENROLLMENT_STATUS_LABEL[enrollment.status as keyof typeof ENROLLMENT_STATUS_LABEL] ?? enrollment.status}
+                              </span>
+                            </td>
+                            <td className="py-4 px-5">{canManageClass && <EnrollmentRowActions enrollmentId={enrollment.id} status={enrollment.status} />}</td>
+                          </tr>
+                        );
+                      })}
+                      {cls.enrollments.length === 0 && (
+                        <tr><td colSpan={6} className="py-12 text-center">
+                          <div className="flex flex-col items-center gap-3">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f8faff]">
+                              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                            </div>
+                            <p className="font-bold text-[#0f1729]">Chưa có học viên ghi danh</p>
+                          </div>
+                        </td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ),
+          },
+
+          ...(canManageClass
+            ? [
+                {
+                  key: "cauhinh",
+                  label: "Cấu hình",
+                  content: (
+                    <div className="space-y-5">
+                      <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
+                        <SectionHeading icon={ICON_SETTINGS} title="Thiết lập lớp" description="Lịch chuẩn, nhân sự mặc định và thông tin lớp." />
+                        <div className="mt-5 grid grid-cols-3 gap-4">
+                          <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] p-4">
+                            <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">Học phí tiêu chuẩn</p>
+                            <p className="text-lg font-black text-[#0f1729]">{cls.tuitionPerSession ? formatVnd(cls.tuitionPerSession) : "Chưa đặt"}</p>
+                          </div>
+                          <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] p-4">
+                            <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">Tạm tính toàn khóa</p>
+                            <p className="text-lg font-black text-[#0f1729]">{estimatedClassTuition ? formatVnd(estimatedClassTuition) : "Chưa đủ dữ liệu"}</p>
+                          </div>
+                          <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] p-4">
+                            <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">Kết thúc dự kiến</p>
+                            <p className="text-lg font-black text-[#0f1729]">{formatDate(suggestedEnd)}</p>
+                          </div>
+                        </div>
+                        <div className="mt-5">
+                          <ClassDefaultAssignmentManager classId={cls.id} employees={employees} assignments={cls.defaultAssignments} />
+                        </div>
+                        <div className="mt-5">
+                          <ScheduleRuleManager classId={cls.id} rules={cls.scheduleRules} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+                        <ClassRecurringTaskManager classId={cls.id} tasks={classTasks} />
+                        <ClassTaskManager classId={cls.id} tasks={tasks} />
+                        <ClassEditForm
+                          cls={{
+                            id: cls.id,
+                            classCode: cls.classCode,
+                            className: cls.className,
+                            classGroup: cls.classGroup,
+                            courseId: cls.courseId,
+                            tuitionPerSession: cls.tuitionPerSession,
+                            sessionsPerWeek: cls.sessionsPerWeek,
+                            totalSessions: cls.totalSessions,
+                            startDate: cls.startDate ? cls.startDate.toISOString() : null,
+                            expectedEndDate: cls.expectedEndDate ? cls.expectedEndDate.toISOString() : null,
+                            notes: cls.notes,
+                            roadmapItems: roadmapItems.map((item) => ({
+                              sessionNumber: item.sessionNumber,
+                              title: item.title ?? `Buổi ${item.sessionNumber}`,
+                              objective: item.objective ?? "",
+                              materials: item.materials ?? "",
+                              teacherGuide: item.teacherGuide ?? "",
+                              homeworkGuide: item.homeworkGuide ?? "",
+                            })),
+                          }}
+                          courses={courses}
+                          renderSummary={false}
+                          triggerClassName="hidden"
+                        />
+                      </div>
+                    </div>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+      />
     </div>
   );
 }

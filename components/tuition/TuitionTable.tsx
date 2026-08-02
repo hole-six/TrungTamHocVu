@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
@@ -47,6 +47,10 @@ export default function TuitionTable({
   const router = useRouter();
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setData(initialData);
+  }, [initialData]);
 
   const exportRows = (rows: BillingPeriod[]) => {
     exportToExcel(
@@ -156,6 +160,19 @@ export default function TuitionTable({
   ];
 
   const actions: Action<BillingPeriod>[] = [
+    {
+      label: "Xuất phiếu PDF",
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 9V2h12v7" />
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+          <path d="M6 14h12v8H6z" />
+        </svg>
+      ),
+      onClick: (row) => { window.open(`/invoices/batch/${row.id}`, "_blank", "noopener,noreferrer"); },
+      variant: "secondary",
+      show: (row) => row.charges.length > 0,
+    },
     {
       label: "Xem",
       icon: (

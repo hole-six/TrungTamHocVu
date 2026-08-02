@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdateWithOverride } from "@/lib/server/role-matrix";
+import { refreshEditableChargesForStudent } from "@/lib/server/charge-repricing";
 
 // Dùng canUpdate (không phải canCreate) để nhất quán với các route "tuition" khác
 // (generate-charges, billing-periods, charges/[id]) — không role nào trong ROLE_MATRIX.tuition
@@ -40,6 +41,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       effectiveTo: body.effectiveTo ? new Date(body.effectiveTo) : null,
     },
   });
+
+  await refreshEditableChargesForStudent(params.id);
 
   return NextResponse.json({ item: scholarship }, { status: 201 });
 }

@@ -23,12 +23,14 @@ export default function TestQuickAction({
   leadId,
   latestTest,
   expectedStartDate,
+  actualEnrollDate,
   interestedClassId,
   classOptions,
 }: {
   leadId: string;
   latestTest: LatestTest;
   expectedStartDate?: Date | string | null;
+  actualEnrollDate?: Date | string | null;
   interestedClassId?: string | null;
   classOptions: { id: string; className: string }[];
 }) {
@@ -43,6 +45,7 @@ export default function TestQuickAction({
     status: latestTest?.status ?? "SCHEDULED",
     result: latestTest?.result ?? "",
     expectedStartDate: toYmd(expectedStartDate ?? null),
+    actualEnrollDate: toYmd(actualEnrollDate ?? null),
   });
   const [selectedClassId, setSelectedClassId] = useState(interestedClassId ?? "");
   const canSetStartDate = form.status === "PASSED";
@@ -52,7 +55,7 @@ export default function TestQuickAction({
   async function save() {
     setSaving(true);
     setError(null);
-    const { expectedStartDate: expectedStartDateInput, ...testForm } = form;
+    const { expectedStartDate: expectedStartDateInput, actualEnrollDate: actualEnrollDateInput, ...testForm } = form;
     const url = latestTest ? `/api/placement-tests/${latestTest.id}` : `/api/leads/${leadId}/placement-test`;
     const res = await fetch(url, {
       method: latestTest ? "PATCH" : "POST",
@@ -68,8 +71,12 @@ export default function TestQuickAction({
 
     // Lớp dự kiến giờ chọn từ danh mục lớp có sẵn (Lead.interestedClassId, đã là FK
     // thật) thay vì gõ tay tự do (PlacementTest.suggestedClass) — luôn ghi lại cùng
-    // lúc với ngày dự kiến đi học (nếu có) trong 1 lần PATCH lead duy nhất.
-    const leadPatch: Record<string, unknown> = { interestedClassId: selectedClassId || null };
+    // lúc với ngày dự kiến đi học / ngày nhập học TT (nếu có) trong 1 lần PATCH lead
+    // duy nhất, để panel này là chỗ đầy đủ duy nhất chỉnh cả 4 ngày của dòng lead.
+    const leadPatch: Record<string, unknown> = {
+      interestedClassId: selectedClassId || null,
+      actualEnrollDate: actualEnrollDateInput || null,
+    };
     if (canSetStartDate) leadPatch.expectedStartDate = expectedStartDateInput || null;
     const leadRes = await fetch(`/api/leads/${leadId}`, {
       method: "PATCH",
@@ -112,7 +119,7 @@ export default function TestQuickAction({
               <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
               <div className="relative flex h-full w-full max-w-md flex-col bg-white shadow-2xl animate-[slideInRight_0.2s_ease-out]">
                 <div className="flex items-center justify-between border-b border-hairline px-5 py-4">
-                  <h3 className="font-display text-base font-bold text-ink">{latestTest ? "Cập nhật lịch/kết quả test" : "Hẹn lịch test mới"}</h3>
+                  <h3 className="font-display text-base font-bold text-ink">{latestTest ? "Cập nhật test & nhập học" : "Hẹn lịch test mới"}</h3>
                   <button type="button" onClick={() => setOpen(false)} className="rounded-lg p-1.5 text-ink-muted48 hover:bg-ink/5 hover:text-ink">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="18" y1="6" x2="6" y2="18" />
@@ -171,6 +178,10 @@ export default function TestQuickAction({
                         <p className="form-hint">Chỉ chỉnh được sau khi chọn tình trạng test là "Đạt" ở trên.</p>
                       </>
                     )}
+                  </div>
+                  <div className="form-group">
+                    <label className="label">Ngày nhập học TT</label>
+                    <DatePicker value={form.actualEnrollDate} onChange={(v) => setForm((f) => ({ ...f, actualEnrollDate: v }))} />
                   </div>
                   <div className="form-group">
                     <label className="label">Kết quả / nhận xét</label>

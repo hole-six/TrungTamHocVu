@@ -2,44 +2,53 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
-const NEXT: Record<string, { to: string; label: string }[]> = {
-  ACTIVE: [
-    { to: "PAUSED", label: "Tạm nghỉ" },
-    { to: "COMPLETED", label: "Hoàn thành" },
-    { to: "WITHDRAWN", label: "Rút lớp" },
-  ],
-  PAUSED: [
-    { to: "ACTIVE", label: "Học lại" },
-    { to: "WITHDRAWN", label: "Rút lớp" },
-  ],
-};
+const WITHDRAWABLE_STATUSES = new Set(["ACTIVE", "PAUSED"]);
 
 export default function EnrollmentRowActions({ enrollmentId, status }: { enrollmentId: string; status: string }) {
   const router = useRouter();
-  const [loading, setLoading] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  async function setStatus(to: string) {
-    setLoading(to);
-    await fetch(`/api/enrollments/${enrollmentId}`, {
+  async function withdrawEnrollment() {
+    setLoading(true);
+
+    const res = await fetch(`/api/enrollments/${enrollmentId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: to }),
+      body: JSON.stringify({ status: "WITHDRAWN" }),
     });
-    setLoading(null);
+
+    const data = await res.json().catch(() => ({}));
+    setLoading(false);
+
+    if (!res.ok) {
+      alert(data.error ?? "Không thể rút lớp lúc này.");
+      return;
+    }
+
+    if (data.sessionCreditsGranted) {
+      alert(`Đã chuyển ${data.sessionCreditsGranted} buổi chưa học thành buổi bổ trợ.`);
+    }
+
     router.refresh();
   }
 
-  const options = NEXT[status] ?? [];
-  if (options.length === 0) return null;
+  if (!WITHDRAWABLE_STATUSES.has(status)) return null;
 
   return (
-    <div className="flex gap-1">
-      {options.map((o) => (
-        <button key={o.to} onClick={() => setStatus(o.to)} disabled={loading === o.to} className="text-xs text-primary">
-          {loading === o.to ? "..." : o.label}
-        </button>
-      ))}
+    <div className="flex justify-end">
+      <ConfirmActionButton
+        title="Xác nhận rút lớp?"
+        description="Các buổi chưa học đủ điều kiện sẽ được chuyển thành buổi bổ trợ cho học viên."
+        confirmLabel="Rút lớp"
+        tone="danger"
+        disabled={loading}
+        className="inline-flex min-w-[112px] items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+        onConfirm={withdrawEnrollment}
+      >
+        {loading ? "Đang xử lý..." : "Rút lớp"}
+      </ConfirmActionButton>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { estimateEndDate } from "@/lib/server/class-rules";
+import { estimateEndDate, estimateEndDateFromRules } from "@/lib/server/class-rules";
 import { computeStockBalance } from "@/lib/server/inventory-rules";
+import { getHolidayDateSet } from "@/lib/server/holidays";
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
@@ -22,10 +23,6 @@ function lastDayOfMonthUtc(date: Date) {
 function periodNameOf(date: Date) {
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
   return `${date.getUTCFullYear()}-${month}`;
-}
-
-function sanitizeDisplayCode(value: string) {
-  return value.replace(/[^A-Za-z0-9]/g, "");
 }
 
 export async function syncClassDerivedFields(
@@ -60,7 +57,8 @@ export async function syncCourseClasses(
   const course = await tx.course.findUnique({ where: { id: courseId } });
   if (!course) return [];
 
-  const classes = await tx.class.findMany({ where: { courseId } });
+  const classes = await tx.class.findMany({ where: { courseId }, include: { scheduleRules: true } });
+  const holidayDates = await getHolidayDateSet(course.branchId);
   const updates: Promise<unknown>[] = [];
 
   for (const cls of classes) {
@@ -85,7 +83,9 @@ export async function syncCourseClasses(
     const oldDerived = estimateEndDate(cls.startDate, cls.totalSessions, cls.sessionsPerWeek);
     const shouldRefreshExpectedEndDate = !cls.expectedEndDate || sameDateTime(cls.expectedEndDate, oldDerived);
     if (shouldRefreshExpectedEndDate) {
-      patch.expectedEndDate = estimateEndDate(cls.startDate, cls.totalSessions, targetSessionsPerWeek);
+      patch.expectedEndDate =
+        estimateEndDateFromRules(cls.startDate, cls.totalSessions, cls.scheduleRules, holidayDates) ??
+        estimateEndDate(cls.startDate, cls.totalSessions, targetSessionsPerWeek);
     }
 
     if (Object.keys(patch).length > 0) {
@@ -105,30 +105,18 @@ export async function syncStudentDerivedFields(
     include: {
       lead: true,
       enrollments: {
-        include: { class: true },
         orderBy: [{ enrollDate: "asc" }, { createdAt: "asc" }],
       },
     },
   });
   if (!student) return null;
 
-  const activeEnrollment =
-    student.enrollments.find((item) => item.status === "ACTIVE") ??
-    student.enrollments.find((item) => item.status === "PENDING") ??
-    student.enrollments.find((item) => item.status === "PAUSED") ??
-    student.enrollments[0] ??
-    null;
-
   const earliestEnrollDate = student.enrollments[0]?.enrollDate ?? student.enrollDate ?? null;
   const nextStatus = student.leaveDate ? "LEFT" : "ACTIVE";
-  const nextDisplayId = activeEnrollment?.class?.classCode
-    ? `${activeEnrollment.class.classCode}-${sanitizeDisplayCode(student.studentCode)}`
-    : student.studentDisplayId || sanitizeDisplayCode(student.studentCode);
 
   const patch: Prisma.StudentUpdateInput = {};
   if (student.status !== nextStatus) patch.status = nextStatus;
   if (!sameDateTime(student.enrollDate, earliestEnrollDate)) patch.enrollDate = earliestEnrollDate;
-  if (student.studentDisplayId !== nextDisplayId) patch.studentDisplayId = nextDisplayId;
 
   const updatedStudent =
     Object.keys(patch).length > 0

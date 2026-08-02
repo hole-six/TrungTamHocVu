@@ -5,6 +5,7 @@ import { PAYROLL_RUN_STATUS_LABEL, canEditPayroll, SESSION_ROLE_LABEL } from "@/
 import { monthRange } from "@/lib/server/tuition-rules";
 import PayrollRunActions from "@/components/payroll/PayrollRunActions";
 import PayrollLineEditor from "@/components/payroll/PayrollLineEditor";
+import AddPayrollLineForm from "@/components/payroll/AddPayrollLineForm";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -28,6 +29,18 @@ export default async function PayrollRunDetailPage({ params }: { params: { id: s
   const editable = canEditPayroll(run.status);
   const totalPayroll = run.lines.reduce((s, l) => s + l.totalAmount, 0);
 
+  const eligibleEmployees = editable
+    ? await prisma.employee.findMany({
+        where: {
+          branchId: run.branchId,
+          resignDate: null,
+          id: { notIn: run.lines.map((l) => l.employeeId) },
+        },
+        select: { id: true, fullName: true },
+        orderBy: { fullName: "asc" },
+      })
+    : [];
+
   // Đối chiếu từng dòng lương với dữ liệu gốc (SessionAssignment/TimesheetEntry) —
   // dùng CHÍNH XÁC cùng khoảng ngày và điều kiện lọc như lúc "Tính lương" ở
   // app/api/payroll-runs/[id]/generate/route.ts, để số hiển thị ở đây luôn khớp
@@ -36,7 +49,7 @@ export default async function PayrollRunDetailPage({ params }: { params: { id: s
   const employeeIds = run.lines.map((l) => l.employeeId);
   const [allAssignments, allTimesheetEntries] = await Promise.all([
     prisma.sessionAssignment.findMany({
-      where: { employeeId: { in: employeeIds }, session: { sessionDate: { gte: start, lte: end } } },
+      where: { employeeId: { in: employeeIds }, session: { sessionDate: { gte: start, lte: end }, status: "COMPLETED" } },
       include: { session: { include: { class: true } } },
       orderBy: { session: { sessionDate: "asc" } },
     }),
@@ -62,6 +75,10 @@ export default async function PayrollRunDetailPage({ params }: { params: { id: s
       </div>
 
       <PayrollRunActions runId={run.id} status={run.status} />
+
+      {editable && eligibleEmployees.length > 0 ? (
+        <AddPayrollLineForm payrollRunId={run.id} employeeOptions={eligibleEmployees} />
+      ) : null}
 
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-left text-sm">
@@ -110,7 +127,7 @@ export default async function PayrollRunDetailPage({ params }: { params: { id: s
                     <td className="px-4 py-3 text-ink-muted80">{formatVnd(l.bonus)}</td>
                     <td className="px-4 py-3 text-ink-muted80">{formatVnd(l.penalty)}</td>
                     <td className="px-4 py-3 font-medium">{formatVnd(l.totalAmount)}</td>
-                    <td className="px-4 py-3">{editable && <PayrollLineEditor lineId={l.id} bonus={l.bonus} penalty={l.penalty} />}</td>
+                    <td className="px-4 py-3">{editable && <PayrollLineEditor lineId={l.id} bonus={l.bonus} penalty={l.penalty} employeeName={l.employee.fullName} />}</td>
                   </tr>
                   <tr className="border-b border-hairline last:border-0">
                     <td colSpan={10} className="bg-canvas-parchment/30 px-4 py-2">

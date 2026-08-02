@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { ASSET_STATUS_LABEL } from "@/lib/server/asset-rules";
+import { ASSET_STATUS_LABEL, computeAssetTotalValue } from "@/lib/server/asset-rules";
 import NewAssetForm from "@/components/assets/NewAssetForm";
 import AssetEditForm from "@/components/assets/AssetEditForm";
 import DeleteAssetButton from "@/components/assets/DeleteAssetButton";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate, canUpdate, canDelete } from "@/lib/server/role-matrix";
+import { getCurrentBranchId } from "@/lib/branch-filter";
 
 const PAGE_SIZE = 20;
 
@@ -22,40 +23,31 @@ function normalizeUnit(unitName: string | null) {
 export default async function AssetsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; category?: string; status?: string; page?: string; pageSize?: string };
+  searchParams: { q?: string; page?: string };
 }) {
   const user = await getCurrentUser();
   const role = user ? await getUserRole(user.id) : null;
+  const activeBranchId = await getCurrentBranchId();
 
   const q = searchParams.q?.trim() ?? "";
-  const selectedCategory = searchParams.category?.trim() ?? "";
-  const selectedStatus = searchParams.status?.trim() ?? "";
   const page = Math.max(1, Number(searchParams.page ?? 1));
-  const pageSize = Math.min(100, Math.max(10, Number(searchParams.pageSize ?? PAGE_SIZE)));
+  const pageSize = PAGE_SIZE;
 
-  const branchWhere = user?.branchId ? { branchId: user.branchId } : {};
+  const branchWhere = activeBranchId ? { branchId: activeBranchId } : {};
   const where = {
     ...branchWhere,
-    ...(selectedCategory ? { category: selectedCategory } : {}),
-    ...(selectedStatus ? { status: selectedStatus } : {}),
     ...(q ? { OR: [{ name: { contains: q } }, { assetCode: { contains: q } }, { category: { contains: q } }, { room: { contains: q } }] } : {}),
   };
 
-  const [assets, total, categoryRows] = await Promise.all([
+  const [assets, total] = await Promise.all([
     prisma.asset.findMany({
       where,
       orderBy: [{ category: "asc" }, { name: "asc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
-      include: { transactions: { select: { quantity: true } } },
+      include: { transactions: { select: { type: true, quantity: true, amount: true } } },
     }),
     prisma.asset.count({ where }),
-    prisma.asset.findMany({
-      where: branchWhere,
-      select: { category: true },
-      distinct: ["category"],
-      orderBy: { category: "asc" },
-    }),
   ]);
 
   const rows = assets.map((asset) => {
@@ -65,7 +57,7 @@ export default async function AssetsPage({
       ...asset,
       quantity,
       unitName,
-      totalValue: quantity * (asset.unitValue ?? 0),
+      totalValue: computeAssetTotalValue(asset.unitValue, quantity, asset.transactions),
     };
   });
 
@@ -74,128 +66,56 @@ export default async function AssetsPage({
   const totalValue = rows.reduce((sum, row) => sum + row.totalValue, 0);
   const maintenanceCount = rows.filter((row) => row.status === "MAINTENANCE").length;
   const brokenCount = rows.filter((row) => row.status === "BROKEN").length;
-  const categoryOptions = categoryRows.map((row) => row.category?.trim()).filter((value): value is string => Boolean(value));
   const canManageAssets = canUpdate("assets", role);
   const canRemoveAssets = canDelete("assets", role);
 
   return (
     <div className="space-y-6">
-      <div className="overflow-hidden rounded-[32px] border border-[#dbe7ff] bg-[linear-gradient(135deg,#f8fcff_0%,#eef7ff_42%,#ffffff_100%)] p-6 shadow-[0_28px_80px_-48px_rgba(14,116,144,0.45)]">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-          <div className="space-y-3">
-            <span className="inline-flex w-fit rounded-full border border-sky-200 bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-              Sổ tài sản
-            </span>
-            <div>
-              <h1 className="page-title">Tài sản & trang thiết bị</h1>
-              <p className="page-subtitle max-w-3xl">
-                Theo dõi tài sản theo đúng nghiệp vụ vận hành: nhóm tài sản, phòng sử dụng, số lượng hiện có, đơn vị tính, giá trị trên từng đơn vị và trạng thái sử dụng.
-              </p>
-            </div>
-          </div>
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <h1 className="page-title">Tài sản & thiết bị</h1>
+          <p className="page-subtitle">Theo dõi nhóm tài sản, số lượng, giá trị và trạng thái sử dụng</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
           {canCreate("assets", role) ? <NewAssetForm /> : null}
-        </div>
-
-        <form className="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_240px_220px_180px_auto]">
-          <label className="form-group">
-            <span className="label-sm">Tìm theo tên, mã tài sản, phòng</span>
-            <input type="text" name="q" defaultValue={q} placeholder="Ví dụ: điều hòa, TS-001, P.102..." className="input" />
-          </label>
-
-          <label className="form-group">
-            <span className="label-sm">Nhóm tài sản</span>
-            <select name="category" defaultValue={selectedCategory} className="input">
-              <option value="">Tất cả nhóm</option>
-              {categoryOptions.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="form-group">
-            <span className="label-sm">Trạng thái</span>
-            <select name="status" defaultValue={selectedStatus} className="input">
-              <option value="">Tất cả trạng thái</option>
-              <option value="ACTIVE">Đang sử dụng</option>
-              <option value="MAINTENANCE">Đang bảo trì</option>
-              <option value="BROKEN">Hỏng</option>
-              <option value="DISPOSED">Đã thanh lý</option>
-            </select>
-          </label>
-
-          <label className="form-group">
-            <span className="label-sm">Số dòng / trang</span>
-            <select name="pageSize" defaultValue={String(pageSize)} className="input">
-              {[10, 20, 50, 100].map((size) => (
-                <option key={size} value={size}>
-                  {size} dòng
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="flex items-end gap-2">
-            <button type="submit" className="btn-primary w-full">
-              Lọc dữ liệu
-            </button>
-            <Link href="/assets" className="btn-ghost whitespace-nowrap">
-              Xóa lọc
-            </Link>
-          </div>
-        </form>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="stat-card">
-          <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">Dòng tài sản</p>
-          <p className="mt-1 font-display text-2xl font-semibold tracking-tight">{total}</p>
-        </div>
-        <div className="stat-card">
-          <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">Số lượng hiện có</p>
-          <p className="mt-1 font-display text-2xl font-semibold tracking-tight">{totalQuantity}</p>
-        </div>
-        <div className="stat-card">
-          <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">Giá trị ước tính</p>
-          <p className="mt-1 font-display text-2xl font-semibold tracking-tight">{formatVnd(totalValue)}</p>
-        </div>
-        <div className={maintenanceCount > 0 || brokenCount > 0 ? "rounded-3xl border border-amber-200 bg-amber-50 p-6" : "stat-card"}>
-          <p className={`text-xs font-semibold uppercase tracking-widest ${maintenanceCount > 0 || brokenCount > 0 ? "text-amber-700" : "text-ink-muted48"}`}>
-            Cần chú ý
-          </p>
-          <p className={`mt-1 font-display text-2xl font-semibold tracking-tight ${maintenanceCount > 0 || brokenCount > 0 ? "text-amber-800" : ""}`}>
-            {maintenanceCount} bảo trì
-          </p>
-          <p className={`mt-1 text-xs ${maintenanceCount > 0 || brokenCount > 0 ? "text-amber-700" : "text-ink-muted48"}`}>
-            {brokenCount} thiết bị hỏng
-          </p>
         </div>
       </div>
 
       <div className="card">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <form className="flex flex-wrap items-center gap-3">
+          <input
+            type="text"
+            name="q"
+            defaultValue={q}
+            placeholder="Tìm tên, mã tài sản, phòng..."
+            className="input min-w-[220px] flex-1"
+          />
+          <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-ink">Tài sản {total}</span>
+          <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-sky-700">Số lượng {totalQuantity}</span>
+          <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-indigo-700">Giá trị {formatVnd(totalValue)}</span>
+          <span className="rounded-full border border-[#fde7d8] bg-[#fff8f2] px-3 py-2 text-xs font-semibold text-amber-700">Bảo trì {maintenanceCount}</span>
+          <span className="rounded-full border border-[#ffe0e0] bg-[#fff7f7] px-3 py-2 text-xs font-semibold text-rose-700">Hỏng {brokenCount}</span>
+        </form>
+      </div>
+
+      <div className="card space-y-4">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="font-display text-lg font-semibold tracking-tight">Danh sách tài sản</h2>
-            <p className="mt-1 text-sm text-ink-muted48">
-              Tài sản được hiển thị theo nhóm, phòng, số lượng, đơn vị tính và giá trị từng đơn vị để dễ đối chiếu khi nhập mới hoặc kiểm kê.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
-            <p className="font-semibold text-ink">Quy ước</p>
-            <p className="mt-1">Giá trị là giá của 1 đơn vị tài sản. Tổng giá trị = số lượng hiện có × giá trị / đơn vị.</p>
+            <p className="mt-1 text-sm text-ink-muted48">Mở nhanh từng tài sản để sửa, theo dõi phòng và tình trạng sử dụng.</p>
           </div>
         </div>
 
-        <div className="mt-5 table-container">
+        <div className="table-container">
           <table className="table">
             <thead>
               <tr>
-                <th>Tên tài sản</th>
+                <th>Tài sản</th>
                 <th>Nhóm</th>
-                <th>Phòng / vị trí</th>
-                <th>Số lượng</th>
-                <th>Đơn vị tính</th>
+                <th>Phòng</th>
+                <th>SL</th>
+                <th>ĐVT</th>
                 <th>Giá trị / đơn vị</th>
                 <th>Tổng giá trị</th>
                 <th>Trạng thái</th>
@@ -209,10 +129,10 @@ export default async function AssetsPage({
                     <Link href={`/assets/${asset.id}`} className="font-medium text-primary hover:underline">
                       {asset.name}
                     </Link>
-                    <p className="mt-1 text-xs text-ink-muted48">{asset.assetCode ?? "Chưa có mã tài sản"}</p>
+                    <p className="mt-1 text-xs text-ink-muted48">{asset.assetCode ?? "Chưa có mã"}</p>
                   </td>
                   <td>{asset.category ?? "Chưa phân nhóm"}</td>
-                  <td>{asset.room ?? "Chưa gán phòng"}</td>
+                  <td>{asset.room ?? "Chưa gắn phòng"}</td>
                   <td>{asset.quantity}</td>
                   <td>{asset.unitName}</td>
                   <td>{asset.unitValue != null ? formatVnd(asset.unitValue) : "—"}</td>
@@ -248,27 +168,27 @@ export default async function AssetsPage({
               ))}
               {rows.length === 0 ? (
                 <tr className="table-empty">
-                  <td colSpan={9}>Không có tài sản nào khớp bộ lọc hiện tại.</td>
+                  <td colSpan={9}>Không có tài sản nào khớp bộ lọc.</td>
                 </tr>
               ) : null}
             </tbody>
           </table>
         </div>
 
-        <div className="mt-5 flex flex-col gap-3 border-t border-[#e6eefc] pt-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-3 border-t border-[#e6eefc] pt-4 md:flex-row md:items-center md:justify-between">
           <p className="text-sm text-ink-muted48">
-            Trang {page}/{totalPages} • Hiển thị {rows.length} trên tổng {total} tài sản
+            Hiển thị {rows.length} trên tổng {total} tài sản
           </p>
           <div className="pagination">
             <Link
-              href={`/assets?q=${encodeURIComponent(q)}&category=${encodeURIComponent(selectedCategory)}&status=${encodeURIComponent(selectedStatus)}&page=${Math.max(1, page - 1)}&pageSize=${pageSize}`}
+              href={`/assets?q=${encodeURIComponent(q)}&page=${Math.max(1, page - 1)}`}
               className={page <= 1 ? "pagination-item pointer-events-none opacity-50" : "pagination-item"}
             >
               Trước
             </Link>
             <span className="pagination-item-active">{page}</span>
             <Link
-              href={`/assets?q=${encodeURIComponent(q)}&category=${encodeURIComponent(selectedCategory)}&status=${encodeURIComponent(selectedStatus)}&page=${Math.min(totalPages, page + 1)}&pageSize=${pageSize}`}
+              href={`/assets?q=${encodeURIComponent(q)}&page=${Math.min(totalPages, page + 1)}`}
               className={page >= totalPages ? "pagination-item pointer-events-none opacity-50" : "pagination-item"}
             >
               Sau

@@ -8,30 +8,30 @@
   :root {
     --sidebar-w: 280px;
 
-    /* Trắng / xanh biển nhạt — Bright & Modern */
-    --bg-canvas: #f7fbff;
-    --bg-canvas-secondary: #eef7ff;
+    /* Cam / trắng ấm — Orange & Clean */
+    --bg-canvas: #ffffff;
+    --bg-canvas-secondary: #fafafa;
     --bg-card: #ffffff;
-    --bg-card-hover: #f5faff;
-    --bg-muted: #f1f8ff;
-    --bg-accent: #e6f4ff;
+    --bg-card-hover: #fafafa;
+    --bg-muted: #f8f8f8;
+    --bg-accent: #f5f5f5;
 
-    --text-primary: #0f2942;
-    --text-secondary: #3c5975;
-    --text-muted: #6b84a1;
-    --text-disabled: #9db1c4;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --text-disabled: #cbd5e1;
 
-    --border-primary: #dfeefc;
-    --border-secondary: #d3e8fa;
-    --border-muted: #c4defa;
+    --border-primary: #e2e8f0;
+    --border-secondary: #cbd5e1;
+    --border-muted: #f1f5f9;
 
-    /* Gradients — cùng họ xanh biển nhạt, không dùng tím/hồng */
-    --gradient-primary: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
-    --gradient-blue: linear-gradient(135deg, #7dd3fc 0%, #0ea5e9 100%);
-    --gradient-purple: linear-gradient(135deg, #7dd3fc 0%, #38bdf8 100%);
+    /* Gradients — họ cam, ấm áp và năng động */
+    --gradient-primary: linear-gradient(135deg, #fb923c 0%, #ea580c 100%);
+    --gradient-blue: linear-gradient(135deg, #fdba74 0%, #f97316 100%);
+    --gradient-purple: linear-gradient(135deg, #fde68a 0%, #fb923c 100%);
     --gradient-green: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    --gradient-orange: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
-    --gradient-card: linear-gradient(135deg, #ffffff 0%, #f7fbff 100%);
+    --gradient-orange: linear-gradient(135deg, #f97316 0%, #dc2626 100%);
+    --gradient-card: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
     
     /* Premium Shadows */
     --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.04);
@@ -39,7 +39,7 @@
     --shadow-md: 0 4px 8px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.04);
     --shadow-lg: 0 12px 24px -4px rgb(15 23 42 / 0.12), 0 4px 8px -4px rgb(15 23 42 / 0.06);
     --shadow-xl: 0 20px 40px -8px rgb(15 23 42 / 0.16), 0 8px 16px -8px rgb(15 23 42 / 0.08);
-    --shadow-glow: 0 0 24px 0 rgb(14 165 233 / 0.25);
+    --shadow-glow: 0 0 24px 0 rgb(249 115 22 / 0.30);
   }
   
   html { 
@@ -48,6 +48,9 @@
   }
   body {
     @apply font-text;
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 24px;
     background: var(--bg-canvas);
     color: var(--text-primary);
     -webkit-font-smoothing: antialiased;
@@ -56,15 +59,31 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow-x: hidden;
   }
-  h1, h2, h3, h4 { 
-    @apply font-display tracking-tight;
-    background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
+
+  /* ─── Phân tầng tiêu đề (Lexend) ───────────────────────
+     h1→h6 chỉ là NỀN mặc định khi 1 heading không tự khai cỡ, độ đậm riêng —
+     hầu hết heading trong app vẫn tự set cỡ chữ qua className, cái đó luôn
+     thắng vì utility class có độ ưu tiên cao hơn selector thẻ ở đây. */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+    color: var(--text-primary);
   }
+  h1 { font-size: 32px; line-height: 38px; font-weight: 700; letter-spacing: -0.02em; }
+  h2 { font-size: 24px; line-height: 32px; font-weight: 700; letter-spacing: -0.015em; }
+  h3 { font-size: 20px; line-height: 28px; font-weight: 600; letter-spacing: -0.01em; }
+  h4 { font-size: 18px; line-height: 26px; font-weight: 600; letter-spacing: -0.005em; }
+  h5 { font-size: 16px; line-height: 24px; font-weight: 600; }
+  h6 { font-size: 14px; line-height: 20px; font-weight: 600; }
   *:focus-visible {
     @apply outline-none ring-2 ring-primary/30 ring-offset-2;
     transition: all 0.2s ease;
+  }
+
+  select:focus-visible,
+  select:focus {
+    outline: none !important;
+    box-shadow: none !important;
+    ring: 0 !important;
   }
   
   /* Premium Animations */
@@ -495,19 +514,25 @@
     @apply max-w-5xl;
   }
   .page-title {
-    @apply text-3xl font-black tracking-tight;
-    background: linear-gradient(135deg, #0f2942 0%, #0ea5e9 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    font-size: 32px;
+    line-height: 38px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
   }
-  .page-subtitle { 
-    @apply mt-2 text-base font-medium leading-relaxed;
+  .page-subtitle {
+    @apply mt-2;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 400;
     color: var(--text-secondary);
   }
   .section-header { @apply flex items-center justify-between gap-6 pb-2; }
-  .section-title { 
-    @apply text-xl font-black tracking-tight;
+  .section-title {
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     color: var(--text-primary);
   }
 
@@ -608,6 +633,15 @@
   .scrollbar-thin::-webkit-scrollbar { width: 5px; }
   .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
   .scrollbar-thin::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
+  
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* ─── Mobile sheet overlay ───────────────────────────────── */
@@ -644,4 +678,7 @@
     box-shadow: none !important;
     -webkit-appearance: none;
   }
+  @page { size: A4; margin: 0; }
+  .break-after-page { break-after: page; page-break-after: always; }
+  .break-after-page:last-child { break-after: auto; page-break-after: auto; }
 }

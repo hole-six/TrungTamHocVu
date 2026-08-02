@@ -191,11 +191,12 @@ const ROLE_ROUTES: Record<string, string[]> = {
   // Lễ tân — CRM + hỗ trợ học vụ + thu học phí cơ bản (không truy cập lương/thu-chi)
   RECEPTIONIST: ["/dashboard", "/leads", "/students", "/guardians", "/classes", "/calendar", "/tuition", "/inventory"],
 
-  // Kế toán / Thu ngân — tài chính là chính
-  ACCOUNTANT: ["/dashboard", "/students", "/tuition", "/inventory", "/assets", "/cashbook", "/payroll", "/reports"],
+  // Kế toán / Thu ngân — tài chính là chính, thêm lịch để xem lịch tổng (đã có quyền
+  // xem "schedule" ở role-matrix từ trước nhưng bị chặn nhầm ở đây, không vào được trang)
+  ACCOUNTANT: ["/dashboard", "/students", "/tuition", "/inventory", "/assets", "/cashbook", "/payroll", "/reports", "/calendar"],
 
-  // Nhân sự / HR — chấm công, lương, hợp đồng
-  HR: ["/dashboard", "/timesheets", "/payroll", "/assets", "/reports"],
+  // Nhân sự / HR — chấm công, lương, hợp đồng, thêm lịch để xem lịch tổng (lý do như trên)
+  HR: ["/dashboard", "/timesheets", "/payroll", "/assets", "/reports", "/calendar"],
 
   // Giáo viên / Trợ giảng — lịch dạy, học viên lớp mình, lương của mình
   TEACHER: ["/dashboard", "/students", "/classes", "/calendar", "/payroll"],

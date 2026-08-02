@@ -1,7 +1,7 @@
-// Tạo kỳ lương + tính PayrollLine — tách riêng khỏi payroll-rules.ts (file đó được
-// components/payroll/PayrollWorkspace.tsx — 1 client component — import trực tiếp;
-// thêm import prisma vào đó sẽ kéo Prisma Client vào bundle trình duyệt). File này
-// chỉ được gọi từ route handler và scheduler (server-only).
+// Tạo kỳ lương + tính PayrollLine — tách riêng khỏi payroll-rules.ts (file đó có
+// vài hàm/label thuần được client component import trực tiếp; thêm import prisma
+// vào đó sẽ kéo Prisma Client vào bundle trình duyệt). File này chỉ được gọi từ
+// route handler và scheduler (server-only).
 import { prisma } from "@/lib/prisma";
 import { canEditPayroll } from "@/lib/server/payroll-rules";
 import { monthRange } from "@/lib/server/tuition-rules";
@@ -36,10 +36,10 @@ export async function generatePayrollForRun(runId: string) {
   for (const employee of employees) {
     const [teachingAssignments, assistantAssignments, timesheetEntries] = await Promise.all([
       prisma.sessionAssignment.findMany({
-        where: { employeeId: employee.id, role: "TEACHER", session: { sessionDate: { gte: start, lte: end } } },
+        where: { employeeId: employee.id, role: "TEACHER", session: { sessionDate: { gte: start, lte: end }, status: "COMPLETED" } },
       }),
       prisma.sessionAssignment.findMany({
-        where: { employeeId: employee.id, role: { in: ["ASSISTANT", "ASSISTANT2"] }, session: { sessionDate: { gte: start, lte: end } } },
+        where: { employeeId: employee.id, role: { in: ["ASSISTANT", "ASSISTANT2"] }, session: { sessionDate: { gte: start, lte: end }, status: "COMPLETED" } },
       }),
       prisma.timesheetEntry.findMany({ where: { employeeId: employee.id, workDate: { gte: start, lte: end } } }),
     ]);
@@ -61,7 +61,14 @@ export async function generatePayrollForRun(runId: string) {
     if (existingLine) {
       await prisma.payrollLine.update({
         where: { id: existingLine.id },
-        data: { teachingHours, teachingAmount, assistantHours, assistantAmount, staffDays, totalAmount: totalAmount + existingLine.bonus - existingLine.penalty },
+        data: {
+          teachingHours,
+          teachingAmount,
+          assistantHours,
+          assistantAmount,
+          staffDays,
+          totalAmount: totalAmount + existingLine.baseSalaryAmount + existingLine.bonus - existingLine.penalty,
+        },
       });
       updated++;
     } else {

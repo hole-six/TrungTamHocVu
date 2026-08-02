@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canView } from "@/lib/server/role-matrix";
+import { getCurrentBranchId } from "@/lib/branch-filter";
 
 function currentMonthRange() {
   const now = new Date();
@@ -16,11 +17,12 @@ export default async function TimesheetsPage() {
   const user = await getCurrentUser();
   const role = user ? await getUserRole(user.id) : null;
   if (!canView("timesheet", role)) notFound();
+  const activeBranchId = await getCurrentBranchId();
 
   const { start, end } = currentMonthRange();
   const employees = await prisma.employee.findMany({
     where: {
-      ...(user?.branchId ? { branchId: user.branchId } : {}),
+      ...(activeBranchId ? { branchId: activeBranchId } : {}),
     },
     include: {
       timesheetEntries: {
@@ -35,6 +37,7 @@ export default async function TimesheetsPage() {
     <TimesheetsWorkspace
       monthLabel={`Tháng ${start.getUTCMonth() + 1}/${start.getUTCFullYear()}`}
       defaultDate={new Date().toISOString().slice(0, 10)}
+      canManageEmployees={canView("hr", role)}
       employees={employees.map((employee) => ({
         id: employee.id,
         fullName: employee.fullName,

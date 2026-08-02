@@ -5,20 +5,37 @@
  * Admin có thể xem tất cả cơ sở, user thường chỉ xem cơ sở của mình.
  */
 
+import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
+// Cookie đọc/ghi bởi BranchSelector.tsx — "cơ sở đang xem" của phiên làm việc hiện
+// tại, KHÔNG phải quyền hạn (quyền hạn vẫn kiểm bằng hasAllBranchAccess bên dưới).
+// Chỉ có tác dụng khi requestedBranchId không được truyền tường minh (query string
+// vẫn luôn được ưu tiên hơn, giữ đúng hành vi của các route đã dùng từ trước).
+const ACTIVE_BRANCH_COOKIE = "active_branch_id";
+
+function getActiveBranchCookie(): string | null {
+  try {
+    return cookies().get(ACTIVE_BRANCH_COOKIE)?.value || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Lấy branchId từ session hoặc query parameter
- * - Admin: có thể chọn branchId từ URL (?branchId=xxx) hoặc xem tất cả
+ * - Admin: có thể chọn branchId từ URL (?branchId=xxx), cookie "cơ sở đang xem", hoặc xem tất cả
  * - User thường: chỉ xem branchId của mình
  */
 export async function getCurrentBranchId(requestedBranchId?: string | null): Promise<string | null> {
   const session = await auth();
-  
+
   if (!session?.user) {
     return null;
   }
+
+  const effectiveRequestedBranchId = requestedBranchId ?? getActiveBranchCookie();
 
   // Lấy thông tin user đầy đủ từ DB
   const user = await prisma.user.findUnique({
@@ -54,21 +71,21 @@ export async function getCurrentBranchId(requestedBranchId?: string | null): Pro
       rp => rp.permission.scope === "all"
     );
 
-  // Nếu là admin và có requestedBranchId, cho phép xem branch đó
-  if (hasAllBranchAccess && requestedBranchId) {
+  // Nếu là admin và có effectiveRequestedBranchId (query string hoặc cookie), cho phép xem branch đó
+  if (hasAllBranchAccess && effectiveRequestedBranchId) {
     // Verify branch exists
     const branchExists = await prisma.branch.findUnique({
-      where: { id: requestedBranchId },
+      where: { id: effectiveRequestedBranchId },
       select: { id: true }
     });
-    
+
     if (branchExists) {
-      return requestedBranchId;
+      return effectiveRequestedBranchId;
     }
   }
 
   // Nếu là admin nhưng không chọn branch cụ thể, return null (xem tất cả)
-  if (hasAllBranchAccess && !requestedBranchId) {
+  if (hasAllBranchAccess && !effectiveRequestedBranchId) {
     return null; // null = xem tất cả
   }
 
@@ -283,11 +300,13 @@ export async function getValidBranchIdForCreation(
     return null;
   }
 
-  // Nếu request có branchId và user có quyền access
-  if (requestedBranchId) {
-    const canAccess = await canAccessBranch(requestedBranchId);
+  const effectiveRequestedBranchId = requestedBranchId ?? getActiveBranchCookie();
+
+  // Nếu request có branchId (tường minh hoặc từ cookie "cơ sở đang xem") và user có quyền access
+  if (effectiveRequestedBranchId) {
+    const canAccess = await canAccessBranch(effectiveRequestedBranchId);
     if (canAccess) {
-      return requestedBranchId;
+      return effectiveRequestedBranchId;
     }
   }
 

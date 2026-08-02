@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 type Entry = {
@@ -47,10 +48,12 @@ export default function TimesheetsWorkspace({
   employees,
   monthLabel,
   defaultDate,
+  canManageEmployees,
 }: {
   employees: EmployeeRow[];
   monthLabel: string;
   defaultDate: string;
+  canManageEmployees: boolean;
 }) {
   const [selectedDate, setSelectedDate] = useState(defaultDate);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -151,39 +154,32 @@ export default function TimesheetsWorkspace({
 
   return (
     <div className="space-y-6">
-      <div className="overflow-hidden rounded-[32px] border border-[#dbe7ff] bg-[linear-gradient(135deg,#f8fcff_0%,#eef7ff_48%,#ffffff_100%)] p-6 shadow-[0_24px_70px_-42px_rgba(14,116,144,0.35)]">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-          <div className="space-y-3">
-            <span className="inline-flex w-fit rounded-full border border-sky-200 bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-              Chấm công hành chính
-            </span>
+      <div className="card space-y-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="space-y-2">
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">Bảng chấm công ngày</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-muted80 sm:text-base">
-                Ghi công cho hành chính/văn phòng theo đúng 4 mốc thực tế: đến sáng, về sáng, đến chiều, về chiều.
-                Công dạy của giáo viên và trợ giảng không nhập ở đây.
-              </p>
+              <h1 className="text-2xl font-semibold tracking-tight">Chấm công ngày</h1>
+              <p className="mt-1 text-sm text-ink-muted48">Nhập 4 mốc giờ cho hành chính và văn phòng theo ngày đang chọn.</p>
+            </div>
+
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 font-medium text-sky-700">Tháng {monthLabel}</span>
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 font-medium text-emerald-700">Đang làm {stats.activeCount}</span>
+              <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 font-medium text-violet-700">Đã chấm {stats.checkedTodayCount}</span>
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 font-medium text-amber-700">Công tháng {stats.monthDays}</span>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Tháng đang xem</p>
-              <p className="mt-2 text-lg font-semibold text-ink">{monthLabel}</p>
-            </div>
-            <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">NV đang làm</p>
-              <p className="mt-2 text-lg font-semibold text-ink">{stats.activeCount}</p>
-            </div>
-            <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Đã chấm ngày này</p>
-              <p className="mt-2 text-lg font-semibold text-emerald-600">{stats.checkedTodayCount}</p>
-            </div>
-            <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Tổng công tháng</p>
-              <p className="mt-2 text-lg font-semibold text-ink">{stats.monthDays}</p>
-              <p className="mt-1 text-xs text-ink-muted48">{stats.monthHours} giờ chấm công</p>
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="space-y-2">
+              <span className="label">Ngày chấm công</span>
+              <input type="date" className="input min-w-[220px]" value={selectedDate} onChange={(event) => loadDate(event.target.value)} />
+            </label>
+            {canManageEmployees ? (
+              <Link href="/payroll" className="btn-ghost">
+                Nhân sự
+              </Link>
+            ) : null}
           </div>
         </div>
       </div>
@@ -192,14 +188,12 @@ export default function TimesheetsWorkspace({
         <div className="card space-y-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Bước 1</p>
-              <h2 className="mt-1 font-display text-xl font-semibold tracking-tight">Chấm công theo ngày</h2>
-              <p className="mt-1 text-sm text-ink-muted48">Chọn đúng ngày rồi nhập 4 mốc thời gian. Hệ thống tự tính giờ và số công từ dữ liệu thực.</p>
+              <h2 className="font-display text-xl font-semibold tracking-tight">Danh sách chấm công</h2>
+              <p className="mt-1 text-sm text-ink-muted48">Lưu từng dòng theo đúng thời gian thực tế. Hệ thống tự tính giờ và số công.</p>
             </div>
-            <label className="space-y-2">
-              <span className="label">Ngày chấm công</span>
-              <input type="date" className="input min-w-[220px]" value={selectedDate} onChange={(event) => loadDate(event.target.value)} />
-            </label>
+            <div className="rounded-2xl border border-hairline bg-canvas-parchment/35 px-4 py-3 text-sm text-ink-muted48">
+              {stats.monthHours} giờ chấm công trong tháng
+            </div>
           </div>
 
           {error ? <div className="alert-danger">{error}</div> : null}
@@ -281,18 +275,18 @@ export default function TimesheetsWorkspace({
 
         <div className="space-y-6">
           <div className="card">
-            <h2 className="font-display text-base font-bold tracking-tight text-ink">Nguyên tắc hệ thống</h2>
+            <h2 className="font-display text-base font-bold tracking-tight text-ink">Nguyên tắc</h2>
             <div className="mt-3 space-y-3 text-sm">
               <div className="rounded-2xl border border-hairline p-4">
-                <p className="font-semibold text-ink">Luồng chấm công này dành cho ai?</p>
+                <p className="font-semibold text-ink">Dùng cho ai?</p>
                 <p className="mt-1 text-ink-muted48">Chỉ dùng cho hành chính, văn phòng, điều phối. Giáo viên và trợ giảng lấy công dạy từ buổi học đã phân công.</p>
               </div>
               <div className="rounded-2xl border border-hairline p-4">
-                <p className="font-semibold text-ink">Hệ thống tính công thế nào?</p>
+                <p className="font-semibold text-ink">Tính công thế nào?</p>
                 <p className="mt-1 text-ink-muted48">Tổng giờ = giờ sáng + giờ chiều. Số công = tổng giờ / 8 và làm tròn 2 chữ số thập phân.</p>
               </div>
               <div className="rounded-2xl border border-hairline p-4">
-                <p className="font-semibold text-ink">Nếu nhập sai thì sao?</p>
+                <p className="font-semibold text-ink">Nhập sai thì sao?</p>
                 <p className="mt-1 text-ink-muted48">Lưu lại cùng ngày sẽ cập nhật bản ghi cũ, không bị kẹt vì lỗi trùng ngày như trước nữa.</p>
               </div>
             </div>
