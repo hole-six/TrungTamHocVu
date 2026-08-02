@@ -143,7 +143,7 @@ export async function generateChargesForPeriod(periodId: string) {
   }
 
   const enrollments = await prisma.enrollment.findMany({
-    where: { status: "ACTIVE", class: { branchId: period.branchId } },
+    where: { status: "ACTIVE", class: { branchId: period.branchId, isRemedial: false } },
     include: {
       class: { include: { course: true } },
       installments: { where: { billingPeriodId: period.id, status: "PENDING" } },
@@ -214,7 +214,7 @@ export async function generateChargesForPeriod(periodId: string) {
         continue;
       }
 
-      const existingCharge = await prisma.charge.findUnique({
+      let existingCharge = await prisma.charge.findUnique({
         where: {
           studentId_classId_billingPeriodId: { studentId, classId, billingPeriodId: period.id },
         },
@@ -228,6 +228,19 @@ export async function generateChargesForPeriod(periodId: string) {
 
         if (replacement.blocked) {
           pushException(studentId, classId, replacement.reason ?? "KhÃ´ng thá»ƒ thay charge Ä‘Ã£ thu.");
+          continue;
+        }
+        if (replacement.replaced) existingCharge = null;
+      }
+
+      if (existingCharge) {
+        const collectedAmount = await getChargeCollectedAmount(existingCharge.id);
+        if (collectedAmount > 0) {
+          pushException(
+            studentId,
+            classId,
+            `Charge trả góp kỳ ${period.periodName} đã thu ${collectedAmount.toLocaleString("vi-VN")}đ nên không được sinh đè.`,
+          );
           continue;
         }
       }
@@ -314,6 +327,7 @@ export async function generateChargesForPeriod(periodId: string) {
       }),
     ]);
 
+    let chargeToUpdate = existingCharge;
     if (existingCharge && existingCharge.billingModel !== "PERIOD") {
       const replacement = await replaceChargeIfUncollected(
         existingCharge.id,
@@ -324,12 +338,25 @@ export async function generateChargesForPeriod(periodId: string) {
         pushException(studentId, classId, replacement.reason ?? "KhÃ´ng thá»ƒ thay charge Ä‘Ã£ thu.");
         continue;
       }
+      if (replacement.replaced) chargeToUpdate = null;
+    }
+
+    if (chargeToUpdate) {
+      const collectedAmount = await getChargeCollectedAmount(chargeToUpdate.id);
+      if (collectedAmount > 0) {
+        pushException(
+          studentId,
+          classId,
+          `Charge tháng ${period.periodName} đã thu ${collectedAmount.toLocaleString("vi-VN")}đ nên không được sinh đè.`,
+        );
+        continue;
+      }
     }
 
     const scholarshipPct = scholarships.reduce((sum, item) => sum + item.percentage, 0);
     const adjustmentPct = adjustments.reduce((sum, item) => sum + item.percentage, 0);
     const unitPrice = computeEffectiveUnitPrice(basePrice, scholarshipPct, adjustmentPct);
-    const deductedCount = existingCharge?.deductedCount ?? 0;
+    const deductedCount = chargeToUpdate?.deductedCount ?? 0;
     const tuitionAmount = computeTuitionAmount(sessionCount, absentCount, deductedCount, unitPrice);
     const materialsAmount = materials._sum.amount ?? 0;
 
@@ -339,7 +366,7 @@ export async function generateChargesForPeriod(periodId: string) {
       classId,
       className: enrollment.class.className,
       baseAmount: tuitionAmount + materialsAmount,
-      existingChargeId: existingCharge?.id ?? null,
+      existingChargeId: chargeToUpdate?.id ?? null,
       issueStart: period.startDate,
       issueEnd: period.endDate,
       chargePayload: {
@@ -599,7 +626,7 @@ export async function previewChargeGenerationExceptions(periodId: string) {
   if (!period) return { error: "KhÃ´ng tÃ¬m tháº¥y ká»³ thu" as const };
 
   const enrollments = await prisma.enrollment.findMany({
-    where: { status: "ACTIVE", class: { branchId: period.branchId } },
+    where: { status: "ACTIVE", class: { branchId: period.branchId, isRemedial: false } },
     include: {
       student: { select: { id: true, fullName: true, studentCode: true } },
       class: true,

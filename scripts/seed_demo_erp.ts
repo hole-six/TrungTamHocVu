@@ -639,6 +639,21 @@ async function main() {
       },
     }));
 
+  await prisma.charge.update({
+    where: { id: charge.id },
+    data: {
+      sessionCount: 8,
+      absentCount: 0,
+      deductedCount: 0,
+      unitPrice: 170000,
+      tuitionAmount: 1360000,
+      materialsAmount: 150000,
+      openingBalance: 0,
+      totalAmount: 1510000,
+      billingModel: "PERIOD",
+    },
+  });
+
   await prisma.invoice.upsert({
     where: { chargeId: charge.id },
     update: {},

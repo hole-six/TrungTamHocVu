@@ -53,29 +53,29 @@ function statusBadge(status: string) {
 
 const CALENDAR_PAGE_GUIDE_SECTIONS = [
   {
-    title: "Mục tiêu trang này",
+    title: "Trang này để làm gì",
     items: [
-      "Xem toàn bộ lịch học trong tuần theo từng ngày để nắm lớp nào học, giờ nào và ở đâu.",
-      "Kiểm tra nhanh giáo viên, trợ giảng, sĩ số và trạng thái của từng buổi.",
-      "Đi từ lịch tổng vào thẳng chi tiết buổi học khi cần điểm danh, đổi lịch hoặc viết nhật ký.",
+      "Xem toàn bộ lịch học trong tuần theo từng ngày.",
+      "Kiểm tra nhanh giờ học, phòng, giáo viên, trợ giảng và trạng thái buổi.",
+      "Mở thẳng vào buổi học khi cần điểm danh, đổi lịch hoặc viết nhật ký.",
     ],
     tone: "info" as const,
   },
   {
-    title: "Cách thao tác nhanh",
+    title: "Cách dùng nhanh",
     items: [
-      "Chọn đúng tuần trước, sau đó mới tìm theo tên lớp, mã lớp, phòng hoặc giáo viên.",
-      "Dùng bộ lọc ca sáng, chiều, tối để nhìn lịch gọn hơn khi một ngày có quá nhiều buổi.",
+      "Chọn đúng tuần trước, rồi mới tìm theo lớp, phòng hoặc giáo viên.",
+      "Dùng lọc sáng, chiều, tối khi một ngày có quá nhiều buổi.",
       "Bấm trực tiếp vào thẻ buổi học để mở đúng buổi cần xử lý.",
     ],
     tone: "success" as const,
   },
   {
-    title: "Lưu ý vận hành",
+    title: "Lưu ý",
     items: [
-      "Lịch tuần chỉ phản ánh các buổi đã được tạo trong lớp, không tự sinh nếu lớp chưa có session.",
-      "Buổi đổi lịch hoặc hủy sẽ có trạng thái riêng nên cần nhìn đúng badge trước khi thao tác.",
-      "Nếu đang lọc theo giáo viên mà thiếu buổi, hãy kiểm tra lại phân công GV/TG trong session đó.",
+      "Lịch tuần chỉ hiện các buổi đã được tạo.",
+      "Buổi đổi lịch hoặc hủy sẽ có badge riêng, cần nhìn đúng trước khi thao tác.",
+      "Nếu lọc theo giáo viên mà thiếu buổi, kiểm tra lại phân công trong session đó.",
     ],
     tone: "warning" as const,
   },
@@ -190,10 +190,10 @@ export default async function CalendarPage({
   return (
     <div className="space-y-5">
       <PageGuide
-        title="Guide lịch tổng"
-        summary="Hướng dẫn nhanh cách đọc lịch tuần, lọc đúng buổi học và mở vào chi tiết session."
+        title="Hướng dẫn lịch tổng"
+        summary="Cách đọc lịch tuần, lọc đúng buổi học và mở vào chi tiết session."
         sections={CALENDAR_PAGE_GUIDE_SECTIONS}
-        buttonLabel="Guide lịch"
+        buttonLabel="Guide"
       />
       <div className="flex items-center gap-4">
         <div className="grid h-12 w-12 place-items-center rounded-2xl bg-sky-50 text-sky-600">
@@ -201,7 +201,7 @@ export default async function CalendarPage({
         </div>
         <div>
           <h1 className="page-title">Lịch tổng lớp học</h1>
-          <p className="page-subtitle">Theo dõi nhanh lịch dạy trong tuần, tình trạng buổi học và phân công nhân sự.</p>
+          <p className="page-subtitle">Xem nhanh lịch dạy trong tuần, trạng thái buổi học và phân công nhân sự.</p>
         </div>
       </div>
 
@@ -211,8 +211,6 @@ export default async function CalendarPage({
         initialQuery={q}
         initialTimePreset={timePreset}
       />
-
-     
 
       <div className="overflow-x-auto pb-2">
         <div className="grid min-w-[1460px] grid-cols-7 gap-3">
@@ -237,7 +235,7 @@ export default async function CalendarPage({
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">{WEEKDAY_SHORT[day.date.getUTCDay()]}</p>
                   <p className="mt-1 font-display text-xl font-semibold tracking-tight text-ink">{formatCompactDate(day.date)}</p>
                   <p className="mt-1 text-xs text-ink-muted48">
-                    {day.sessions.length} buổi · {day.totalStudents} lượt HV
+                    {day.sessions.length} buổi · {day.totalStudents} lượt học viên
                   </p>
                 </div>
                   {isToday ? <span className="absolute right-0 top-0 text-[11px] font-semibold text-sky-700">Hôm nay</span> : null}
@@ -250,7 +248,7 @@ export default async function CalendarPage({
                     <p className="mt-2 text-lg font-semibold text-emerald-700">{day.completed}</p>
                   </div>
                   <div className="rounded-[11px] bg-[#fff8ed] px-3 py-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">Thiếu người</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">Thiếu phân công</p>
                     <p className="mt-2 text-lg font-semibold text-amber-700">{day.missingAssignments}</p>
                   </div>
                 </div>
@@ -298,7 +296,7 @@ export default async function CalendarPage({
                           </div>
                           <div className="min-h-[48px] rounded-[9px] bg-[#f7f9fc] p-2">
                             <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">Sĩ số</p>
-                            <p className="mt-1 text-[11px] font-semibold leading-[1.35] text-ink">{session.class._count?.enrollments ?? 0} học viên</p>
+                            <p className="mt-1 text-[11px] font-semibold leading-[1.35] text-ink">{session.class._count?.enrollments ?? 0} bạn</p>
                           </div>
                           <div className="min-h-[48px] rounded-[9px] bg-[#f7f9fc] p-2">
                             <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">Nhân sự</p>
@@ -313,7 +311,7 @@ export default async function CalendarPage({
                             <span className="font-semibold text-ink">GV:</span> {teacherNames.length > 0 ? teacherNames.join(", ") : "Chưa có giáo viên"}
                           </p>
                           <p>
-                            <span className="font-semibold text-ink">TG:</span> {assistantNames.length > 0 ? assistantNames.join(", ") : "Chưa có trợ giảng"}
+                            <span className="font-semibold text-ink">TG:</span> {assistantNames.length > 0 ? assistantNames.join(", ") : "Chưa có"}
                           </p>
                         </div>
 
@@ -327,8 +325,6 @@ export default async function CalendarPage({
                       <div>
                         <div className="mb-2 text-lg text-[#71839b]">○</div>
                         Không có buổi học
-                        <br />
-                        trong ngày này.
                       </div>
                     </div>
                   ) : null}

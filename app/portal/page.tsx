@@ -15,7 +15,11 @@ export default async function PortalOverviewPage() {
           student: {
             include: {
               enrollments: { include: { class: true } },
-              charges: { include: { allocations: true } },
+              charges: {
+                include: {
+                  allocations: { where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } } },
+                },
+              },
             },
           },
         },

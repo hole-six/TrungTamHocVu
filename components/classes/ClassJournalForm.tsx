@@ -118,29 +118,29 @@ function getScorePrintCellClass(score: number | null | undefined) {
 
 const CLASS_JOURNAL_GUIDE_SECTIONS = [
   {
-    title: "Mục tiêu form này",
+    title: "Form này để làm gì",
     items: [
-      "Đây là nơi giáo viên ghi nội dung đã dạy, nhận xét từng học viên và bài tập về nhà của buổi học.",
-      "Dữ liệu ở đây là nguồn để xuất bản nhật ký gửi phụ huynh và lưu vết chất lượng buổi học.",
-      "Roadmap điền sẵn phía trên giúp giáo viên bám đúng nội dung dự kiến của buổi.",
+      "Ghi nội dung đã dạy, điểm số, nhận xét và bài tập về nhà.",
+      "Dữ liệu ở đây dùng để in bản gửi phụ huynh.",
+      "Giáo trình buổi học được gợi ý sẵn để giáo viên bám đúng nội dung.",
     ],
     tone: "info" as const,
   },
   {
-    title: "Cách thao tác nên dùng",
+    title: "Cách làm nhanh",
     items: [
-      "Điền tên bài hoặc bài học trước, sau đó cập nhật nhận xét giáo viên và bài tập về nhà chung.",
-      "Chấm điểm từng học viên theo các cột đã có; nếu cần tiêu chí mới thì thêm cột điểm mới.",
-      "Lưu nháp trước nếu chưa xong, chỉ publish khi đã muốn chốt bản gửi cho phụ huynh.",
+      "Điền bài học trước, sau đó chấm điểm và nhận xét từng học viên.",
+      "Cần tiêu chí mới thì thêm cột điểm.",
+      "Lưu nháp khi chưa xong, chỉ chốt khi muốn gửi phụ huynh.",
     ],
     tone: "success" as const,
   },
   {
-    title: "Lưu ý vận hành",
+    title: "Lưu ý",
     items: [
-      "Điểm số và nhận xét nên rõ ràng vì sẽ ảnh hưởng trực tiếp tới bản PDF hoặc bản gửi phụ huynh.",
-      "Draft local chỉ hỗ trợ chống mất dữ liệu tạm thời, không thay thế cho việc bấm lưu thật.",
-      "Chỉ publish khi đã kiểm tra kỹ vì đây là mốc xác nhận nhật ký hoàn chỉnh của buổi học.",
+      "Điểm và nhận xét sẽ hiện trên bản PDF gửi phụ huynh.",
+      "Bản nháp trên máy không thay cho việc bấm lưu.",
+      "Chỉ chốt khi đã kiểm tra kỹ nội dung.",
     ],
     tone: "warning" as const,
   },
@@ -315,17 +315,17 @@ export default function ClassJournalForm({
     <div className="print-area">
       <div className="card space-y-5 print:hidden">
         <FormGuide
-          title="Guide nhật ký lớp"
-          summary="Hướng dẫn cách ghi nội dung buổi học, chấm điểm, lưu nháp và publish bản gửi phụ huynh."
+          title="Hướng dẫn nhật ký"
+          summary="Cách ghi nội dung buổi học, chấm điểm và chốt bản gửi phụ huynh."
           sections={CLASS_JOURNAL_GUIDE_SECTIONS}
           position="inline"
-          buttonLabel="Guide nhật ký"
+          buttonLabel="Guide"
         />
         {draftRestored ? (
           <div className="no-print flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
             <span>Đã khôi phục bản nháp chưa lưu trong máy này. Kiểm tra lại rồi bấm lưu để chốt dữ liệu.</span>
             <button type="button" onClick={() => setDraftRestored(false)} className="font-semibold hover:underline">
-              Đã hiểu
+              Ẩn
             </button>
           </div>
         ) : null}
@@ -333,10 +333,8 @@ export default function ClassJournalForm({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Bước 3</p>
-            <h2 className="mt-1 font-display text-xl font-semibold tracking-tight">Nhật ký lớp học & nội dung gửi phụ huynh</h2>
-            <p className="mt-1 text-sm text-ink-muted48">
-              Khối này dùng để ghi tiến độ, nhận xét từng học viên và dặn dò cuối buổi cho phụ huynh.
-            </p>
+            <h2 className="mt-1 font-display text-xl font-semibold tracking-tight">Nhật ký gửi phụ huynh</h2>
+            <p className="mt-1 text-sm text-ink-muted48">Ghi bài học, điểm số, nhận xét và dặn dò cuối buổi.</p>
           </div>
           <div className="no-print flex items-center gap-3">
             <button
@@ -369,15 +367,13 @@ export default function ClassJournalForm({
           </label>
 
           <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
-            <p className="font-semibold text-ink">Bản in PDF sẽ theo mẫu biểu</p>
-            <p className="mt-1">
-              Khi bấm lưu PDF, hệ thống sẽ mở đúng bản màu gửi phụ huynh theo khổ ngang A4, chỉ giữ lại nội dung cần gửi.
-            </p>
+            <p className="font-semibold text-ink">Bản PDF phụ huynh</p>
+            <p className="mt-1">In theo khổ ngang A4, chỉ giữ nội dung cần gửi.</p>
           </div>
         </div>
 
         <label className="form-group">
-          <span className="label">Ghi chú buổi dạy cho giáo viên / CSO (không gửi phụ huynh)</span>
+          <span className="label">Ghi chú nội bộ</span>
           <textarea
             className="input min-h-[110px] resize-y"
             value={teacherNote}
@@ -385,56 +381,28 @@ export default function ClassJournalForm({
               setTeacherNote(event.target.value);
               setSaved(false);
             }}
-            placeholder="VD: Hôm nay lớp chậm phần speaking, buổi sau ôn lại worksheet trang 12, nhắc GV giữ tốc độ dạy vừa hơn..."
+            placeholder="VD: lớp cần ôn speaking, buổi sau nhắc lại worksheet trang 12..."
           />
         </label>
 
         {plannedRoadmap ? (
           <details className="rounded-[24px] border border-[#cfe3ff] bg-[#f9fbff] p-4">
-            <summary className="cursor-pointer list-none text-sm font-semibold text-primary">Mở giáo trình buổi này</summary>
+            <summary className="cursor-pointer list-none text-sm font-semibold text-primary">Xem giáo trình buổi này</summary>
             <div className="mt-3 grid gap-3 md:grid-cols-3">
               <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Tên bài</p>
                 <p className="mt-2 text-sm leading-6 text-ink">{plannedRoadmap.title?.trim() || `Buổi ${plannedRoadmap.sessionNumber}`}</p>
               </div>
               <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Tài liệu / giáo trình</p>
-                <p className="mt-2 text-sm leading-6 text-ink">{plannedRoadmap.materials?.trim() || "Chưa có tài liệu / học cụ."}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Tài liệu</p>
+                <p className="mt-2 text-sm leading-6 text-ink">{plannedRoadmap.materials?.trim() || "Chưa có tài liệu."}</p>
               </div>
               <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Ghi chú GV</p>
-                <p className="mt-2 text-sm leading-6 text-ink">{plannedRoadmap.teacherGuide?.trim() || plannedRoadmap.homeworkGuide?.trim() || "Chưa có ghi chú thêm cho buổi học này."}</p>
+                <p className="mt-2 text-sm leading-6 text-ink">{plannedRoadmap.teacherGuide?.trim() || plannedRoadmap.homeworkGuide?.trim() || "Chưa có ghi chú thêm."}</p>
               </div>
             </div>
           </details>
-        ) : null}
-
-        {plannedRoadmap ? (
-          <div className="rounded-[24px] border border-[#dbe7ff] bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_100%)] p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Lộ trình cố định của buổi {plannedRoadmap.sessionNumber}</p>
-                <p className="mt-1 text-lg font-semibold text-ink">{plannedRoadmap.title || `Buổi ${plannedRoadmap.sessionNumber}`}</p>
-              </div>
-              <span className="badge bg-sky-100 text-sky-700">Khung chuẩn trước giờ dạy</span>
-            </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Mục tiêu</p>
-                <p className="mt-2 text-sm leading-6 text-ink">{plannedRoadmap.objective?.trim() || "Chưa có mục tiêu buổi học."}</p>
-              </div>
-              <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Tài liệu</p>
-                <p className="mt-2 text-sm leading-6 text-ink">{plannedRoadmap.materials?.trim() || "Chưa có tài liệu / học cụ."}</p>
-              </div>
-              <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Gợi ý cho giáo viên</p>
-                <p className="mt-2 text-sm leading-6 text-ink">
-                  {plannedRoadmap.teacherGuide?.trim() || plannedRoadmap.homeworkGuide?.trim() || "Chưa có hướng dẫn thêm cho buổi học này."}
-                </p>
-              </div>
-            </div>
-          </div>
         ) : null}
 
         <div className="table-container">
@@ -457,8 +425,8 @@ export default function ClassJournalForm({
                     + Cột điểm
                   </button>
                 </th>
-                <th className="min-w-[180px] px-3 py-3 font-medium">Bài tập về nhà</th>
-                <th className="min-w-[320px] px-3 py-3 font-medium">Nhận xét gửi phụ huynh</th>
+                <th className="min-w-[180px] px-3 py-3 font-medium">BTVN</th>
+                <th className="min-w-[320px] px-3 py-3 font-medium">Nhận xét phụ huynh</th>
                 <th className="min-w-[220px] px-3 py-3 font-medium">Ghi chú nội bộ</th>
               </tr>
             </thead>
@@ -535,7 +503,7 @@ export default function ClassJournalForm({
                         className="input min-h-[96px] resize-y"
                         value={row.notes}
                         onChange={(event) => updateRow(student.id, { notes: event.target.value })}
-                        placeholder="Ghi chú cho giáo vụ / giáo viên, không gửi phụ huynh"
+                        placeholder="Không gửi phụ huynh"
                       />
                     </td>
                   </tr>
@@ -554,7 +522,7 @@ export default function ClassJournalForm({
         </div>
 
         <label className="form-group">
-          <span className="label">Dặn dò chung cuối buổi (hiển thị cho phụ huynh)</span>
+          <span className="label">Dặn dò chung cho phụ huynh</span>
           <textarea
             className="input min-h-[160px] resize-y"
             value={homeworkNote}
@@ -570,13 +538,13 @@ export default function ClassJournalForm({
         {saved ? <p className="no-print text-sm text-emerald-600">Đã lưu nhật ký lớp học.</p> : null}
 
         <div className="no-print flex flex-wrap items-center justify-between gap-3 border-t border-hairline pt-4">
-          <p className="text-sm text-ink-muted48">Có thể lưu nháp trước, sau đó chốt để gửi cho phụ huynh.</p>
+          <p className="text-sm text-ink-muted48">Lưu nháp khi chưa xong, chốt khi đã sẵn sàng gửi phụ huynh.</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={loading} onClick={() => save(false)} className="btn-ghost">
               {loading ? "..." : "Lưu nháp"}
             </button>
             <button type="button" disabled={loading} onClick={() => save(true)} className="btn-primary">
-              {loading ? "..." : isPublished ? "Cập nhật & giữ trạng thái đã gửi" : "Chốt & gửi phụ huynh"}
+              {loading ? "..." : isPublished ? "Cập nhật bản đã gửi" : "Chốt gửi phụ huynh"}
             </button>
           </div>
         </div>

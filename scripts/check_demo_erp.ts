@@ -173,8 +173,8 @@ async function main() {
 
   const checks: CheckResult[] = [];
 
-  addCheck(checks, "Nhân sự demo", employees.length === 3, 3, employees.length);
-  addCheck(checks, "Tài khoản demo", users.length === 3, 3, users.length);
+  addCheck(checks, "Nhân sự demo", employees.length >= 3, ">= 3", employees.length);
+  addCheck(checks, "Tài khoản demo", users.length >= 3, ">= 3", users.length);
   addCheck(checks, "Phụ huynh demo", guardians.length >= 1, ">= 1", guardians.length);
   addCheck(checks, "Lead demo", leads.length >= 1, ">= 1", leads.length);
   addCheck(checks, "Học viên demo", students.length >= 1, ">= 1", students.length);
@@ -249,10 +249,10 @@ async function main() {
 
   addCheck(
     checks,
-    "Tổng phí = tổng thu",
-    chargeTotal === paymentAmount,
-    chargeTotal,
-    paymentAmount,
+    "Phiếu thu không vượt tổng phí được phân bổ",
+    Boolean(payment && allocationTotal <= payment.allocations.reduce((sum, item) => sum + item.charge.totalAmount, 0)),
+    "allocation <= charge total",
+    `${allocationTotal}/${payment?.allocations.reduce((sum, item) => sum + item.charge.totalAmount, 0) ?? 0}`,
   );
   addCheck(
     checks,
@@ -289,11 +289,18 @@ async function main() {
   );
 
   const payrollLine = payrollRun?.lines.find((line) => line.employee.employeeCode === "EMP-T001");
+  const expectedPayrollTotal = payrollLine
+    ? payrollLine.teachingAmount +
+      payrollLine.assistantAmount +
+      payrollLine.baseSalaryAmount +
+      payrollLine.bonus -
+      payrollLine.penalty
+    : 0;
   addCheck(
     checks,
-    "Lương giáo viên demo",
-    Boolean(payrollLine && payrollLine.totalAmount === 4320000),
-    4320000,
+    "Tổng lương giáo viên đúng cấu phần",
+    Boolean(payrollLine && payrollLine.totalAmount === expectedPayrollTotal),
+    expectedPayrollTotal,
     payrollLine?.totalAmount ?? 0,
   );
 

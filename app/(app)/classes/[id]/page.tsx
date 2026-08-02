@@ -44,9 +44,10 @@ function weekdayLabel(weekday: number) {
 function attendanceLabel(status: string) {
   switch (status) {
     case "PRESENT": return "Có mặt";
-    case "ABSENT": return "Vắng";
-    case "MAKEUP": return "Học bù";
-    case "EXCUSED": return "Có phép";
+    case "ABSENT":
+    case "MAKEUP":
+    case "EXCUSED":
+      return "Vắng";
     default: return status;
   }
 }
@@ -160,7 +161,10 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                 orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
               },
               charges: {
-                include: { allocations: true, billingPeriod: true },
+                include: {
+                  allocations: { where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } } },
+                  billingPeriod: true,
+                },
                 orderBy: { billingPeriod: { startDate: "desc" } },
               },
               attendances: {
@@ -364,7 +368,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
               }}
               courses={courses}
               renderSummary={false}
-              triggerLabel="Chỉnh sửa"
+              triggerLabel="Sửa lớp"
               triggerClassName="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-5 py-3 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] hover:-translate-y-0.5 transition-all"
             />
             <Link href={`/classes/${cls.id}/edit`} className="hidden">
@@ -428,21 +432,20 @@ export default async function ClassDetailPage({ params }: { params: { id: string
             label: "Tổng quan",
             content: (
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                {/* Buổi học gần nhất */}
                 <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
-                  <SectionHeading icon={ICON_CLOCK} eyebrow="Trọng tâm vận hành" title="Buổi học gần nhất"
+                  <SectionHeading icon={ICON_CLOCK} eyebrow="Trọng tâm" title="Buổi gần nhất"
                     action={latestSession ? (
                       <Link href={`/classes/${cls.id}/sessions/${latestSession.id}`} className="inline-flex items-center gap-1 text-sm font-bold text-[#f97316] hover:text-[#ea580c]">
-                        Mở chi tiết <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        Mở buổi <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                       </Link>
                     ) : null}
                   />
                   {latestSession ? (
                     <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="rounded-xl bg-[#f8faff] p-4 border border-[#e5eaf7]">
-                        <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">Ngày &amp; giờ</p>
+                        <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">Ngày học</p>
                         <p className="font-bold text-[#0f1729]">{formatDate(latestSession.sessionDate)}</p>
-                        <p className="text-sm text-[#64748b] mt-1">{latestSession.startTime ?? "—"}</p>
+                        <p className="text-sm text-[#64748b] mt-1">{latestSession.startTime ?? "—"}{latestSession.endTime ? ` - ${latestSession.endTime}` : ""}</p>
                       </div>
                       <div className="rounded-xl bg-[#f8faff] p-4 border border-[#e5eaf7]">
                         <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">Điểm danh</p>
@@ -451,10 +454,10 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                       </div>
                       <div className="rounded-xl bg-[#f8faff] p-4 border border-[#e5eaf7]">
                         <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">Nhật ký</p>
-                        <p className="font-bold text-[#0f1729]">{latestSession.journal?.publishedAt ? "Đã gửi" : latestSession.journal ? "Lưu nháp" : "Chưa có"}</p>
+                        <p className="font-bold text-[#0f1729]">{latestSession.journal?.publishedAt ? "Đã gửi PH" : latestSession.journal ? "Đang lưu nháp" : "Chưa có"}</p>
                       </div>
                       <div className="rounded-xl bg-[#f8faff] p-4 border border-[#e5eaf7]">
-                        <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">Nhân sự</p>
+                        <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">Giáo viên</p>
                         <p className="font-bold text-[#0f1729] truncate">
                           {latestSession.assignments.filter((i) => getClassAssignmentRoleType(i.role) === "TEACHER").map((i) => i.employee.fullName).join(", ") || "Chưa phân công"}
                         </p>
@@ -465,16 +468,15 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                   )}
                 </div>
 
-                {/* Cần chú ý */}
                 <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
-                  <SectionHeading icon={ICON_ALERT} title="Cần chú ý"
-                    action={<span className="inline-flex items-center rounded-full bg-[#f97316] px-3 py-1 text-xs font-bold text-white">{dueTodayTasks.length} việc hôm nay</span>}
+                  <SectionHeading icon={ICON_ALERT} title="Cần xử lý"
+                    action={<span className="inline-flex items-center rounded-full bg-[#f97316] px-3 py-1 text-xs font-bold text-white">{dueTodayTasks.length} việc</span>}
                   />
                   <div className="mt-4 space-y-2">
                     {attentionItems.length === 0 ? (
                       <div className="flex items-center gap-3 rounded-xl bg-[#ecfdf5] border border-[#a7f3d0] px-4 py-3">
                         <span className="h-2 w-2 shrink-0 rounded-full bg-[#10b981]" />
-                        <span className="text-sm font-semibold text-[#065f46]">Lớp đang không có cảnh báo cần xử lý.</span>
+                        <span className="text-sm font-semibold text-[#065f46]">Hiện không có cảnh báo cần xử lý.</span>
                       </div>
                     ) : attentionItems.map((item, i) => (
                       <div key={i} className={`flex items-center gap-3 rounded-xl px-4 py-3 ${ATTENTION_STYLE[item.severity].bg} border ${ATTENTION_STYLE[item.severity].border}`}>
@@ -485,9 +487,8 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                   </div>
                 </div>
 
-                {/* Nhắc việc hôm nay */}
                 <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
-                  <SectionHeading icon={ICON_CHECKLIST} title="Nhắc việc hôm nay" />
+                  <SectionHeading icon={ICON_CHECKLIST} title="Việc hôm nay" description="Những việc cần chạm tay trong ngày để lớp chạy ổn." />
                   <div className="mt-4 space-y-2">
                     {dueTodayTasks.map((task) => (
                       <div key={task.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between gap-3">
@@ -495,13 +496,12 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                         {task.todayStatus ? <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${badgeClass(task.todayStatus)}`}>{task.todayStatus}</span> : null}
                       </div>
                     ))}
-                    {dueTodayTasks.length === 0 && <p className="text-sm text-[#64748b] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">Không có việc tới hạn hôm nay.</p>}
+                    {dueTodayTasks.length === 0 && <p className="text-sm text-[#64748b] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">Hôm nay chưa có việc tới hạn.</p>}
                   </div>
                 </div>
 
-                {/* Liên kết nhanh */}
                 <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
-                  <SectionHeading icon={ICON_LINK} title="Liên kết nhanh" />
+                  <SectionHeading icon={ICON_LINK} title="Đi nhanh" description="Mở đúng khu đang cần xử lý mà không vòng qua nhiều màn." />
                   <div className="mt-4 flex flex-wrap gap-2">
                     {latestSession && (
                       <Link href={`/classes/${cls.id}/sessions/${latestSession.id}`} className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] transition-all">
@@ -532,8 +532,8 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                   <div className="px-6 py-5 border-b border-[#e5eaf7]">
                     <SectionHeading
                       icon={ICON_LIST}
-                      title="Lịch học & nội dung từng buổi"
-                      description="Mỗi dòng là một buổi: ngày học, giáo viên, giáo án, điểm danh, nhật ký và thao tác đều nằm chung một chỗ."
+                      title="Lịch buổi học"
+                      description="Một dòng là một buổi thật: học khi nào, ai dạy, đã điểm danh chưa và có nhật ký chưa."
                     />
                   </div>
                   <div className="overflow-x-auto">
@@ -541,11 +541,11 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                       <thead className="bg-[#f8fbff] text-xs uppercase tracking-[0.18em] text-[#7b8ea5]">
                         <tr>
                           <th className="py-3 px-5 font-bold">Buổi</th>
-                          <th className="py-3 px-5 font-bold">Nội dung buổi</th>
-                          <th className="py-3 px-5 font-bold">GV / TG</th>
+                          <th className="py-3 px-5 font-bold">Hôm nay dạy gì</th>
+                          <th className="py-3 px-5 font-bold">Người dạy</th>
                           <th className="py-3 px-5 font-bold">Điểm danh</th>
-                          <th className="py-3 px-5 font-bold">Nhật ký &amp; trạng thái</th>
-                          <th className="py-3 px-5 font-bold"></th>
+                          <th className="py-3 px-5 font-bold">Nhật ký</th>
+                          <th className="py-3 px-5 font-bold text-right">Tác vụ</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -567,52 +567,52 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                 <p className="inline-flex rounded-full bg-[#eff6ff] px-3 py-1 font-mono text-xs font-bold text-[#2563eb]">#{slot.number}/{projectedSchedule.length}</p>
                                 <p className="mt-2 text-base font-bold text-[#12304a]">{formatDate(slot.sessionDate)}</p>
                                 <p className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${timingClass(timing)}`}>{timingLabel(timing)}</p>
-                                <p className="mt-2 inline-flex rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-3 py-1 text-xs font-semibold text-[#4b6480]">{slot.startTime ?? "—"}–{slot.endTime ?? "—"}</p>
-                                {!session ? <p className="mt-2 inline-flex rounded-full border border-[#ffe0b2] bg-[#fff8eb] px-3 py-1 text-xs font-semibold text-[#c67c14]">Chưa sinh buổi thực tế</p> : null}
+                                <p className="mt-2 inline-flex rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-3 py-1 text-xs font-semibold text-[#4b6480]">{slot.startTime ?? "—"} – {slot.endTime ?? "—"}</p>
+                                {!session ? <p className="mt-2 inline-flex rounded-full border border-[#ffe0b2] bg-[#fff8eb] px-3 py-1 text-xs font-semibold text-[#c67c14]">Chưa tạo buổi</p> : null}
                               </td>
                               <td className="px-5 py-5">
                                 <p className="text-base font-bold text-[#12304a]">
                                   {roadmapItem?.title?.trim() || `Buổi ${slot.number}`}
                                 </p>
-                                <p className="mt-2 text-sm leading-6 text-[#64748b]">
-                                  {roadmapItem?.objective?.trim() || "Chưa có mục tiêu / giáo án cho buổi này."}
-                                </p>
+                                  <p className="mt-2 text-sm leading-6 text-[#64748b]">
+                                    {roadmapItem?.objective?.trim() || "Chưa có mục tiêu hoặc ghi chú dạy cho buổi này."}
+                                  </p>
                                 {roadmapItem?.materials?.trim() ? (
                                   <p className="mt-3 inline-flex rounded-2xl border border-[#e8eef8] bg-[#f8fbff] px-3 py-2 text-xs font-medium text-[#0f1729]">
-                                    Tài liệu: <span className="text-[#64748b]">{roadmapItem.materials}</span>
+                                    Tài liệu: <span className="ml-1 text-[#64748b]">{roadmapItem.materials}</span>
                                   </p>
                                 ) : null}
                               </td>
                               <td className="px-5 py-5">
                                 <p className="text-base font-bold text-[#12304a]">{teacherNames || "Chưa phân công GV"}</p>
-                                <p className="mt-2 inline-flex rounded-full border border-[#e8eef8] bg-[#f8fbff] px-3 py-1 text-xs font-semibold text-[#64748b]">{assistantNames || "Không có TG"}</p>
+                                <p className="mt-2 inline-flex rounded-full border border-[#e8eef8] bg-[#f8fbff] px-3 py-1 text-xs font-semibold text-[#64748b]">{assistantNames || "Không có trợ giảng"}</p>
                               </td>
                               <td className="px-5 py-5">
                                 {session && session.attendances.length ? (
-                                  <>
+                                  <div className="space-y-2">
                                     <p className="inline-flex rounded-full bg-[#ecfdf3] px-3 py-1 text-sm font-bold text-[#15803d]">{present} có mặt</p>
-                                    <p className="mt-2 inline-flex rounded-full bg-[#fff1f2] px-3 py-1 text-xs font-semibold text-[#e11d48]">{absent} vắng</p>
-                                  </>
-                                ) : <p className="inline-flex rounded-2xl border border-[#e8eef8] bg-[#f8fbff] px-3 py-2 text-sm font-semibold text-[#7b8ea5]">{session ? "Chưa điểm danh" : "Chưa có buổi thực tế"}</p>}
+                                    <p className="inline-flex rounded-full bg-[#fff1f2] px-3 py-1 text-xs font-semibold text-[#e11d48]">{absent} vắng</p>
+                                  </div>
+                                ) : <p className="inline-flex rounded-2xl border border-[#e8eef8] bg-[#f8fbff] px-3 py-2 text-sm font-semibold text-[#7b8ea5]">{session ? "Chưa điểm danh" : "Chưa có buổi"}</p>}
                               </td>
                               <td className="px-5 py-5">
                                 {session ? (
-                                  <>
-                                    <p className="inline-flex rounded-2xl border border-[#e8eef8] bg-white px-3 py-2 text-sm font-semibold text-[#64748b]">{session.journal?.publishedAt ? "Đã gửi phụ huynh" : session.journal ? "Đang lưu nháp" : "Chưa có nhật ký"}</p>
+                                  <div className="space-y-2">
+                                    <p className="inline-flex rounded-2xl border border-[#e8eef8] bg-white px-3 py-2 text-sm font-semibold text-[#64748b]">{session.journal?.publishedAt ? "Đã gửi PH" : session.journal ? "Đang lưu nháp" : "Chưa có nhật ký"}</p>
                                     <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${badgeClass(session.status)}`}>{SESSION_STATUS_LABEL[session.status] ?? session.status}</span>
                                     {session.status === "RESCHEDULED" && session.replacedBySession && (
                                       <p className="mt-2 text-xs text-[#f59e0b] font-semibold">Bù sang <Link href={`/classes/${cls.id}/sessions/${session.replacedBySession.id}`} className="underline">{formatDate(session.replacedBySession.sessionDate)}</Link></p>
                                     )}
                                     {session.replacesSession ? <p className="mt-2 text-xs text-[#64748b]">Buổi bù cho {formatDate(session.replacesSession.sessionDate)}</p> : null}
-                                  </>
+                                  </div>
                                 ) : (
-                                  <p className="text-sm text-[#94a3b8]">Chưa có trạng thái vì chưa sinh buổi.</p>
+                                  <p className="text-sm text-[#94a3b8]">Chưa có trạng thái.</p>
                                 )}
                               </td>
                               <td className="px-5 py-5 text-right">
                                 {session ? (
                                   <div className="flex flex-col items-end gap-2">
-                                    <Link href={`/classes/${cls.id}/sessions/${session.id}`} className="inline-flex min-w-[140px] items-center justify-center rounded-xl bg-[#0ea5e9] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#0284c7]">Mở buổi học</Link>
+                                    <Link href={`/classes/${cls.id}/sessions/${session.id}`} className="inline-flex min-w-[140px] items-center justify-center rounded-xl bg-[#0ea5e9] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#0284c7]">Điểm danh / nhật ký</Link>
                                     {canManageClass && session.status !== "CANCELLED" ? <AddMakeupSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} /> : null}
                                     {canManageClass && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession ? <RescheduleSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} /> : null}
                                   </div>
@@ -653,7 +653,11 @@ export default async function ClassDetailPage({ params }: { params: { id: string
             content: (
               <div className="rounded-2xl border border-[#e5eaf7] bg-white shadow-sm overflow-hidden">
                 <div className="px-6 py-5 border-b border-[#e5eaf7] flex items-center justify-between">
-                  <SectionHeading icon={ICON_USERS} title="Danh sách học viên trong lớp" />
+                  <SectionHeading
+                    icon={ICON_USERS}
+                    title="Học viên trong lớp"
+                    description="Theo dõi nhanh trạng thái học, phí đang treo và xử lý rút lớp ngay tại đây."
+                  />
                   {canManageClass && <EnrollStudentForm classId={cls.id} courseTotalAmount={(cls.tuitionPerSession ?? 0) * (cls.totalSessions ?? 0)} />}
                 </div>
                 <div className="overflow-x-auto">
@@ -661,11 +665,10 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                     <thead className="bg-[#f8faff] text-xs uppercase tracking-wide text-[#64748b]">
                       <tr>
                         <th className="py-3 px-5 font-bold">Học viên</th>
-                        <th className="py-3 px-5 font-bold">Liên hệ</th>
-                        <th className="py-3 px-5 font-bold">Học phí</th>
-                        <th className="py-3 px-5 font-bold">Học tập</th>
-                        <th className="py-3 px-5 font-bold">Trạng thái</th>
-                        <th className="py-3 px-5 font-bold"></th>
+                        <th className="py-3 px-5 font-bold">Phụ huynh</th>
+                        <th className="py-3 px-5 font-bold">Phí đang treo</th>
+                        <th className="py-3 px-5 font-bold">Cập nhật gần nhất</th>
+                        <th className="py-3 px-5 font-bold text-right">Tác vụ</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -687,45 +690,67 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                 </div>
                                 <div>
                                   <Link href={`/students/${enrollment.studentId}`} className="font-bold text-[#f97316] hover:text-[#ea580c]">{enrollment.student.fullName}</Link>
-                                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                  <div className="mt-1 flex flex-wrap items-center gap-2">
                                     <span className="rounded-lg bg-[#f97316] px-2 py-0.5 text-xs font-bold text-white">{enrollment.student.studentCode}</span>
-                                    {enrollment.student.lead?.leadCode && <span className="text-xs text-[#64748b]">{enrollment.student.lead.leadCode}</span>}
+                                    <span className={`inline-flex rounded-lg px-2 py-0.5 text-xs font-bold ${badgeClass(enrollment.status)}`}>
+                                      {ENROLLMENT_STATUS_LABEL[enrollment.status as keyof typeof ENROLLMENT_STATUS_LABEL] ?? enrollment.status}
+                                    </span>
+                                    <span className="rounded-lg bg-[#eef6ff] px-2 py-0.5 text-xs font-semibold text-[#2563eb]">
+                                      {enrollment.billingModel === "COURSE" ? "Theo khóa" : enrollment.billingModel === "INSTALLMENT" ? "Trả góp" : "Theo tháng"}
+                                    </span>
                                   </div>
-                                  <p className="mt-1 text-xs text-[#64748b]">Từ {formatDate(enrollment.enrollDate)} · {enrollment.billingModel === "COURSE" ? "Trọn khóa" : enrollment.billingModel === "INSTALLMENT" ? "Trả góp" : "Theo tháng"}</p>
+                                  <p className="mt-1 text-xs text-[#64748b]">Vào lớp từ {formatDate(enrollment.enrollDate)}</p>
                                 </div>
                               </div>
                             </td>
                             <td className="py-4 px-5">
                               <p className="font-semibold text-[#0f1729]">{primaryGuardian?.fullName ?? "Chưa gắn"}</p>
                               <p className="text-xs text-[#64748b] mt-1">{primaryGuardian?.phone ?? "Chưa có SĐT"}</p>
-                              <p className="text-xs text-[#64748b] mt-0.5">{primaryGuardian?.user?.email ?? "Chưa cấp tài khoản"}</p>
+                              <p className="text-xs text-[#64748b] mt-0.5">{primaryGuardian?.user?.email ?? "Chưa có portal"}</p>
                             </td>
                             <td className="py-4 px-5">
                               {latestCharge ? (
-                                <>
-                                  <p className="font-semibold text-[#0f1729] mb-2">{latestCharge.billingPeriod.periodName}</p>
-                                  <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${outstanding > 0 ? "bg-[#fee2e2] text-[#991b1b]" : "bg-[#d1fae5] text-[#065f46]"}`}>
-                                    {outstanding > 0 ? `Còn nợ ${formatVnd(outstanding)}` : "Đã thanh toán"}
-                                  </span>
-                                  {activeScholarship && <p className="mt-2 text-xs font-semibold text-[#10b981]">Ưu đãi {Math.round(activeScholarship.percentage * 100)}%</p>}
-                                </>
+                                <div className="space-y-1.5">
+                                  <p className="font-semibold text-[#0f1729]">{outstanding > 0 ? formatVnd(outstanding) : "0đ"}</p>
+                                  <p className="text-xs text-[#64748b]">{latestCharge.billingPeriod.periodName}</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${outstanding > 0 ? "bg-[#fee2e2] text-[#991b1b]" : "bg-[#d1fae5] text-[#065f46]"}`}>
+                                      {outstanding > 0 ? "Còn phải thu" : "Đã thu hết"}
+                                    </span>
+                                    {activeScholarship ? (
+                                      <span className="inline-flex rounded-lg bg-[#ecfdf5] px-2.5 py-1 text-xs font-bold text-[#047857]">
+                                        HB {Math.round(activeScholarship.percentage * 100)}%
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
                               ) : <span className="text-sm text-[#94a3b8]">Chưa sinh</span>}
                             </td>
                             <td className="py-4 px-5">
-                              <p className="font-semibold text-[#0f1729] mb-1">{latestAttendance ? `${attendanceLabel(latestAttendance.status)} · ${formatDate(latestAttendance.session.sessionDate)}` : "Chưa có dữ liệu"}</p>
-                              <p className="text-xs text-[#64748b]">{latestBookIssue ? `${latestBookIssue.book.name} · SL ${latestBookIssue.quantity}` : "Chưa phát giáo trình"}</p>
+                              <div className="space-y-1.5">
+                                <p className="font-semibold text-[#0f1729]">{latestAttendance ? attendanceLabel(latestAttendance.status) : "Chưa điểm danh"}</p>
+                                <p className="text-xs text-[#64748b]">{latestAttendance ? formatDate(latestAttendance.session.sessionDate) : "Chưa có buổi gần nhất"}</p>
+                                <p className="text-xs text-[#64748b]">{latestBookIssue ? `${latestBookIssue.book.name} · SL ${latestBookIssue.quantity}` : "Chưa phát sách"}</p>
+                              </div>
                             </td>
                             <td className="py-4 px-5">
-                              <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${badgeClass(enrollment.status)}`}>
-                                {ENROLLMENT_STATUS_LABEL[enrollment.status as keyof typeof ENROLLMENT_STATUS_LABEL] ?? enrollment.status}
-                              </span>
+                              <div className="flex justify-end">
+                                <div className="flex flex-wrap justify-end gap-2">
+                                  <Link
+                                    href={`/students/${enrollment.studentId}`}
+                                    className="inline-flex min-w-[104px] items-center justify-center rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700 transition hover:bg-sky-100"
+                                  >
+                                    Mở hồ sơ
+                                  </Link>
+                                  {canManageClass ? <EnrollmentRowActions enrollmentId={enrollment.id} status={enrollment.status} /> : null}
+                                </div>
+                              </div>
                             </td>
-                            <td className="py-4 px-5">{canManageClass && <EnrollmentRowActions enrollmentId={enrollment.id} status={enrollment.status} />}</td>
                           </tr>
                         );
                       })}
                       {cls.enrollments.length === 0 && (
-                        <tr><td colSpan={6} className="py-12 text-center">
+                        <tr><td colSpan={5} className="py-12 text-center">
                           <div className="flex flex-col items-center gap-3">
                             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f8faff]">
                               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>

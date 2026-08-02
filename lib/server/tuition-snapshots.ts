@@ -59,7 +59,10 @@ async function buildOutstandingMaps(studentIds: string[]) {
 
   const allocations = charges.length
     ? await prisma.paymentAllocation.findMany({
-        where: { chargeId: { in: charges.map((charge) => charge.id) } },
+        where: {
+          chargeId: { in: charges.map((charge) => charge.id) },
+          payment: { status: { notIn: ["VOIDED", "REFUNDED"] } },
+        },
         select: { chargeId: true, amount: true },
       })
     : [];
@@ -80,7 +83,13 @@ export async function buildTuitionOverviewLivePayload(branchId: string | null, f
   const periods = await prisma.billingPeriod.findMany({
     where: branchWhere,
     orderBy: { periodName: "desc" },
-    include: { charges: { include: { allocations: true } } },
+    include: {
+      charges: {
+        include: {
+          allocations: { where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } } },
+        },
+      },
+    },
   });
   const currentPeriodKey = filters?.periodKey ?? null;
   const selectedPeriod = currentPeriodKey
@@ -105,7 +114,7 @@ export async function buildTuitionOverviewLivePayload(branchId: string | null, f
                   },
                 },
               },
-              allocations: true,
+              allocations: { where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } } },
             },
             orderBy: [{ class: { className: "asc" } }, { student: { fullName: "asc" } }],
           },

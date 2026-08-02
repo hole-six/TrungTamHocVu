@@ -37,18 +37,16 @@ export default function EnrollmentRowActions({ enrollmentId, status }: { enrollm
   if (!WITHDRAWABLE_STATUSES.has(status)) return null;
 
   return (
-    <div className="flex justify-end">
-      <ConfirmActionButton
-        title="Xác nhận rút lớp?"
-        description="Các buổi chưa học đủ điều kiện sẽ được chuyển thành buổi bổ trợ cho học viên."
-        confirmLabel="Rút lớp"
-        tone="danger"
-        disabled={loading}
-        className="inline-flex min-w-[112px] items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-        onConfirm={withdrawEnrollment}
-      >
-        {loading ? "Đang xử lý..." : "Rút lớp"}
-      </ConfirmActionButton>
-    </div>
+    <ConfirmActionButton
+      title="Xác nhận rút lớp?"
+      description="Các buổi chưa học đủ điều kiện sẽ được chuyển thành buổi bổ trợ cho học viên."
+      confirmLabel="Rút lớp"
+      tone="danger"
+      disabled={loading}
+      className="inline-flex min-w-[104px] items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+      onConfirm={withdrawEnrollment}
+    >
+      {loading ? "Đang xử lý..." : "Rút lớp"}
+    </ConfirmActionButton>
   );
 }

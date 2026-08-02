@@ -241,7 +241,7 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
         {completion.guardianPortal ? (
           <div className="card space-y-3">
             <h2 className="text-lg font-semibold text-ink">Thông tin portal phụ huynh</h2>
-            <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] p-4 text-sm">
+            <div className="rounded-2xl border border-[#fed7aa] bg-[#fff7ed] p-4 text-sm">
               <p>Email đăng nhập: <strong>{completion.guardianPortal.email}</strong></p>
               <p className="mt-2">Mật khẩu tạm: <strong className="font-mono">{completion.guardianPortal.tempPassword}</strong></p>
             </div>
@@ -353,11 +353,11 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                 </label>
                 <label className="form-group md:col-span-2">
                   <span className="label">Portal phụ huynh</span>
-                  <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3">
+                  <div className="rounded-2xl border border-[#fed7aa] bg-[#fff7ed] px-4 py-3">
                     <label className="flex items-start gap-3 text-sm text-ink">
                       <input
                         type="checkbox"
-                        className="mt-1 h-4 w-4 accent-[#2563eb]"
+                        className="mt-1 h-4 w-4 accent-[#f97316]"
                         checked={form.createPortalAccount}
                         disabled={form.studentTarget === "EXISTING_STUDENT"}
                         onChange={(event) => patchForm("createPortalAccount", event.target.checked)}
@@ -420,7 +420,7 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                   </label>
 
                   {selectedExistingStudent ? (
-                    <div className="rounded-[24px] border border-[#dbe7ff] bg-[#f8fbff] p-4 md:col-span-2">
+                    <div className="rounded-[24px] border border-[#fed7aa] bg-[#fff7ed] p-4 md:col-span-2">
                       <p className="text-sm font-semibold text-ink">{selectedExistingStudent.fullName}</p>
                       <p className="mt-1 text-sm text-ink-muted48">{selectedExistingStudent.studentCode} · {selectedExistingStudent.phone ?? "Chưa có SĐT riêng"}</p>
                       <p className="mt-2 text-xs text-ink-muted48">
@@ -588,12 +588,12 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
 
                 {selectedClass ? (
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <div className="rounded-2xl border border-[#dbe7ff] bg-white p-4">
+                    <div className="rounded-2xl border border-[#fed7aa] bg-white p-4">
                       <p className="text-xs uppercase tracking-[0.16em] text-ink-muted48">Lớp</p>
                       <p className="mt-2 text-base font-semibold text-ink">[{selectedClass.classCode}] {selectedClass.className}</p>
                       <p className="mt-1 text-sm text-ink-muted48">{selectedClass.courseName ?? "Chưa gắn khóa học"}</p>
                     </div>
-                    <div className="rounded-2xl border border-[#dbe7ff] bg-white p-4">
+                    <div className="rounded-2xl border border-[#fed7aa] bg-white p-4">
                       <p className="text-xs uppercase tracking-[0.16em] text-ink-muted48">Cách tính tiền</p>
                       <p className="mt-2 text-sm text-ink">Học phí / buổi: <strong>{formatVnd(selectedClass.tuitionPerSession)}</strong></p>
                       <p className="mt-1 text-sm text-ink">Tổng buổi khóa: <strong>{selectedClass.totalSessions ?? "—"}</strong></p>

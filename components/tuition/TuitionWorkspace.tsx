@@ -524,10 +524,15 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="page-title">Thu học phí</h1>
-            <p className="page-subtitle">Chọn kỳ, xem danh sách cần thu, thu tiền hoặc xuất phiếu.</p>
+            <p className="page-subtitle">Chọn kỳ, xem đúng người còn phải thu và thao tác ngay trên một màn.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {canManageTuition ? <NewPeriodForm /> : null}
+            {data?.selectedPeriod ? (
+              <Link href={`/invoices/batch/${data.selectedPeriod.id}`} className="btn-360">
+                Xuất phiếu kỳ này
+              </Link>
+            ) : null}
             <button onClick={handleExport} disabled={!data} className="btn-ghost">
               Xuất Excel
             </button>
@@ -611,7 +616,7 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="font-display text-lg font-semibold tracking-tight">Tiến độ kỳ {selectedPeriodSummary?.periodName ?? data.meta.periodKey ?? periodKey}</h2>
-                <p className="mt-1 text-sm text-ink-muted48">Nhìn nhanh đã thu bao nhiêu và còn nợ bao nhiêu.</p>
+                <p className="mt-1 text-sm text-ink-muted48">Đã thu bao nhiêu và còn bao nhiêu cần xử lý.</p>
               </div>
               <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm">
                 <span className="font-semibold text-ink">{collectionProgress.ratio}% hoàn thành</span>
@@ -673,95 +678,7 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-            <div className="card">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="font-display text-lg font-semibold tracking-tight">Tổng nợ toàn hệ thống</h2>
-                  <p className="mt-1 text-sm text-ink-muted48">Khối này chỉ để quản lý nhìn số cộng dồn.</p>
-                </div>
-                <span className="badge bg-ink/5 text-ink-muted80">{portfolioTotals?.periodCount ?? 0} kỳ thu đã ghi nhận</span>
-              </div>
-              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Phải thu cộng dồn</p>
-                  <p className="mt-2 text-xl font-semibold text-ink">{formatVnd(portfolioTotals?.billed ?? 0)}</p>
-                </div>
-                <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Đã thu cộng dồn</p>
-                  <p className="mt-2 text-xl font-semibold text-emerald-600">{formatVnd(portfolioTotals?.paid ?? 0)}</p>
-                </div>
-                <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Công nợ cộng dồn</p>
-                  <p className="mt-2 text-xl font-semibold text-red-600">{formatVnd(portfolioTotals?.debt ?? 0)}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="card">
-              <h2 className="font-display text-base font-bold tracking-tight text-ink">Lưu ý nhanh</h2>
-              <div className="mt-3 space-y-3 text-sm">
-                <div className="rounded-2xl border border-hairline p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Đọc trang này</p>
-                  <ul className="mt-2 space-y-2">
-                    <li>• Số ở đầu trang là số của kỳ đang xem.</li>
-                    <li>• Nợ cũ và sách đã được tách riêng để tránh thu nhầm.</li>
-                    <li>• Dữ liệu đã chốt chỉ dùng để đối soát.</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.85fr)]">
-            <div className="space-y-6">
-              <div className="card">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="font-display text-lg font-semibold tracking-tight">Tình trạng kỳ thu</h2>
-                    <p className="mt-1 text-sm text-ink-muted48">Nhìn nhanh kỳ nào đang mở, còn bao nhiêu học viên cần xử lý.</p>
-                  </div>
-                  {data.selectedPeriod ? (
-                    <Link href={`/tuition/${data.selectedPeriod.id}`} className="text-sm font-medium text-primary hover:underline">
-                      Mở chi tiết kỳ thu
-                    </Link>
-                  ) : null}
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                    <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Ngữ cảnh kỳ đang xem</p>
-                    <dl className="mt-3 space-y-2 text-sm">
-                      <div className="flex items-start justify-between gap-4">
-                        <dt className="text-ink-muted48">Kỳ / chế độ</dt>
-                        <dd className="text-right font-medium">{data.meta.periodKey ?? periodKey} · {data.meta.effectiveMode === "snapshot" ? "Đã chốt" : "Hiện tại"}</dd>
-                      </div>
-                      <div className="flex items-start justify-between gap-4">
-                        <dt className="text-ink-muted48">Snapshot</dt>
-                        <dd className="text-right font-medium">{data.meta.snapshotAt ? getSnapshotTimestampLabel("tuition", data.meta.snapshotAt) : "Chưa có snapshot"}</dd>
-                      </div>
-                      <div className="flex items-start justify-between gap-4">
-                        <dt className="text-ink-muted48">HV có nợ</dt>
-                        <dd className="text-right font-medium">{board?.debtorCount ?? 0}</dd>
-                      </div>
-                      <div className="flex items-start justify-between gap-4">
-                        <dt className="text-ink-muted48">Portal PH thiếu</dt>
-                        <dd className="text-right font-medium">{board?.portalMissingCount ?? 0}</dd>
-                      </div>
-                    </dl>
-                  </div>
-
-                  <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                    <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Việc cần làm</p>
-                    <ul className="mt-3 space-y-2 text-sm">
-                      <li>• Thu nợ kỳ này trước.</li>
-                      <li>• Sau đó xử lý nợ cũ và sách.</li>
-                      <li>• Nếu lệch số, đối chiếu buổi học và phát sinh sách.</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
+          <div className="space-y-6">
               <div className="card overflow-x-auto">
                 <div className="flex items-center justify-between gap-4">
                   <div>
@@ -802,12 +719,12 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
 
               <div className="card">
                 <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="font-display text-lg font-semibold tracking-tight">Danh sách cần thu</h2>
-                    <p className="mt-1 text-sm text-ink-muted48">
-                      Chọn đúng nhóm học viên cần thu trong kỳ {data.selectedPeriod?.periodName ?? data.meta.periodKey ?? periodKey}.
-                    </p>
-                  </div>
+              <div>
+                <h2 className="font-display text-lg font-semibold tracking-tight">Danh sách cần thu</h2>
+                <p className="mt-1 text-sm text-ink-muted48">
+                      Chỉ giữ đúng người đang cần thao tác trong kỳ {data.selectedPeriod?.periodName ?? data.meta.periodKey ?? periodKey}.
+                </p>
+              </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
@@ -843,11 +760,11 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {[
+                  {[ 
                     { key: "period_debt", label: "Nợ kỳ này", count: debtorTabCounts.period_debt },
-                    { key: "portfolio_debt", label: "Nợ cộng dồn", count: debtorTabCounts.portfolio_debt },
-                    { key: "ready", label: "Đủ điều kiện", count: debtorTabCounts.ready },
-                    { key: "missing_portal", label: "Thiếu portal", count: debtorTabCounts.missing_portal },
+                    { key: "portfolio_debt", label: "Còn nợ", count: debtorTabCounts.portfolio_debt },
+                    { key: "ready", label: "Đã đủ", count: debtorTabCounts.ready },
+                    { key: "missing_portal", label: "Portal", count: debtorTabCounts.missing_portal },
                   ].map((tab) => (
                     <button
                       key={tab.key}
@@ -863,98 +780,69 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                 </div>
 
                 <div className="mt-3 rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
-                  <p className="font-semibold text-ink">{filteredDebtors.length} học viên đang khớp</p>
-                  <p className="mt-1">Nhóm đang xem: <strong>{debtorTab === "period_debt" ? "Nợ kỳ này" : debtorTab === "portfolio_debt" ? "Nợ cộng dồn" : debtorTab === "ready" ? "Đã đủ điều kiện" : "Thiếu / lỗi portal"}</strong>.</p>
+                  <p>
+                    <strong className="text-ink">{filteredDebtors.length}</strong> học viên khớp · đang xem{" "}
+                    <strong className="text-ink">{debtorTab === "period_debt" ? "Nợ kỳ này" : debtorTab === "portfolio_debt" ? "Còn nợ" : debtorTab === "ready" ? "Đã đủ" : "Portal"}</strong>
+                  </p>
                 </div>
 
                 <div className="mt-4 overflow-x-auto">
-                  <table className="w-full min-w-[1540px] text-left text-sm">
+                  <table className="w-full min-w-[1080px] text-left text-sm">
                     <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
                       <tr>
-                        <th className="py-3 font-medium">Học viên</th>
-                        <th className="py-3 font-medium">Lớp / phụ huynh</th>
-                        <th className="py-3 font-medium">Cấu phần phí</th>
-                        <th className="py-3 font-medium">Portal</th>
-                        <th className="py-3 font-medium">Nguyên nhân / ngữ cảnh</th>
-                        <th className="py-3 font-medium">Đã thu / còn nợ</th>
+                        <th className="py-3 font-medium">Học viên / lớp</th>
+                        <th className="py-3 font-medium">Ngữ cảnh</th>
+                        <th className="py-3 font-medium">Nợ kỳ này</th>
                         <th className="py-3 font-medium">Tổng nợ</th>
+                        <th className="py-3 font-medium">Portal</th>
                         <th className="py-3 font-medium text-right">Thao tác</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredDebtors.map((debtor, index) => (
+                      {filteredDebtors.map((debtor) => (
                         <tr key={debtor.chargeId} className="border-b border-hairline last:border-0">
                           <td className="py-3 align-top">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="badge bg-primary/10 text-primary">#{index + 1}</span>
                               <Link href={`/students/${debtor.studentId}`} className="font-medium text-primary hover:underline">
                                 {debtor.studentName}
                               </Link>
                               <span className="text-xs text-ink-muted48">({debtor.studentCode})</span>
-                              {debtor.leadCode ? <span className="badge bg-sky-50 text-sky-700">Lead {debtor.leadCode}</span> : null}
                             </div>
-                          </td>
-                          <td className="py-3 align-top">
                             <p className="font-medium text-ink">{debtor.className}</p>
-                            <p className="mt-1 text-xs text-ink-muted48">
-                              {debtor.currentClassName !== debtor.className ? `Đang học: ${debtor.currentClassName}` : "Đúng lớp thu phí hiện tại"}
-                            </p>
-                            <p className="mt-1 text-xs text-ink-muted48">
-                              PH: {debtor.guardianName ?? "Chưa gắn"} · {debtor.guardianPhone ?? "Chưa có SĐT"}
-                            </p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {debtor.currentClassName !== debtor.className ? (
-                                <span className="badge bg-sky-50 text-sky-700">Lệch lớp thu phí</span>
-                              ) : null}
-                              {debtor.openingBalance > 0 ? (
-                                <span className="badge bg-rose-50 text-rose-700">Gánh nợ cũ</span>
-                              ) : null}
-                            </div>
+                            <p className="mt-1 text-xs text-ink-muted48">{debtor.guardianName ?? "Chưa gắn PH"} · {debtor.guardianPhone ?? "Chưa có SĐT"}</p>
                           </td>
                           <td className="py-3 align-top">
-                            <div className="rounded-xl border border-hairline bg-canvas-parchment/50 px-3 py-2">
-                              <p className="text-xs text-ink-muted48">
-                                {debtor.sessionCount} buổi · nghỉ {debtor.absentCount} · trừ {debtor.deductedCount} · đơn giá {formatVnd(debtor.unitPrice)}
-                              </p>
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                <span className="badge bg-sky-50 text-sky-700">Học phí {formatVnd(debtor.tuitionAmount)}</span>
-                                <span className="badge bg-violet-50 text-violet-700">Sách / phát sinh {formatVnd(debtor.materialsAmount)}</span>
-                                <span className="badge bg-amber-50 text-amber-700">Nợ đầu kỳ {formatVnd(debtor.openingBalance)}</span>
-                              </div>
-                              <p className="mt-2 text-xs font-semibold text-ink">Tổng phiếu: {formatVnd(debtor.totalAmount)}</p>
-                            </div>
+                            <p className="text-sm text-ink">{getDebtorReason(debtor)}</p>
+                            <p className="mt-1 text-xs text-ink-muted48">
+                              HP {formatVnd(debtor.tuitionAmount)} · Sách {formatVnd(debtor.materialsAmount)} · Nợ cũ {formatVnd(debtor.openingBalance)}
+                            </p>
+                          </td>
+                          <td className="py-3 align-top">
+                            <p className="font-semibold text-red-600">{formatVnd(debtor.remainingAmount)}</p>
+                            <p className="mt-1 text-xs text-ink-muted48">Đã thu {formatVnd(debtor.paidAmount)}</p>
+                          </td>
+                          <td className="py-3 align-top">
+                            <p className="font-medium text-ink">{formatVnd(debtor.totalOutstanding)}</p>
+                            {debtor.currentClassName !== debtor.className ? <p className="mt-1 text-xs text-sky-700">Đang học: {debtor.currentClassName}</p> : null}
                           </td>
                           <td className="py-3 align-top">
                             {!debtor.guardianPortalEmail ? (
                               <span className="badge bg-amber-100 text-amber-700">Thiếu portal</span>
                             ) : debtor.guardianPortalActive ? (
-                              <div>
-                                <span className="badge bg-emerald-100 text-emerald-700">Đang hoạt động</span>
-                                <p className="mt-1 text-xs text-ink-muted48">{debtor.guardianPortalEmail}</p>
-                              </div>
+                              <span className="badge bg-emerald-100 text-emerald-700">Portal hoạt động</span>
                             ) : (
-                              <div>
-                                <span className="badge bg-amber-100 text-amber-700">Chưa kích hoạt</span>
-                                <p className="mt-1 text-xs text-ink-muted48">{debtor.guardianPortalEmail}</p>
-                              </div>
+                              <span className="badge bg-amber-100 text-amber-700">Portal chưa kích hoạt</span>
                             )}
+                            {debtor.guardianPortalEmail ? <p className="mt-1 text-xs text-ink-muted48">{debtor.guardianPortalEmail}</p> : null}
                           </td>
-                          <td className="py-3 align-top">
-                            <p className="text-sm text-ink">{getDebtorReason(debtor)}</p>
-                          </td>
-                          <td className="py-3 align-top">
-                            <p className="font-semibold text-emerald-600">Đã thu {formatVnd(debtor.paidAmount)}</p>
-                            <p className="mt-1 font-semibold text-red-600">Còn nợ {formatVnd(debtor.remainingAmount)}</p>
-                          </td>
-                          <td className="py-3 align-top text-ink-muted80">{formatVnd(debtor.totalOutstanding)}</td>
                           <td className="py-3 align-top">
                             <div className="flex flex-wrap items-center justify-end gap-2">
                               <button type="button" onClick={() => setSelectedDebtor(debtor)} className="btn-ghost">
-                                Xem chi tiết
+                                Chi tiết
                               </button>
                               {canManageTuition ? <QuickPaymentButton studentId={debtor.studentId} suggestedAmount={debtor.remainingAmount} /> : null}
                               <Link href={`/students/${debtor.studentId}?tab=hocphi`} className="btn-360">
-                                Mở học phí HV
+                                Hồ sơ phí
                               </Link>
                             </div>
                           </td>
@@ -970,61 +858,6 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                   ) : null}
                 </div>
               </div>
-            </div>
-
-            <div className="space-y-6">
-              <div className="card">
-                <h2 className="font-display text-base font-bold tracking-tight text-ink">Hỗ trợ nhanh</h2>
-                <div className="mt-3 space-y-3 text-sm">
-                  <div className="rounded-2xl border border-hairline p-4">
-                    <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Cảnh báo</p>
-                    <ul className="mt-2 space-y-2">
-                      {(selectedPeriodSummary?.debt ?? 0) > 0 ? <li>• Công nợ của kỳ đang xem là {formatVnd(selectedPeriodSummary?.debt ?? 0)}.</li> : null}
-                      {(portfolioTotals?.debt ?? 0) > 0 ? <li>• Công nợ cộng dồn toàn bộ hệ thống đang là {formatVnd(portfolioTotals?.debt ?? 0)}.</li> : null}
-                      {(board?.portalMissingCount ?? 0) > 0 ? <li>• Có {board?.portalMissingCount} phụ huynh chưa có portal.</li> : null}
-                      {(board?.portalInactiveCount ?? 0) > 0 ? <li>• Có {board?.portalInactiveCount} portal phụ huynh chưa kích hoạt.</li> : null}
-                      {(board?.classWithDebtCount ?? 0) > 0 ? <li>• Có {board?.classWithDebtCount} lớp còn nợ.</li> : null}
-                      {data.meta.effectiveMode === "live" ? <li>• Đang xem dữ liệu hiện tại.</li> : <li>• Đang xem dữ liệu đã chốt.</li>}
-                    </ul>
-                  </div>
-
-                  <div className="rounded-2xl border border-hairline p-4">
-                    <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Top nợ cao</p>
-                    <div className="mt-2 space-y-2">
-                      {board?.heavyDebtors.map((item) => (
-                        <div key={item.chargeId} className="rounded-xl bg-canvas-parchment/50 px-3 py-2">
-                          <div className="flex items-center justify-between gap-3">
-                            <Link href={`/students/${item.studentId}`} className="font-medium text-primary hover:underline">
-                              {item.studentName}
-                            </Link>
-                            <span className="font-medium text-red-600">{formatVnd(item.totalOutstanding)}</span>
-                          </div>
-                          <p className="mt-1 text-xs text-ink-muted48">{item.className} · {item.guardianName ?? "Chưa gắn PH"}</p>
-                        </div>
-                      ))}
-                      {(board?.heavyDebtors.length ?? 0) === 0 ? <p className="text-sm text-ink-muted48">Không có học viên nợ cao.</p> : null}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-hairline p-4">
-                    <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Đi nhanh</p>
-                    <div className="mt-2 flex flex-wrap gap-3 text-sm">
-                      {data.selectedPeriod ? (
-                        <Link href={`/tuition/${data.selectedPeriod.id}`} className="text-primary hover:underline">
-                          Mở kỳ thu →
-                        </Link>
-                      ) : null}
-                      <Link href="/cashbook" className="text-primary hover:underline">
-                        Mở sổ quỹ →
-                      </Link>
-                      <Link href="/guardians" className="text-primary hover:underline">
-                        Mở phụ huynh →
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
           <div className="table-container">

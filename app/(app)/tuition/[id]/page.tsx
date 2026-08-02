@@ -30,7 +30,9 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
             },
           },
           class: true,
-          allocations: true,
+          allocations: {
+            where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } },
+          },
         },
         orderBy: { createdAt: "asc" },
       },

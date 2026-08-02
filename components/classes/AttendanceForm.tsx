@@ -31,29 +31,29 @@ function statusSummary(status: string) {
 
 const ATTENDANCE_FORM_GUIDE_SECTIONS = [
   {
-    title: "Mục tiêu form này",
+    title: "Form này để làm gì",
     items: [
-      "Đây là nơi chốt trạng thái có mặt hoặc vắng cho từng học viên trong buổi học hiện tại.",
-      "Danh sách có tìm kiếm, lọc và phân trang để giáo viên không bị ngợp khi lớp đông.",
-      "Kết quả ở đây ảnh hưởng tới cảnh báo chăm sóc và các luồng bổ trợ phát sinh sau đó.",
+      "Dùng để chốt Có mặt hoặc Vắng cho từng học viên trong buổi này.",
+      "Có tìm kiếm, lọc và phân trang để chấm nhanh khi lớp đông.",
+      "Kết quả ở đây ảnh hưởng tới bổ trợ và cảnh báo chăm sóc sau đó.",
     ],
     tone: "info" as const,
   },
   {
-    title: "Cách thao tác nhanh",
+    title: "Cách làm nhanh",
     items: [
-      "Lọc theo trạng thái hoặc tìm theo tên/mã học viên để chấm nhanh hơn.",
-      "Mỗi dòng chỉ cần chọn Có mặt hoặc Vắng rồi bấm lưu điểm danh ở cuối form.",
-      "Nếu học viên đã nghỉ hẳn, dùng thao tác rút lớp ngay tại đây để khỏi điểm danh lại ở các buổi sau.",
+      "Tìm theo tên hoặc mã học viên nếu cần chấm nhanh.",
+      "Mỗi dòng chỉ cần chọn Có mặt hoặc Vắng rồi bấm lưu ở cuối form.",
+      "Nếu học viên đã nghỉ hẳn, rút lớp ngay tại đây để khỏi điểm danh lại các buổi sau.",
     ],
     tone: "success" as const,
   },
   {
-    title: "Lưu ý vận hành",
+    title: "Lưu ý",
     items: [
-      "Rút lớp tại màn hình này sẽ cộng các buổi chưa học còn lại thành buổi bổ trợ cho học viên.",
-      "Điểm danh chưa lưu chỉ là trạng thái trong form, chưa ghi thật vào hệ thống.",
-      "Nếu lớp đông, nên chấm theo từng trang rồi mới lưu để tránh sót học viên.",
+      "Rút lớp ở đây sẽ cộng các buổi chưa học còn lại thành buổi bổ trợ.",
+      "Điểm danh chưa lưu chỉ mới nằm trong form.",
+      "Nếu lớp đông, nên chấm theo từng trang rồi mới lưu.",
     ],
     tone: "warning" as const,
   },
@@ -176,11 +176,11 @@ export default function AttendanceForm({ sessionId, initialRoster }: { sessionId
   return (
     <div className="space-y-4">
       <FormGuide
-        title="Guide điểm danh"
-        summary="Giải thích cách chấm có mặt/vắng, lọc danh sách và rút lớp ngay trong buổi học."
+        title="Hướng dẫn điểm danh"
+        summary="Cách chấm có mặt hoặc vắng và rút lớp ngay trong buổi học."
         sections={ATTENDANCE_FORM_GUIDE_SECTIONS}
         position="inline"
-        buttonLabel="Guide điểm danh"
+        buttonLabel="Guide"
       />
       <div className="space-y-4 rounded-[28px] border border-[#dbe7ff] bg-[#f8fbff] p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -233,23 +233,23 @@ export default function AttendanceForm({ sessionId, initialRoster }: { sessionId
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl border border-white/80 bg-white px-4 py-3 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted48">Tổng học viên</p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl border border-white/80 bg-white px-4 py-3 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted48">Tổng số</p>
             <p className="mt-2 text-xl font-semibold text-ink">{statusStats.ALL}</p>
           </div>
           <div className="rounded-2xl border border-white/80 bg-white px-4 py-3 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted48">Đang lọc</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted48">Đang xem</p>
             <p className="mt-2 text-xl font-semibold text-ink">{filteredRoster.length}</p>
           </div>
           <div className="rounded-2xl border border-white/80 bg-white px-4 py-3 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted48">Trang hiện tại</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted48">Trang</p>
             <p className="mt-2 text-xl font-semibold text-ink">
               {currentPage}/{totalPages}
             </p>
           </div>
           <div className="rounded-2xl border border-white/80 bg-white px-4 py-3 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted48">Đã chốt trong form</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted48">Trạng thái form</p>
             <p className="mt-2 text-xl font-semibold text-emerald-600">{saved ? "Xong" : "Chưa lưu"}</p>
           </div>
         </div>
@@ -257,7 +257,7 @@ export default function AttendanceForm({ sessionId, initialRoster }: { sessionId
         <p className="text-sm text-ink-muted80">
           Đang xem <strong className="text-ink">{filteredRoster.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}</strong>-
           <strong className="text-ink">{Math.min(currentPage * pageSize, filteredRoster.length)}</strong> /{" "}
-          <strong className="text-ink">{filteredRoster.length}</strong> học viên theo bộ lọc hiện tại
+          <strong className="text-ink">{filteredRoster.length}</strong> học viên
         </p>
         {totalPages > 1 ? (
           <div className="flex items-center gap-2">
@@ -286,8 +286,8 @@ export default function AttendanceForm({ sessionId, initialRoster }: { sessionId
 
       {filteredRoster.length === 0 ? (
         <div className="rounded-[28px] border border-dashed border-[#dbe7ff] bg-white px-5 py-10 text-center">
-          <p className="text-base font-semibold text-ink">Không có học viên khớp bộ lọc này</p>
-          <p className="mt-2 text-sm text-ink-muted48">Đổi trạng thái lọc hoặc xóa từ khóa tìm kiếm để xem lại toàn bộ danh sách.</p>
+          <p className="text-base font-semibold text-ink">Không có học viên khớp</p>
+          <p className="mt-2 text-sm text-ink-muted48">Đổi bộ lọc hoặc xóa từ khóa tìm kiếm để xem lại danh sách.</p>
         </div>
       ) : null}
 
@@ -305,7 +305,7 @@ export default function AttendanceForm({ sessionId, initialRoster }: { sessionId
                     <p className="text-xs text-ink-muted48">{row.studentCode}</p>
                   </div>
                 </div>
-                {statusSummary(row.status) ? <p className="text-sm text-ink-muted80">{statusSummary(row.status)}</p> : null}
+                {statusSummary(row.status) ? <p className="text-sm text-ink-muted80">Đang chọn: {statusSummary(row.status)}</p> : null}
               </div>
 
               <div className="flex flex-wrap gap-2 lg:max-w-[720px] lg:justify-end">
@@ -334,7 +334,7 @@ export default function AttendanceForm({ sessionId, initialRoster }: { sessionId
                   disabled={withdrawingEnrollmentId === row.enrollmentId}
                   className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {withdrawingEnrollmentId === row.enrollmentId ? "Đang rút lớp..." : "Đã rút lớp"}
+                  {withdrawingEnrollmentId === row.enrollmentId ? "Đang rút..." : "Rút lớp"}
                 </ConfirmActionButton>
               </div>
             </div>
@@ -343,11 +343,11 @@ export default function AttendanceForm({ sessionId, initialRoster }: { sessionId
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {saved ? <p className="text-sm text-primary">Đã lưu điểm danh và đánh dấu hoàn thành buổi học.</p> : null}
+      {saved ? <p className="text-sm text-primary">Đã lưu điểm danh.</p> : null}
 
       <div className="flex flex-wrap items-center gap-3 border-t border-hairline pt-4">
         <button type="button" onClick={save} disabled={loading} className="btn-primary">
-          {loading ? "Đang lưu..." : "Lưu điểm danh & đánh dấu hoàn thành"}
+          {loading ? "Đang lưu..." : "Lưu điểm danh"}
         </button>
       </div>
     </div>

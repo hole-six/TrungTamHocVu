@@ -13,29 +13,29 @@ import { computeSessionTiming, getVietnamToday } from "@/lib/server/class-rules"
 
 const SESSION_PAGE_GUIDE_SECTIONS = [
   {
-    title: "Mục tiêu màn hình này",
+    title: "Màn này để làm gì",
     items: [
-      "Đây là nơi vận hành một buổi học thực tế: đọc nội dung buổi, điểm danh, phân công và viết nhật ký lớp.",
-      "Giáo viên hoặc CSO có thể vào đúng buổi này để xử lý toàn bộ việc phát sinh trong ngày học.",
-      "Thông tin roadmap phía trên giúp biết hôm nay dạy gì mà không cần mở lại cấu hình lớp.",
+      "Đây là nơi xử lý một buổi học thực tế: xem nội dung buổi, điểm danh, phân công và viết nhật ký.",
+      "Giáo viên hoặc CSO có thể vào đúng buổi này để làm toàn bộ việc trong ngày học.",
+      "Phần giáo trình phía trên giúp biết hôm nay dạy gì mà không cần quay lại lớp học.",
     ],
     tone: "info" as const,
   },
   {
-    title: "Thứ tự thao tác nên dùng",
+    title: "Thứ tự nên làm",
     items: [
-      "Đầu tiên kiểm tra nội dung buổi, phòng học, nhân sự và sĩ số.",
-      "Tiếp theo điểm danh học viên để xác định ai có mặt, ai vắng.",
-      "Sau cùng mới viết nhật ký lớp, nhận xét và hoàn tất ghi nhận buổi học.",
+      "Xem nhanh nội dung buổi, phòng học, giáo viên và sĩ số.",
+      "Điểm danh để chốt ai có mặt, ai vắng.",
+      "Cuối cùng viết nhật ký lớp và nhận xét.",
     ],
     tone: "success" as const,
   },
   {
-    title: "Lưu ý vận hành",
+    title: "Lưu ý",
     items: [
-      "Buổi chưa tới ngày học thì không nên điểm danh hoặc chốt dữ liệu quá sớm.",
-      "Học viên vắng có thể kéo theo buổi bổ trợ hoặc cảnh báo chăm sóc nên cần ghi nhận đúng.",
-      "Nếu giáo viên thay thế hoặc đổi trợ giảng, nên cập nhật ngay trong phân công của buổi này.",
+      "Buổi chưa tới ngày học thì chưa nên điểm danh.",
+      "Học viên vắng có thể kéo theo buổi bổ trợ nên cần ghi đúng.",
+      "Nếu đổi giáo viên hoặc trợ giảng, cập nhật ngay trong buổi này.",
     ],
     tone: "warning" as const,
   },
@@ -139,10 +139,10 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
   return (
     <div className="page-shell">
       <PageGuide
-        title="Guide mở buổi học"
-        summary="Hướng dẫn nhanh thứ tự mở buổi học: đọc roadmap, điểm danh rồi viết nhật ký."
+        title="Hướng dẫn buổi học"
+        summary="Thứ tự nhanh: xem nội dung buổi, điểm danh, rồi viết nhật ký."
         sections={SESSION_PAGE_GUIDE_SECTIONS}
-        buttonLabel="Guide buổi học"
+        buttonLabel="Guide"
       />
       <div className="space-y-4">
         <Link href={`/classes/${session.classId}`} className="inline-flex items-center gap-2 text-sm font-medium text-primary">
@@ -156,19 +156,23 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div className="space-y-3">
               <span className="inline-flex w-fit rounded-full border border-sky-200 bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                Buổi học thực tế
+                Buổi học
               </span>
               <div>
                 <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-                  Mở buổi học · {new Date(session.sessionDate).toLocaleDateString("vi-VN")}
+                  {session.class.className} · {new Date(session.sessionDate).toLocaleDateString("vi-VN")}
                 </h1>
-             
+                <p className="mt-2 text-sm text-ink-muted48">
+                  {session.startTime} - {session.endTime}
+                  {session.room ? ` · ${session.room}` : ""}
+                  {sessionNumber ? ` · Buổi ${sessionNumber}` : ""}
+                </p>
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Thời gian</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Giờ học</p>
                 <p className="mt-2 text-lg font-semibold text-ink">{session.startTime} - {session.endTime}</p>
               </div>
               <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-sm">
@@ -176,7 +180,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
                 <p className="mt-2 text-lg font-semibold text-ink">{session.room || "Chưa gán phòng"}</p>
               </div>
               <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Học viên</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Sĩ số</p>
                 <p className="mt-2 text-lg font-semibold text-ink">{roster.length} bạn</p>
               </div>
               <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-sm">
@@ -204,24 +208,24 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
                 {sessionNumber ? `Buổi ${sessionNumber}${session.class.totalSessions ? ` / ${session.class.totalSessions}` : ""}` : "Chưa xác định"}
               </p>
               <p className="mt-1 text-sm text-ink-muted48">
-                {roadmapItem?.title?.trim() || "Chưa khai báo tên bài cho buổi này."}
+                {roadmapItem?.title?.trim() || "Chưa đặt tên bài cho buổi này."}
               </p>
             </div>
             <div className="rounded-[24px] border border-[#d7ecff] bg-white/90 px-4 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Kim chỉ nam buổi học hôm nay</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Hôm nay dạy gì</p>
               <div className="mt-2 grid gap-3 md:grid-cols-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Mục tiêu</p>
-                  <p className="mt-1 text-sm leading-6 text-ink">{roadmapItem?.objective?.trim() || "Chưa có mục tiêu buổi học."}</p>
+                  <p className="mt-1 text-sm leading-6 text-ink">{roadmapItem?.objective?.trim() || "Chưa có mục tiêu."}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Tài liệu</p>
-                  <p className="mt-1 text-sm leading-6 text-ink">{roadmapItem?.materials?.trim() || "Chưa khai báo tài liệu / học cụ."}</p>
+                  <p className="mt-1 text-sm leading-6 text-ink">{roadmapItem?.materials?.trim() || "Chưa khai báo tài liệu."}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Gợi ý dạy & dặn dò</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Gợi ý cho GV</p>
                   <p className="mt-1 text-sm leading-6 text-ink">
-                    {roadmapItem?.teacherGuide?.trim() || roadmapItem?.homeworkGuide?.trim() || "Chưa có ghi chú hướng dẫn cho giáo viên."}
+                    {roadmapItem?.teacherGuide?.trim() || roadmapItem?.homeworkGuide?.trim() || "Chưa có ghi chú cho giáo viên."}
                   </p>
                 </div>
               </div>
@@ -230,7 +234,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
           {roadmapItem ? (
             <details className="mt-4 rounded-[24px] border border-[#d7ecff] bg-white/85 px-4 py-4">
               <summary className="cursor-pointer list-none text-sm font-semibold text-primary">
-                Mở giáo trình buổi {roadmapItem.sessionNumber}
+                Xem chi tiết buổi {roadmapItem.sessionNumber}
               </summary>
               <div className="mt-3 grid gap-3 md:grid-cols-4">
                 <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
@@ -239,16 +243,16 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
                 </div>
                 <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Mục tiêu</p>
-                  <p className="mt-2 text-sm leading-6 text-ink">{roadmapItem.objective?.trim() || "Chưa có mục tiêu buổi học."}</p>
+                  <p className="mt-2 text-sm leading-6 text-ink">{roadmapItem.objective?.trim() || "Chưa có mục tiêu."}</p>
                 </div>
                 <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Giáo trình / tài liệu</p>
-                  <p className="mt-2 text-sm leading-6 text-ink">{roadmapItem.materials?.trim() || "Chưa khai báo tài liệu / học cụ."}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Tài liệu</p>
+                  <p className="mt-2 text-sm leading-6 text-ink">{roadmapItem.materials?.trim() || "Chưa khai báo tài liệu."}</p>
                 </div>
                 <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Ghi chú GV</p>
                   <p className="mt-2 text-sm leading-6 text-ink">
-                    {roadmapItem.teacherGuide?.trim() || roadmapItem.homeworkGuide?.trim() || "Chưa có ghi chú hướng dẫn cho giáo viên."}
+                    {roadmapItem.teacherGuide?.trim() || roadmapItem.homeworkGuide?.trim() || "Chưa có ghi chú cho giáo viên."}
                   </p>
                 </div>
               </div>
@@ -265,12 +269,10 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Bước 1</p>
                   <h2 className="mt-1 font-display text-xl font-semibold tracking-tight">Điểm danh học viên</h2>
-                  <p className="mt-1 text-sm text-ink-muted48">
-                    Chọn trạng thái cho từng học viên. Mỗi dòng trả lời câu hỏi: hôm nay bạn này học thế nào?
-                  </p>
+                  <p className="mt-1 text-sm text-ink-muted48">Chọn đúng trạng thái cho từng học viên trong buổi này.</p>
                 </div>
                 <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
-                  <p className="font-semibold text-ink">Trạng thái hiện có</p>
+                  <p className="font-semibold text-ink">Trạng thái dùng</p>
                   <p className="mt-1">Có mặt · Vắng</p>
                 </div>
               </div>
@@ -281,7 +283,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
             <div className="card">
               <h2 className="font-display text-lg font-semibold tracking-tight">Điểm danh</h2>
               <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                Buổi học chưa diễn ra (dự kiến {sessionDate.toLocaleDateString("vi-VN")}) — chưa thể điểm danh. Quay lại đúng ngày học để điểm danh.
+                Buổi học chưa diễn ra (dự kiến {sessionDate.toLocaleDateString("vi-VN")}) nên chưa thể điểm danh.
               </div>
             </div>
           )

@@ -39,29 +39,29 @@ function formatVnd(value: number | null | undefined) {
 
 const GUIDE_SECTIONS = [
   {
-    title: "Form này dùng trong tình huống nào?",
+    title: "Khi nào dùng",
     items: [
-      "Dùng khi đang đứng ở hồ sơ một học viên và cần gán nhanh bạn đó vào một lớp đang mở.",
-      "Luồng này rất hợp khi CSO chốt lớp cho một học viên cụ thể sau khi tư vấn hoặc sau khi phụ huynh đồng ý lịch học.",
-      "Nếu là lớp bổ trợ thì chỉ nên gán khi học viên còn buổi bổ trợ khả dụng và thực sự có nhu cầu học bù/bổ trợ.",
+      "Dùng khi cần gán nhanh học viên vào một lớp đang mở.",
+      "Phù hợp khi CSO đã chốt lớp với phụ huynh.",
+      "Lớp bổ trợ chỉ gán khi học viên còn buổi bổ trợ và có nhu cầu học.",
     ],
     tone: "info" as const,
   },
   {
-    title: "Cách chọn lớp đúng",
+    title: "Chọn lớp đúng",
     items: [
-      "Ưu tiên xem mã lớp, tên lớp, khóa học và số buổi để tránh gán nhầm lớp giống tên.",
-      "Lớp thường sẽ kéo theo học phí; lớp bổ trợ thì không thu học phí riêng như lớp chính.",
-      "Nếu học viên đã có lớp hiện tại, cần kiểm tra xem đang gán thêm lớp hay đang định chuyển hẳn sang lớp mới.",
+      "Xem mã lớp, tên lớp, khóa học và số buổi trước khi gán.",
+      "Lớp thường kéo theo học phí, lớp bổ trợ không thu riêng như lớp chính.",
+      "Nếu học viên đã có lớp, cần biết đang học thêm hay chuyển lớp.",
     ],
     tone: "success" as const,
   },
   {
-    title: "Điểm dễ sai",
+    title: "Dễ sai",
     items: [
-      "Gán nhầm vào lớp bổ trợ khi học viên không còn buổi bổ trợ sẽ khiến vận hành phía sau vướng.",
-      "Gán vội chỉ nhìn tên lớp mà không xem mã lớp hoặc khóa học rất dễ nhầm.",
-      "Nếu học viên đang học lớp khác, cần hiểu rõ là đang học song song hay cần rút/chuyển lớp ở lớp cũ.",
+      "Không gán lớp bổ trợ nếu học viên không còn buổi bổ trợ.",
+      "Không chỉ nhìn tên lớp, vì nhiều lớp có tên gần giống nhau.",
+      "Nếu học viên đang học lớp khác, cần xác định học song song hay chuyển lớp.",
     ],
     tone: "warning" as const,
   },
@@ -158,13 +158,13 @@ export default function AssignEnrollmentForm({
         open={open}
         onClose={() => setOpen(false)}
         widthClassName="max-w-3xl"
-        title="Gán nhập học cho học viên"
-        description="Chọn lớp đang mở để ghi danh nhanh cho học viên. Đây là luồng gán lớp trực tiếp từ hồ sơ học viên."
-        guide={<FormGuide title="Hướng dẫn gán học viên vào lớp" summary="Form này giúp CSO chốt lớp ngay trên hồ sơ từng học viên. Mấu chốt là chọn đúng lớp thường hay lớp bổ trợ và hiểu rõ trạng thái học hiện tại của học viên." sections={GUIDE_SECTIONS} position="inline" />}
+        title="Gán học viên vào lớp"
+        description="Chọn đúng lớp đang mở để ghi danh cho học viên."
+        guide={<FormGuide title="Hướng dẫn gán lớp" summary="Chọn đúng lớp thường hoặc lớp bổ trợ theo tình trạng hiện tại của học viên." sections={GUIDE_SECTIONS} position="inline" buttonLabel="Guide" />}
       >
         <div className="space-y-5">
-          <div className="rounded-3xl border border-sky-100 bg-sky-50/80 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Học viên đang xử lý</p>
+          <div className="rounded-[18px] border border-sky-100 bg-sky-50/80 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Học viên</p>
             <p className="mt-2 text-lg font-semibold text-ink">{student.fullName}</p>
             <p className="mt-1 text-sm text-ink-muted80">
               {student.studentCode}
@@ -175,7 +175,7 @@ export default function AssignEnrollmentForm({
           <form onSubmit={handleSearch} className="flex flex-col gap-3 md:flex-row">
             <input className="input flex-1" placeholder="Tìm theo mã lớp, tên lớp, tên khóa học..." value={q} onChange={(event) => setQ(event.target.value)} />
             <button type="submit" className="btn-ghost whitespace-nowrap" disabled={loadingList}>
-              {loadingList ? "Đang tìm..." : "Lọc lớp"}
+              {loadingList ? "Đang tìm..." : "Tìm lớp"}
             </button>
           </form>
 
@@ -199,10 +199,10 @@ export default function AssignEnrollmentForm({
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-sm font-semibold text-primary">{item.classCode}</p>
-                          {item.isRemedial ? <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold text-violet-700">🎯 Lớp bổ trợ</span> : null}
+                          {item.isRemedial ? <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold text-violet-700">Lớp bổ trợ</span> : null}
                         </div>
                         <p className="text-base font-semibold text-ink">{item.className}</p>
-                        <p className="text-sm text-ink-muted80">{item.isRemedial ? "Không thu học phí riêng · dùng để xếp học bù/bổ trợ" : item.course?.name ?? "Không gắn khóa học"}</p>
+                        <p className="text-sm text-ink-muted80">{item.isRemedial ? "Không thu học phí riêng" : item.course?.name ?? "Không gắn khóa học"}</p>
                       </div>
                       <div className="grid grid-cols-2 gap-3 text-sm text-ink-muted80 lg:min-w-[280px]">
                         <div>
@@ -244,8 +244,8 @@ export default function AssignEnrollmentForm({
               </p>
               {selected.isRemedial ? (
                 <div className="mt-2 space-y-1">
-                  <p className="text-sm text-emerald-800">Lớp bổ trợ không thu học phí riêng. CSO chỉ gán khi phụ huynh có nhu cầu học bù/bổ trợ.</p>
-                  <p className="text-sm font-semibold text-emerald-900">Học viên hiện có {student.sessionCreditCount ?? 0} buổi bổ trợ khả dụng.</p>
+                  <p className="text-sm text-emerald-800">Lớp bổ trợ không thu học phí riêng.</p>
+                  <p className="text-sm font-semibold text-emerald-900">Còn {student.sessionCreditCount ?? 0} buổi bổ trợ khả dụng.</p>
                 </div>
               ) : (
                 <p className="mt-1 text-sm text-emerald-800">Học phí {formatVnd(selected.tuitionPerSession)} / buổi · Tổng {selected.totalSessions ?? "chưa đặt"} buổi</p>

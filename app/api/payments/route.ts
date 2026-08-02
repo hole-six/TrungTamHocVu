@@ -86,7 +86,9 @@ export async function POST(req: NextRequest) {
 
     const openCharges = await tx.charge.findMany({
       where: { studentId },
-      include: { allocations: true },
+      include: {
+        allocations: { where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } } },
+      },
       orderBy: [{ billingPeriod: { startDate: "asc" } }, { createdAt: "asc" }],
     });
 

@@ -40,7 +40,13 @@ export async function getReportsDashboardData(branchId: BranchScope) {
       where: branchWhere,
       orderBy: { periodName: "desc" },
       take: 6,
-      include: { charges: { include: { allocations: true } } },
+      include: {
+        charges: {
+          include: {
+            allocations: { where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } } },
+          },
+        },
+      },
     }),
     prisma.student.findMany({
       where: { ...branchWhere, status: "ACTIVE" },
@@ -86,7 +92,14 @@ export async function getReportsDashboardData(branchId: BranchScope) {
     prisma.billingPeriod.findFirst({
       where: branchWhere,
       orderBy: { periodName: "desc" },
-      include: { charges: { include: { class: true, allocations: true } } },
+      include: {
+        charges: {
+          include: {
+            class: true,
+            allocations: { where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } } },
+          },
+        },
+      },
     }),
     prisma.payrollRun.findFirst({
       where: branchWhere,
@@ -112,7 +125,10 @@ export async function getReportsDashboardData(branchId: BranchScope) {
     : [];
   const allocations = charges.length
     ? await prisma.paymentAllocation.findMany({
-        where: { chargeId: { in: charges.map((charge) => charge.id) } },
+        where: {
+          chargeId: { in: charges.map((charge) => charge.id) },
+          payment: { status: { notIn: ["VOIDED", "REFUNDED"] } },
+        },
         select: { chargeId: true, amount: true },
       })
     : [];
@@ -330,7 +346,7 @@ export async function getReportHpSummary(branchId: BranchScope) {
         include: {
           class: true,
           student: true,
-          allocations: true,
+          allocations: { where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } } },
         },
       },
     },

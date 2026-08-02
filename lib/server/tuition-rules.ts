@@ -47,8 +47,8 @@ export function chargePaymentStatus(totalAmount: number, paidAmount: number): Pa
 
 export const PAYMENT_STATUS_LABEL: Record<string, string> = {
   UNPAID: "Chưa thu",
-  PARTIAL: "Thu một phần",
-  PAID: "Đã thu đủ",
+  PARTIAL: "Đã thu một phần",
+  PAID: "Đã thu hết",
   OVERPAID: "Thu dư",
 };
 

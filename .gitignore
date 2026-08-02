@@ -12,3 +12,24 @@ __pycache__/
 .next-dev.stdout.log
 .agents/
 .claude/
+# QA generated files
+.qa/.next-*/
+.qa/**/*.log
+.qa/**/trace
+
+# Next.js
+.next/
+**/.next/
+
+# Logs
+*.log
+.next/
+.next-*/
+**/.next/
+**/.next-*/
+
+.qa/.next-*/
+.qa/**/*.log
+.qa/**/trace
+
+*.log

@@ -6,6 +6,7 @@ import SlideOver from "@/components/ui/SlideOver";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import DatePicker from "@/components/ui/DatePicker";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import FormGuide from "@/components/ui/FormGuide";
 import { getVietnamToday } from "@/lib/server/class-rules";
 
@@ -108,7 +109,7 @@ function requirementClass(status: string) {
 
 function bookPaymentLabel(status: string) {
   if (status === "PAID") return "Đã thu";
-  if (status === "PARTIAL") return "Thu một phần";
+  if (status === "PARTIAL") return "Đã thu một phần";
   return "Chưa thu";
 }
 
@@ -132,13 +133,13 @@ function toneCard(kind: "danger" | "warning" | "success" | "default") {
 }
 
 function buildChargePreviewText(charge?: ChargeSummary | null) {
-  if (!charge) return "Hiện lớp này chưa có khoản mở của kỳ đang xử lý. Kiểu thu mới sẽ áp dụng cho lần sinh phí kế tiếp.";
+  if (!charge) return "Lớp này chưa có khoản đang mở. Kiểu thu mới sẽ áp dụng từ lần sinh phí tiếp theo.";
 
   return [
     `Kỳ đang ảnh hưởng: ${charge.periodName}`,
     `Còn phải thu: ${formatVnd(charge.remainingAmount)}`,
     `- Học phí: ${formatVnd(charge.tuitionAmount)}`,
-    `- Sách / phát sinh: ${formatVnd(charge.materialsAmount)}`,
+    `- Sách: ${formatVnd(charge.materialsAmount)}`,
     `- Nợ cũ: ${formatVnd(charge.openingBalance)}`,
     `- Đã thu: ${formatVnd(charge.paidAmount)}`,
   ].join("\n");
@@ -146,29 +147,29 @@ function buildChargePreviewText(charge?: ChargeSummary | null) {
 
 const STUDENT_FINANCE_GUIDE_SECTIONS = [
   {
-    title: "Cách đọc tab học phí",
+    title: "Đọc nhanh tab này",
     items: [
-      "Khối đầu trang cho biết còn phải thu bao nhiêu, sách chưa thu bao nhiêu và phiếu gần nhất của học viên.",
-      "Khoản cần thu ngay là phần ưu tiên thu trước, còn các kỳ khác phía dưới dùng để đối chiếu lịch sử công nợ.",
-      "Tiền sách và học phí được tách riêng để dễ biết khoản nào là học phí, khoản nào là phát sinh sách.",
+      "Nhìn số còn phải thu trước để biết học viên đang cần đóng bao nhiêu.",
+      "Khoản cần thu ngay là khoản nên xử lý đầu tiên trong lần làm việc này.",
+      "Tiền học và tiền sách được tách riêng để tránh thu nhầm.",
     ],
     tone: "info" as const,
   },
   {
-    title: "Cách thao tác đúng",
+    title: "Thao tác đúng",
     items: [
-      "Nếu cần thu tiền, dùng nút thu học phí nhanh ở đúng khoản đang mở hoặc ở đầu tab.",
-      "Nếu phụ huynh đổi giữa theo tháng và theo khóa, đổi tại khu kiểu thu để kỳ tiếp theo đi đúng logic.",
-      "Nếu học viên mua thêm sách, thêm ở khu phát sinh sách để tiền sách cộng đúng vào công nợ mở.",
+      "Cần thu tiền thì bấm thu ở đúng khoản đang mở.",
+      "Phụ huynh đổi từ theo tháng sang theo khóa thì đổi ở phần cách thu theo lớp.",
+      "Mua thêm sách thì thêm ở khu sách để hệ thống cộng đúng vào công nợ.",
     ],
     tone: "success" as const,
   },
   {
-    title: "Lưu ý quan trọng",
+    title: "Lưu ý",
     items: [
-      "Học bổng chỉ nên làm giảm phần học phí, không làm giảm tiền sách.",
-      "Đã thu đủ thì chỉ dùng để đối chiếu lịch sử, không nên tiếp tục sinh phiếu thu mới cho cùng khoản đó.",
-      "Khi số liệu chưa khớp, cần kiểm tra charge, payment allocation và book issue cùng lúc.",
+      "Học bổng chỉ giảm học phí, không giảm tiền sách.",
+      "Khoản đã thu đủ chỉ để đối chiếu lịch sử.",
+      "Nếu số liệu lệch, kiểm tra cả học phí, thanh toán và sách cùng lúc.",
     ],
     tone: "warning" as const,
   },
@@ -211,6 +212,13 @@ export default function StudentFinanceDesk({
   const [switchingEnrollmentId, setSwitchingEnrollmentId] = useState<string | null>(null);
   const [billingModeMessage, setBillingModeMessage] = useState<string | null>(null);
   const [updatingRequirementId, setUpdatingRequirementId] = useState<string | null>(null);
+  const [showIssueComposer, setShowIssueComposer] = useState(false);
+  const [pendingBillingSwitch, setPendingBillingSwitch] = useState<{
+    enrollmentId: string;
+    classId: string;
+    className: string;
+    nextBillingModel: "PERIOD" | "COURSE";
+  } | null>(null);
 
   const selectedBook = useMemo(() => books.find((book) => book.id === selectedBookId) ?? null, [books, selectedBookId]);
   const unpaidBooks = useMemo(() => bookIssues.filter((issue) => issue.paymentStatus !== "PAID"), [bookIssues]);
@@ -361,38 +369,22 @@ export default function StudentFinanceDesk({
     router.refresh();
   }
 
-  async function switchBillingMode(enrollmentId: string, nextBillingModel: "PERIOD" | "COURSE", className: string) {
-    const nextLabel = nextBillingModel === "COURSE" ? "theo khóa" : "theo tháng";
-    const confirmed = window.confirm(
-      `Xác nhận chuyển lớp ${className} sang ${nextLabel}?\n\nNếu kỳ hiện tại đã thu thực tế, hệ thống sẽ tự chặn để tránh lệch công nợ.`,
-    );
-    if (!confirmed) return;
+  async function switchBillingMode(enrollmentId: string, classId: string, nextBillingModel: "PERIOD" | "COURSE", className: string) {
+    setPendingBillingSwitch({ enrollmentId, classId, className, nextBillingModel });
+  }
 
+  async function confirmBillingModeSwitch() {
+    if (!pendingBillingSwitch) return;
+    const { enrollmentId, classId, className, nextBillingModel } = pendingBillingSwitch;
+    const nextLabel = nextBillingModel === "COURSE" ? "theo khóa" : "theo tháng";
     setSwitchingEnrollmentId(enrollmentId);
     setBillingModeMessage(null);
 
-    const enrollmentClassId = activeEnrollmentOptions.find((item) => item.enrollmentId === enrollmentId)?.classId;
-    const currentCharge = enrollmentClassId ? openChargeByClassId.get(enrollmentClassId) ?? null : null;
+    const currentCharge = openChargeByClassId.get(classId) ?? null;
     const periodContext =
       currentCharge?.billingPeriodId ??
       nextDueCharge?.billingPeriodId ??
       null;
-
-    const detailConfirmed = window.confirm(
-      [
-        `Kiểm tra lại trước khi đổi sang ${nextLabel}:`,
-        "",
-        buildChargePreviewText(currentCharge),
-        "",
-        "Quy tắc an toàn:",
-        "- Nếu khoản này đã thu thực tế, hệ thống sẽ chặn để tránh lệch công nợ.",
-        "- Sách / phát sinh chưa thu sẽ được giữ lại khi sinh phí theo kiểu mới.",
-      ].join("\n"),
-    );
-    if (!detailConfirmed) {
-      setSwitchingEnrollmentId(null);
-      return;
-    }
 
     const response = await fetch(`/api/enrollments/${enrollmentId}/billing-model`, {
       method: "PATCH",
@@ -404,10 +396,12 @@ export default function StudentFinanceDesk({
 
     if (!response.ok) {
       setBillingModeMessage(data.error ?? "Không thể đổi kiểu thu.");
+      setPendingBillingSwitch(null);
       return;
     }
 
     setBillingModeMessage(`Đã cập nhật ${className} sang ${nextLabel}.`);
+    setPendingBillingSwitch(null);
     router.refresh();
   }
 
@@ -434,11 +428,11 @@ export default function StudentFinanceDesk({
   return (
     <div className="space-y-6">
       <FormGuide
-        title="Guide tab học phí"
-        summary="Giải thích nhanh cách đọc công nợ, đổi kiểu thu và xử lý tiền sách của học viên."
+        title="Hướng dẫn học phí"
+        summary="Cách nhìn số tiền, đổi kiểu thu và xử lý sách của học viên."
         sections={STUDENT_FINANCE_GUIDE_SECTIONS}
-        position="inline"
-        buttonLabel="Guide học phí"
+        position="floating"
+        buttonLabel="Guide"
       />
       <section className="rounded-[28px] border border-[#dbe7fb] bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -447,17 +441,12 @@ export default function StudentFinanceDesk({
               <span className="rounded-full bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">
                 Học phí
               </span>
-              {currentClassName ? (
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{currentClassName}</span>
-              ) : null}
+              {currentClassName ? <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{currentClassName}</span> : null}
             </div>
 
             <div>
               <h2 className="font-display text-2xl font-semibold tracking-tight text-ink">Học phí của {studentName}</h2>
-              <p className="mt-1 text-sm text-ink-muted48">
-                {studentCode}
-                {activeEnrollmentOptions.length > 0 ? ` · ${activeEnrollmentOptions.length} lớp đang chạy` : " · Chưa có lớp đang hoạt động"}
-              </p>
+              <p className="mt-1 text-sm text-ink-muted48">{studentCode} · {activeEnrollmentOptions.length > 0 ? `${activeEnrollmentOptions.length} lớp đang chạy` : "Chưa có lớp đang hoạt động"}</p>
             </div>
 
           </div>
@@ -476,10 +465,10 @@ export default function StudentFinanceDesk({
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
       <section className="rounded-[28px] border border-hairline bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-ink">Kiểu thu</h3>
-            <p className="mt-1 text-sm text-ink-muted48">Đổi theo tháng hoặc theo khóa cho từng lớp đang học.</p>
-          </div>
+            <div>
+              <h3 className="text-lg font-semibold text-ink">Cách thu theo lớp</h3>
+            <p className="mt-1 text-sm text-ink-muted48">Mỗi lớp chọn 1 kiểu thu đang áp dụng cho phụ huynh.</p>
+            </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{activeEnrollmentOptions.length} lớp đang áp dụng</span>
         </div>
 
@@ -489,18 +478,11 @@ export default function StudentFinanceDesk({
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="text-sm font-semibold text-ink">{enrollment.className}</p>
-                  <p className="mt-1 text-xs text-ink-muted48">Phụ huynh đang chọn: {billingModeLabel(enrollment.billingModel)}</p>
+                  <p className="mt-1 text-xs text-ink-muted48">Đang thu: {billingModeLabel(enrollment.billingModel)}</p>
                   {openChargeByClassId.get(enrollment.classId) ? (
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-                        {openChargeByClassId.get(enrollment.classId)?.periodName}
-                      </span>
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">
-                        Còn {formatVnd(openChargeByClassId.get(enrollment.classId)?.remainingAmount ?? 0)}
-                      </span>
-                      <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">
-                        HP {formatVnd(openChargeByClassId.get(enrollment.classId)?.tuitionAmount ?? 0)} · Sách {formatVnd(openChargeByClassId.get(enrollment.classId)?.materialsAmount ?? 0)} · Nợ cũ {formatVnd(openChargeByClassId.get(enrollment.classId)?.openingBalance ?? 0)}
-                      </span>
+                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">{openChargeByClassId.get(enrollment.classId)?.periodName}</span>
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">Còn {formatVnd(openChargeByClassId.get(enrollment.classId)?.remainingAmount ?? 0)}</span>
                     </div>
                   ) : (
                     <p className="mt-2 text-xs text-ink-muted48">Hiện chưa có khoản mở cần đổi ngay cho lớp này.</p>
@@ -510,7 +492,7 @@ export default function StudentFinanceDesk({
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => switchBillingMode(enrollment.enrollmentId, "PERIOD", enrollment.className)}
+                    onClick={() => switchBillingMode(enrollment.enrollmentId, enrollment.classId, "PERIOD", enrollment.className)}
                     disabled={switchingEnrollmentId === enrollment.enrollmentId || enrollment.billingModel === "PERIOD"}
                     className={`rounded-full px-3 py-2 text-xs font-semibold transition ${
                       enrollment.billingModel === "PERIOD"
@@ -522,7 +504,7 @@ export default function StudentFinanceDesk({
                   </button>
                   <button
                     type="button"
-                    onClick={() => switchBillingMode(enrollment.enrollmentId, "COURSE", enrollment.className)}
+                    onClick={() => switchBillingMode(enrollment.enrollmentId, enrollment.classId, "COURSE", enrollment.className)}
                     disabled={switchingEnrollmentId === enrollment.enrollmentId || enrollment.billingModel === "COURSE"}
                     className={`rounded-full px-3 py-2 text-xs font-semibold transition ${
                       enrollment.billingModel === "COURSE"
@@ -544,10 +526,10 @@ export default function StudentFinanceDesk({
 
       <section className="rounded-[28px] border border-hairline bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-ink">Cần thu ngay</h3>
-            <p className="mt-1 text-sm text-ink-muted48">Đây là khoản nên xử lý đầu tiên.</p>
-          </div>
+            <div>
+              <h3 className="text-lg font-semibold text-ink">Khoản cần thu ngay</h3>
+            <p className="mt-1 text-sm text-ink-muted48">Ưu tiên thu trước ở lần làm việc này.</p>
+            </div>
           <div className="flex flex-wrap items-center gap-2">
             {nextDueCharge ? <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Còn {formatVnd(nextDueCharge.remainingAmount)}</span> : null}
             {canManageFinance && nextDueCharge ? <QuickPaymentButton studentId={studentId} suggestedAmount={nextDueCharge.remainingAmount} /> : null}
@@ -563,7 +545,7 @@ export default function StudentFinanceDesk({
                     <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-700">{nextDueCharge.periodName}</span>
                     <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">{nextDueCharge.className}</span>
                     {nextDueCharge.openingBalance > 0 ? (
-                      <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">Đang gánh nợ cũ</span>
+                      <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">Có nợ cũ</span>
                     ) : null}
                   </div>
                   {nextDueCharge.discountLabels?.length ? (
@@ -612,8 +594,8 @@ export default function StudentFinanceDesk({
         <div className="rounded-[28px] border border-hairline bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-ink">Các khoản chưa thu khác</h3>
-              <p className="mt-1 text-sm text-ink-muted48">Những khoản còn treo ngoài khoản ưu tiên phía trên.</p>
+              <h3 className="text-lg font-semibold text-ink">Các kỳ còn treo</h3>
+              <p className="mt-1 text-sm text-ink-muted48">Các kỳ chưa thu xong ngoài khoản đang ưu tiên.</p>
             </div>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{otherOpenCharges.length} kỳ khác</span>
           </div>
@@ -626,7 +608,7 @@ export default function StudentFinanceDesk({
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-semibold text-ink">{charge.periodName}</p>
                       <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">{charge.className}</span>
-                      {charge.openingBalance > 0 ? <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">Có nợ đầu kỳ</span> : null}
+                      {charge.openingBalance > 0 ? <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">Có nợ cũ</span> : null}
                     </div>
                     {charge.discountLabels?.length ? <p className="mt-2 text-xs text-emerald-700">{charge.discountLabels.join(" + ")}</p> : null}
                   </div>
@@ -661,7 +643,7 @@ export default function StudentFinanceDesk({
 
             {upcomingOtherCharges.length > 0 ? (
               <div className="rounded-[22px] border border-dashed border-sky-200 bg-sky-50/40 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Kỳ trả góp sắp tới (chưa tới hạn)</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Các kỳ sắp tới</p>
                 <div className="mt-3 space-y-2">
                   {upcomingOtherCharges.map((charge) => (
                     <div key={charge.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
@@ -672,7 +654,7 @@ export default function StudentFinanceDesk({
                           Đến hạn {new Date(charge.startDate).toLocaleDateString("vi-VN")}
                         </span>
                       </div>
-                      <span className="text-sm font-semibold text-ink-muted80">Chưa tới hạn · {formatVnd(charge.remainingAmount)}</span>
+                      <span className="text-sm font-semibold text-ink-muted80">{formatVnd(charge.remainingAmount)}</span>
                     </div>
                   ))}
                 </div>
@@ -691,18 +673,23 @@ export default function StudentFinanceDesk({
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
               <h3 className="text-lg font-semibold text-ink">Sách</h3>
-              <p className="mt-1 text-sm text-ink-muted48">Xác nhận sách phải mua và ghi thêm sách phát sinh.</p>
+              <p className="mt-1 text-sm text-ink-muted48">Gồm sách chuẩn của khóa và sách mua thêm.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Chờ xác nhận {requirementStats.pending}</span>
               <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Đã mua {requirementStats.confirmed}</span>
+              {canManageInventory ? (
+                <button type="button" onClick={() => setShowIssueComposer((current) => !current)} className="btn-ghost-sm">
+                  {showIssueComposer ? "Ẩn form phát sinh" : "Thêm sách phát sinh"}
+                </button>
+              ) : null}
             </div>
           </div>
 
           <div className="mt-4 space-y-4">
             <div className="rounded-[22px] border border-[#e8eefb] bg-[#fbfdff] p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-ink">Bộ sách chuẩn của khóa</p>
+                <p className="text-sm font-semibold text-ink">Sách chuẩn của khóa</p>
                 <span className="text-xs text-ink-muted48">{bookRequirements.length} yêu cầu</span>
               </div>
 
@@ -747,17 +734,12 @@ export default function StudentFinanceDesk({
             <div className="rounded-[22px] border border-[#e8eefb] bg-[#fbfdff] p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-ink">Sách chưa thu / phát sinh</p>
-                  <p className="mt-1 text-xs text-ink-muted48">Chỉ các dòng chưa thu đủ mới hiện ở đây.</p>
+                  <p className="text-sm font-semibold text-ink">Sách mua thêm / chưa thu</p>
+                  <p className="mt-1 text-xs text-ink-muted48">Chỉ hiện những dòng còn treo tiền.</p>
                 </div>
-                {canManageInventory ? (
-                  <button type="button" onClick={() => void openBookPicker()} className="btn-ghost-sm">
-                    Thêm sách phát sinh
-                  </button>
-                ) : null}
               </div>
 
-              {canManageInventory ? (
+              {canManageInventory && showIssueComposer ? (
                 <form onSubmit={handleIssueBook} className="mt-4 space-y-4 rounded-2xl border border-white bg-white p-4">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)_120px_180px]">
                     <label className="space-y-2">
@@ -795,7 +777,7 @@ export default function StudentFinanceDesk({
                           ) : (
                             <>
                               <p className="text-sm font-semibold text-ink">Chọn danh mục và sách</p>
-                              <p className="mt-1 text-xs text-ink-muted48">Mở drawer để lọc rồi chọn đúng đầu sách.</p>
+                              <p className="mt-1 text-xs text-ink-muted48">Mở danh sách để chọn đúng đầu sách.</p>
                             </>
                           )}
                         </div>
@@ -841,7 +823,7 @@ export default function StudentFinanceDesk({
                   {bookStatusError ? <div className="alert-danger">{bookStatusError}</div> : null}
 
                   <button type="submit" disabled={issuing || !canIssueBooks} className="btn-primary">
-                    {issuing ? "Đang lưu..." : "Lưu phát sinh sách"}
+                    {issuing ? "Đang lưu..." : "Thêm sách"}
                   </button>
                 </form>
               ) : null}
@@ -881,7 +863,7 @@ export default function StudentFinanceDesk({
                               disabled={updatingBookIssueId === issue.id}
                               className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-200"
                             >
-                              Thu một phần
+                              Đã thu một phần
                             </button>
                             <button
                               type="button"
@@ -1002,6 +984,32 @@ export default function StudentFinanceDesk({
           </div>
         </div>
       </SlideOver>
+
+      <ConfirmDialog
+        open={Boolean(pendingBillingSwitch)}
+        title={
+          pendingBillingSwitch
+            ? `Đổi ${pendingBillingSwitch.className} sang ${pendingBillingSwitch.nextBillingModel === "COURSE" ? "theo khóa" : "theo tháng"}?`
+            : "Đổi kiểu thu"
+        }
+        description={
+          pendingBillingSwitch
+            ? [
+                buildChargePreviewText(openChargeByClassId.get(pendingBillingSwitch.classId) ?? null),
+                "",
+                "Nếu khoản hiện tại đã thu rồi, hệ thống sẽ chặn để tránh lệch công nợ.",
+                "Tiền sách chưa thu sẽ được giữ lại ở lần sinh phí tiếp theo.",
+              ].join("\n")
+            : undefined
+        }
+        confirmLabel="Xác nhận đổi kiểu thu"
+        cancelLabel="Giữ nguyên"
+        onConfirm={confirmBillingModeSwitch}
+        onClose={() => {
+          if (!switchingEnrollmentId) setPendingBillingSwitch(null);
+        }}
+        loading={Boolean(switchingEnrollmentId)}
+      />
     </div>
   );
 }

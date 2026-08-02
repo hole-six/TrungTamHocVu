@@ -37,31 +37,71 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: `Chỉ có thể hoàn tối đa ${refundableTotal.toLocaleString("vi-VN")}đ` }, { status: 400 });
   }
 
-  const unusedCredits = payment.creditBalances.filter((c) => !c.usedAt);
+  const isDiscountCredit = (reason: string | null) =>
+    reason?.toLocaleLowerCase("vi").includes("chiết khấu") ?? false;
+  const cashCredits = payment.creditBalances.filter((credit) => !isDiscountCredit(credit.reason));
+  const discountCredits = payment.creditBalances.filter((credit) => isDiscountCredit(credit.reason));
+  const unusedCashCredits = cashCredits.filter((credit) => !credit.usedAt);
+  const unusedCashCreditTotal = unusedCashCredits.reduce((sum, credit) => sum + credit.amount, 0);
+  const usedDiscountCreditTotal = discountCredits
+    .filter((credit) => Boolean(credit.usedAt))
+    .reduce((sum, credit) => sum + credit.amount, 0);
+  const discountCreditTotal = discountCredits.reduce((sum, credit) => sum + credit.amount, 0);
   const stillAllocated = payment.allocations.reduce((s, a) => s + a.amount, 0);
-  const unusedCreditTotal = unusedCredits.reduce((s, c) => s + c.amount, 0);
-  const reversibleTotal = stillAllocated + unusedCreditTotal;
+  const newTotalRefunded = alreadyRefunded + amount;
+  const netPaymentAfterRefund = payment.amount - newTotalRefunded;
+  const allowedDiscountCreditAfterRefund =
+    payment.amount > 0 ? Math.floor((discountCreditTotal * netPaymentAfterRefund) / payment.amount) : 0;
+  const discountCreditToRevoke = Math.max(discountCreditTotal - allowedDiscountCreditAfterRefund, 0);
 
-  if (amount > reversibleTotal) {
+  if (amount > stillAllocated + unusedCashCreditTotal) {
     return NextResponse.json(
       {
-        error: `Một phần tiền của phiếu thu này (${(refundableTotal - reversibleTotal).toLocaleString("vi-VN")}đ) đã được dùng để trừ công nợ ở kỳ đã chốt sổ — không thể tự động hoàn. Cần mở lại kỳ đó trước hoặc xử lý thủ công.`,
+        error: `Chỉ còn ${(stillAllocated + unusedCashCreditTotal).toLocaleString("vi-VN")}đ có thể hoàn tự động. Phần còn lại đã được dùng ở kỳ khác.`,
       },
       { status: 409 }
+    );
+  }
+
+  if (usedDiscountCreditTotal > allowedDiscountCreditAfterRefund) {
+    return NextResponse.json(
+      {
+        error: "Một phần ưu đãi của phiếu thu đã được dùng. Cần mở lại kỳ liên quan trước khi hoàn tiền để không làm lệch công nợ.",
+      },
+      { status: 409 },
     );
   }
 
   await prisma.$transaction(async (tx) => {
     let remaining = amount;
 
-    for (const credit of unusedCredits) {
+    for (const credit of unusedCashCredits) {
       if (remaining <= 0) break;
       if (credit.amount <= remaining) {
         await tx.creditBalance.delete({ where: { id: credit.id } });
         remaining -= credit.amount;
       } else {
-        await tx.creditBalance.update({ where: { id: credit.id }, data: { amount: credit.amount - remaining } });
+        await tx.creditBalance.update({
+          where: { id: credit.id },
+          data: { amount: credit.amount - remaining },
+        });
         remaining = 0;
+      }
+    }
+
+    let remainingCreditToRevoke = discountCreditToRevoke;
+
+    for (const credit of discountCredits.filter((credit) => !credit.usedAt)) {
+      if (remainingCreditToRevoke <= 0) break;
+      if (credit.amount <= remainingCreditToRevoke) {
+        await tx.creditBalance.delete({ where: { id: credit.id } });
+        remainingCreditToRevoke -= credit.amount;
+      } else {
+        await tx.creditBalance.update({
+          where: { id: credit.id },
+          data: { amount: credit.amount - remainingCreditToRevoke },
+        });
+        remainingCreditToRevoke = 0;
       }
     }
 
@@ -106,7 +146,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       },
     });
 
-    const newTotalRefunded = alreadyRefunded + amount;
     await tx.payment.update({
       where: { id: payment.id },
       data: { status: newTotalRefunded >= payment.amount ? "REFUNDED" : "PARTIALLY_REFUNDED" },

@@ -28,6 +28,8 @@ async function main() {
   let studentCount = 0;
   let updatedChargeCount = 0;
   let updatedCreditCount = 0;
+  let repairedOverAllocationCount = 0;
+  let repairedUnrepresentedPaymentCount = 0;
   const samples: Array<{
     studentCode: string;
     fullName: string;
@@ -64,6 +66,57 @@ async function main() {
 
     if (charges.length === 0) continue;
     studentCount += 1;
+
+    for (const charge of charges) {
+      const validAllocations = charge.allocations
+        .filter(
+          (allocation) =>
+            allocation.payment.status !== "VOIDED" && allocation.payment.status !== "REFUNDED",
+        )
+        .sort((left, right) => right.id.localeCompare(left.id));
+      const allocatedAmount = validAllocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+      let excess = Math.max(allocatedAmount - Math.max(charge.totalAmount, 0), 0);
+
+      for (const allocation of validAllocations) {
+        if (excess <= 0) break;
+        const movedAmount = Math.min(allocation.amount, excess);
+        const reason = `Repair tiền phân bổ dư từ charge ${charge.id}`;
+
+        await prisma.$transaction(async (tx) => {
+          if (movedAmount >= allocation.amount) {
+            await tx.paymentAllocation.delete({ where: { id: allocation.id } });
+          } else {
+            await tx.paymentAllocation.update({
+              where: { id: allocation.id },
+              data: { amount: allocation.amount - movedAmount },
+            });
+          }
+
+          const existingCredit = await tx.creditBalance.findFirst({
+            where: { studentId: student.id, paymentId: allocation.paymentId, reason },
+          });
+          if (existingCredit) {
+            await tx.creditBalance.update({
+              where: { id: existingCredit.id },
+              data: { amount: existingCredit.amount + movedAmount },
+            });
+          } else {
+            await tx.creditBalance.create({
+              data: {
+                studentId: student.id,
+                paymentId: allocation.paymentId,
+                amount: movedAmount,
+                reason,
+              },
+            });
+          }
+        });
+
+        allocation.amount -= movedAmount;
+        excess -= movedAmount;
+        repairedOverAllocationCount += 1;
+      }
+    }
 
     const creditPool: CreditState[] = credits.map((credit) => ({
       id: credit.id,
@@ -158,14 +211,16 @@ async function main() {
       const source = credits.find((item) => item.id === credit.id);
       if (!source) continue;
 
-      if (source.amount === credit.remainingAmount && String(source.usedAt) === String(credit.usedAt)) {
+      const nextAmount = credit.usedAt ? source.amount : credit.remainingAmount;
+
+      if (source.amount === nextAmount && String(source.usedAt) === String(credit.usedAt)) {
         continue;
       }
 
       await prisma.creditBalance.update({
         where: { id: credit.id },
         data: {
-          amount: credit.remainingAmount,
+          amount: nextAmount,
           usedAt: credit.usedAt,
         },
       });
@@ -181,6 +236,44 @@ async function main() {
     }
   }
 
+  const payments = await prisma.payment.findMany({
+    where: { status: { notIn: ["VOIDED", "REFUNDED"] } },
+    include: { allocations: true, refunds: true, creditBalances: true },
+  });
+
+  for (const payment of payments) {
+    const refundedAmount = payment.refunds.reduce((sum, refund) => sum + refund.amount, 0);
+    const expectedNetAmount = Math.max(payment.amount - refundedAmount, 0);
+    const allocatedAmount = payment.allocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+    const cashCreditAmount = payment.creditBalances
+      .filter((credit) => !credit.reason?.toLocaleLowerCase("vi").includes("chiết khấu"))
+      .reduce((sum, credit) => sum + credit.amount, 0);
+    const missingAmount = expectedNetAmount - allocatedAmount - cashCreditAmount;
+
+    if (missingAmount <= 0) continue;
+
+    const reason = `Repair tiền thu chưa phân bổ từ phiếu ${payment.paymentNo}`;
+    const existingCredit = await prisma.creditBalance.findFirst({
+      where: { studentId: payment.studentId, paymentId: payment.id, reason },
+    });
+    if (existingCredit) {
+      await prisma.creditBalance.update({
+        where: { id: existingCredit.id },
+        data: { amount: existingCredit.amount + missingAmount },
+      });
+    } else {
+      await prisma.creditBalance.create({
+        data: {
+          studentId: payment.studentId,
+          paymentId: payment.id,
+          amount: missingAmount,
+          reason,
+        },
+      });
+    }
+    repairedUnrepresentedPaymentCount += 1;
+  }
+
   console.log(
     JSON.stringify(
       {
@@ -188,6 +281,8 @@ async function main() {
         studentCount,
         updatedChargeCount,
         updatedCreditCount,
+        repairedOverAllocationCount,
+        repairedUnrepresentedPaymentCount,
         changedStudentCount: samples.length,
         samples: samples.slice(0, 10),
       },

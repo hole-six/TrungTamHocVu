@@ -10,7 +10,9 @@ export async function getBatchInvoiceViewData(periodId: string) {
           student: true,
           class: { include: { branch: true } },
           billingPeriod: true,
-          allocations: true,
+          allocations: {
+            where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } },
+          },
           invoice: true,
         },
         orderBy: [{ class: { className: "asc" } }, { student: { fullName: "asc" } }],
@@ -20,10 +22,15 @@ export async function getBatchInvoiceViewData(periodId: string) {
 
   if (!period) return null;
 
+  const chargesWithRemaining = period.charges.filter((charge) => {
+    const paidAmount = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
+    return Math.max(charge.totalAmount - paidAmount, 0) > 0;
+  });
+
   const activeEnrollments = await prisma.enrollment.findMany({
     where: {
       status: "ACTIVE",
-      OR: period.charges.map((charge) => ({
+      OR: chargesWithRemaining.map((charge) => ({
         studentId: charge.studentId,
         classId: charge.classId,
       })),
@@ -37,7 +44,7 @@ export async function getBatchInvoiceViewData(periodId: string) {
   });
   const enrollmentMap = new Map(activeEnrollments.map((item) => [`${item.studentId}:${item.classId}`, item]));
 
-  const missingInvoiceCharges = period.charges.filter((c) => !c.invoice);
+  const missingInvoiceCharges = chargesWithRemaining.filter((c) => !c.invoice);
   const createdInvoices =
     missingInvoiceCharges.length > 0
       ? await Promise.all(
@@ -50,7 +57,7 @@ export async function getBatchInvoiceViewData(periodId: string) {
       : [];
   const createdInvoiceByChargeId = new Map(createdInvoices.map((inv) => [inv.chargeId, inv]));
 
-  const charges = period.charges.map((c) => {
+  const charges = chargesWithRemaining.map((c) => {
     const invoice = c.invoice ?? createdInvoiceByChargeId.get(c.id) ?? null;
     const enrollment = enrollmentMap.get(`${c.studentId}:${c.classId}`) ?? null;
     return {

@@ -75,29 +75,29 @@ function paymentStatusLabel(status: string, refunded: number) {
 
 const STUDENT_DETAIL_GUIDE_SECTIONS = [
   {
-    title: "Mục tiêu trang này",
+    title: "Trang này để làm gì",
     items: [
-      "Đây là hồ sơ vận hành đầy đủ của một học viên: thông tin, phụ huynh, lớp học, học phí và lịch sử học tập.",
-      "5 tab bên trong giúp tách việc rõ ràng để người vận hành xử lý đúng chỗ, không bị loạn dữ liệu.",
-      "Khi cần đối soát tiền, lớp hoặc tiến độ học, nên bắt đầu từ trang này.",
+      "Đây là hồ sơ đầy đủ của một học viên: thông tin, phụ huynh, lớp, học phí và lịch sử học.",
+      "5 tab giúp tách rõ từng việc để không bị rối khi thao tác.",
+      "Khi cần đối chiếu tiền, lớp hoặc tiến độ học, bắt đầu từ đây.",
     ],
     tone: "info" as const,
   },
   {
     title: "Cách dùng nhanh",
     items: [
-      "Tổng quan để đọc tình trạng hiện tại của học viên và các mốc chính.",
-      "Tab Học phí để xử lý công nợ, phiếu thu, kiểu thu theo tháng/theo khóa, sách và học bổng.",
-      "Các tab còn lại dùng để xem lớp đang học, kết quả, buổi bổ trợ và lịch sử phát sinh liên quan đến học viên.",
+      "Tab Tổng quan để xem tình trạng hiện tại và các mốc chính.",
+      "Tab Học phí để xử lý công nợ, kiểu thu, sách và học bổng.",
+      "Các tab còn lại dùng để xem lớp, kết quả, buổi bổ trợ và lịch sử phát sinh.",
     ],
     tone: "success" as const,
   },
   {
-    title: "Lưu ý vận hành",
+    title: "Lưu ý",
     items: [
-      "Công nợ chỉ nên kết luận sau khi đã kiểm tra charge, phân bổ thanh toán và sách phát sinh.",
-      "Nếu phụ huynh đổi kiểu thu giữa theo tháng và theo khóa, hãy xử lý ngay ở tab học phí để số liệu đi đúng luồng.",
-      "Buổi bổ trợ, rút lớp hoặc học bù có thể làm thay đổi cả vận hành lớp lẫn tài chính nên cần đối chiếu kỹ.",
+      "Muốn chốt công nợ thì phải kiểm tra cả học phí, thanh toán và sách.",
+      "Phụ huynh đổi kiểu thu thì xử lý ngay ở tab học phí.",
+      "Buổi bổ trợ hoặc rút lớp có thể ảnh hưởng cả lớp học lẫn tài chính.",
     ],
     tone: "warning" as const,
   },
@@ -127,7 +127,10 @@ export default async function StudentDetailPage({
           billingPeriod: true,
           class: true,
           invoice: true,
-          allocations: { include: { payment: { include: { cashPosting: { include: { cashTransaction: true } } } } } },
+          allocations: {
+            where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } },
+            include: { payment: { include: { cashPosting: { include: { cashTransaction: true } } } } },
+          },
         },
         orderBy: { createdAt: "desc" },
       },
@@ -327,10 +330,10 @@ export default async function StudentDetailPage({
   return (
     <div className="space-y-5 pb-16">
       <PageGuide
-        title="Guide hồ sơ học viên"
-        summary="Giải thích nhanh 5 tab chính và nơi xử lý đúng từng nghiệp vụ của học viên."
+        title="Hướng dẫn hồ sơ học viên"
+        summary="Giải thích nhanh 5 tab chính và nơi xử lý đúng từng việc."
         sections={STUDENT_DETAIL_GUIDE_SECTIONS}
-        buttonLabel="Guide học viên"
+        buttonLabel="Guide"
       />
 
       {/* ── HEADER ── */}
@@ -352,16 +355,14 @@ export default async function StudentDetailPage({
               <h1 className="text-3xl font-black tracking-tight text-[#0f1729] mb-3">{student.fullName}</h1>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center rounded-lg bg-[#f97316] px-2.5 py-1 text-xs font-bold text-white">{student.studentCode}</span>
-                {student.lead?.leadCode && <span className="inline-flex items-center rounded-lg bg-[#ea580c] px-2.5 py-1 text-xs font-bold text-white">Lead {student.lead.leadCode}</span>}
                 {currentEnrollment?.class?.className && <span className="inline-flex items-center rounded-lg bg-[#fb923c] px-2.5 py-1 text-xs font-bold text-white">{currentEnrollment.class.className}</span>}
                 {outstanding > 0 && <span className="inline-flex items-center rounded-lg bg-[#f59e0b] px-2.5 py-1 text-xs font-bold text-white">Còn nợ {formatVnd(outstanding)}</span>}
-                {nextDueCharge && (
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#ef4444] px-2.5 py-1 text-xs font-bold text-white">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    Kỳ {nextDueCharge.periodName}
-                  </span>
-                )}
               </div>
+              <p className="mt-3 text-sm text-[#64748b]">
+                {student.lead?.leadCode ? `${student.lead.leadCode} · ` : ""}
+                {primaryGuardian?.fullName ?? "Chưa gắn phụ huynh"}
+                {primaryGuardian?.phone ? ` · ${primaryGuardian.phone}` : ""}
+              </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -412,7 +413,7 @@ export default async function StudentDetailPage({
       )}
 
       {/* ── KPI 6 CARDS ── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -425,9 +426,9 @@ export default async function StudentDetailPage({
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
           </div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Tổng đã lập</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Đã lập phiếu</p>
           <p className="text-2xl font-black text-[#0f1729] mb-1">{formatVnd(totalCharged)}</p>
-          <p className="text-xs font-semibold text-[#64748b]">{student.charges.length} kỳ (gồm chưa tới hạn)</p>
+          <p className="text-xs font-semibold text-[#64748b]">{student.charges.length} kỳ</p>
         </div>
         <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
@@ -441,7 +442,7 @@ export default async function StudentDetailPage({
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fb923c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           </div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Điểm danh</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Có mặt</p>
           <p className="text-2xl font-black text-[#0f1729] mb-1">{attendanceStats.present}</p>
           <p className="text-xs font-semibold text-[#64748b]">Vắng {attendanceStats.absent} · Bù {attendanceStats.makeup}</p>
         </div>
@@ -449,7 +450,7 @@ export default async function StudentDetailPage({
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           </div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Portal</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Portal PH</p>
           <p className="text-lg font-black text-[#0f1729] mb-1 truncate">{primaryGuardian?.user?.email ? primaryGuardian.user.email.split('@')[0] : "Chưa cấp"}</p>
           <p className="text-xs font-semibold text-[#64748b]">{primaryGuardian?.user ? (primaryGuardian.user.isActive ? "Đang hoạt động" : "Đã thu hồi") : "Chưa có tài khoản"}</p>
         </div>
@@ -457,9 +458,9 @@ export default async function StudentDetailPage({
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
           </div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Giáo trình</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Sách chưa thu</p>
           <p className="text-2xl font-black text-[#0f1729] mb-1">{formatVnd(unpaidBookAmount)}</p>
-          <p className="text-xs font-semibold text-[#64748b]">{unpaidBookAmount > 0 ? "Sách chưa thu" : "Đã thu đủ"}</p>
+          <p className="text-xs font-semibold text-[#64748b]">{unpaidBookAmount > 0 ? "Còn treo tiền sách" : "Đã thu đủ"}</p>
         </div>
       </div>
 
@@ -472,12 +473,11 @@ export default async function StudentDetailPage({
             label: "Tổng quan",
             content: (
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                {/* Hồ sơ học viên */}
                 <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
                   <div className="flex items-start justify-between gap-3 mb-5">
                     <div>
                       <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Hồ sơ học viên</h2>
-                      <p className="mt-1 text-sm text-[#64748b]">Thông tin cá nhân và ngày nhập học</p>
+                      <p className="mt-1 text-sm text-[#64748b]">Thông tin cơ bản và mốc nhập học.</p>
                     </div>
                     {student.lead && (
                       <Link href={`/leads/${student.lead.id}`} className="inline-flex items-center gap-1 text-sm font-bold text-[#f97316] hover:text-[#ea580c]">
@@ -521,11 +521,10 @@ export default async function StudentDetailPage({
                   </div>
                 </div>
 
-                {/* Liên kết vận hành */}
                 <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
                   <div className="mb-5">
-                    <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Liên kết vận hành</h2>
-                    <p className="mt-1 text-sm text-[#64748b]">Lead, phụ huynh và lớp học hiện tại</p>
+                    <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Liên kết đang dùng</h2>
+                    <p className="mt-1 text-sm text-[#64748b]">Lead, phụ huynh, portal và lớp hiện tại.</p>
                   </div>
                   <div className="space-y-3">
                     <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
@@ -545,7 +544,7 @@ export default async function StudentDetailPage({
                       <span className="text-sm font-bold text-[#0f1729]">{primaryGuardian?.user?.email ?? "Chưa cấp"}</span>
                     </div>
                     <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
-                      <span className="text-sm font-semibold text-[#64748b]">Lớp / khóa hiện tại</span>
+                      <span className="text-sm font-semibold text-[#64748b]">Lớp hiện tại</span>
                       <p className="text-sm font-bold text-[#0f1729] mt-1">
                         {currentEnrollment?.class ? (
                           <>
@@ -558,7 +557,7 @@ export default async function StudentDetailPage({
                       </p>
                     </div>
                     <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
-                      <span className="text-sm font-semibold text-[#64748b]">Lịch học chuẩn</span>
+                      <span className="text-sm font-semibold text-[#64748b]">Lịch học</span>
                       <p className="text-sm font-bold text-[#0f1729] mt-1">
                         {currentEnrollment?.class.scheduleRules.length
                           ? currentEnrollment.class.scheduleRules.map((item) => `${item.weekday}-${item.startTime}`).join(", ")
@@ -568,13 +567,12 @@ export default async function StudentDetailPage({
                   </div>
                 </div>
 
-                {/* Tiến độ khóa học */}
                 {currentEnrollment?.class && courseProgress?.planned !== null && courseProgress && (
                   <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
                     <div className="flex items-start justify-between gap-3 mb-4">
                       <div>
                         <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Tiến độ khóa học</h2>
-                        <p className="mt-1 text-sm text-[#64748b]">Tính từ ngày ghi danh {formatDate(currentEnrollment.enrollDate)}</p>
+                        <p className="mt-1 text-sm text-[#64748b]">Tính từ ngày ghi danh {formatDate(currentEnrollment.enrollDate)}.</p>
                       </div>
                     </div>
                     <div className="rounded-xl bg-gradient-to-br from-[#eff6ff] to-[#dbeafe] border border-[#e5eaf7] p-5">
@@ -597,14 +595,13 @@ export default async function StudentDetailPage({
                   </div>
                 )}
 
-                {/* Cảnh báo vận hành */}
                 <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
-                  <h2 className="text-lg font-black tracking-tight text-[#0f1729] mb-4">Cảnh báo vận hành</h2>
+                  <h2 className="text-lg font-black tracking-tight text-[#0f1729] mb-4">Cần chú ý</h2>
                   <div className="space-y-2">
                     {!currentEnrollment && (
                       <div className="flex items-center gap-3 rounded-xl bg-[#fef2f2] border border-[#fecaca] px-4 py-3">
                         <span className="h-2 w-2 shrink-0 rounded-full bg-[#ef4444]" />
-                        <span className="text-sm font-semibold text-[#991b1b]">Chưa có enrollment hiện tại</span>
+                        <span className="text-sm font-semibold text-[#991b1b]">Chưa có lớp đang học</span>
                       </div>
                     )}
                     {!primaryGuardian && (
@@ -628,7 +625,7 @@ export default async function StudentDetailPage({
                     {student.bookIssues.some((issue) => issue.paymentStatus !== "PAID") && (
                       <div className="flex items-center gap-3 rounded-xl bg-[#fef9c3] border border-[#fde047] px-4 py-3">
                         <span className="h-2 w-2 shrink-0 rounded-full bg-[#f59e0b]" />
-                        <span className="text-sm font-semibold text-[#854d0e]">Có giáo trình chưa thu đủ</span>
+                        <span className="text-sm font-semibold text-[#854d0e]">Có sách chưa thu đủ</span>
                       </div>
                     )}
                     {!currentEnrollment &&
@@ -644,9 +641,8 @@ export default async function StudentDetailPage({
                   </div>
                 </div>
 
-                {/* Lịch sử trạng thái */}
                 <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
-                  <h2 className="text-lg font-black tracking-tight text-[#0f1729] mb-4">Lịch sử trạng thái</h2>
+                  <h2 className="text-lg font-black tracking-tight text-[#0f1729] mb-4">Lịch sử thay đổi</h2>
                   <div className="space-y-2">
                     {student.statusHistory.map((item) => (
                       <div key={item.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
@@ -655,13 +651,13 @@ export default async function StudentDetailPage({
                             <p className="font-bold text-[#0f1729] text-sm">
                               {item.fromStatus ?? "INIT"} → {item.toStatus}
                             </p>
-                            <p className="mt-1 text-xs text-[#64748b]">{item.reason ?? "Không có lý do ghi lại"}</p>
+                            <p className="mt-1 text-xs text-[#64748b]">{item.reason ?? "Không có ghi chú"}</p>
                           </div>
                           <span className="text-xs text-[#64748b]">{formatDate(item.changedAt)}</span>
                         </div>
                       </div>
                     ))}
-                    {student.statusHistory.length === 0 && <p className="text-sm text-[#64748b] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">Chưa có lịch sử trạng thái.</p>}
+                    {student.statusHistory.length === 0 && <p className="text-sm text-[#64748b] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">Chưa có lịch sử thay đổi.</p>}
                   </div>
                 </div>
               </div>
@@ -707,8 +703,8 @@ export default async function StudentDetailPage({
                 <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm overflow-hidden">
                   <div className="flex items-center justify-between mb-5">
                     <div>
-                      <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Kỳ học phí gần nhất</h2>
-                      <p className="mt-1 text-sm text-[#64748b]">Nhìn nhanh công nợ, số buổi và invoice</p>
+                      <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Các kỳ học phí gần đây</h2>
+                      <p className="mt-1 text-sm text-[#64748b]">Xem nhanh kỳ nào còn nợ, kỳ nào đã thu xong.</p>
                     </div>
                     {canManageFinance && outstanding > 0 && <QuickPaymentButton studentId={student.id} suggestedAmount={outstanding} />}
                   </div>
@@ -723,7 +719,7 @@ export default async function StudentDetailPage({
                               <p className="font-bold text-[#0f1729]">{charge.billingPeriod.periodName} · {charge.class.className}</p>
                               <p className="mt-1 text-xs text-[#64748b]">
                                 {charge.sessionCount} buổi · nghỉ {charge.absentCount} · trừ {charge.deductedCount}
-                                {charge.invoice ? ` · Invoice ${charge.invoice.invoiceNo}` : " · Chưa phát hành invoice"}
+                                {charge.invoice ? ` · Phiếu ${charge.invoice.invoiceNo}` : " · Chưa có phiếu"}
                               </p>
                             </div>
                             <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${remaining > 0 ? "bg-[#fef9c3] text-[#854d0e]" : "bg-[#dcfce7] text-[#166534]"}`}>
@@ -741,7 +737,7 @@ export default async function StudentDetailPage({
                   <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm overflow-hidden">
                     <div className="mb-5">
                       <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Lịch sử thu</h2>
-                      <p className="mt-1 text-sm text-[#64748b]">Tình trạng thanh toán và hoàn tiền</p>
+                      <p className="mt-1 text-sm text-[#64748b]">Các lần thu tiền và hoàn tiền gần đây.</p>
                     </div>
                     <div className="space-y-3">
                       {student.payments.slice(0, 6).map((payment) => {
@@ -750,10 +746,10 @@ export default async function StudentDetailPage({
                           <div key={payment.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] p-4">
                             <div className="flex items-start justify-between gap-3">
                               <div>
-                                <p className="font-bold text-[#0f1729]">{payment.paymentNo} · {formatDate(payment.paidDate)}</p>
-                                <p className="mt-1 text-xs text-[#64748b]">
-                                  {payment.method ?? "—"} · {payment.cashPosting?.cashTransaction ? `Đã post quỹ ${formatDate(payment.cashPosting.cashTransaction.txnDate)}` : "Chưa thấy cash posting"}
-                                </p>
+                              <p className="font-bold text-[#0f1729]">{payment.paymentNo} · {formatDate(payment.paidDate)}</p>
+                              <p className="mt-1 text-xs text-[#64748b]">
+                                  {payment.method ?? "—"} · {payment.cashPosting?.cashTransaction ? `Đã vào quỹ ${formatDate(payment.cashPosting.cashTransaction.txnDate)}` : "Chưa thấy vào quỹ"}
+                              </p>
                               </div>
                               <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${badgeClass(payment.status)}`}>{paymentStatusLabel(payment.status, refunded)}</span>
                             </div>
@@ -808,7 +804,7 @@ export default async function StudentDetailPage({
                   <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
                     <div className="mb-5">
                       <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Buổi học gần đây</h2>
-                      <p className="mt-1 text-sm text-[#64748b]">Điểm danh, giáo viên và nhật ký buổi học</p>
+                      <p className="mt-1 text-sm text-[#64748b]">Xem nhanh tình trạng học ở các buổi gần nhất.</p>
                     </div>
                     <div className="space-y-3">
                       {recentSessions.map(({ attendance, teachers, assistants }) => (
@@ -817,7 +813,7 @@ export default async function StudentDetailPage({
                             <div className="flex-1">
                               <p className="font-bold text-[#0f1729]">{attendance.session.class.className} · {formatDate(attendance.session.sessionDate)}</p>
                               <p className="mt-1 text-xs text-[#64748b]">
-                                GV: {teachers || "Chưa phân công"} · TG: {assistants || "—"} · Journal: {attendance.session.journal?.publishedAt ? "Đã publish" : attendance.session.journal ? "Đã lưu draft" : "Chưa có"}
+                                GV: {teachers || "Chưa phân công"} · TG: {assistants || "—"} · Nhật ký: {attendance.session.journal?.publishedAt ? "Đã gửi PH" : attendance.session.journal ? "Đang lưu nháp" : "Chưa có"}
                               </p>
                             </div>
                             <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold whitespace-nowrap ${attendance.status === "ABSENT" ? "bg-[#fee2e2] text-[#991b1b]" : attendance.status === "MAKEUP" ? "bg-[#e0f2fe] text-[#075985]" : "bg-[#dcfce7] text-[#166534]"}`}>
@@ -832,8 +828,8 @@ export default async function StudentDetailPage({
 
                   <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
                     <div className="mb-5">
-                      <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Journal & giáo trình</h2>
-                      <p className="mt-1 text-sm text-[#64748b]">Nhận xét học tập và tài liệu gần nhất</p>
+                      <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Nhận xét gần đây</h2>
+                      <p className="mt-1 text-sm text-[#64748b]">Các nhận xét học tập mới nhất của giáo viên.</p>
                     </div>
                     <div className="space-y-3">
                       {student.journalEntries.slice(0, 3).map((entry) => (
@@ -860,7 +856,7 @@ export default async function StudentDetailPage({
                   <div className="flex items-center justify-between gap-3 mb-5">
                     <div>
                       <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Phụ huynh liên kết</h2>
-                      <p className="mt-1 text-sm text-[#64748b]">Liên hệ, portal và vai trò của từng phụ huynh</p>
+                      <p className="mt-1 text-sm text-[#64748b]">Xem liên hệ chính, portal và vai trò của từng người.</p>
                     </div>
                     <Link href="/guardians" className="inline-flex items-center gap-1 text-sm font-bold text-[#3b82f6] hover:text-[#0ea5e9]">
                       Danh bạ <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -913,7 +909,7 @@ export default async function StudentDetailPage({
               <div className="space-y-5">
                 <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
                   <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Cập nhật hồ sơ</h2>
-                  <p className="mt-1 text-sm text-[#64748b]">Chỉnh thông tin cá nhân, trạng thái và ghi chú nội bộ</p>
+                  <p className="mt-1 text-sm text-[#64748b]">Sửa thông tin cá nhân, trạng thái và ghi chú nội bộ.</p>
                 </div>
                 <StudentEditForm
                   studentId={student.id}
@@ -953,7 +949,7 @@ export default async function StudentDetailPage({
                   {student.notes && (
                     <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                       <span className="text-sm font-semibold text-[#64748b]">Ghi chú nội bộ</span>
-                      <p className="text-sm font-bold text-[#0f1729] mt-1">{student.notes}</p>
+                      <p className="mt-1 text-sm font-bold text-[#0f1729]">{student.notes}</p>
                     </div>
                   )}
                 </div>

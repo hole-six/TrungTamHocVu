@@ -102,29 +102,34 @@ export default function CalendarFilters({
   const hasTimePreset = timePreset !== "all";
 
   return (
-    <div className="rounded-[24px] border border-[#dce7f3] bg-white p-3 shadow-[0_8px_24px_rgba(39,72,120,0.06)]">
-      <div className="grid gap-3 xl:grid-cols-[auto_auto_1fr] xl:items-center">
-        <div className="flex flex-wrap items-center gap-2">
-          {quickPresets.map((preset) => (
+    <div className="rounded-[18px] border border-[#dce7f3] bg-white p-3 shadow-[0_8px_24px_rgba(39,72,120,0.06)]">
+      <div className="grid gap-3 xl:grid-cols-[minmax(280px,1fr)_auto_auto] xl:items-center">
+        <div className="flex min-h-[44px] items-center gap-3 rounded-[12px] border border-[#dce7f3] bg-white px-4">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[#7b8da5]" aria-hidden>
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+          <input
+            className="h-[42px] min-w-0 flex-1 border-0 bg-transparent text-sm font-medium text-[#18304f] outline-none placeholder:text-[#98a7bb]"
+            value={query}
+            onChange={(event) => handleQueryChange(event.target.value)}
+            placeholder="Tìm lớp, phòng, giáo viên..."
+          />
+          {isPending ? <span className="shrink-0 text-xs font-medium text-ink-muted48">Đang lọc...</span> : null}
+          {hasQuery ? (
             <button
-              key={preset.id}
               type="button"
-              onClick={() => {
-                setTimePreset(preset.id);
-                pushFilters({ timePreset: preset.id });
-              }}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                timePreset === preset.id
-                  ? "border border-transparent bg-[linear-gradient(135deg,#1389e8,#087bd7)] text-white shadow-[0_7px_16px_rgba(19,137,232,0.22)]"
-                  : "border border-[#dce7f3] bg-white text-[#18304f] hover:border-primary/30"
-              }`}
+              onClick={clearQuery}
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-100 text-sm font-bold text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+              aria-label="Xóa từ khóa tìm kiếm"
+              title="Xóa từ khóa"
             >
-              {preset.label}
+              ×
             </button>
-          ))}
+          ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 xl:justify-end">
           <button
             type="button"
             onClick={() => {
@@ -145,7 +150,7 @@ export default function CalendarFilters({
                 setWeek(value);
                 pushFilters({ week: value });
               }}
-              placeholder="Chọn ngày trong tuần"
+              placeholder="Chọn ngày"
             />
           </div>
           <button
@@ -174,43 +179,37 @@ export default function CalendarFilters({
           </button>
         </div>
 
-        <div className="flex items-center gap-3 rounded-[14px] border border-[#dce7f3] bg-white px-4">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[#7b8da5]" aria-hidden>
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-3.5-3.5" />
-          </svg>
-          <input
-            className="h-[42px] min-w-0 flex-1 border-0 bg-transparent text-sm font-medium text-[#18304f] outline-none placeholder:text-[#98a7bb]"
-            value={query}
-            onChange={(event) => handleQueryChange(event.target.value)}
-            placeholder="Lớp, phòng, giáo viên..."
-          />
-          {isPending ? <span className="text-xs font-medium text-ink-muted48">Đang lọc...</span> : null}
+        <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+          {quickPresets.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => {
+                setTimePreset(preset.id);
+                pushFilters({ timePreset: preset.id });
+              }}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                timePreset === preset.id
+                  ? "border border-transparent bg-[linear-gradient(135deg,#1389e8,#087bd7)] text-white shadow-[0_7px_16px_rgba(19,137,232,0.22)]"
+                  : "border border-[#dce7f3] bg-white text-[#18304f] hover:border-primary/30"
+              }`}
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {hasQuery || hasTimePreset ? (
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#eef3f9] pt-4">
-          {hasQuery ? (
-            <button
-              type="button"
-              onClick={clearQuery}
-              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary"
-            >
-              {query}
-              <span aria-hidden>✕</span>
-            </button>
-          ) : null}
-          {hasTimePreset ? (
-            <button
-              type="button"
-              onClick={clearTimePreset}
-              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary"
-            >
-              Ca {TIME_PRESET_LABEL[timePreset]}
-              <span aria-hidden>✕</span>
-            </button>
-          ) : null}
+      {hasTimePreset ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#eef3f9] pt-3">
+          <button
+            type="button"
+            onClick={clearTimePreset}
+            className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary"
+          >
+            Ca {TIME_PRESET_LABEL[timePreset]}
+            <span aria-hidden>×</span>
+          </button>
         </div>
       ) : null}
     </div>
