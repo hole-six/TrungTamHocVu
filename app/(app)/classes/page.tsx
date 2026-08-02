@@ -4,9 +4,41 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import CourseManager from "@/components/classes/CourseManager";
 import ClassesTable from "@/components/classes/ClassesTable";
+import PageGuide from "@/components/ui/PageGuide";
 import { canCreate } from "@/lib/server/role-matrix";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
+
+const CLASSES_PAGE_GUIDE_SECTIONS = [
+  {
+    title: "Màn này để làm gì?",
+    items: [
+      "Đây là màn tổng vận hành lớp học: xem danh sách lớp, mở lớp mới và quản lý khóa chuẩn.",
+      "Từ đây bạn đi vào từng lớp để xử lý buổi học, học viên, lịch chuẩn và nhật ký lớp.",
+      "Nếu người mới chưa quen, hãy bắt đầu bằng xem trạng thái lớp rồi mới đi sâu vào chi tiết từng lớp.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Thứ tự thao tác nên đi",
+    items: [
+      "Bước 1: lọc đúng lớp đang chạy hoặc lớp cần xử lý.",
+      "Bước 2: mở chi tiết lớp để xử lý học viên, buổi học hoặc lịch chuẩn.",
+      "Bước 3: chỉ tạo lớp mới khi đã rõ khóa học, lịch chuẩn, học phí và số buổi.",
+      "Bước 4: quản lý khóa chuẩn ở cuối màn để giữ dữ liệu đầu vào của lớp luôn gọn.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Điểm cần tránh",
+    items: [
+      "Không mở lớp mới khi lịch chuẩn còn mơ hồ.",
+      "Không nhầm giữa chỉnh lớp và xử lý từng buổi học riêng lẻ.",
+      "Không bỏ qua trạng thái lớp vì nó quyết định ngữ cảnh vận hành phía sau.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 const PAGE_SIZE = 20;
 
@@ -135,6 +167,12 @@ export default async function ClassesPage({
 
   return (
     <div className="space-y-6">
+      <PageGuide
+        title="Guide vận hành lớp học"
+        summary="Đây là màn trung tâm của khu lớp học. Người mới chỉ cần hiểu rõ: lớp nào đang chạy, khi nào tạo lớp mới, và khi nào phải đi vào chi tiết lớp để xử lý sâu hơn."
+        sections={CLASSES_PAGE_GUIDE_SECTIONS}
+        buttonLabel="Guide lớp học"
+      />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="page-title">Quản lý lớp học</h1>

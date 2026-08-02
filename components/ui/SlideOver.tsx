@@ -10,6 +10,7 @@ type SlideOverProps = {
   onClose: () => void;
   children: React.ReactNode;
   widthClassName?: string;
+  guide?: React.ReactNode;
 };
 
 export default function SlideOver({
@@ -19,6 +20,7 @@ export default function SlideOver({
   onClose,
   children,
   widthClassName = "max-w-2xl",
+  guide,
 }: SlideOverProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -43,10 +45,6 @@ export default function SlideOver({
 
   if (!open || !mounted) return null;
 
-  // Portal thẳng ra document.body — nếu render lồng trong 1 phần tử có
-  // :hover{transform:...} (vd .card ở các bảng danh sách), transform trên tổ tiên
-  // sẽ biến nó thành containing block cho position:fixed bên trong, khiến panel bị
-  // giật vị trí lúc hover/rời chuột khỏi phần tử đó. Portal loại bỏ khả năng này.
   return createPortal(
     <div className="slideover-root" role="dialog" aria-modal="true" aria-label={title}>
       <button type="button" className="slideover-backdrop" onClick={onClose} aria-label="Đóng" />
@@ -56,9 +54,12 @@ export default function SlideOver({
             <h2 className="font-display text-2xl font-semibold tracking-tight text-ink">{title}</h2>
             {description ? <p className="mt-2 text-sm leading-6 text-ink-muted80">{description}</p> : null}
           </div>
-          <button type="button" onClick={onClose} className="btn-ghost-sm">
-            Đóng
-          </button>
+          <div className="flex items-center gap-2">
+            {guide}
+            <button type="button" onClick={onClose} className="btn-ghost-sm">
+              Đóng
+            </button>
+          </div>
         </div>
         <div className="slideover-body">{children}</div>
       </div>

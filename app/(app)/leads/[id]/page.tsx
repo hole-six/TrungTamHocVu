@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { computeOutstandingBalance } from "@/lib/server/balance";
+import PageGuide from "@/components/ui/PageGuide";
 
 const INTERACTION_LABEL: Record<string, string> = {
   CALL: "Gọi điện",
@@ -53,6 +54,36 @@ function InfoItem({ label, value, hint }: { label: string; value: React.ReactNod
   );
 }
 
+const LEAD_DETAIL_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu trang này",
+    items: [
+      "Đây là hồ sơ CRM đầy đủ của một lead: liên hệ, lịch hẹn, tương tác, test đầu vào và trạng thái chuyển đổi.",
+      "Trang này giúp CSO nhìn toàn bộ hành trình của lead trên một màn hình thay vì phải mở nhiều nơi.",
+      "Khi cần biết bước tiếp theo nên làm gì, hãy nhìn theo trạng thái rồi tới hoạt động gần nhất.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách dùng nhanh",
+    items: [
+      "Xem trạng thái lead trước để biết lead đang ở khâu nào: mới, đang liên hệ, đã test hay đã ghi danh.",
+      "Nhìn các khối lịch hẹn, tương tác và test đầu vào để biết việc mới nhất đã diễn ra là gì.",
+      "Nếu lead đã chuyển thành học viên, dùng phần liên kết vận hành để đi sang hồ sơ thật của học viên hoặc phụ huynh.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Không nên đổi trạng thái chỉ để làm đẹp dashboard; mỗi lần đổi nên gắn với hành động thực tế đã hoàn thành.",
+      "Lead đã có học viên liên kết thì phải tránh xử lý trùng giữa CRM và module học viên.",
+      "Nếu lịch hẹn, test và ghi chú đang mâu thuẫn nhau, ưu tiên kiểm tra hoạt động mới nhất trước.",
+    ],
+    tone: "warning" as const,
+  },
+];
+
 export default async function LeadDetailPage({ params }: { params: { id: string } }) {
   const lead = await prisma.lead.findUnique({
     where: { id: params.id },
@@ -95,6 +126,12 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
 
   return (
     <div className="space-y-6 pb-8">
+      <PageGuide
+        title="Guide chi tiết lead"
+        summary="Giải thích nhanh cách đọc hành trình CRM của một lead và bước tiếp theo cần xử lý."
+        sections={LEAD_DETAIL_GUIDE_SECTIONS}
+        buttonLabel="Guide lead"
+      />
       <section className="rounded-[32px] border border-[#dbe7ff] bg-white px-6 py-6 shadow-[0_24px_60px_rgba(15,23,42,0.06)] md:px-8">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-3">

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import SlideOver from "@/components/ui/SlideOver";
+import FormGuide from "@/components/ui/FormGuide";
 
 type AssignEnrollmentFormProps = {
   student: {
@@ -24,9 +25,7 @@ type ClassHit = {
   isRemedial?: boolean;
   totalSessions?: number | null;
   tuitionPerSession?: number | null;
-  course?: {
-    name: string;
-  } | null;
+  course?: { name: string } | null;
   _count?: {
     enrollments: number;
     sessions: number;
@@ -37,6 +36,36 @@ function formatVnd(value: number | null | undefined) {
   if (!value) return "Chưa cài đặt";
   return `${value.toLocaleString("vi-VN")}đ`;
 }
+
+const GUIDE_SECTIONS = [
+  {
+    title: "Form này dùng trong tình huống nào?",
+    items: [
+      "Dùng khi đang đứng ở hồ sơ một học viên và cần gán nhanh bạn đó vào một lớp đang mở.",
+      "Luồng này rất hợp khi CSO chốt lớp cho một học viên cụ thể sau khi tư vấn hoặc sau khi phụ huynh đồng ý lịch học.",
+      "Nếu là lớp bổ trợ thì chỉ nên gán khi học viên còn buổi bổ trợ khả dụng và thực sự có nhu cầu học bù/bổ trợ.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách chọn lớp đúng",
+    items: [
+      "Ưu tiên xem mã lớp, tên lớp, khóa học và số buổi để tránh gán nhầm lớp giống tên.",
+      "Lớp thường sẽ kéo theo học phí; lớp bổ trợ thì không thu học phí riêng như lớp chính.",
+      "Nếu học viên đã có lớp hiện tại, cần kiểm tra xem đang gán thêm lớp hay đang định chuyển hẳn sang lớp mới.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Điểm dễ sai",
+    items: [
+      "Gán nhầm vào lớp bổ trợ khi học viên không còn buổi bổ trợ sẽ khiến vận hành phía sau vướng.",
+      "Gán vội chỉ nhìn tên lớp mà không xem mã lớp hoặc khóa học rất dễ nhầm.",
+      "Nếu học viên đang học lớp khác, cần hiểu rõ là đang học song song hay cần rút/chuyển lớp ở lớp cũ.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function AssignEnrollmentForm({
   student,
@@ -130,7 +159,8 @@ export default function AssignEnrollmentForm({
         onClose={() => setOpen(false)}
         widthClassName="max-w-3xl"
         title="Gán nhập học cho học viên"
-        description="Chọn lớp đang mở để ghi danh nhanh cho học viên. Nếu sau này cần đổi lịch học, học bù, chuyển buổi thì xử lý trong chi tiết lớp."
+        description="Chọn lớp đang mở để ghi danh nhanh cho học viên. Đây là luồng gán lớp trực tiếp từ hồ sơ học viên."
+        guide={<FormGuide title="Hướng dẫn gán học viên vào lớp" summary="Form này giúp CSO chốt lớp ngay trên hồ sơ từng học viên. Mấu chốt là chọn đúng lớp thường hay lớp bổ trợ và hiểu rõ trạng thái học hiện tại của học viên." sections={GUIDE_SECTIONS} position="inline" />}
       >
         <div className="space-y-5">
           <div className="rounded-3xl border border-sky-100 bg-sky-50/80 p-4">
@@ -143,12 +173,7 @@ export default function AssignEnrollmentForm({
           </div>
 
           <form onSubmit={handleSearch} className="flex flex-col gap-3 md:flex-row">
-            <input
-              className="input flex-1"
-              placeholder="Tìm theo mã lớp, tên lớp, tên khóa học..."
-              value={q}
-              onChange={(event) => setQ(event.target.value)}
-            />
+            <input className="input flex-1" placeholder="Tìm theo mã lớp, tên lớp, tên khóa học..." value={q} onChange={(event) => setQ(event.target.value)} />
             <button type="submit" className="btn-ghost whitespace-nowrap" disabled={loadingList}>
               {loadingList ? "Đang tìm..." : "Lọc lớp"}
             </button>
@@ -168,26 +193,16 @@ export default function AssignEnrollmentForm({
                     key={item.id}
                     type="button"
                     onClick={() => setSelected(isSelected ? null : item)}
-                    className={`w-full rounded-3xl border p-4 text-left transition ${
-                      isSelected
-                        ? "border-primary bg-primary/5 shadow-[0_16px_32px_rgba(17,139,222,0.12)]"
-                        : "border-hairline bg-white hover:border-primary/40 hover:bg-canvas"
-                    }`}
+                    className={`w-full rounded-3xl border p-4 text-left transition ${isSelected ? "border-primary bg-primary/5 shadow-[0_16px_32px_rgba(17,139,222,0.12)]" : "border-hairline bg-white hover:border-primary/40 hover:bg-canvas"}`}
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-sm font-semibold text-primary">{item.classCode}</p>
-                          {item.isRemedial ? (
-                            <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold text-violet-700">
-                              🎯 Lớp bổ trợ
-                            </span>
-                          ) : null}
+                          {item.isRemedial ? <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold text-violet-700">🎯 Lớp bổ trợ</span> : null}
                         </div>
                         <p className="text-base font-semibold text-ink">{item.className}</p>
-                        <p className="text-sm text-ink-muted80">
-                          {item.isRemedial ? "Không thu học phí riêng · dùng để xếp học bù/bổ trợ" : item.course?.name ?? "Không gắn khóa học"}
-                        </p>
+                        <p className="text-sm text-ink-muted80">{item.isRemedial ? "Không thu học phí riêng · dùng để xếp học bù/bổ trợ" : item.course?.name ?? "Không gắn khóa học"}</p>
                       </div>
                       <div className="grid grid-cols-2 gap-3 text-sm text-ink-muted80 lg:min-w-[280px]">
                         <div>
@@ -229,17 +244,11 @@ export default function AssignEnrollmentForm({
               </p>
               {selected.isRemedial ? (
                 <div className="mt-2 space-y-1">
-                  <p className="text-sm text-emerald-800">
-                    Lớp bổ trợ không thu học phí riêng. CSO chỉ gán khi phụ huynh có nhu cầu học bù/bổ trợ.
-                  </p>
-                  <p className="text-sm font-semibold text-emerald-900">
-                    Học viên hiện có {student.sessionCreditCount ?? 0} buổi bổ trợ khả dụng.
-                  </p>
+                  <p className="text-sm text-emerald-800">Lớp bổ trợ không thu học phí riêng. CSO chỉ gán khi phụ huynh có nhu cầu học bù/bổ trợ.</p>
+                  <p className="text-sm font-semibold text-emerald-900">Học viên hiện có {student.sessionCreditCount ?? 0} buổi bổ trợ khả dụng.</p>
                 </div>
               ) : (
-                <p className="mt-1 text-sm text-emerald-800">
-                  Học phí {formatVnd(selected.tuitionPerSession)} / buổi · Tổng {selected.totalSessions ?? "chưa đặt"} buổi
-                </p>
+                <p className="mt-1 text-sm text-emerald-800">Học phí {formatVnd(selected.tuitionPerSession)} / buổi · Tổng {selected.totalSessions ?? "chưa đặt"} buổi</p>
               )}
             </div>
           ) : null}
@@ -248,12 +257,7 @@ export default function AssignEnrollmentForm({
           {success ? <div className="alert-success">{success}</div> : null}
 
           <div className="flex flex-col gap-3 border-t border-hairline pt-4 sm:flex-row">
-            <button
-              type="button"
-              onClick={handleAssign}
-              disabled={!selected || submitting || Boolean(selected?.isRemedial && (student.sessionCreditCount ?? 0) <= 0)}
-              className="btn-primary"
-            >
+            <button type="button" onClick={handleAssign} disabled={!selected || submitting || Boolean(selected?.isRemedial && (student.sessionCreditCount ?? 0) <= 0)} className="btn-primary">
               {submitting ? "Đang ghi danh..." : "Xác nhận gán nhập học"}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="btn-ghost">

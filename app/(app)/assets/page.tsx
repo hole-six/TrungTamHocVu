@@ -6,9 +6,41 @@ import NewAssetForm from "@/components/assets/NewAssetForm";
 import AssetEditForm from "@/components/assets/AssetEditForm";
 import DeleteAssetButton from "@/components/assets/DeleteAssetButton";
 import QuickMaintenanceButton from "@/components/assets/QuickMaintenanceButton";
+import PageGuide from "@/components/ui/PageGuide";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate, canUpdate, canDelete } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
+
+const ASSETS_PAGE_GUIDE_SECTIONS = [
+  {
+    title: "Màn này để làm gì?",
+    items: [
+      "Đây là màn quản lý tài sản và thiết bị của cơ sở.",
+      "Người vận hành nhìn ở đây để biết tài sản nào đang có, ở đâu, giá gốc bao nhiêu, đã đổ thêm bao nhiêu tiền bảo dưỡng.",
+      "Từ đây có thể thêm mới, sửa thông tin, bảo dưỡng nhanh hoặc đi sâu vào chi tiết từng tài sản.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách đọc số liệu",
+    items: [
+      "Giá gốc là giá trị ban đầu theo số lượng và đơn giá.",
+      "Bảo dưỡng là tổng tiền đã chi thêm cho tài sản trong quá trình sử dụng.",
+      "Tổng giá trị là giá gốc cộng toàn bộ tiền bảo dưỡng đã ghi nhận.",
+      "Trạng thái cho biết tài sản đang dùng, đang bảo trì hay đã hỏng/thanh lý.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Điểm cần tránh",
+    items: [
+      "Không dùng sửa thông tin để thay thế luồng bảo dưỡng.",
+      "Không ghi nhận bảo dưỡng khi tiền chưa chi thực tế.",
+      "Không gộp nhiều loại tài sản khác nhau vào cùng một dòng vì sẽ rất khó đối chiếu về sau.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 const PAGE_SIZE = 20;
 
@@ -94,6 +126,12 @@ export default async function AssetsPage({
 
   return (
     <div className="space-y-6">
+      <PageGuide
+        title="Guide vận hành tài sản"
+        summary="Đây là màn tổng quản tài sản của cơ sở. Người mới chỉ cần nhớ: thêm đúng tài sản, bảo dưỡng đi đúng luồng, và đọc rõ chênh lệch giữa giá gốc - bảo dưỡng - tổng giá trị."
+        sections={ASSETS_PAGE_GUIDE_SECTIONS}
+        buttonLabel="Guide tài sản"
+      />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="page-title">Tài sản & thiết bị</h1>

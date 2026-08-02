@@ -5,6 +5,7 @@ import { SESSION_STATUS_LABEL } from "@/lib/server/class-rules";
 import { getUserRole } from "@/lib/permissions";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import CalendarFilters from "@/components/calendar/CalendarFilters";
+import PageGuide from "@/components/ui/PageGuide";
 
 const ICON_CALENDAR = (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -49,6 +50,36 @@ function statusBadge(status: string) {
   if (status === "RESCHEDULED") return "border-transparent bg-[#fff5e5] text-[#ef8200]";
   return "border-[#dce7f3] bg-slate-100 text-slate-700";
 }
+
+const CALENDAR_PAGE_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu trang này",
+    items: [
+      "Xem toàn bộ lịch học trong tuần theo từng ngày để nắm lớp nào học, giờ nào và ở đâu.",
+      "Kiểm tra nhanh giáo viên, trợ giảng, sĩ số và trạng thái của từng buổi.",
+      "Đi từ lịch tổng vào thẳng chi tiết buổi học khi cần điểm danh, đổi lịch hoặc viết nhật ký.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách thao tác nhanh",
+    items: [
+      "Chọn đúng tuần trước, sau đó mới tìm theo tên lớp, mã lớp, phòng hoặc giáo viên.",
+      "Dùng bộ lọc ca sáng, chiều, tối để nhìn lịch gọn hơn khi một ngày có quá nhiều buổi.",
+      "Bấm trực tiếp vào thẻ buổi học để mở đúng buổi cần xử lý.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Lịch tuần chỉ phản ánh các buổi đã được tạo trong lớp, không tự sinh nếu lớp chưa có session.",
+      "Buổi đổi lịch hoặc hủy sẽ có trạng thái riêng nên cần nhìn đúng badge trước khi thao tác.",
+      "Nếu đang lọc theo giáo viên mà thiếu buổi, hãy kiểm tra lại phân công GV/TG trong session đó.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default async function CalendarPage({
   searchParams,
@@ -158,6 +189,12 @@ export default async function CalendarPage({
 
   return (
     <div className="space-y-5">
+      <PageGuide
+        title="Guide lịch tổng"
+        summary="Hướng dẫn nhanh cách đọc lịch tuần, lọc đúng buổi học và mở vào chi tiết session."
+        sections={CALENDAR_PAGE_GUIDE_SECTIONS}
+        buttonLabel="Guide lịch"
+      />
       <div className="flex items-center gap-4">
         <div className="grid h-12 w-12 place-items-center rounded-2xl bg-sky-50 text-sky-600">
           {ICON_CALENDAR}

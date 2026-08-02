@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import SlideOver from "@/components/ui/SlideOver";
+import FormGuide from "@/components/ui/FormGuide";
 
 function formatVnd(value: number) {
   return `${value.toLocaleString("vi-VN")}đ`;
@@ -10,6 +11,36 @@ function formatVnd(value: number) {
 
 const CASH_METHOD = "Tiền mặt";
 const MAX_CASH_DISCOUNT_PERCENT = 10;
+
+const GUIDE_SECTIONS = [
+  {
+    title: "Form này dùng để làm gì?",
+    items: [
+      "Dùng khi trung tâm đã nhận tiền thật từ phụ huynh và cần xác nhận khoản đó vào hệ thống.",
+      "Mục tiêu của form là chốt chính xác: đã thu bao nhiêu, thu ngày nào, thu bằng cách nào và có giảm riêng hay không.",
+      "Chỉ nên bấm thu tiền khi tiền đã vào tay hoặc đã nhận được xác nhận chuyển khoản rõ ràng.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách nhập an toàn",
+    items: [
+      "Số tiền thực thu là số tiền trung tâm nhận thực tế, không phải số công nợ đang treo.",
+      "Nếu có chiết khấu tiền mặt thì hệ thống sẽ tự giảm công nợ thêm phần chiết khấu, nên phải nhập đúng lý do.",
+      "Diễn giải và ghi chú nên đủ rõ để người sau tra lại biết đây là khoản thu nào, từ ai, của kỳ nào.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Các lỗi phải tránh",
+    items: [
+      "Không nhập số tiền lớn hơn công nợ còn lại.",
+      "Không dùng chiết khấu tiền mặt cho các hình thức khác như chuyển khoản nếu quy trình nội bộ không cho phép.",
+      "Không xác nhận đã thu khi phụ huynh mới hứa chuyển khoản nhưng chưa có bằng chứng đã nhận tiền.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function QuickPaymentButton({
   studentId,
@@ -42,9 +73,7 @@ export default function QuickPaymentButton({
 
   const discountSummary = useMemo(() => {
     if (!cashDiscountActive) return null;
-    return `Thu thực nhận ${formatVnd(numericAmount)} · Giảm ${numericDiscountPercent}% = ${formatVnd(
-      discountAmount,
-    )} · Công nợ giảm ${formatVnd(totalDebtReduction)}`;
+    return `Thu thực nhận ${formatVnd(numericAmount)} · Giảm ${numericDiscountPercent}% = ${formatVnd(discountAmount)} · Công nợ giảm ${formatVnd(totalDebtReduction)}`;
   }, [cashDiscountActive, discountAmount, numericAmount, numericDiscountPercent, totalDebtReduction]);
 
   async function submit(event: React.FormEvent) {
@@ -60,9 +89,7 @@ export default function QuickPaymentButton({
       return;
     }
     if (totalDebtReduction > maxReceivable) {
-      setError(
-        `Tổng số tiền giảm công nợ sau chiết khấu là ${formatVnd(totalDebtReduction)}, đang vượt công nợ còn lại ${formatVnd(maxReceivable)}.`,
-      );
+      setError(`Tổng số tiền giảm công nợ sau chiết khấu là ${formatVnd(totalDebtReduction)}, đang vượt công nợ còn lại ${formatVnd(maxReceivable)}.`);
       return;
     }
     if (cashDiscountActive && !discountReason.trim()) {
@@ -114,6 +141,7 @@ export default function QuickPaymentButton({
         onClose={() => setOpen(false)}
         title="Ghi nhận đã thu tiền"
         description="Lưu rõ số tiền đã nhận, ngày thu, hình thức thanh toán và phần giảm riêng cho tiền mặt nếu có."
+        guide={<FormGuide title="Hướng dẫn xác nhận đã thu tiền" summary="Đây là bước chốt tiền đã nhận vào hệ thống. Người vận hành chỉ cần hiểu 3 thứ: số tiền thật nhận, hình thức thu và tác động giảm công nợ sau khi lưu." sections={GUIDE_SECTIONS} position="inline" />}
       >
         <form onSubmit={submit} className="space-y-5">
           <div className="rounded-3xl border-2 border-rose-200 bg-gradient-to-r from-rose-50 via-amber-50 to-orange-50 px-5 py-4 text-sm text-rose-800 shadow-[0_16px_34px_rgba(244,63,94,0.08)]">
@@ -121,37 +149,19 @@ export default function QuickPaymentButton({
             <p className="mt-2 text-base font-semibold">
               Còn được thu tối đa <strong>{formatVnd(maxReceivable)}</strong>.
             </p>
-            {cashDiscountActive ? (
-              <p className="mt-1 text-sm text-rose-700">
-                Tổng giảm công nợ sau chiết khấu hiện là <strong>{formatVnd(totalDebtReduction)}</strong>.
-              </p>
-            ) : null}
+            {cashDiscountActive ? <p className="mt-1 text-sm text-rose-700">Tổng giảm công nợ sau chiết khấu hiện là <strong>{formatVnd(totalDebtReduction)}</strong>.</p> : null}
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <label className="space-y-2">
               <span className="label-sm">Số tiền thực thu</span>
-              <input
-                type="number"
-                required
-                min="1"
-                max={maxReceivable > 0 ? maxReceivable : undefined}
-                className="input"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-              />
+              <input type="number" required min="1" max={maxReceivable > 0 ? maxReceivable : undefined} className="input" value={amount} onChange={(event) => setAmount(event.target.value)} />
               <p className="text-xs text-ink-muted48">Không được nhập lớn hơn {formatVnd(maxReceivable)}.</p>
             </label>
 
             <label className="space-y-2">
               <span className="label-sm">Ngày thu</span>
-              <input
-                type="date"
-                required
-                className="input"
-                value={paidDate}
-                onChange={(event) => setPaidDate(event.target.value)}
-              />
+              <input type="date" required className="input" value={paidDate} onChange={(event) => setPaidDate(event.target.value)} />
             </label>
 
             <label className="space-y-2">
@@ -178,12 +188,7 @@ export default function QuickPaymentButton({
 
             <label className="space-y-2">
               <span className="label-sm">Diễn giải phiếu thu</span>
-              <input
-                className="input"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Ví dụ: Thu học phí kỳ 8/2026, thu tiền giáo trình bổ sung..."
-              />
+              <input className="input" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ví dụ: Thu học phí kỳ 8/2026, thu tiền giáo trình bổ sung..." />
             </label>
           </div>
 
@@ -205,9 +210,7 @@ export default function QuickPaymentButton({
                 />
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-[#8a5a00]">Áp dụng chiết khấu tiền mặt</p>
-                  <p className="text-xs text-[#c76700]">
-                    Chỉ dùng cho thu tiền mặt. Mức giảm bị chặn tối đa {MAX_CASH_DISCOUNT_PERCENT}% và bắt buộc ghi lý do.
-                  </p>
+                  <p className="text-xs text-[#c76700]">Chỉ dùng cho thu tiền mặt. Mức giảm bị chặn tối đa {MAX_CASH_DISCOUNT_PERCENT}% và bắt buộc ghi lý do.</p>
                 </div>
               </label>
 
@@ -215,27 +218,13 @@ export default function QuickPaymentButton({
                 <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                   <label className="space-y-2">
                     <span className="label-sm">Chiết khấu (%)</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max={MAX_CASH_DISCOUNT_PERCENT}
-                      step="0.1"
-                      className="input"
-                      value={discountPercent}
-                      onChange={(event) => setDiscountPercent(event.target.value)}
-                    />
+                    <input type="number" min="0" max={MAX_CASH_DISCOUNT_PERCENT} step="0.1" className="input" value={discountPercent} onChange={(event) => setDiscountPercent(event.target.value)} />
                     <p className="text-xs text-[#c76700]">Tối đa {MAX_CASH_DISCOUNT_PERCENT}%.</p>
                   </label>
 
                   <label className="space-y-2">
                     <span className="label-sm">Lý do chiết khấu tiền mặt</span>
-                    <input
-                      className="input"
-                      required={cashDiscountActive}
-                      value={discountReason}
-                      onChange={(event) => setDiscountReason(event.target.value)}
-                      placeholder="Ví dụ: ưu đãi thu tiền mặt tại quầy, chốt đủ học phí trong ngày..."
-                    />
+                    <input className="input" required={cashDiscountActive} value={discountReason} onChange={(event) => setDiscountReason(event.target.value)} placeholder="Ví dụ: ưu đãi thu tiền mặt tại quầy, chốt đủ học phí trong ngày..." />
                   </label>
 
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 md:col-span-2">
@@ -249,12 +238,7 @@ export default function QuickPaymentButton({
 
           <label className="space-y-2">
             <span className="label-sm">Ghi chú đối soát</span>
-            <textarea
-              className="input min-h-[110px]"
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              placeholder="Ví dụ: phụ huynh chuyển khoản từ ngân hàng A, đã chụp bill; hoặc thu tiền mặt tại quầy lúc 19:30..."
-            />
+            <textarea className="input min-h-[110px]" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Ví dụ: phụ huynh chuyển khoản từ ngân hàng A, đã chụp bill; hoặc thu tiền mặt tại quầy lúc 19:30..." />
           </label>
 
           {error ? <div className="alert-danger">{error}</div> : null}

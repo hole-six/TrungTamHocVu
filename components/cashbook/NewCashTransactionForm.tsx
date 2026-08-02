@@ -1,10 +1,41 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
+import FormGuide from "@/components/ui/FormGuide";
 
 type Category = { id: string; type: string; name: string };
+
+const GUIDE_SECTIONS = [
+  {
+    title: "Hiểu đúng phiếu thu / chi",
+    items: [
+      "Phiếu thu là tiền đi vào quỹ: ví dụ thu học phí, hoàn ứng, nhận tiền hoàn trả.",
+      "Phiếu chi là tiền đi ra khỏi quỹ: ví dụ mua đồ, chi bảo dưỡng, hoàn tiền, chi vận hành.",
+      "Chọn sai loại phiếu sẽ làm báo cáo quỹ sai chiều, nên đây là ô cần kiểm tra kỹ nhất.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách nhập chuẩn cho người vận hành",
+    items: [
+      "Chọn đúng loại phiếu trước, sau đó danh mục tiền sẽ tự lọc theo đúng chiều thu hoặc chi.",
+      "Số tiền nên là số thực tế đã nhận hoặc đã chi, không nhập số ước lượng.",
+      "Diễn giải phải đủ rõ để 1 tháng sau nhìn lại vẫn biết đây là khoản gì và liên quan ai.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lỗi thường gặp",
+    items: [
+      "Để trống danh mục tiền làm người đối chiếu khó nhóm chi phí/doanh thu.",
+      "Ghi diễn giải quá ngắn kiểu 'thu tiền' hoặc 'chi tiền' sẽ rất khó tra cứu sau này.",
+      "Nhập sai loại phiếu THU/CHI là lỗi lớn nhất vì nó làm lệch luôn số quỹ nhìn trên màn hình.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function NewCashTransactionForm({ categories }: { categories: Category[] }) {
   const router = useRouter();
@@ -15,7 +46,6 @@ export default function NewCashTransactionForm({ categories }: { categories: Cat
 
   const filteredCategories = categories.filter((category) => category.type === form.type);
 
-  // Prevent body scroll when drawer is open
   useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
@@ -38,7 +68,7 @@ export default function NewCashTransactionForm({ categories }: { categories: Cat
       body: JSON.stringify(form),
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
     setLoading(false);
 
     if (!response.ok) {
@@ -59,12 +89,9 @@ export default function NewCashTransactionForm({ categories }: { categories: Cat
 
       {open && (
         <div className="slideover-root">
-          {/* Backdrop */}
           <div className="slideover-backdrop" onClick={() => setOpen(false)} />
 
-          {/* Drawer Panel */}
           <div className="slideover-panel max-w-xl">
-            {/* Header */}
             <div className="slideover-header">
               <div className="flex-1">
                 <div className="flex items-center gap-3">
@@ -79,32 +106,33 @@ export default function NewCashTransactionForm({ categories }: { categories: Cat
                   </div>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-hairline bg-white text-ink-muted48 transition-all hover:border-[#f97316] hover:bg-orange-50 hover:text-[#f97316]"
-              >
-                <X className="h-5 w-5" strokeWidth={2.5} />
-              </button>
+              <div className="flex items-center gap-2">
+                <FormGuide
+                  title="Hướng dẫn tạo phiếu thu / chi"
+                  summary="Đây là form ghi nhận tiền mặt hoặc dòng tiền vận hành. Người mới chỉ cần đọc đúng 3 phần: chọn chiều tiền, chọn danh mục và viết diễn giải đủ rõ."
+                  sections={GUIDE_SECTIONS}
+                  position="inline"
+                />
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-hairline bg-white text-ink-muted48 transition-all hover:border-[#f97316] hover:bg-orange-50 hover:text-[#f97316]"
+                >
+                  <X className="h-5 w-5" strokeWidth={2.5} />
+                </button>
+              </div>
             </div>
 
-            {/* Body */}
             <div className="slideover-body">
-              <div className="rounded-xl border border-orange-100 bg-orange-50/50 px-4 py-3 mb-6">
-                <p className="text-sm text-orange-800">
-                  💡 Nhập đúng hướng tiền, đúng danh mục và diễn giải đủ rõ để sau này đối chiếu sổ không bị mơ hồ.
-                </p>
+              <div className="mb-6 rounded-xl border border-orange-100 bg-orange-50/50 px-4 py-3">
+                <p className="text-sm text-orange-800">💡 Nhập đúng hướng tiền, đúng danh mục và diễn giải đủ rõ để sau này đối chiếu sổ không bị mơ hồ.</p>
               </div>
 
               <form onSubmit={submit} className="space-y-5">
                 <div className="grid gap-4">
                   <label className="form-group">
                     <span className="label-sm">Loại phiếu</span>
-                    <select
-                      className="input"
-                      value={form.type}
-                      onChange={(event) => setForm((current) => ({ ...current, type: event.target.value, categoryId: "" }))}
-                    >
+                    <select className="input" value={form.type} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value, categoryId: "" }))}>
                       <option value="CHI">Phiếu chi</option>
                       <option value="THU">Phiếu thu</option>
                     </select>
@@ -124,25 +152,12 @@ export default function NewCashTransactionForm({ categories }: { categories: Cat
 
                   <label className="form-group">
                     <span className="label-sm">Số tiền</span>
-                    <input
-                      required
-                      type="number"
-                      min="0"
-                      className="input"
-                      value={form.amount}
-                      onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
-                      placeholder="Nhập số tiền"
-                    />
+                    <input required type="number" min="0" className="input" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Nhập số tiền" />
                   </label>
 
                   <label className="form-group">
                     <span className="label-sm">Diễn giải giao dịch</span>
-                    <textarea
-                      className="input min-h-[120px] resize-none"
-                      value={form.description}
-                      onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-                      placeholder="VD: Thu học phí tháng 8, chi mua văn phòng phẩm, hoàn tiền..."
-                    />
+                    <textarea className="input min-h-[120px] resize-none" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="VD: Thu học phí tháng 8, chi mua văn phòng phẩm, hoàn tiền..." />
                   </label>
                 </div>
 
@@ -152,25 +167,14 @@ export default function NewCashTransactionForm({ categories }: { categories: Cat
                   </div>
                 )}
 
-                {/* Footer Actions */}
                 <div className="flex flex-col gap-3 border-t border-hairline pt-5">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="btn-primary w-full py-3 text-base font-semibold disabled:opacity-50"
-                  >
+                  <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base font-semibold disabled:opacity-50">
                     {loading ? "Đang lưu..." : "Lưu phiếu"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setOpen(false)}
-                    className="btn-ghost w-full py-3"
-                  >
+                  <button type="button" onClick={() => setOpen(false)} className="btn-ghost w-full py-3">
                     Hủy bỏ
                   </button>
-                  <p className="text-center text-xs text-ink-muted48">
-                    Phiếu tạo xong sẽ xuất hiện ngay trong sổ giao dịch
-                  </p>
+                  <p className="text-center text-xs text-ink-muted48">Phiếu tạo xong sẽ xuất hiện ngay trong sổ giao dịch</p>
                 </div>
               </form>
             </div>

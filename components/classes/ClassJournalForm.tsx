@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { printPage } from "@/lib/export-utils";
+import FormGuide from "@/components/ui/FormGuide";
 
 type Student = { id: string; fullName: string; studentCode: string };
 type ScoreVal = { label: string; score: number | null; maxScore: number };
@@ -114,6 +115,36 @@ function getScorePrintCellClass(score: number | null | undefined) {
   if (score === 7) return "bg-[#fef3c7] text-[#b45309]";
   return "bg-[#dcfce7] text-[#15803d]";
 }
+
+const CLASS_JOURNAL_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu form này",
+    items: [
+      "Đây là nơi giáo viên ghi nội dung đã dạy, nhận xét từng học viên và bài tập về nhà của buổi học.",
+      "Dữ liệu ở đây là nguồn để xuất bản nhật ký gửi phụ huynh và lưu vết chất lượng buổi học.",
+      "Roadmap điền sẵn phía trên giúp giáo viên bám đúng nội dung dự kiến của buổi.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách thao tác nên dùng",
+    items: [
+      "Điền tên bài hoặc bài học trước, sau đó cập nhật nhận xét giáo viên và bài tập về nhà chung.",
+      "Chấm điểm từng học viên theo các cột đã có; nếu cần tiêu chí mới thì thêm cột điểm mới.",
+      "Lưu nháp trước nếu chưa xong, chỉ publish khi đã muốn chốt bản gửi cho phụ huynh.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Điểm số và nhận xét nên rõ ràng vì sẽ ảnh hưởng trực tiếp tới bản PDF hoặc bản gửi phụ huynh.",
+      "Draft local chỉ hỗ trợ chống mất dữ liệu tạm thời, không thay thế cho việc bấm lưu thật.",
+      "Chỉ publish khi đã kiểm tra kỹ vì đây là mốc xác nhận nhật ký hoàn chỉnh của buổi học.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function ClassJournalForm({
   sessionId,
@@ -283,6 +314,13 @@ export default function ClassJournalForm({
   return (
     <div className="print-area">
       <div className="card space-y-5 print:hidden">
+        <FormGuide
+          title="Guide nhật ký lớp"
+          summary="Hướng dẫn cách ghi nội dung buổi học, chấm điểm, lưu nháp và publish bản gửi phụ huynh."
+          sections={CLASS_JOURNAL_GUIDE_SECTIONS}
+          position="inline"
+          buttonLabel="Guide nhật ký"
+        />
         {draftRestored ? (
           <div className="no-print flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
             <span>Đã khôi phục bản nháp chưa lưu trong máy này. Kiểm tra lại rồi bấm lưu để chốt dữ liệu.</span>

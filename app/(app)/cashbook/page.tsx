@@ -9,6 +9,37 @@ import CashbookExportButton from "@/components/cashbook/CashbookExportButton";
 import NewCashTransactionForm from "@/components/cashbook/NewCashTransactionForm";
 import CategoryManager from "@/components/cashbook/CategoryManager";
 import CashTransactionRow from "@/components/cashbook/CashTransactionRow";
+import PageGuide from "@/components/ui/PageGuide";
+
+const CASHBOOK_PAGE_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu trang này",
+    items: [
+      "Theo dõi toàn bộ dòng tiền thu vào, chi ra và số dư thực tế của cơ sở.",
+      "Đối soát giao dịch theo ngày, loại thu chi, danh mục và người xử lý.",
+      "Xuất báo cáo đúng khoảng ngày để phục vụ kế toán hoặc quản lý nội bộ.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách thao tác nhanh",
+    items: [
+      "Chọn đúng khoảng ngày trước, sau đó mới lọc tiếp theo loại và danh mục.",
+      "Dùng tạo giao dịch mới cho các khoản thu chi thủ công không sinh từ nghiệp vụ khác.",
+      "Kiểm tra ngay phần tổng thu, tổng chi và số dư để biết bức tranh dòng tiền hiện tại.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Một số giao dịch sinh tự động từ học phí, hoàn tiền hoặc nhập kho sẽ không sửa trực tiếp tại đây.",
+      "Nếu số liệu lệch, hãy kiểm tra lại ngày giao dịch, trạng thái và danh mục đã chọn.",
+      "Luôn lọc đúng ngày thật trước khi export để báo cáo khớp với kỳ cần đối chiếu.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 function formatVnd(amount: number) {
   return `${amount.toLocaleString("vi-VN")}đ`;
@@ -133,6 +164,12 @@ export default async function CashbookPage({
 
   return (
     <div className="space-y-6">
+      <PageGuide
+        title="Guide sổ quỹ"
+        summary="Cách đọc số dư, lọc giao dịch và đối soát thu chi một cách dễ hiểu."
+        sections={CASHBOOK_PAGE_GUIDE_SECTIONS}
+        buttonLabel="Guide sổ quỹ"
+      />
       <div className="flex flex-col gap-4 rounded-[28px] border border-hairline bg-white px-5 py-4 shadow-[0_18px_45px_rgba(15,23,41,0.06)] xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="page-title">Sổ quỹ</h1>

@@ -10,6 +10,7 @@ import NewEmployeeForm from "@/components/payroll/NewEmployeeForm";
 import NewPayrollRunForm from "@/components/payroll/NewPayrollRunForm";
 import PayrollDateFilter from "@/components/payroll/PayrollDateFilter";
 import PayrollExportButton from "@/components/payroll/PayrollExportButton";
+import PageGuide from "@/components/ui/PageGuide";
 
 function formatVnd(n: number) {
   return `${n.toLocaleString("vi-VN")}đ`;
@@ -35,6 +36,36 @@ function getRunTone(status: string) {
   if (status === "DRAFT") return "bg-amber-50 text-amber-700";
   return "bg-slate-100 text-slate-700";
 }
+
+const PAYROLL_PAGE_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu trang này",
+    items: [
+      "Theo dõi nhân sự, công giảng dạy, chấm công và các đợt tính lương trong cùng một màn hình.",
+      "Đối chiếu nhanh ai đang có dữ liệu công, ai sắp hết hợp đồng và kỳ lương nào đã chốt.",
+      "Đi tiếp vào chi tiết từng nhân viên khi cần xem breakdown sâu hơn.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách thao tác nhanh",
+    items: [
+      "Chọn đúng khoảng ngày trước để toàn bộ số giờ, số buổi và bảng lương ra đúng kỳ.",
+      "Dùng tạo nhân sự khi thêm người mới, và tạo kỳ lương khi đã sẵn sàng chốt dữ liệu.",
+      "Xuất file sau khi đã kiểm tra đúng ngày và đúng cơ sở để tránh lệch số.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Kỳ lương bản nháp vẫn có thể thay đổi, chỉ coi là chốt khi trạng thái đã finalized.",
+      "Nếu số tiền chưa khớp, hãy đối chiếu lại chấm công, buổi dạy hoàn thành và phân công trợ giảng.",
+      "Tình trạng hợp đồng chỉ là cảnh báo vận hành, không tự động quyết định quyền hay lương.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default async function PayrollPage({
   searchParams,
@@ -192,6 +223,12 @@ export default async function PayrollPage({
 
   return (
     <div className="space-y-6 pb-8">
+      <PageGuide
+        title="Guide payroll"
+        summary="Giải thích nhanh cách đọc nhân sự, công việc theo kỳ và các đợt chốt lương."
+        sections={PAYROLL_PAGE_GUIDE_SECTIONS}
+        buttonLabel="Guide payroll"
+      />
       <section className="rounded-[30px] border border-[#d9e7fb] bg-white px-6 py-6 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-3">

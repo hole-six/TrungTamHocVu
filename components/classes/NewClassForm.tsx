@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import FormGuide from "@/components/ui/FormGuide";
 
 type Course = {
   id: string;
@@ -55,6 +56,37 @@ const WEEKDAY_OPTIONS = [
   { value: "5", label: "Thứ 6" },
   { value: "6", label: "Thứ 7" },
   { value: "0", label: "Chủ nhật" },
+];
+
+const NEW_CLASS_GUIDE_SECTIONS = [
+  {
+    title: "Form này dùng để làm gì?",
+    items: [
+      "Dùng khi trung tâm cần mở một lớp học mới với đầy đủ lịch chuẩn, học phí, lộ trình và nhân sự mặc định.",
+      "Dữ liệu tạo ở đây kéo theo buổi học, học phí, giáo trình từng buổi và vận hành lớp về sau.",
+      "Người mới nên đi theo thứ tự: chọn khóa học → chốt lịch chuẩn → chốt học phí và số buổi → chuẩn bị lộ trình từng buổi.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Các phần cần hiểu rõ",
+    items: [
+      "Lịch chuẩn là khung sinh ra các buổi học ban đầu của lớp.",
+      "Học phí / buổi × tổng số buổi là cơ sở ước tính toàn khóa.",
+      "Tài liệu học tập theo từng buổi sẽ đi xuống phần giáo viên và nhật ký lớp về sau.",
+      "Nhân sự mặc định giúp phân công giáo viên/trợ giảng nhanh hơn khi lớp bắt đầu chạy.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Những lỗi phải tránh",
+    items: [
+      "Tạo lớp khi lịch chuẩn chưa rõ sẽ làm buổi học sinh ra bị sai từ đầu.",
+      "Nhập sai tổng số buổi sẽ kéo lệch roadmap và tính toán học phí.",
+      "Gộp chuyện dời buổi/học bù vào lịch chuẩn ngay lúc tạo lớp sẽ làm khung lớp rất khó vận hành.",
+    ],
+    tone: "warning" as const,
+  },
 ];
 
 function formatVnd(amount: number | null) {
@@ -530,6 +562,15 @@ export default function NewClassForm({
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6b7280] sm:text-base">
                   Chốt buổi học cố định ngay từ lúc tạo lớp, đồng thời nhập chương trình đào tạo theo từng buổi để giáo viên biết hôm nay dạy gì.
                 </p>
+                <div className="pt-3">
+                  <FormGuide
+                    title="Hướng dẫn tạo lớp học mới"
+                    summary="Đây là form dài và quan trọng nhất của khu lớp học. Nếu đi đúng thứ tự và hiểu vai trò của từng khối, người mới vẫn có thể tạo lớp rất chắc tay."
+                    sections={NEW_CLASS_GUIDE_SECTIONS}
+                    position="inline"
+                    buttonLabel="Guide tạo lớp"
+                  />
+                </div>
               </div>
             </div>
 

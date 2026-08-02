@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import FormGuide from "@/components/ui/FormGuide";
 
 const ACTION_OPTIONS = [
   { value: "MAINTENANCE", label: "Bảo dưỡng" },
@@ -10,6 +11,38 @@ const ACTION_OPTIONS = [
   { value: "ADJUSTMENT", label: "Điều chỉnh" },
   { value: "DISPOSAL", label: "Thanh lý" },
 ] as const;
+
+const GUIDE_SECTIONS = [
+  {
+    title: "Chọn đúng loại giao dịch",
+    items: [
+      "Bảo dưỡng: khi phát sinh chi phí sửa chữa, vệ sinh, thay linh kiện.",
+      "Nhập mới: khi cơ sở nhận thêm tài sản hoặc tăng số lượng đang có.",
+      "Điều chuyển: khi tài sản được đưa sang phòng/vị trí khác.",
+      "Điều chỉnh: khi cần cộng hoặc trừ số lượng để khớp thực tế kiểm kê.",
+      "Thanh lý: khi loại bỏ bớt tài sản ra khỏi sử dụng.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Nguyên tắc vận hành",
+    items: [
+      "Bảo dưỡng đi theo tiền, các loại còn lại chủ yếu đi theo số lượng hoặc vị trí.",
+      "Nếu giao dịch làm thay đổi số lượng, cần nhập thật cẩn thận vì nó ảnh hưởng trực tiếp tới giá trị gốc đang hiển thị.",
+      "Nên ghi chú rõ lý do thao tác để người khác xem lịch sử là hiểu được ngay.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lỗi hay gặp",
+    items: [
+      "Dùng bảo dưỡng cho việc mua mới là sai luồng.",
+      "Điều chỉnh số lượng âm hoặc quá lớn sẽ làm lệch tồn nếu kiểm tra không kỹ.",
+      "Điều chuyển mà không nhập vị trí mới thì người sau sẽ không biết tài sản hiện ở đâu.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function AssetTransactionForm({
   assetId,
@@ -56,15 +89,20 @@ export default function AssetTransactionForm({
   }
 
   return (
-    <div className="card">
-      <div className="space-y-2">
+    <div className="card relative">
+      <div className="absolute right-5 top-5">
+        <FormGuide
+          title="Hướng dẫn giao dịch tài sản"
+          summary="Khối này dành cho mọi phát sinh sau khi tài sản đã được tạo: tăng thêm, điều chuyển, bảo dưỡng, kiểm kê chênh lệch hoặc thanh lý."
+          sections={GUIDE_SECTIONS}
+          position="inline"
+        />
+      </div>
+
+      <div className="space-y-2 pr-28">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-700">
-            Bảo dưỡng
-          </span>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-            Tự cộng vào giá trị tài sản
-          </span>
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-700">Bảo dưỡng</span>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Tự cộng vào giá trị tài sản</span>
         </div>
 
         <div>
@@ -85,9 +123,7 @@ export default function AssetTransactionForm({
               type="button"
               onClick={() => setType(option.value)}
               className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
-                active
-                  ? "border-[#1f6feb] bg-[#1f6feb] text-white"
-                  : "border-[#dbe7ff] bg-white text-[#235f9d] hover:bg-[#f7fbff]"
+                active ? "border-[#1f6feb] bg-[#1f6feb] text-white" : "border-[#dbe7ff] bg-white text-[#235f9d] hover:bg-[#f7fbff]"
               }`}
             >
               {option.label}
@@ -102,25 +138,12 @@ export default function AssetTransactionForm({
             <div className="grid gap-4 md:grid-cols-2">
               <label className="form-group">
                 <span className="label">Số tiền bảo dưỡng</span>
-                <input
-                  required
-                  type="number"
-                  min="1"
-                  className="input"
-                  placeholder="VD: 350000"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
+                <input required type="number" min="1" className="input" placeholder="VD: 350000" value={amount} onChange={(e) => setAmount(e.target.value)} />
               </label>
 
               <label className="form-group">
                 <span className="label">Ghi chú bảo dưỡng</span>
-                <input
-                  className="input"
-                  placeholder="VD: thay linh kiện, vệ sinh máy..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
+                <input className="input" placeholder="VD: thay linh kiện, vệ sinh máy..." value={notes} onChange={(e) => setNotes(e.target.value)} />
               </label>
             </div>
 
@@ -138,13 +161,7 @@ export default function AssetTransactionForm({
         {type !== "TRANSFER" && type !== "MAINTENANCE" ? (
           <label className="form-group">
             <span className="label">Số lượng</span>
-            <input
-              type="number"
-              className="input"
-              placeholder={type === "ADJUSTMENT" ? "Số lượng (+/-)" : "Số lượng"}
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-            />
+            <input type="number" className="input" placeholder={type === "ADJUSTMENT" ? "Số lượng (+/-)" : "Số lượng"} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
           </label>
         ) : null}
 

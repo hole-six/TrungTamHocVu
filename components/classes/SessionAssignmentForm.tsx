@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import FormGuide from "@/components/ui/FormGuide";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 type Employee = { id: string; fullName: string; shortName: string };
 type Assignment = {
@@ -23,7 +25,11 @@ type Assignment = {
 
 function formatTime(value: string | Date | null) {
   if (!value) return null;
-  return new Date(value).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Ho_Chi_Minh" });
+  return new Date(value).toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Ho_Chi_Minh",
+  });
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -85,7 +91,6 @@ function AssignmentRow({ assignment, isSelf, employees }: { assignment: Assignme
   }
 
   async function cancelSubstitute(substituteAssignmentId: string) {
-    if (!confirm("Hủy sắp xếp dạy thay? Giờ công sẽ trả lại cho người phụ trách gốc.")) return;
     await fetch(`/api/session-assignments/${substituteAssignmentId}`, { method: "DELETE" });
     router.refresh();
   }
@@ -156,9 +161,17 @@ function AssignmentRow({ assignment, isSelf, employees }: { assignment: Assignme
             <button type="button" onClick={() => setEditing((current) => !current)} className="status-action">
               {editing ? "Đóng chỉnh giờ" : "Trừ/cộng giờ"}
             </button>
-            <button type="button" onClick={remove} className="status-action text-red-600 hover:text-red-600">
+            <ConfirmActionButton
+              title={`Xóa phân công của ${assignment.employee.fullName}?`}
+              description="Thao tác này sẽ gỡ nhân sự khỏi buổi học và ảnh hưởng trực tiếp tới dữ liệu công của buổi này."
+              confirmLabel="Xác nhận xóa"
+              cancelLabel="Quay lại"
+              tone="danger"
+              onConfirm={remove}
+              className="status-action text-red-600 hover:text-red-600"
+            >
               Xóa
-            </button>
+            </ConfirmActionButton>
           </div>
         </div>
 
@@ -171,19 +184,28 @@ function AssignmentRow({ assignment, isSelf, employees }: { assignment: Assignme
         {assignment.substitutedBy ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             <span>
-              Đã có người dạy thay: <strong>{assignment.substitutedBy.employee.fullName}</strong> — giờ công buổi này đã trừ về 0 cho {assignment.employee.fullName}.
+              Đã có người dạy thay: <strong>{assignment.substitutedBy.employee.fullName}</strong> — giờ công buổi này đã trừ về 0 cho{" "}
+              {assignment.employee.fullName}.
             </span>
-            <button type="button" onClick={() => cancelSubstitute(assignment.substitutedBy!.id)} className="font-semibold text-amber-800 hover:underline">
+            <ConfirmActionButton
+              title="Hủy sắp xếp dạy thay?"
+              description="Hệ thống sẽ trả giờ công buổi này về lại cho người phụ trách gốc."
+              confirmLabel="Hủy dạy thay"
+              cancelLabel="Quay lại"
+              tone="default"
+              onConfirm={() => cancelSubstitute(assignment.substitutedBy!.id)}
+              className="font-semibold text-amber-800 hover:underline"
+            >
               Hủy dạy thay
-            </button>
+            </ConfirmActionButton>
           </div>
         ) : null}
 
         {subOpen ? (
           <form onSubmit={arrangeSubstitute} className="grid gap-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
             <p className="text-xs text-amber-800">
-              Chọn người dạy thay cho <strong>{assignment.employee.fullName}</strong> ở đúng buổi này. Giờ công của {assignment.employee.fullName} sẽ tự
-              động trừ về 0, người dạy thay được tính công riêng.
+              Chọn người dạy thay cho <strong>{assignment.employee.fullName}</strong> ở đúng buổi này. Giờ công của{" "}
+              {assignment.employee.fullName} sẽ tự động trừ về 0, người dạy thay được tính công riêng.
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="form-group">
@@ -306,6 +328,36 @@ function AssignmentRow({ assignment, isSelf, employees }: { assignment: Assignme
   );
 }
 
+const SESSION_ASSIGNMENT_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu form này",
+    items: [
+      "Đây là nơi quản lý giáo viên, trợ giảng và ca dạy thay của một buổi học cụ thể.",
+      "Form này giúp đối chiếu ai thực sự tham gia buổi học và công giờ của từng người.",
+      "Mỗi assignment ở đây gắn trực tiếp với dữ liệu chấm công và payroll theo session.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách thao tác nhanh",
+    items: [
+      "Nếu chỉ phân công bình thường, thêm đúng giáo viên hoặc trợ giảng theo vai trò của họ.",
+      "Nếu có người dạy thay, dùng nút nhờ dạy thay để hệ thống chuyển công đúng cho người thay thế.",
+      "Nếu cần chỉnh công của riêng buổi này, dùng khu trừ hoặc cộng giờ thay vì sửa tay ở payroll.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Xóa assignment sẽ ảnh hưởng đến lịch sử tham gia buổi và số công của nhân sự đó.",
+      "Dạy thay không chỉ là ghi chú, mà là thay đổi người được tính công cho buổi học.",
+      "Check-in và check-out nên được bấm theo thực tế để dữ liệu nhân sự và vận hành khớp nhau.",
+    ],
+    tone: "warning" as const,
+  },
+];
+
 export default function SessionAssignmentForm({
   sessionId,
   employees,
@@ -350,6 +402,13 @@ export default function SessionAssignmentForm({
 
   return (
     <div className="card space-y-4">
+      <FormGuide
+        title="Guide phân công buổi học"
+        summary="Giải thích cách gán GV/TG, xử lý dạy thay và chỉnh công giờ của riêng buổi học này."
+        sections={SESSION_ASSIGNMENT_GUIDE_SECTIONS}
+        position="inline"
+        buttonLabel="Guide phân công"
+      />
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Bước 2</p>
         <h2 className="mt-1 font-display text-xl font-semibold tracking-tight">Ai phụ trách buổi học này?</h2>

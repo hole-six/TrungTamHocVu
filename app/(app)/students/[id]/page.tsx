@@ -11,6 +11,7 @@ import RefundButton from "@/components/students/RefundButton";
 import SchoolExamScoreForm from "@/components/students/SchoolExamScoreForm";
 import GuardianAccountPanel from "@/components/guardians/GuardianAccountPanel";
 import DetailTabs from "@/components/ui/DetailTabs";
+import PageGuide from "@/components/ui/PageGuide";
 import { computeOutstandingBalance } from "@/lib/server/balance";
 import { computeEnrollmentSessionProgress } from "@/lib/server/class-generation";
 import { getVietnamToday } from "@/lib/server/class-rules";
@@ -71,6 +72,36 @@ function paymentStatusLabel(status: string, refunded: number) {
       return status;
   }
 }
+
+const STUDENT_DETAIL_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu trang này",
+    items: [
+      "Đây là hồ sơ vận hành đầy đủ của một học viên: thông tin, phụ huynh, lớp học, học phí và lịch sử học tập.",
+      "5 tab bên trong giúp tách việc rõ ràng để người vận hành xử lý đúng chỗ, không bị loạn dữ liệu.",
+      "Khi cần đối soát tiền, lớp hoặc tiến độ học, nên bắt đầu từ trang này.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách dùng nhanh",
+    items: [
+      "Tổng quan để đọc tình trạng hiện tại của học viên và các mốc chính.",
+      "Tab Học phí để xử lý công nợ, phiếu thu, kiểu thu theo tháng/theo khóa, sách và học bổng.",
+      "Các tab còn lại dùng để xem lớp đang học, kết quả, buổi bổ trợ và lịch sử phát sinh liên quan đến học viên.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Công nợ chỉ nên kết luận sau khi đã kiểm tra charge, phân bổ thanh toán và sách phát sinh.",
+      "Nếu phụ huynh đổi kiểu thu giữa theo tháng và theo khóa, hãy xử lý ngay ở tab học phí để số liệu đi đúng luồng.",
+      "Buổi bổ trợ, rút lớp hoặc học bù có thể làm thay đổi cả vận hành lớp lẫn tài chính nên cần đối chiếu kỹ.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default async function StudentDetailPage({
   params,
@@ -295,6 +326,12 @@ export default async function StudentDetailPage({
 
   return (
     <div className="space-y-5 pb-16">
+      <PageGuide
+        title="Guide hồ sơ học viên"
+        summary="Giải thích nhanh 5 tab chính và nơi xử lý đúng từng nghiệp vụ của học viên."
+        sections={STUDENT_DETAIL_GUIDE_SECTIONS}
+        buttonLabel="Guide học viên"
+      />
 
       {/* ── HEADER ── */}
       <div className="rounded-2xl border border-[#e5eaf7] bg-gradient-to-b from-white to-[#f8faff] p-8 shadow-sm">

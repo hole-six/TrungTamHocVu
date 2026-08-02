@@ -6,8 +6,38 @@ import { canCreate } from "@/lib/server/role-matrix";
 import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import LeadsTable from "@/components/leads/LeadsTable";
+import PageGuide from "@/components/ui/PageGuide";
 
 const PAGE_SIZE = 20;
+const LEADS_PAGE_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu trang này",
+    items: [
+      "Theo dõi lead tuyển sinh từ lúc mới vào đến khi test, chờ xếp lớp hoặc chuyển thành học viên.",
+      "Nhìn nhanh trạng thái CRM để biết hồ sơ nào còn cần gọi lại, hẹn test hoặc chốt ghi danh.",
+      "Từ danh sách chính có thể đi tiếp vào chi tiết lead để xử lý sâu hơn.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách thao tác nhanh",
+    items: [
+      "Dùng tìm kiếm để lọc theo tên, mã lead, số điện thoại hoặc phụ huynh.",
+      "Dùng các dãy trạng thái để gom đúng nhóm cần xử lý trong ngày, ví dụ sắp test hoặc quá hạn.",
+      "Chỉ chuyển trạng thái khi đã xử lý xong bước hiện tại để dashboard CRM không bị nhiễu.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Lead đã ghi danh nên theo dõi ở module học viên nhiều hơn, không nên tiếp tục xử lý như CRM mới.",
+      "Các lead trùng số điện thoại cần kiểm tra kỹ trước khi tạo mới hoặc sửa trạng thái.",
+      "Nếu một lead đã có test nhưng chưa rõ kết quả, hãy mở chi tiết để xem lịch test gần nhất trước.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default async function LeadsPage({
   searchParams,
@@ -183,6 +213,12 @@ export default async function LeadsPage({
 
   return (
     <div className="space-y-6">
+      <PageGuide
+        title="Guide CRM tuyển sinh"
+        summary="Cách đọc trạng thái lead, lọc đúng nhóm cần xử lý và tránh bỏ sót lịch test."
+        sections={LEADS_PAGE_GUIDE_SECTIONS}
+        buttonLabel="Guide CRM"
+      />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="page-title">Quản lý CRM tuyển sinh</h1>

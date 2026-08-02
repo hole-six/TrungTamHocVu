@@ -6,6 +6,7 @@ import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
 import SlideOver from "@/components/ui/SlideOver";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import FormGuide from "@/components/ui/FormGuide";
 import CategorySelect from "./CategorySelect";
 import { canUpdate, canDelete } from "@/lib/server/role-matrix";
 import { exportToExcel } from "@/lib/export-utils";
@@ -23,6 +24,36 @@ type BookRow = {
   issuedTotal: number;
   onHand: number;
 };
+
+const EDIT_BOOK_GUIDE_SECTIONS = [
+  {
+    title: "Form sửa đầu sách dùng khi nào?",
+    items: [
+      "Dùng khi cần chỉnh tên, danh mục, giá nhập, giá bán hoặc trạng thái sử dụng của đầu sách đã có.",
+      "Đây là chỉnh thông tin nền của đầu sách, không phải thao tác nhập kho hay xuất kho.",
+      "Nếu chỉ có phát sinh thêm hàng thì dùng nhập kho; nếu giao cho học viên thì dùng xuất kho.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Những gì cần kiểm tra kỹ",
+    items: [
+      "Đơn giá nhập là giá vốn tham chiếu của đầu sách.",
+      "Đơn giá bán là giá thu ra dự kiến khi gắn cho học viên/phụ huynh.",
+      "Danh mục và trạng thái sử dụng giúp lọc dữ liệu và nhìn kho rõ ràng hơn.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lỗi dễ gặp",
+    items: [
+      "Sửa nhầm đơn giá nhập thành đơn giá bán.",
+      "Đổi tên sách quá mơ hồ làm người sau khó nhận diện.",
+      "Dùng form này để cố sửa tồn kho thay vì đi đúng luồng nhập/xuất.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 function formatVnd(amount: number) {
   return `${amount.toLocaleString("vi-VN")}đ`;
@@ -79,7 +110,13 @@ function EditBookSlideOver({
   }
 
   return (
-    <SlideOver open title="Sửa sách/giáo trình" description={book.name} onClose={onClose}>
+    <SlideOver
+      open
+      title="Sửa sách/giáo trình"
+      description={book.name}
+      onClose={onClose}
+      guide={<FormGuide title="Hướng dẫn sửa đầu sách" summary="Đây là form chỉnh thông tin nền của đầu sách trong kho. Chỉ sửa thông tin nhận diện và đơn giá, không dùng để can thiệp tồn kho." sections={EDIT_BOOK_GUIDE_SECTIONS} position="inline" />}
+    >
       <form onSubmit={save} className="space-y-4">
         <label className="form-group">
           <span className="label-sm">Tên sách/giáo trình *</span>

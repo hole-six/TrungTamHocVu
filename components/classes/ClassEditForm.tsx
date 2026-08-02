@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import SlideOver from "@/components/ui/SlideOver";
+import FormGuide from "@/components/ui/FormGuide";
 
 type Course = { id: string; code: string; name: string };
 
@@ -49,6 +50,36 @@ function buildRoadmapDraft(sessionNumber: number): RoadmapDraft {
     homeworkGuide: "",
   };
 }
+
+const CLASS_EDIT_GUIDE_SECTIONS = [
+  {
+    title: "Khi nào dùng form sửa lớp?",
+    items: [
+      "Dùng khi cần chỉnh thông tin lõi của lớp đã tạo: khóa học, học phí, tổng số buổi, ngày khai giảng hoặc lộ trình từng buổi.",
+      "Đây là form sửa cấu trúc lớp, không phải nơi xử lý một buổi lẻ bị dời lịch hay học bù.",
+      "Nếu lớp đang chạy, nên hiểu rõ tác động trước khi sửa học phí hoặc tổng số buổi.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Những phần quan trọng nhất",
+    items: [
+      "Học phí / buổi và tổng số buổi quyết định ước tính quy mô học phí toàn khóa.",
+      "Lộ trình từng buổi là thứ giáo viên nhìn về sau để biết hôm nay dạy gì, dùng gì, dặn gì.",
+      "Ngày kết thúc dự kiến là mốc vận hành, còn thực tế có thể thay đổi nếu có nghỉ lễ, buổi bù hoặc dời lịch.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lỗi dễ gặp",
+    items: [
+      "Sửa tổng số buổi nhưng quên rà lại khối roadmap theo buổi.",
+      "Dùng form này để xử lý vấn đề attendance/buổi lẻ sẽ làm lệch khung lớp gốc.",
+      "Đổi học phí mà không thống nhất lại với đội vận hành học phí sẽ dễ gây hiểu nhầm về sau.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function ClassEditForm({
   cls,
@@ -293,6 +324,7 @@ export default function ClassEditForm({
         onClose={() => setOpen(false)}
         title="Sửa thông tin lớp học"
         description="Cập nhật khóa học, học phí, số buổi, lộ trình từng buổi và ghi chú vận hành của lớp."
+        guide={<FormGuide title="Hướng dẫn sửa lớp học" summary="Đây là form chỉnh cấu trúc lõi của lớp. Người vận hành nên rà kỹ học phí, số buổi và lộ trình từng buổi trước khi lưu để tránh ảnh hưởng dây chuyền." sections={CLASS_EDIT_GUIDE_SECTIONS} position="inline" />}
       >
         <form onSubmit={save} className="space-y-6">
           <label className="form-group">

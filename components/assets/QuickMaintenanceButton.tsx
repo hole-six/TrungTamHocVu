@@ -3,10 +3,42 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SlideOver from "@/components/ui/SlideOver";
+import FormGuide from "@/components/ui/FormGuide";
 
 function formatVnd(amount: number) {
   return `${amount.toLocaleString("vi-VN")}đ`;
 }
+
+const GUIDE_SECTIONS = [
+  {
+    title: "Khi nào dùng form này?",
+    items: [
+      "Dùng khi tài sản phát sinh chi phí sửa chữa, thay linh kiện, bảo trì định kỳ hoặc vệ sinh có tốn tiền.",
+      "Mục tiêu là ghi nhận đúng số tiền đã chi, không phải đổi giá gốc ban đầu của tài sản.",
+      "Sau khi lưu, tiền bảo dưỡng sẽ được tách riêng để bạn nhìn ra tổng giá trị gốc và tổng chi phí đã đổ vào tài sản.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Hệ thống sẽ tự làm gì?",
+    items: [
+      "Tự tạo một giao dịch bảo dưỡng cho tài sản này.",
+      "Tự cộng số tiền vào mục chi phí bảo dưỡng của tài sản.",
+      "Tự cộng tiền đó vào tổng giá trị hiện tại của tài sản.",
+      "Tự sinh một phiếu chi tương ứng ở sổ quỹ để kế toán/quản lý đối chiếu được.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Những điều cần tránh",
+    items: [
+      "Không nhập tiền dự kiến, chỉ nhập khoản đã chi thực tế.",
+      "Không dùng form này để mua thêm tài sản mới. Mua mới phải thêm tài sản hoặc nhập mới số lượng đúng luồng.",
+      "Nếu chưa chi tiền mà mới lên kế hoạch sửa, chưa nên ghi nhận ở đây để tránh sai số quỹ.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function QuickMaintenanceButton({
   assetId,
@@ -71,8 +103,9 @@ export default function QuickMaintenanceButton({
         open={open}
         onClose={() => setOpen(false)}
         title="Ghi nhận bảo dưỡng"
-        description={`Nhập chi phí bảo dưỡng cho tài sản ${assetName}. Khoản này sẽ tự cộng vào tiền bảo dưỡng, tổng giá trị tài sản và tự sinh phiếu chi ở sổ quỹ.`}
+        description={`Nhập chi phí bảo dưỡng thực tế cho tài sản ${assetName}. Hệ thống sẽ tự nối khoản này sang giá trị tài sản và sổ quỹ.`}
         widthClassName="max-w-xl"
+        guide={<FormGuide title="Hướng dẫn ghi nhận bảo dưỡng" summary="Đây là luồng dành cho người vận hành khi tài sản vừa phát sinh chi phí sửa chữa hoặc bảo trì. Chỉ cần nhập đúng số tiền thật đã chi là hệ thống sẽ làm phần còn lại." sections={GUIDE_SECTIONS} position="inline" />}
       >
         <form onSubmit={submit} className="space-y-5">
           <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
@@ -82,28 +115,13 @@ export default function QuickMaintenanceButton({
 
           <label className="form-group">
             <span className="label">Số tiền bảo dưỡng</span>
-            <input
-              required
-              type="number"
-              min={1}
-              step={1000}
-              className="input"
-              placeholder="Ví dụ: 250000"
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-            />
+            <input required type="number" min={1} step={1000} className="input" placeholder="Ví dụ: 250000" value={amount} onChange={(event) => setAmount(event.target.value)} />
             <p className="form-hint">{amount ? `Sẽ ghi nhận ${formatVnd(Number(amount) || 0)} vào chi phí bảo dưỡng.` : "Nhập đúng số tiền thực tế đã chi."}</p>
           </label>
 
           <label className="form-group">
             <span className="label">Ghi chú</span>
-            <textarea
-              rows={4}
-              className="input resize-none"
-              placeholder="Ví dụ: thay bánh xe, sửa chân bàn, vệ sinh máy lạnh..."
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-            />
+            <textarea rows={4} className="input resize-none" placeholder="Ví dụ: thay bánh xe, sửa chân bàn, vệ sinh máy lạnh..." value={notes} onChange={(event) => setNotes(event.target.value)} />
           </label>
 
           {error ? <div className="alert-danger">{error}</div> : null}

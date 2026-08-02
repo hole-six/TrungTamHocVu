@@ -4,9 +4,41 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { computeStockBalance } from "@/lib/server/inventory-rules";
 import NewBookForm from "@/components/inventory/NewBookForm";
 import BooksTable from "@/components/inventory/BooksTable";
+import PageGuide from "@/components/ui/PageGuide";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
+
+const INVENTORY_PAGE_GUIDE_SECTIONS = [
+  {
+    title: "Màn này để làm gì?",
+    items: [
+      "Đây là màn vận hành kho giáo trình: quản lý đầu sách, nhập kho, xuất cho học viên và theo dõi tình trạng thanh toán sách.",
+      "Phần trên là danh mục đầu sách và tồn kho hiện tại.",
+      "Phần dưới là sổ xuất giáo trình để xem ai đã nhận sách, nhận ngày nào và đã thanh toán hay chưa.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách vận hành chuẩn",
+    items: [
+      "Thêm đầu sách mới trước khi bắt đầu nhập kho hoặc xuất cho học viên.",
+      "Mỗi lần hàng về thì dùng nhập kho để cộng tồn và lưu giá nhập đúng đợt.",
+      "Khi giao sách cho học viên thì dùng xuất cho học viên để trừ tồn và gắn lịch sử phát sách.",
+      "Dùng sổ xuất phía dưới để lọc, tra cứu và đối chiếu nhanh phần chưa thanh toán.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Điểm cần tránh",
+    items: [
+      "Không sửa thông tin đầu sách để cố xử lý tồn kho.",
+      "Không xuất sách trước khi giao thực tế.",
+      "Không gộp nhiều đợt nhập khác giá thành một lần nhập kho duy nhất nếu muốn giữ lịch sử rõ.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 function formatVnd(amount: number) {
   return `${amount.toLocaleString("vi-VN")}đ`;
@@ -154,6 +186,12 @@ export default async function InventoryPage({
 
   return (
     <div className="space-y-6">
+      <PageGuide
+        title="Guide vận hành kho giáo trình"
+        summary="Đây là màn quản lý đầu sách, tồn kho và lịch sử xuất sách. Người mới chỉ cần phân biệt rõ ba việc: thêm đầu sách, nhập kho và xuất cho học viên."
+        sections={INVENTORY_PAGE_GUIDE_SECTIONS}
+        buttonLabel="Guide kho sách"
+      />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="page-title">Kho giáo trình</h1>

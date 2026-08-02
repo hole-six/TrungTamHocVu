@@ -5,8 +5,38 @@ import { getUserRole } from "@/lib/permissions";
 import { canCreate } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import StudentsTable from "./StudentsTable";
+import PageGuide from "@/components/ui/PageGuide";
 
 const PAGE_SIZE = 20;
+const STUDENTS_PAGE_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu trang này",
+    items: [
+      "Theo dõi danh sách học viên, lớp đang học và tình trạng công nợ của từng bạn.",
+      "Tìm nhanh theo tên, mã học viên, số điện thoại hoặc phụ huynh liên kết.",
+      "Đi từ danh sách sang hồ sơ chi tiết để xử lý học phí, ghi danh và lớp học.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách thao tác nhanh",
+    items: [
+      "Dùng ô tìm kiếm và bộ lọc trạng thái để gom đúng nhóm học viên cần xử lý.",
+      "Mở hồ sơ từng học viên khi cần kiểm tra học phí, phụ huynh, lớp và lịch sử thu.",
+      "Nếu cần xuất dữ liệu, nên lọc đúng nhóm trước để file dễ đọc và đối soát hơn.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Công nợ hiển thị là phần còn phải thu sau khi đã trừ các khoản thanh toán.",
+      "Học viên có buổi bổ trợ hoặc đang chuyển lớp cần mở hồ sơ để xem kỹ trước khi thao tác.",
+      "Nếu thấy số liệu lạ, hãy đối chiếu lại charge, phiếu thu và trạng thái ghi danh của học viên.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default async function StudentsPage({
   searchParams,
@@ -214,6 +244,12 @@ export default async function StudentsPage({
 
   return (
     <div className="space-y-6">
+      <PageGuide
+        title="Guide học viên"
+        summary="Giải thích nhanh cách tìm đúng học viên và đi vào hồ sơ để xử lý chuẩn."
+        sections={STUDENTS_PAGE_GUIDE_SECTIONS}
+        buttonLabel="Guide học viên"
+      />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="page-title">Quản lý học viên</h1>

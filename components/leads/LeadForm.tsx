@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import SmartForm, { FormSection } from "@/components/ui/SmartForm/SmartForm";
+import FormGuide from "@/components/ui/FormGuide";
 import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
 
 type LeadFormProps = {
@@ -16,9 +17,39 @@ const LEAD_STATUS_OPTIONS = LEAD_STATUSES.map((value) => ({
   label: LEAD_STATUS_LABEL[value],
 }));
 
+const LEAD_FORM_GUIDE_SECTIONS = [
+  {
+    title: "Form này dùng để làm gì",
+    items: [
+      "Đây là form gốc để tạo mới hoặc cập nhật một hồ sơ lead trong CRM tuyển sinh.",
+      "Thông tin ở đây là dữ liệu nền cho toàn bộ luồng sau đó: liên hệ, lịch hẹn, test đầu vào và chuyển đổi sang học viên.",
+      "Nếu nhập chuẩn ngay từ đầu, các bước chăm sóc phía sau sẽ gọn hơn và ít phải sửa lại.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách điền hợp lý",
+    items: [
+      "Điền rõ thông tin học viên tiềm năng trước, sau đó mới đến phụ huynh và nhu cầu tuyển sinh.",
+      "Nếu chưa chắc lớp quan tâm thì có thể để trống, không cần ép chọn quá sớm.",
+      "Khi tạo mới và đã chốt lịch test, có thể nhập luôn ngày hẹn test để hệ thống sinh luồng test ban đầu.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Không nên tạo lead trùng chỉ vì khác cách viết tên hoặc chưa kiểm tra số điện thoại.",
+      "Trạng thái lead nên phản ánh đúng bước thực tế, không đổi chỉ để làm đẹp dashboard.",
+      "Ghi chú nên ghi phần giúp người chăm lead tiếp theo hiểu nhanh hoàn cảnh và bước cần làm tiếp.",
+    ],
+    tone: "warning" as const,
+  },
+];
+
 export default function LeadForm({ initialData, leadId, redirectTo, classes = [] }: LeadFormProps) {
   const router = useRouter();
-  const isEdit = !!leadId;
+  const isEdit = Boolean(leadId);
 
   const sections: FormSection[] = [
     {
@@ -147,7 +178,7 @@ export default function LeadForm({ initialData, leadId, redirectTo, classes = []
           name: "meetDate",
           label: "Ngày gặp/liên hệ",
           type: "date",
-          defaultValue: initialData?.meetDate ? new Date(initialData.meetDate).toISOString().split("T")[0] : "2026-07-31",
+          defaultValue: initialData?.meetDate ? new Date(initialData.meetDate).toISOString().split("T")[0] : "",
         },
         {
           name: "source",
@@ -188,14 +219,14 @@ export default function LeadForm({ initialData, leadId, redirectTo, classes = []
                 name: "scheduledTestDate",
                 label: "Ngày hẹn test",
                 type: "date" as const,
-                description: "Nếu đã hẹn ngày test, hệ thống sẽ tự tạo lịch trong Danh sách test.",
+                description: "Nếu đã hẹn ngày test, hệ thống sẽ tự tạo lịch trong danh sách test.",
               },
             ]),
       ],
     },
     {
       title: "Ghi chú",
-      description: "Thông tin bổ sung cho đội tuyển sinh / giáo vụ.",
+      description: "Thông tin bổ sung cho đội tuyển sinh hoặc giáo vụ.",
       collapsible: true,
       defaultCollapsed: true,
       fields: [
@@ -250,12 +281,21 @@ export default function LeadForm({ initialData, leadId, redirectTo, classes = []
   };
 
   return (
-    <SmartForm
-      sections={sections}
-      onSubmit={handleSubmit}
-      onCancel={handleCancel}
-      submitLabel={isEdit ? "Cập nhật" : "Tạo lead"}
-      cancelLabel="Hủy"
-    />
+    <div className="space-y-4">
+      <FormGuide
+        title={isEdit ? "Guide sửa lead" : "Guide tạo lead"}
+        summary="Giải thích cách nhập hồ sơ lead chuẩn để CRM, lịch test và chuyển đổi sang học viên chạy mượt."
+        sections={LEAD_FORM_GUIDE_SECTIONS}
+        position="inline"
+        buttonLabel={isEdit ? "Guide sửa lead" : "Guide tạo lead"}
+      />
+      <SmartForm
+        sections={sections}
+        onSubmit={handleSubmit}
+        onCancel={handleCancel}
+        submitLabel={isEdit ? "Cập nhật" : "Tạo lead"}
+        cancelLabel="Hủy"
+      />
+    </div>
   );
 }

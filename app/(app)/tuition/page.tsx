@@ -1,12 +1,44 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BatchInvoiceView from "@/components/tuition/BatchInvoiceView";
+import PageGuide from "@/components/ui/PageGuide";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canView, canUpdate } from "@/lib/server/role-matrix";
 import { getBatchInvoiceViewData } from "@/lib/server/batch-invoice-view";
 import { getCurrentBranchId } from "@/lib/branch-filter";
+
+const TUITION_PAGE_GUIDE_SECTIONS = [
+  {
+    title: "Màn này để làm gì?",
+    items: [
+      "Đây là màn vận hành học phí chính theo từng kỳ/tháng thu.",
+      "Từ đây người vận hành chọn kỳ, xem danh sách cần thu, mở chi tiết công nợ và xử lý thu tiền hoặc xuất phiếu.",
+      "Hãy luôn nhìn đúng kỳ đang mở trước khi thao tác để tránh thu hay in nhầm tháng.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Thứ tự thao tác nên đi",
+    items: [
+      "Bước 1: chọn đúng kỳ thu cần làm việc.",
+      "Bước 2: rà danh sách công nợ hoặc batch phiếu của kỳ đó.",
+      "Bước 3: mở chi tiết một học viên nếu cần hiểu cấu phần nợ.",
+      "Bước 4: thu tiền, in phiếu hoặc mở hồ sơ 360 tùy tình huống.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Điểm cần tránh",
+    items: [
+      "Không thao tác khi chưa chắc kỳ đang mở là tháng nào.",
+      "Không nhìn số còn nợ tổng mà bỏ qua cấu phần nợ bên trong.",
+      "Không in hoặc thu theo quán tính nếu phụ huynh vừa đổi kiểu đóng theo tháng/trọn khóa mà chưa được cập nhật đúng.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default async function TuitionPage({
   searchParams,
@@ -61,6 +93,12 @@ export default async function TuitionPage({
 
   return (
     <div className="space-y-6">
+      <PageGuide
+        title="Guide vận hành học phí"
+        summary="Đây là màn trung tâm để xử lý học phí theo kỳ. Người mới chỉ cần nắm đúng kỳ đang mở, hiểu từng dòng công nợ và biết khi nào nên thu tiền, in phiếu hay mở hồ sơ 360."
+        sections={TUITION_PAGE_GUIDE_SECTIONS}
+        buttonLabel="Guide học phí"
+      />
       <section className="rounded-[28px] border border-hairline bg-white px-5 py-4 shadow-[0_12px_34px_rgba(31,68,111,0.08)]">
         <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
           <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center">

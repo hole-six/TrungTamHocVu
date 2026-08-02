@@ -4,6 +4,37 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SlideOver from "@/components/ui/SlideOver";
 import DatePicker from "@/components/ui/DatePicker";
+import FormGuide from "@/components/ui/FormGuide";
+
+const RESCHEDULE_GUIDE_SECTIONS = [
+  {
+    title: "Khi nào dùng dời lịch?",
+    items: [
+      "Dùng khi buổi gốc không học đúng ngày cũ nữa và cần chuyển hẳn sang một ngày khác.",
+      "Luồng này giữ nguyên tổng số buổi của khóa, chỉ thay vị trí của đúng một buổi.",
+      "Phù hợp khi giáo viên bận, trung tâm nghỉ đột xuất, trùng phòng hoặc phụ huynh đã thống nhất đổi lịch cho cả lớp.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Hiểu đúng tác động",
+    items: [
+      "Buổi cũ sẽ được thay bằng buổi mới, không làm tăng thêm tổng số buổi của khóa.",
+      "Nếu giờ học mới khác giờ cũ, có thể nhập giờ bắt đầu và kết thúc mới ngay tại đây.",
+      "Nên ghi lý do dời lịch để CSO, giáo viên và đội vận hành sau này nhìn lịch sử là hiểu ngay.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lỗi dễ gặp",
+    items: [
+      "Dùng dời lịch trong khi thực tế cần thêm một buổi bù riêng.",
+      "Quên nhập ngày mới khiến buổi không thể tạo thay thế.",
+      "Dời lịch nhưng không ghi lý do, làm người sau rất khó đối chiếu ngữ cảnh.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function RescheduleSessionButton({
   sessionId,
@@ -67,6 +98,7 @@ export default function RescheduleSessionButton({
         onClose={() => setOpen(false)}
         title="Dời lịch buổi học"
         description={`Chuyển buổi ${sessionDateLabel} sang ngày mới. Hệ thống sẽ tạo đúng 1 buổi thay thế và giữ nguyên tổng số buổi của khóa.`}
+        guide={<FormGuide title="Hướng dẫn dời lịch buổi học" summary="Đây là luồng đổi ngày cho chính buổi đang chọn. Nó không tạo thêm buổi mới cho khóa, mà chỉ thay buổi cũ bằng buổi mới." sections={RESCHEDULE_GUIDE_SECTIONS} position="inline" />}
       >
         <form onSubmit={save} className="space-y-5">
           <div className="form-group">
@@ -85,13 +117,7 @@ export default function RescheduleSessionButton({
           </div>
           <label className="form-group">
             <span className="label">Lý do dời lịch</span>
-            <textarea
-              className="input resize-none"
-              rows={3}
-              placeholder="VD: trùng phòng, GV bận đột xuất..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
+            <textarea className="input resize-none" rows={3} placeholder="VD: trùng phòng, GV bận đột xuất..." value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
 
           {error ? <div className="alert-danger">{error}</div> : null}

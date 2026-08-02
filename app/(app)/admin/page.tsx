@@ -4,12 +4,42 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import AdminCreateUserDrawer from "@/components/admin/AdminCreateUserDrawer";
 import UserAdminActions from "@/components/admin/UserAdminActions";
+import PageGuide from "@/components/ui/PageGuide";
 
 function formatDateTime(d: Date | null) {
   return d ? new Date(d).toLocaleString("vi-VN") : "—";
 }
 
 const USERS_PAGE_SIZE = 30;
+const ADMIN_PAGE_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu trang này",
+    items: [
+      "Quản lý người dùng, vai trò và cơ sở trong cùng một khu điều hành.",
+      "Tạo tài khoản mới, sửa user hiện có và điều phối quyền truy cập theo vai trò.",
+      "Đi nhanh sang danh sách cơ sở hoặc vai trò khi cần chỉnh cấu hình hệ thống.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách thao tác nhanh",
+    items: [
+      "Tìm user theo tên hoặc email để ra đúng người cần xử lý.",
+      "Dùng nút tạo người dùng để cấp user, cơ sở và vai trò ngay trong một form.",
+      "Khi cần quản trị sâu hơn, mở trang Cơ sở hoặc Vai trò từ các nút điều hướng trên header.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Vai trò quyết định phạm vi xem và thao tác của toàn hệ thống nên cần gán thật đúng.",
+      "Sai cơ sở sẽ khiến user nhìn nhầm dữ liệu, vì vậy luôn kiểm tra branch trước khi lưu.",
+      "Sau khi đổi quyền, đôi lúc người dùng cần tải lại phiên làm việc để thấy quyền mới ổn định.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 function buildQuery(base: Record<string, string | undefined>, overrides: Record<string, string | number>) {
   const params = new URLSearchParams();
@@ -82,6 +112,12 @@ export default async function AdminPage({
 
   return (
     <div className="min-h-screen space-y-8 pb-20">
+      <PageGuide
+        title="Guide quản trị"
+        summary="Giải thích nhanh cách dùng khu quản trị để tránh cấp sai user hoặc sai quyền."
+        sections={ADMIN_PAGE_GUIDE_SECTIONS}
+        buttonLabel="Guide quản trị"
+      />
       <section className="rounded-[32px] border border-[#dbe7ff] bg-white px-6 py-6 shadow-[0_24px_60px_rgba(15,23,42,0.06)] md:px-8">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-3">

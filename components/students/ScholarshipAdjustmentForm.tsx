@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import FormGuide from "@/components/ui/FormGuide";
 
 type Item = {
   id: string;
@@ -14,6 +15,36 @@ type Item = {
 };
 
 type EnrollmentOption = { id: string; className: string; status: string };
+
+const SCHOLARSHIP_ADJUSTMENT_GUIDE_SECTIONS = [
+  {
+    title: "Khối này dùng để làm gì",
+    items: [
+      "Học bổng dùng để giảm học phí theo lớp hoặc khóa cụ thể của học viên.",
+      "Điều chỉnh học phí dùng cho các trường hợp ưu đãi hoặc xử lý riêng ngoài học bổng chuẩn.",
+      "Cả hai phần đều chỉ nên tác động tới học phí, không dùng để giảm tiền sách.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách thao tác đúng",
+    items: [
+      "Nếu ưu đãi gắn với một lớp cụ thể thì ưu tiên tạo ở tab Học bổng và chọn đúng ghi danh.",
+      "Nếu là xử lý riêng ngoài logic học bổng, dùng tab Điều chỉnh HP.",
+      "Muốn sửa một mục cũ thì bấm Sửa ngay trên dòng đó thay vì tạo chồng thêm mục mới.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Hệ thống sẽ tính lại học phí sau khi thêm, sửa hoặc xóa một mục.",
+      "Nếu học viên chưa ghi danh thì chưa thể gắn học bổng theo lớp hoặc khóa.",
+      "Nên ghi rõ lý do để sau này đối soát biết vì sao khoản học phí được giảm.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function ScholarshipAdjustmentForm({
   studentId,
@@ -107,6 +138,13 @@ export default function ScholarshipAdjustmentForm({
 
   return (
     <div className="card">
+      <FormGuide
+        title="Guide học bổng & điều chỉnh"
+        summary="Giải thích khi nào dùng học bổng, khi nào dùng điều chỉnh và cách tránh làm lệch học phí."
+        sections={SCHOLARSHIP_ADJUSTMENT_GUIDE_SECTIONS}
+        position="inline"
+        buttonLabel="Guide học bổng"
+      />
       {/* Header */}
       <div className="flex items-center gap-2 mb-5">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">

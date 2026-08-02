@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SlideOver from "@/components/ui/SlideOver";
+import FormGuide from "@/components/ui/FormGuide";
 
 type StudentHit = { id: string; fullName: string; studentCode: string };
-
 type InstallmentDraft = { dueMonth: string; amount: string };
 
 function monthOffset(offset: number) {
@@ -17,8 +17,41 @@ function monthOffset(offset: number) {
 
 function splitInstallments(total: number, count: number): InstallmentDraft[] {
   const base = Math.floor(total / count / 1000) * 1000;
-  return Array.from({ length: count }, (_, index) => ({ dueMonth: monthOffset(index), amount: String(index === count - 1 ? total - base * (count - 1) : base) }));
+  return Array.from({ length: count }, (_, index) => ({
+    dueMonth: monthOffset(index),
+    amount: String(index === count - 1 ? total - base * (count - 1) : base),
+  }));
 }
+
+const GUIDE_SECTIONS = [
+  {
+    title: "Form này giải quyết việc gì?",
+    items: [
+      "Dùng khi lớp đã có sẵn và bạn cần đưa một học viên đang hoạt động vào lớp đó.",
+      "Đây là bước vừa ghi danh vào lớp, vừa chốt cách thu học phí ban đầu cho học viên này.",
+      "Sau khi ghi danh xong, luồng học phí và phiếu thu của học viên sẽ đi theo lựa chọn ở đây.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Chọn đúng kiểu đóng tiền",
+    items: [
+      "Đóng trọn khóa: phù hợp khi phụ huynh chốt thanh toán toàn bộ khóa ngay từ đầu.",
+      "Đóng theo tháng: phù hợp khi phụ huynh đóng theo từng kỳ/tháng học thực tế.",
+      "Trả góp theo đợt: phù hợp khi muốn chốt sẵn các mốc phải thu theo tháng và số tiền từng đợt.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lỗi dễ sai nhất",
+    items: [
+      "Chọn nhầm học viên trùng tên, nên luôn nhìn thêm mã học viên trước khi xác nhận.",
+      "Dựng lịch trả góp mà tổng tiền các đợt không hợp lý với tổng giá trị khóa.",
+      "Chọn thu trọn khóa cho phụ huynh vẫn đang muốn đóng tháng sẽ làm batch học phí về sau nhìn sai mong đợi vận hành.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { classId: string; courseTotalAmount?: number }) {
   const router = useRouter();
@@ -57,7 +90,11 @@ export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { 
     const response = await fetch(`/api/classes/${classId}/enrollments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ studentId: selected.id, billingModel, installments: billingModel === "INSTALLMENT" ? installments.map((item) => ({ ...item, amount: Number(item.amount) })) : undefined }),
+      body: JSON.stringify({
+        studentId: selected.id,
+        billingModel,
+        installments: billingModel === "INSTALLMENT" ? installments.map((item) => ({ ...item, amount: Number(item.amount) })) : undefined,
+      }),
     });
     const result = await response.json().catch(() => ({}));
     setLoading(false);
@@ -84,19 +121,15 @@ export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { 
         open={open}
         onClose={() => setOpen(false)}
         title="Ghi danh học viên vào lớp"
-        description="Tìm học viên đang hoạt động theo tên hoặc mã, chọn đúng người rồi xác nhận ghi danh vào lớp này."
+        description="Tìm học viên đang hoạt động, chọn đúng người rồi chốt luôn cách thu học phí phù hợp với phụ huynh."
+        guide={<FormGuide title="Hướng dẫn ghi danh học viên vào lớp" summary="Đây là một trong những form quan trọng nhất của vận hành vì nó nối học viên với lớp và kéo theo logic học phí phía sau. Chọn đúng học viên và đúng kiểu thu là mấu chốt." sections={GUIDE_SECTIONS} position="inline" />}
       >
         <div className="space-y-5">
           <form onSubmit={search} className="flex gap-3">
-            <input
-              className="input"
-              placeholder="Tìm theo tên hoặc mã học viên..."
-              value={q}
-              onChange={(event) => {
-                setQ(event.target.value);
-                if (!event.target.value) setResults([]);
-              }}
-            />
+            <input className="input" placeholder="Tìm theo tên hoặc mã học viên..." value={q} onChange={(event) => {
+              setQ(event.target.value);
+              if (!event.target.value) setResults([]);
+            }} />
             <button type="submit" className="btn-ghost whitespace-nowrap" disabled={searching}>
               {searching ? "Đang tìm..." : "Tìm học viên"}
             </button>
@@ -106,12 +139,7 @@ export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { 
             <div className="space-y-2">
               <p className="text-sm font-medium text-ink-muted48">Chọn học viên phù hợp</p>
               {results.map((student) => (
-                <button
-                  key={student.id}
-                  type="button"
-                  onClick={() => setSelected(selected?.id === student.id ? null : student)}
-                  className={selected?.id === student.id ? "search-result-item-active" : "search-result-item"}
-                >
+                <button key={student.id} type="button" onClick={() => setSelected(selected?.id === student.id ? null : student)} className={selected?.id === student.id ? "search-result-item-active" : "search-result-item"}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="font-semibold text-ink">{student.fullName}</p>
@@ -154,11 +182,22 @@ export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { 
                 </div>
                 {billingModel === "INSTALLMENT" ? (
                   <div className="mt-3 rounded-xl border border-emerald-200 bg-white/80 p-3">
-                    <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-ink">Lịch trả góp</p><p className="text-xs text-ink-muted48">Tổng phải bằng {courseTotalAmount.toLocaleString("vi-VN")}đ</p></div>
-                    <div className="mt-3 space-y-2">
-                      {installments.map((item, index) => <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2"><input aria-label={`Tháng thu đợt ${index + 1}`} type="month" value={item.dueMonth} onChange={(event) => setInstallments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, dueMonth: event.target.value } : row))} className="input-sm" /><input aria-label={`Số tiền đợt ${index + 1}`} type="number" min="1" step="1000" value={item.amount} onChange={(event) => setInstallments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, amount: event.target.value } : row))} className="input-sm" />{installments.length > 2 ? <button type="button" onClick={() => setInstallments((current) => current.filter((_, rowIndex) => rowIndex !== index))} className="btn-ghost-sm px-3 text-red-600">×</button> : <span />}</div>)}
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-ink">Lịch trả góp</p>
+                      <p className="text-xs text-ink-muted48">Tổng phải bằng {courseTotalAmount.toLocaleString("vi-VN")}đ</p>
                     </div>
-                    <button type="button" disabled={installments.length >= 12} onClick={() => setInstallments((current) => [...current, { dueMonth: monthOffset(current.length), amount: "0" }])} className="mt-3 text-xs font-semibold text-primary">+ Thêm đợt</button>
+                    <div className="mt-3 space-y-2">
+                      {installments.map((item, index) => (
+                        <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                          <input aria-label={`Tháng thu đợt ${index + 1}`} type="month" value={item.dueMonth} onChange={(event) => setInstallments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, dueMonth: event.target.value } : row))} className="input-sm" />
+                          <input aria-label={`Số tiền đợt ${index + 1}`} type="number" min="1" step="1000" value={item.amount} onChange={(event) => setInstallments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, amount: event.target.value } : row))} className="input-sm" />
+                          {installments.length > 2 ? <button type="button" onClick={() => setInstallments((current) => current.filter((_, rowIndex) => rowIndex !== index))} className="btn-ghost-sm px-3 text-red-600">×</button> : <span />}
+                        </div>
+                      ))}
+                    </div>
+                    <button type="button" disabled={installments.length >= 12} onClick={() => setInstallments((current) => [...current, { dueMonth: monthOffset(current.length), amount: "0" }])} className="mt-3 text-xs font-semibold text-primary">
+                      + Thêm đợt
+                    </button>
                   </div>
                 ) : null}
               </div>

@@ -4,6 +4,37 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CategorySelect from "./CategorySelect";
 import SlideOver from "@/components/ui/SlideOver";
+import FormGuide from "@/components/ui/FormGuide";
+
+const NEW_BOOK_GUIDE_SECTIONS = [
+  {
+    title: "Khi nào thêm đầu sách mới?",
+    items: [
+      "Dùng khi kho bắt đầu quản lý một đầu sách/giáo trình mới chưa từng có trong hệ thống.",
+      "Mỗi đầu sách nên là một mặt hàng rõ ràng, không gộp nhiều loại sách khác nhau vào chung một mã.",
+      "Đơn giá nhập và đơn giá bán là dữ liệu nền rất quan trọng cho đối chiếu kho và học phí sách.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách nhập đúng",
+    items: [
+      "Tên sách nên đủ rõ để người vận hành khác nhìn là nhận ra ngay.",
+      "Danh mục sách giúp lọc và gom nhóm dễ hơn về sau.",
+      "Đơn giá nhập là giá vốn tham chiếu, đơn giá bán là giá dự kiến thu ra cho học viên/phụ huynh.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lỗi hay gặp",
+    items: [
+      "Tạo trùng đầu sách chỉ vì khác chút cách viết tên.",
+      "Nhập nhầm đơn giá nhập thành đơn giá bán hoặc ngược lại.",
+      "Không gắn danh mục khi kho đã có cấu trúc phân loại rõ ràng.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function NewBookForm({ categoryOptions }: { categoryOptions: string[] }) {
   const router = useRouter();
@@ -23,7 +54,7 @@ export default function NewBookForm({ categoryOptions }: { categoryOptions: stri
       body: JSON.stringify(form),
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
     setLoading(false);
 
     if (!response.ok) {
@@ -48,6 +79,7 @@ export default function NewBookForm({ categoryOptions }: { categoryOptions: stri
         title="Thêm sách / giáo trình mới"
         description="Gắn danh mục để dễ lọc về sau. Nếu để trống, hệ thống sẽ hiểu là Sách khác."
         widthClassName="max-w-3xl"
+        guide={<FormGuide title="Hướng dẫn thêm đầu sách mới" summary="Đây là form khởi tạo một đầu sách mới trong kho. Nếu nhập chuẩn tên, danh mục và đơn giá từ đầu thì các bước nhập kho, xuất kho, thu sách về sau sẽ rất gọn." sections={NEW_BOOK_GUIDE_SECTIONS} position="inline" />}
       >
         <form onSubmit={submit} className="grid gap-4">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -63,31 +95,19 @@ export default function NewBookForm({ categoryOptions }: { categoryOptions: stri
 
             <label className="form-group">
               <span className="label-sm">Danh mục sách</span>
-              <CategorySelect
-                categoryOptions={categoryOptions}
-                value={form.category}
-                onChange={(next) => setForm((current) => ({ ...current, category: next }))}
-              />
+              <CategorySelect categoryOptions={categoryOptions} value={form.category} onChange={(next) => setForm((current) => ({ ...current, category: next }))} />
             </label>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <label className="form-group">
               <span className="label-sm">Đơn giá nhập *</span>
-              <input
-                required
-                type="number"
-                min="0"
-                className="input"
-                value={form.purchasePrice}
-                onChange={(event) => setForm((current) => ({ ...current, purchasePrice: event.target.value }))}
-              />
+              <input required type="number" min="0" className="input" value={form.purchasePrice} onChange={(event) => setForm((current) => ({ ...current, purchasePrice: event.target.value }))} />
             </label>
             <label className="form-group">
               <span className="label-sm">Đơn giá bán *</span>
               <input required type="number" min="0" className="input" value={form.unitPrice} onChange={(event) => setForm((current) => ({ ...current, unitPrice: event.target.value }))} />
             </label>
-         
           </div>
 
           {error ? <p className="text-sm text-red-600">{error}</p> : null}

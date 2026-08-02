@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import FormGuide from "@/components/ui/FormGuide";
 
 function currentMonth() {
   const d = new Date();
@@ -21,6 +22,36 @@ type BillingPeriodPayload = {
   id: string;
   periodName: string;
 };
+
+const PERIOD_GUIDE_SECTIONS = [
+  {
+    title: "Khi nào tạo kỳ thu mới?",
+    items: [
+      "Dùng khi trung tâm bắt đầu một kỳ/tháng thu học phí mới cần tách riêng để vận hành và in phiếu.",
+      "Mỗi kỳ thu thường là một mốc dạng YYYY-MM như 2026-08, 2026-09.",
+      "Nếu kỳ đã tồn tại rồi, hệ thống sẽ mở lại kỳ đó thay vì tạo trùng thêm một bản mới.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Nguyên tắc vận hành",
+    items: [
+      "Tạo đúng kỳ đang cần xử lý trước khi sinh danh sách thu hoặc xuất phiếu hàng loạt.",
+      "Kỳ thu là cái khung để hệ thống nhóm công nợ, hóa đơn và danh sách cần xử lý.",
+      "Sau khi tạo xong, bạn có thể tạo tiếp kỳ kế tiếp nếu đang setup trước cho nhiều tháng.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lỗi hay gặp",
+    items: [
+      "Tạo nhầm tháng làm người vận hành nhìn sai danh sách cần thu.",
+      "Tưởng rằng bấm tạo lại sẽ sinh bản ghi mới, trong khi thực tế có thể chỉ đang mở lại kỳ cũ.",
+      "Chưa hiểu rõ kỳ đang xem là tháng nào nên thao tác xuất phiếu/thu tiền bị nhầm ngữ cảnh.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function NewPeriodForm({
   onCreated,
@@ -77,6 +108,12 @@ export default function NewPeriodForm({
 
   return (
     <form onSubmit={submit} className="flex flex-wrap items-center gap-2">
+      <FormGuide
+        title="Hướng dẫn tạo kỳ thu"
+        summary="Đây là bước mở một kỳ/tháng thu học phí để hệ thống nhóm đúng công nợ và danh sách xuất phiếu. Chọn đúng tháng là điều quan trọng nhất."
+        sections={PERIOD_GUIDE_SECTIONS}
+        position="inline"
+      />
       <input
         type="month"
         required

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import FormGuide from "@/components/ui/FormGuide";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 type RosterRow = {
   enrollmentId: string;
@@ -26,6 +28,36 @@ function statusSummary(status: string) {
       return "";
   }
 }
+
+const ATTENDANCE_FORM_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu form này",
+    items: [
+      "Đây là nơi chốt trạng thái có mặt hoặc vắng cho từng học viên trong buổi học hiện tại.",
+      "Danh sách có tìm kiếm, lọc và phân trang để giáo viên không bị ngợp khi lớp đông.",
+      "Kết quả ở đây ảnh hưởng tới cảnh báo chăm sóc và các luồng bổ trợ phát sinh sau đó.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách thao tác nhanh",
+    items: [
+      "Lọc theo trạng thái hoặc tìm theo tên/mã học viên để chấm nhanh hơn.",
+      "Mỗi dòng chỉ cần chọn Có mặt hoặc Vắng rồi bấm lưu điểm danh ở cuối form.",
+      "Nếu học viên đã nghỉ hẳn, dùng thao tác rút lớp ngay tại đây để khỏi điểm danh lại ở các buổi sau.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Rút lớp tại màn hình này sẽ cộng các buổi chưa học còn lại thành buổi bổ trợ cho học viên.",
+      "Điểm danh chưa lưu chỉ là trạng thái trong form, chưa ghi thật vào hệ thống.",
+      "Nếu lớp đông, nên chấm theo từng trang rồi mới lưu để tránh sót học viên.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function AttendanceForm({ sessionId, initialRoster }: { sessionId: string; initialRoster: RosterRow[] }) {
   const router = useRouter();
@@ -81,11 +113,6 @@ export default function AttendanceForm({ sessionId, initialRoster }: { sessionId
   }
 
   async function withdrawStudent(row: RosterRow) {
-    const confirmed = window.confirm(
-      `Rút ${row.fullName} khỏi lớp ngay bây giờ?\n\nHệ thống sẽ tự cộng toàn bộ buổi còn lại chưa học của khóa thành buổi bổ trợ cho học viên này.`
-    );
-    if (!confirmed) return;
-
     setWithdrawingEnrollmentId(row.enrollmentId);
     setError(null);
 
@@ -111,9 +138,7 @@ export default function AttendanceForm({ sessionId, initialRoster }: { sessionId
 
       const granted = Number(data.sessionCreditsGranted ?? 0);
       window.alert(
-        granted > 0
-          ? `Đã rút lớp ${row.fullName} và cộng ${granted} buổi bổ trợ còn lại.`
-          : `Đã rút lớp ${row.fullName}.`
+        granted > 0 ? `Đã rút lớp ${row.fullName} và cộng ${granted} buổi bổ trợ còn lại.` : `Đã rút lớp ${row.fullName}.`
       );
     } finally {
       setWithdrawingEnrollmentId(null);
@@ -150,6 +175,13 @@ export default function AttendanceForm({ sessionId, initialRoster }: { sessionId
 
   return (
     <div className="space-y-4">
+      <FormGuide
+        title="Guide điểm danh"
+        summary="Giải thích cách chấm có mặt/vắng, lọc danh sách và rút lớp ngay trong buổi học."
+        sections={ATTENDANCE_FORM_GUIDE_SECTIONS}
+        position="inline"
+        buttonLabel="Guide điểm danh"
+      />
       <div className="space-y-4 rounded-[28px] border border-[#dbe7ff] bg-[#f8fbff] p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full lg:max-w-md">
@@ -158,7 +190,12 @@ export default function AttendanceForm({ sessionId, initialRoster }: { sessionId
               fill="none"
               className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted48"
             >
-              <path d="M14.166 14.167 17.5 17.5M16.667 9.167a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <path
+                d="M14.166 14.167 17.5 17.5M16.667 9.167a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
             </svg>
             <input
               value={keyword}
@@ -287,14 +324,18 @@ export default function AttendanceForm({ sessionId, initialRoster }: { sessionId
                     </button>
                   );
                 })}
-                <button
-                  type="button"
-                  onClick={() => withdrawStudent(row)}
+                <ConfirmActionButton
+                  title={`Rút ${row.fullName} khỏi lớp?`}
+                  description="Hệ thống sẽ dừng điểm danh học viên này trong lớp và cộng toàn bộ buổi chưa học còn lại thành buổi bổ trợ."
+                  confirmLabel="Xác nhận rút lớp"
+                  cancelLabel="Quay lại"
+                  tone="danger"
+                  onConfirm={() => withdrawStudent(row)}
                   disabled={withdrawingEnrollmentId === row.enrollmentId}
                   className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {withdrawingEnrollmentId === row.enrollmentId ? "Đang rút lớp..." : "Đã rút lớp"}
-                </button>
+                </ConfirmActionButton>
               </div>
             </div>
           </div>

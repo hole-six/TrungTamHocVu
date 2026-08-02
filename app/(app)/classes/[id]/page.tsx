@@ -24,6 +24,7 @@ import ClassEditForm from "@/components/classes/ClassEditForm";
 import RescheduleSessionButton from "@/components/classes/RescheduleSessionButton";
 import AddMakeupSessionButton from "@/components/classes/AddMakeupSessionButton";
 import ClassDefaultAssignmentManager from "@/components/classes/ClassDefaultAssignmentManager";
+import PageGuide from "@/components/ui/PageGuide";
 import { isTaskDueOn, computeTaskLogStatus } from "@/lib/server/class-task-rules";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
@@ -99,6 +100,36 @@ const ATTENTION_STYLE = {
   ok: { dot: "bg-emerald-500", text: "text-emerald-800", bg: "bg-emerald-50", border: "border-emerald-200" },
 };
 type AttentionSeverity = keyof typeof ATTENTION_STYLE;
+
+const CLASS_DETAIL_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu trang này",
+    items: [
+      "Đây là màn hình điều hành đầy đủ của một lớp: tổng quan, lịch buổi, học viên, roadmap và checklist vận hành.",
+      "Mỗi tab trong trang lớp đại diện cho một nhóm việc riêng để dễ nhìn và dễ thao tác hơn.",
+      "Nếu lớp đang chạy thực tế, nên xử lý từ đây để dữ liệu lịch, học viên và buổi học bám nhau.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách dùng nhanh",
+    items: [
+      "Tab Tổng quan để xem sĩ số, tiến độ lớp, ngày kết thúc dự kiến và các cảnh báo quan trọng.",
+      "Tab Buổi học để đổi lịch, thêm buổi bù, điểm danh và đi vào nhật ký từng session.",
+      "Tab Học viên để ghi danh, rút lớp, xem trạng thái và xử lý đúng từng học viên trong lớp.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Khi thêm buổi bù hoặc đổi lịch, ngày kết thúc dự kiến của lớp là mốc động và có thể thay đổi.",
+      "Rút lớp có thể kéo theo buổi bổ trợ, credit và ảnh hưởng học phí nên không nên thao tác vội.",
+      "Roadmap, giáo trình buổi học và phân công GV/TG nên được cập nhật đồng bộ để giáo viên dùng ngay.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default async function ClassDetailPage({ params }: { params: { id: string } }) {
   const cls = await prisma.class.findUnique({
@@ -260,6 +291,12 @@ export default async function ClassDetailPage({ params }: { params: { id: string
 
   return (
     <div className="space-y-5 pb-16">
+      <PageGuide
+        title="Guide chi tiết lớp"
+        summary="Giải thích nhanh các tab điều hành lớp, nơi đổi lịch, điểm danh và quản lý học viên."
+        sections={CLASS_DETAIL_GUIDE_SECTIONS}
+        buttonLabel="Guide lớp"
+      />
 
       {/* ── HEADER ── */}
       <div className="rounded-2xl border border-[#e5eaf7] bg-gradient-to-b from-white to-[#f8faff] p-8 shadow-sm">

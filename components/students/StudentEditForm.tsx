@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import FormGuide from "@/components/ui/FormGuide";
 
 type Props = {
   studentId: string;
@@ -17,6 +18,36 @@ type Props = {
     notes: string;
   };
 };
+
+const STUDENT_EDIT_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu form này",
+    items: [
+      "Đây là form cập nhật hồ sơ cơ bản của học viên như trạng thái, giới tính, liên hệ và ghi chú nội bộ.",
+      "Form này không phải nơi xử lý học phí hay lớp học, mà tập trung vào dữ liệu hồ sơ nền.",
+      "Các thay đổi ở đây sẽ ảnh hưởng đến cách hiển thị hồ sơ học viên trên toàn hệ thống.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách thao tác nhanh",
+    items: [
+      "Chỉ đổi trạng thái sang Đã nghỉ khi học viên thực sự ngừng học.",
+      "Nếu đánh dấu đã nghỉ, nên điền rõ lý do để đội vận hành sau này tra cứu dễ hơn.",
+      "Các ô đánh giá và ghi chú nội bộ nên viết ngắn, rõ ý và phục vụ người xử lý tiếp theo.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Đổi trạng thái học viên không tự thay thế cho thao tác rút lớp ở lớp đang học.",
+      "Số điện thoại, địa chỉ và ghi chú là dữ liệu được dùng nhiều khi CSO hoặc giáo viên tra cứu lại.",
+      "Nếu chỉ sửa thông tin hồ sơ, không cần đụng sang phần học phí để tránh nhầm luồng xử lý.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function StudentEditForm({ studentId, initial }: Props) {
   const router = useRouter();
@@ -56,6 +87,13 @@ export default function StudentEditForm({ studentId, initial }: Props) {
 
   return (
     <div className="card">
+      <FormGuide
+        title="Guide cập nhật hồ sơ"
+        summary="Giải thích nhanh phần nào là hồ sơ nền, phần nào không nên sửa ở form này."
+        sections={STUDENT_EDIT_GUIDE_SECTIONS}
+        position="inline"
+        buttonLabel="Guide hồ sơ"
+      />
       {/* Header */}
       <div className="flex items-center gap-2 mb-5">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">

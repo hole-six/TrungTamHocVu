@@ -6,6 +6,7 @@ import SlideOver from "@/components/ui/SlideOver";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import DatePicker from "@/components/ui/DatePicker";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import FormGuide from "@/components/ui/FormGuide";
 import { getVietnamToday } from "@/lib/server/class-rules";
 
 type ChargeSummary = {
@@ -142,6 +143,36 @@ function buildChargePreviewText(charge?: ChargeSummary | null) {
     `- Đã thu: ${formatVnd(charge.paidAmount)}`,
   ].join("\n");
 }
+
+const STUDENT_FINANCE_GUIDE_SECTIONS = [
+  {
+    title: "Cách đọc tab học phí",
+    items: [
+      "Khối đầu trang cho biết còn phải thu bao nhiêu, sách chưa thu bao nhiêu và phiếu gần nhất của học viên.",
+      "Khoản cần thu ngay là phần ưu tiên thu trước, còn các kỳ khác phía dưới dùng để đối chiếu lịch sử công nợ.",
+      "Tiền sách và học phí được tách riêng để dễ biết khoản nào là học phí, khoản nào là phát sinh sách.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách thao tác đúng",
+    items: [
+      "Nếu cần thu tiền, dùng nút thu học phí nhanh ở đúng khoản đang mở hoặc ở đầu tab.",
+      "Nếu phụ huynh đổi giữa theo tháng và theo khóa, đổi tại khu kiểu thu để kỳ tiếp theo đi đúng logic.",
+      "Nếu học viên mua thêm sách, thêm ở khu phát sinh sách để tiền sách cộng đúng vào công nợ mở.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý quan trọng",
+    items: [
+      "Học bổng chỉ nên làm giảm phần học phí, không làm giảm tiền sách.",
+      "Đã thu đủ thì chỉ dùng để đối chiếu lịch sử, không nên tiếp tục sinh phiếu thu mới cho cùng khoản đó.",
+      "Khi số liệu chưa khớp, cần kiểm tra charge, payment allocation và book issue cùng lúc.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function StudentFinanceDesk({
   studentId,
@@ -402,6 +433,13 @@ export default function StudentFinanceDesk({
 
   return (
     <div className="space-y-6">
+      <FormGuide
+        title="Guide tab học phí"
+        summary="Giải thích nhanh cách đọc công nợ, đổi kiểu thu và xử lý tiền sách của học viên."
+        sections={STUDENT_FINANCE_GUIDE_SECTIONS}
+        position="inline"
+        buttonLabel="Guide học phí"
+      />
       <section className="rounded-[28px] border border-[#dbe7fb] bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-3">

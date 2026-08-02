@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PLACEMENT_TEST_STATUSES, PLACEMENT_TEST_STATUS_LABEL } from "@/lib/server/lead-rules";
+import FormGuide from "@/components/ui/FormGuide";
 
 type Tab = "interaction" | "appointment" | "test";
 
@@ -42,6 +43,36 @@ const INTERACTION_TYPES = [
   { value: "MEET", label: "🤝 Gặp trực tiếp" },
   { value: "MESSAGE", label: "💬 Nhắn tin" },
   { value: "EMAIL", label: "✉️ Email" },
+];
+
+const LEAD_ACTIVITY_GUIDE_SECTIONS = [
+  {
+    title: "Khối này dùng để làm gì",
+    items: [
+      "Tương tác để ghi lại cuộc gọi, tin nhắn hoặc trao đổi đã diễn ra với lead.",
+      "Lịch hẹn để chốt thời gian phụ huynh hoặc học viên sẽ đến trung tâm.",
+      "Kết quả test để lưu ngày test, trạng thái test và đề xuất xếp lớp sau khi đã kiểm tra.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Nên dùng theo thứ tự",
+    items: [
+      "Có trao đổi thì ghi vào Tương tác trước để giữ lịch sử chăm sóc rõ ràng.",
+      "Khi đã chốt được thời gian đến trung tâm thì tạo Lịch hẹn.",
+      "Sau khi test thật hoặc có kết quả xếp lớp thì mới lưu ở tab Kết quả test.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Không cần ghi trùng một nội dung vào cả 3 tab nếu chưa có sự kiện thật sự xảy ra.",
+      "Nếu chỉ mới hẹn test nhưng chưa đến, thường chỉ cần lịch hẹn hoặc ngày hẹn test.",
+      "Nội dung nên ngắn, rõ việc đã làm và bước tiếp theo để người khác vào là hiểu ngay.",
+    ],
+    tone: "warning" as const,
+  },
 ];
 
 export default function LeadActivityForms({ leadId }: { leadId: string }) {
@@ -96,6 +127,13 @@ export default function LeadActivityForms({ leadId }: { leadId: string }) {
 
   return (
     <div className="card space-y-5">
+      <FormGuide
+        title="Guide hoạt động CRM"
+        summary="Giúp chọn đúng loại ghi nhận: tương tác, lịch hẹn hay kết quả test."
+        sections={LEAD_ACTIVITY_GUIDE_SECTIONS}
+        position="inline"
+        buttonLabel="Guide thao tác"
+      />
       {/* Header */}
       <div className="flex items-center gap-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100">

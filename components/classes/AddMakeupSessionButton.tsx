@@ -4,6 +4,37 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SlideOver from "@/components/ui/SlideOver";
 import DatePicker from "@/components/ui/DatePicker";
+import FormGuide from "@/components/ui/FormGuide";
+
+const MAKEUP_GUIDE_SECTIONS = [
+  {
+    title: "Khi nào dùng thêm buổi bù?",
+    items: [
+      "Dùng khi cần tạo thêm một buổi riêng ngoài buổi gốc, ví dụ học bù tiến độ, bù do nghỉ lễ hoặc bù riêng do phát sinh.",
+      "Luồng này giữ nguyên buổi gốc và cộng thêm một buổi mới vào lịch thực tế.",
+      "Phù hợp khi lớp cần học thêm, không phải khi chỉ muốn đổi ngày của buổi cũ.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Hiểu đúng tác động",
+    items: [
+      "Buổi bù là một buổi mới, nên có thể làm mốc kết thúc thực tế của lớp lùi ra xa hơn.",
+      "Bạn có thể nhập giờ học và phòng riêng cho buổi bù nếu khác lịch chuẩn.",
+      "Nên ghi lý do rõ để người vận hành khác hiểu vì sao lớp có thêm buổi phát sinh.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lỗi dễ gặp",
+    items: [
+      "Dùng thêm buổi bù trong khi thực tế chỉ cần dời lịch buổi cũ.",
+      "Không nhập ngày bù làm buổi không thể tạo.",
+      "Thêm buổi bù nhưng không ghi lý do, về sau rất khó giải thích vì sao khóa dài thêm.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function AddMakeupSessionButton({
   sessionId,
@@ -69,6 +100,7 @@ export default function AddMakeupSessionButton({
         onClose={() => setOpen(false)}
         title="Thêm buổi bù riêng"
         description={`Giữ nguyên buổi gốc ngày ${sessionDateLabel} và tạo thêm một buổi bù mới cho lớp. Dùng khi cần học thêm, bù tiến độ hoặc bù riêng do phát sinh.`}
+        guide={<FormGuide title="Hướng dẫn thêm buổi bù" summary="Đây là luồng tạo thêm một buổi mới ngoài buổi gốc. Nếu ý định của bạn là cộng thêm một buổi thật vào lớp, hãy dùng form này thay vì dời lịch." sections={MAKEUP_GUIDE_SECTIONS} position="inline" />}
       >
         <form onSubmit={save} className="space-y-5">
           <div className="form-group">
@@ -94,13 +126,7 @@ export default function AddMakeupSessionButton({
 
           <label className="form-group">
             <span className="label">Lý do thêm buổi bù</span>
-            <textarea
-              className="input resize-none"
-              rows={3}
-              placeholder="VD: nghỉ lễ tuần trước, học chậm tiến độ, phụ huynh xin bù thêm một buổi..."
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-            />
+            <textarea className="input resize-none" rows={3} placeholder="VD: nghỉ lễ tuần trước, học chậm tiến độ, phụ huynh xin bù thêm một buổi..." value={reason} onChange={(event) => setReason(event.target.value)} />
           </label>
 
           {error ? <div className="alert-danger">{error}</div> : null}

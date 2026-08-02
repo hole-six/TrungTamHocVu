@@ -3,12 +3,43 @@ import { notFound } from "next/navigation";
 import AttendanceForm from "@/components/classes/AttendanceForm";
 import ClassJournalForm from "@/components/classes/ClassJournalForm";
 import SessionAssignmentForm from "@/components/classes/SessionAssignmentForm";
+import PageGuide from "@/components/ui/PageGuide";
 import { prisma } from "@/lib/prisma";
 import { getUserRole } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { computeCareAlerts } from "@/lib/server/journal-alerts";
 import { computeSessionTiming, getVietnamToday } from "@/lib/server/class-rules";
+
+const SESSION_PAGE_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu màn hình này",
+    items: [
+      "Đây là nơi vận hành một buổi học thực tế: đọc nội dung buổi, điểm danh, phân công và viết nhật ký lớp.",
+      "Giáo viên hoặc CSO có thể vào đúng buổi này để xử lý toàn bộ việc phát sinh trong ngày học.",
+      "Thông tin roadmap phía trên giúp biết hôm nay dạy gì mà không cần mở lại cấu hình lớp.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Thứ tự thao tác nên dùng",
+    items: [
+      "Đầu tiên kiểm tra nội dung buổi, phòng học, nhân sự và sĩ số.",
+      "Tiếp theo điểm danh học viên để xác định ai có mặt, ai vắng.",
+      "Sau cùng mới viết nhật ký lớp, nhận xét và hoàn tất ghi nhận buổi học.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Buổi chưa tới ngày học thì không nên điểm danh hoặc chốt dữ liệu quá sớm.",
+      "Học viên vắng có thể kéo theo buổi bổ trợ hoặc cảnh báo chăm sóc nên cần ghi nhận đúng.",
+      "Nếu giáo viên thay thế hoặc đổi trợ giảng, nên cập nhật ngay trong phân công của buổi này.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 function attendanceLabel(status: string) {
   switch (status) {
@@ -107,6 +138,12 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
 
   return (
     <div className="page-shell">
+      <PageGuide
+        title="Guide mở buổi học"
+        summary="Hướng dẫn nhanh thứ tự mở buổi học: đọc roadmap, điểm danh rồi viết nhật ký."
+        sections={SESSION_PAGE_GUIDE_SECTIONS}
+        buttonLabel="Guide buổi học"
+      />
       <div className="space-y-4">
         <Link href={`/classes/${session.classId}`} className="inline-flex items-center gap-2 text-sm font-medium text-primary">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

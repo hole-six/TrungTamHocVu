@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import NewPeriodForm from "@/components/tuition/NewPeriodForm";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import SlideOver from "@/components/ui/SlideOver";
+import FormGuide from "@/components/ui/FormGuide";
 import { BILLING_PERIOD_STATUS_LABEL } from "@/lib/server/tuition-rules";
 import {
   getCreateSnapshotButtonLabel,
@@ -15,6 +16,37 @@ import {
   getSnapshotTimestampLabel,
 } from "@/lib/reporting-ui";
 import { exportSectionsToExcel } from "@/lib/export-utils";
+
+const DEBTOR_DETAIL_GUIDE_SECTIONS = [
+  {
+    title: "Drawer này dùng để làm gì?",
+    items: [
+      "Dùng để đọc một dòng công nợ thật kỹ trước khi gọi phụ huynh, thu tiếp hoặc mở hồ sơ 360 của học viên.",
+      "Mục tiêu là cho người vận hành hiểu vì sao học viên đang nợ, nợ phần nào và phụ huynh hiện đang ở trạng thái nào.",
+      "Đây là nơi đọc ngữ cảnh công nợ, không phải nơi chỉnh cấu trúc học phí của học viên.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách đọc các khối số liệu",
+    items: [
+      "Tổng quan khoản thu cho biết tổng dòng phí này, đã thu bao nhiêu và còn nợ bao nhiêu.",
+      "Học phí buổi học là phần tiền đến từ số buổi thực tế của kỳ đó.",
+      "Giáo trình / phát sinh là phần học liệu hoặc phát sinh thêm ngoài học phí buổi học.",
+      "Tồn đầu kỳ là số nợ hoặc số dư được kéo từ trước sang kỳ hiện tại.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Hành động đúng sau khi đọc",
+    items: [
+      "Nếu chỉ còn nợ tiền và phụ huynh sẵn sàng nộp, dùng nút thu tiền ngay trong drawer.",
+      "Nếu thấy cấu phần nợ bất thường, mở hồ sơ 360 để kiểm tra chi tiết hơn trước khi thu.",
+      "Nếu phụ huynh hoặc portal đang thiếu thông tin, nên xử lý phần liên hệ trước khi đẩy mạnh thu tiếp.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 type TuitionSummaryResponse = {
   meta: {
@@ -1046,6 +1078,7 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                 ? "Xem đầy đủ cấu phần phí, lý do công nợ, tình trạng phụ huynh và các phiếu thu gần nhất của học viên này."
                 : undefined
             }
+            guide={<FormGuide title="Hướng dẫn đọc chi tiết công nợ" summary="Drawer này giúp người vận hành hiểu rõ một học viên đang nợ vì lý do gì, nợ ở cấu phần nào và bước tiếp theo nên là thu tiếp, gọi phụ huynh hay mở hồ sơ 360." sections={DEBTOR_DETAIL_GUIDE_SECTIONS} position="inline" />}
           >
             {selectedDebtor ? (
               <div className="space-y-5">

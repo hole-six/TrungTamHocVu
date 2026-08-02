@@ -261,15 +261,15 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
           Quay lại CRM tuyển sinh
         </Link>
 
-        <div className="overflow-hidden rounded-[32px] border border-[#dbe7ff] bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_45%,#60a5fa_100%)] p-6 text-white shadow-[0_30px_80px_-45px_rgba(29,78,216,0.75)]">
+        <div className="overflow-hidden rounded-[32px] border-2 border-[#fed7aa] bg-gradient-to-r from-[#fff7ed] via-[#ffedd5] to-[#fed7aa] p-6 shadow-lg">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl space-y-3">
-              <span className="inline-flex w-fit rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-white/85">
+              <span className="inline-flex w-fit rounded-full border-2 border-[#ea580c] bg-[#ea580c] px-4 py-1.5 text-xs font-bold uppercase tracking-[0.24em] text-white">
                 Luồng nhập học tự động
               </span>
               <div>
-                <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Đăng ký nhập học</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-white/80 sm:text-base">
+                <h1 className="text-3xl font-bold tracking-tight text-[#111827] sm:text-4xl">Đăng ký nhập học</h1>
+                <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-[#78716c] sm:text-base">
                   Một luồng duy nhất để tiếp nhận phụ huynh, tạo học viên mới hoặc ghi danh thêm lớp cho học viên đang học,
                   gắn lớp phù hợp và bàn giao sang học phí.
                 </p>
@@ -277,17 +277,17 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs uppercase tracking-[0.18em] text-white/70">Khóa khả dụng</p>
-                <p className="mt-2 text-2xl font-semibold">{courses.length}</p>
+              <div className="rounded-2xl border-2 border-[#fed7aa] bg-white px-4 py-3 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#a16207]">Khóa khả dụng</p>
+                <p className="mt-2 text-2xl font-black text-[#f97316]">{courses.length}</p>
               </div>
-              <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs uppercase tracking-[0.18em] text-white/70">Lớp đang mở</p>
-                <p className="mt-2 text-2xl font-semibold">{classes.length}</p>
+              <div className="rounded-2xl border-2 border-[#fed7aa] bg-white px-4 py-3 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#a16207]">Lớp đang mở</p>
+                <p className="mt-2 text-2xl font-black text-[#f97316]">{classes.length}</p>
               </div>
-              <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs uppercase tracking-[0.18em] text-white/70">HV đang học</p>
-                <p className="mt-2 text-2xl font-semibold">{students.length}</p>
+              <div className="rounded-2xl border-2 border-[#fed7aa] bg-white px-4 py-3 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#a16207]">HV đang học</p>
+                <p className="mt-2 text-2xl font-black text-[#f97316]">{students.length}</p>
               </div>
             </div>
           </div>

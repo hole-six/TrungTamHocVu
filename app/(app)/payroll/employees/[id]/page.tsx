@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { SESSION_ROLE_LABEL, computeContractStatus } from "@/lib/server/payroll-rules";
 import TimesheetQuickAddForm from "@/components/payroll/TimesheetQuickAddForm";
 import EmployeeProfileEditor from "@/components/payroll/EmployeeProfileEditor";
+import PageGuide from "@/components/ui/PageGuide";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate, canView, canUpdate } from "@/lib/server/role-matrix";
@@ -14,6 +15,36 @@ function formatVnd(n: number) {
 function formatDate(d: Date) {
   return new Date(d).toLocaleDateString("vi-VN");
 }
+
+const EMPLOYEE_DETAIL_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu trang này",
+    items: [
+      "Đây là hồ sơ nhân sự chi tiết: buổi dạy, buổi trợ giảng, chấm công và thông tin lương cơ bản của một người.",
+      "Trang này dùng để đối chiếu dữ liệu làm việc thực tế trước khi chốt payroll.",
+      "Nếu số liệu lương đang lệch, đây là nơi nên mở đầu tiên để kiểm tra nguồn công gốc.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách dùng nhanh",
+    items: [
+      "Xem bảng buổi dạy/trợ giảng để biết nhân viên đã phát sinh công việc và tiền theo buổi ra sao.",
+      "Xem bảng chấm công ngày để đối chiếu thêm số giờ, số công ngoài hoạt động giảng dạy.",
+      "Dùng khối bên phải để cập nhật hồ sơ hoặc thêm chấm công nhanh khi bạn có quyền thao tác.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Số liệu ở đây là dữ liệu gốc cho payroll nên không nên sửa tay nếu chưa hiểu nó đến từ đâu.",
+      "Hết hạn hợp đồng là cảnh báo vận hành, không tự động có nghĩa là người đó không còn phát sinh công.",
+      "Nếu nhân viên vừa có buổi dạy vừa có chấm công hành chính, cần đối chiếu cả hai nguồn trước khi chốt.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
   const currentUser = await getCurrentUser();
@@ -35,6 +66,12 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
 
   return (
     <div className="space-y-6">
+      <PageGuide
+        title="Guide hồ sơ nhân sự"
+        summary="Giải thích nhanh cách đọc buổi dạy, chấm công và thông tin lương của từng nhân viên."
+        sections={EMPLOYEE_DETAIL_GUIDE_SECTIONS}
+        buttonLabel="Guide nhân sự"
+      />
       <div>
         <Link href="/payroll" className="text-sm text-primary">
           ← Quay lại Nhân sự & Lương

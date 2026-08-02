@@ -5,8 +5,38 @@ import { getUserRole } from "@/lib/permissions";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import GuardiansTable from "@/components/guardians/GuardiansTable";
 import NewGuardianButton from "@/components/guardians/NewGuardianButton";
+import PageGuide from "@/components/ui/PageGuide";
 
 const PAGE_SIZE = 20;
+const GUARDIANS_PAGE_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu trang này",
+    items: [
+      "Quản lý phụ huynh, tài khoản portal và học viên đang liên kết với từng phụ huynh.",
+      "Theo dõi nhanh phụ huynh nào đã có portal, có học viên và đang có công nợ.",
+      "Đi từ danh sách sang đúng hồ sơ để xử lý liên hệ, liên kết hoặc hỗ trợ portal.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách thao tác nhanh",
+    items: [
+      "Tìm theo tên phụ huynh, số điện thoại, email portal hoặc tên học viên liên kết.",
+      "Nhìn nhanh danh sách con của từng phụ huynh để biết học viên nào đang gắn với người đó.",
+      "Khi cần tạo mới, thêm phụ huynh trước rồi liên kết học viên sau để hồ sơ sạch hơn.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý vận hành",
+    items: [
+      "Một phụ huynh có thể gắn nhiều học viên nên luôn kiểm tra đúng người trước khi sửa.",
+      "Công nợ ở đây là tổng hợp từ học viên liên kết, không phải khoản riêng độc lập của phụ huynh.",
+      "Phụ huynh chưa gắn học viên vẫn có thể được tạo trước để phục vụ ghi danh sau.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default async function GuardiansPage({
   searchParams,
@@ -172,6 +202,12 @@ export default async function GuardiansPage({
 
   return (
     <div className="space-y-6">
+      <PageGuide
+        title="Guide phụ huynh"
+        summary="Hướng dẫn ngắn cách đọc portal, học viên liên kết và công nợ theo phụ huynh."
+        sections={GUARDIANS_PAGE_GUIDE_SECTIONS}
+        buttonLabel="Guide phụ huynh"
+      />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="page-title">Quản lý phụ huynh</h1>

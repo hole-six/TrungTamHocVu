@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LEAD_STATUS_LABEL, nextStatuses } from "@/lib/server/lead-rules";
+import FormGuide from "@/components/ui/FormGuide";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 const STATUS_COLORS: Record<string, string> = {
   NEW:        "bg-slate-100 text-slate-700",
@@ -20,6 +22,36 @@ const STATUS_DOT: Record<string, string> = {
   TESTED: "bg-amber-500", QUALIFIED: "bg-emerald-500", UNQUALIFIED: "bg-red-500",
   ENROLLED: "bg-primary", LOST: "bg-gray-400",
 };
+
+const LEAD_STATUS_GUIDE_SECTIONS = [
+  {
+    title: "Ý nghĩa khối trạng thái",
+    items: [
+      "Đây là nơi quyết định lead đang nằm ở bước nào trong hành trình tuyển sinh.",
+      "Badge hiện tại cho biết tình trạng mới nhất, còn các nút phía dưới là bước chuyển tiếp hợp lệ tiếp theo.",
+      "Khi lead đủ điều kiện và chưa có học viên, nút chuyển thành học viên sẽ xuất hiện tại đây.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cách đổi đúng",
+    items: [
+      "Chỉ đổi trạng thái sau khi hành động thực tế đã xảy ra, ví dụ đã hẹn, đã test hoặc đã chốt được.",
+      "Nếu còn thiếu dữ liệu chăm sóc, nên ghi tương tác hoặc lịch hẹn trước rồi mới đổi trạng thái.",
+      "Khi đã chuyển thành học viên, việc theo dõi tiếp nên chuyển sang hồ sơ học viên là chính.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lưu ý quan trọng",
+    items: [
+      "Đổi trạng thái sai sẽ làm dashboard CRM và luồng xử lý của đội tuyển sinh bị nhiễu.",
+      "Lead đã có học viên thật thì không nên tiếp tục vận hành như lead mới.",
+      "Nếu không chắc nên chuyển bước nào, hãy nhìn lại lịch hẹn gần nhất, test gần nhất và ghi chú CRM.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 export default function LeadStatusPanel({
   leadId,
@@ -70,6 +102,13 @@ export default function LeadStatusPanel({
 
   return (
     <div className="card space-y-5">
+      <FormGuide
+        title="Guide trạng thái lead"
+        summary="Giải thích khi nào nên đổi trạng thái và khi nào nên chuyển lead thành học viên."
+        sections={LEAD_STATUS_GUIDE_SECTIONS}
+        position="inline"
+        buttonLabel="Guide trạng thái"
+      />
       {/* Header */}
       <div className="flex items-center gap-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
@@ -98,10 +137,13 @@ export default function LeadStatusPanel({
 
       {/* Convert CTA */}
       {status === "QUALIFIED" && !hasStudent && (
-        <button
-          onClick={convert}
+        <ConfirmActionButton
+          title="Xác nhận chuyển lead thành học viên?"
+          description="Hệ thống sẽ tạo hồ sơ học viên thật từ lead này và chuyển luồng theo dõi sang khu học viên."
+          confirmLabel="Chuyển thành học viên"
           disabled={loading === "CONVERT"}
           className="btn-primary w-full"
+          onConfirm={convert}
         >
           {loading === "CONVERT" ? (
             <span className="flex items-center gap-2">
@@ -119,7 +161,7 @@ export default function LeadStatusPanel({
               Chuyển thành học viên
             </span>
           )}
-        </button>
+        </ConfirmActionButton>
       )}
 
       {/* Transition buttons */}
@@ -128,11 +170,14 @@ export default function LeadStatusPanel({
           <p className="label mb-2">Chuyển sang trạng thái</p>
           <div className="flex flex-wrap gap-2">
             {options.map((s) => (
-              <button
+              <ConfirmActionButton
                 key={s}
-                onClick={() => setStatus(s)}
+                title="Xác nhận đổi trạng thái lead?"
+                description={`Lead sẽ được chuyển sang trạng thái "${LEAD_STATUS_LABEL[s as keyof typeof LEAD_STATUS_LABEL] ?? s}". Hãy chắc rằng bước hiện tại đã được xử lý thực tế.`}
+                confirmLabel={`Đổi sang ${LEAD_STATUS_LABEL[s as keyof typeof LEAD_STATUS_LABEL] ?? s}`}
                 disabled={!!loading}
                 className="status-action"
+                onConfirm={() => setStatus(s)}
               >
                 {loading === s ? (
                   <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
@@ -145,7 +190,7 @@ export default function LeadStatusPanel({
                   </svg>
                 )}
                 {LEAD_STATUS_LABEL[s as keyof typeof LEAD_STATUS_LABEL] ?? s}
-              </button>
+              </ConfirmActionButton>
             ))}
           </div>
         </div>
