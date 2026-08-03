@@ -281,7 +281,7 @@ export default function BatchInvoiceView({
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error ?? "KhÃ´ng táº£i Ä‘Æ°á»£c file phiáº¿u há»c phÃ­.");
+        throw new Error(data.error ?? "Không tải được file phiếu học phí.");
       }
 
       const blob = await response.blob();
@@ -301,11 +301,11 @@ export default function BatchInvoiceView({
 
       setActionMessage(
         exportMode === "MERGED"
-          ? `ÄÃ£ táº£i file PDF gá»™p ${selectedCharges.length} phiáº¿u.`
-          : `ÄÃ£ táº£i file ZIP chá»©a ${selectedCharges.length} phiáº¿u riÃªng.`,
+          ? `Đã tải file PDF gộp ${selectedCharges.length} phiếu.`
+          : `Đã tải file ZIP chứa ${selectedCharges.length} phiếu riêng.`,
       );
     } catch (exportError) {
-      setActionMessage(exportError instanceof Error ? exportError.message : "KhÃ´ng táº£i Ä‘Æ°á»£c file phiáº¿u há»c phÃ­.");
+      setActionMessage(exportError instanceof Error ? exportError.message : "Không tải được file phiếu học phí.");
     } finally {
       setExporting(false);
     }

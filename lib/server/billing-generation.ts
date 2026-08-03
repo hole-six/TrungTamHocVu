@@ -88,7 +88,7 @@ async function replaceChargeIfUncollected(chargeId: string, reasonWhenCollected:
     return {
       replaced: false as const,
       blocked: true as const,
-      reason: `${reasonWhenCollected} Charge nÃ y Ä‘Ã£ Ä‘Æ°á»£c thu ${collectedAmount.toLocaleString("vi-VN")}Ä‘ nÃªn khÃ´ng Ä‘Æ°á»£c tá»± thay tháº¿.`,
+      reason: `${reasonWhenCollected} Charge này đã được thu ${collectedAmount.toLocaleString("vi-VN")}đ nên không được tự thay thế.`,
     };
   }
 
@@ -137,9 +137,9 @@ export async function ensureBillingPeriod(branchId: string, periodName: string) 
 
 export async function generateChargesForPeriod(periodId: string) {
   const period = await prisma.billingPeriod.findUnique({ where: { id: periodId } });
-  if (!period) return { error: "KhÃ´ng tÃ¬m tháº¥y ká»³ thu" as const };
+  if (!period) return { error: "Không tìm thấy kỳ thu" as const };
   if (!canEditCharges(period.status)) {
-    return { error: `Ká»³ Ä‘ang á»Ÿ tráº¡ng thÃ¡i "${period.status}", khÃ´ng thá»ƒ sinh há»c phÃ­.` as const };
+    return { error: `Kỳ đang ở trạng thái "${period.status}", không thể sinh học phí.` as const };
   }
 
   const enrollments = await prisma.enrollment.findMany({
@@ -180,7 +180,7 @@ export async function generateChargesForPeriod(periodId: string) {
         pushException(
           studentId,
           classId,
-          "Enrollment Ä‘ang á»Ÿ mode COURSE nhÆ°ng chÆ°a cÃ³ charge trá»n khÃ³a. Cáº§n kiá»ƒm tra luá»“ng ghi danh hoáº·c sinh charge lÃºc vÃ o há»c.",
+          "Enrollment đang ở mode COURSE nhưng chưa có charge trọn khóa. Cần kiểm tra luồng ghi danh hoặc sinh charge lúc vào học.",
         );
       }
       continue;
@@ -190,12 +190,12 @@ export async function generateChargesForPeriod(periodId: string) {
     if (existingCourseCharge) {
       const replacement = await replaceChargeIfUncollected(
         existingCourseCharge.id,
-        `Enrollment Ä‘ang á»Ÿ mode ${enrollment.billingModel} nhÆ°ng Ä‘Ã£ cÃ³ charge trá»n khÃ³a cho lá»›p nÃ y.`,
+        `Enrollment đang ở mode ${enrollment.billingModel} nhưng đã có charge trọn khóa cho lớp này.`,
       );
 
       if (replacement.blocked) {
         skippedCourseBilled++;
-        pushException(studentId, classId, replacement.reason ?? "KhÃ´ng thá»ƒ thay charge trá»n khÃ³a Ä‘Ã£ thu.");
+        pushException(studentId, classId, replacement.reason ?? "Không thể thay charge trọn khóa đã thu.");
         continue;
       }
 
@@ -223,11 +223,11 @@ export async function generateChargesForPeriod(periodId: string) {
       if (existingCharge && existingCharge.billingModel !== "INSTALLMENT") {
         const replacement = await replaceChargeIfUncollected(
           existingCharge.id,
-          `ÄÃ£ cÃ³ charge mode ${existingCharge.billingModel} trong ká»³ ${period.periodName};`,
+          `Đã có charge mode ${existingCharge.billingModel} trong kỳ ${period.periodName};`,
         );
 
         if (replacement.blocked) {
-          pushException(studentId, classId, replacement.reason ?? "KhÃ´ng thá»ƒ thay charge Ä‘Ã£ thu.");
+          pushException(studentId, classId, replacement.reason ?? "Không thể thay charge đã thu.");
           continue;
         }
         if (replacement.replaced) existingCharge = null;
@@ -249,7 +249,7 @@ export async function generateChargesForPeriod(periodId: string) {
         pushException(
           studentId,
           classId,
-          "Charge hiá»‡n táº¡i Ä‘ang gáº¯n vá»›i installment khÃ¡c. ÄÃ£ cháº·n cáº­p nháº­t Ä‘á»ƒ trÃ¡nh lá»‡ch Ä‘á»£t thu.",
+          "Charge hiện tại đang gắn với installment khác. Đã chặn cập nhật để tránh lệch đợt thu.",
         );
         continue;
       }
@@ -271,7 +271,7 @@ export async function generateChargesForPeriod(periodId: string) {
           materialsAmount: 0,
           billingModel: "INSTALLMENT",
           installmentId: installment.id,
-          notes: `Tráº£ gÃ³p ${installment.label}`,
+          notes: `Trả góp ${installment.label}`,
         },
       });
       continue;
@@ -281,7 +281,7 @@ export async function generateChargesForPeriod(periodId: string) {
       pushException(
         studentId,
         classId,
-        `Enrollment Ä‘ang á»Ÿ mode ${enrollment.billingModel} chÆ°a Ä‘Æ°á»£c phÃ©p Ä‘i vÃ o sweep thÃ¡ng. ÄÃ£ bá» qua an toÃ n.`,
+        `Enrollment đang ở mode ${enrollment.billingModel} chưa được phép đi vào sweep tháng. Đã bỏ qua an toàn.`,
       );
       continue;
     }
@@ -331,11 +331,11 @@ export async function generateChargesForPeriod(periodId: string) {
     if (existingCharge && existingCharge.billingModel !== "PERIOD") {
       const replacement = await replaceChargeIfUncollected(
         existingCharge.id,
-        `ÄÃ£ cÃ³ charge mode ${existingCharge.billingModel} trong ká»³ ${period.periodName};`,
+        `Đã có charge mode ${existingCharge.billingModel} trong kỳ ${period.periodName};`,
       );
 
       if (replacement.blocked) {
-        pushException(studentId, classId, replacement.reason ?? "KhÃ´ng thá»ƒ thay charge Ä‘Ã£ thu.");
+        pushException(studentId, classId, replacement.reason ?? "Không thể thay charge đã thu.");
         continue;
       }
       if (replacement.replaced) chargeToUpdate = null;
@@ -492,24 +492,24 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
     include: { class: { include: { course: true } } },
   });
 
-  if (!enrollment) return { error: "KhÃ´ng tÃ¬m tháº¥y ghi danh" as const };
+  if (!enrollment) return { error: "Không tìm thấy ghi danh" as const };
   if (enrollment.billingModel !== "COURSE") {
-    return { error: `Ghi danh nÃ y Ä‘ang á»Ÿ mode ${enrollment.billingModel}, khÃ´ng Ä‘Æ°á»£c sinh charge trá»n khÃ³a.` as const };
+    return { error: `Ghi danh này đang ở mode ${enrollment.billingModel}, không được sinh charge trọn khóa.` as const };
   }
 
   const cls = enrollment.class;
   const totalSessions = cls.totalSessions;
   if (!totalSessions || totalSessions <= 0) {
-    return { error: `Lá»›p "${cls.className}" chÆ°a cáº¥u hÃ¬nh tá»•ng sá»‘ buá»•i (totalSessions), khÃ´ng thá»ƒ tÃ­nh há»c phÃ­ trá»n khÃ³a.` as const };
+    return { error: `Lớp "${cls.className}" chưa cấu hình tổng số buổi (totalSessions), không thể tính học phí trọn khóa.` as const };
   }
 
   const existing = await prisma.charge.findFirst({
     where: { studentId: enrollment.studentId, classId: enrollment.classId, billingModel: "COURSE" },
   });
   if (existing) {
-    const replacement = await replaceChargeIfUncollected(existing.id, "Há»c viÃªn Ä‘Ã£ cÃ³ charge trá»n khÃ³a cho lá»›p nÃ y.");
+    const replacement = await replaceChargeIfUncollected(existing.id, "Học viên đã có charge trọn khóa cho lớp này.");
     if (replacement.blocked) {
-      return { error: replacement.reason ?? "Charge trá»n khÃ³a nÃ y Ä‘Ã£ thu nÃªn khÃ´ng thá»ƒ sinh láº¡i." };
+      return { error: replacement.reason ?? "Charge trọn khóa này đã thu nên không thể sinh lại." };
     }
   }
 
@@ -524,11 +524,11 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
   for (const conflict of conflictingPeriodOrInstallment) {
     const replacement = await replaceChargeIfUncollected(
       conflict.id,
-      `ÄÃ£ tá»“n táº¡i charge mode ${conflict.billingModel} cho lá»›p nÃ y.`,
+      `Đã tồn tại charge mode ${conflict.billingModel} cho lớp này.`,
     );
 
     if (replacement.blocked) {
-      return { error: replacement.reason ?? `Charge ${conflict.billingModel} nÃ y Ä‘Ã£ thu nÃªn khÃ´ng thá»ƒ sinh láº¡i.` };
+      return { error: replacement.reason ?? `Charge ${conflict.billingModel} này đã thu nên không thể sinh lại.` };
     }
   }
 
@@ -538,11 +538,11 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
     : await ensureBillingPeriod(cls.branchId, periodNameFromDate(enrollment.enrollDate));
 
   if (!period) {
-    return { error: "KhÃ´ng tÃ¬m tháº¥y ká»³ thu Ä‘á»ƒ gáº¯n phiáº¿u trá»n khÃ³a." as const };
+    return { error: "Không tìm thấy kỳ thu để gắn phiếu trọn khóa." as const };
   }
 
   if (period.branchId !== cls.branchId) {
-    return { error: "Ká»³ thu khÃ´ng thuá»™c cÃ¹ng cÆ¡ sá»Ÿ vá»›i lá»›p há»c." as const };
+    return { error: "Kỳ thu không thuộc cùng cơ sở với lớp học." as const };
   }
 
   const [scholarships, adjustments, detachedBookIssues] = await Promise.all([
@@ -608,7 +608,7 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
         openingBalance,
         totalAmount,
         billingModel: "COURSE",
-        notes: `Há»c phÃ­ trá»n khÃ³a ${cls.className} (${totalSessions} buá»•i)`,
+        notes: `Học phí trọn khóa ${cls.className} (${totalSessions} buổi)`,
       },
     });
 
@@ -627,7 +627,7 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
 
 export async function previewChargeGenerationExceptions(periodId: string) {
   const period = await prisma.billingPeriod.findUnique({ where: { id: periodId } });
-  if (!period) return { error: "KhÃ´ng tÃ¬m tháº¥y ká»³ thu" as const };
+  if (!period) return { error: "Không tìm thấy kỳ thu" as const };
 
   const enrollments = await prisma.enrollment.findMany({
     where: { status: "ACTIVE", class: { branchId: period.branchId, isRemedial: false } },
@@ -666,7 +666,7 @@ export async function previewChargeGenerationExceptions(periodId: string) {
       if (!courseChargedMap.has(courseKey)) {
         pushException(
           enrollment,
-          "Mode COURSE nhÆ°ng chÆ°a cÃ³ charge trá»n khÃ³a. Cáº§n kiá»ƒm tra luá»“ng ghi danh hoáº·c sinh charge khi vÃ o há»c.",
+          "Mode COURSE nhưng chưa có charge trọn khóa. Cần kiểm tra luồng ghi danh hoặc sinh charge khi vào học.",
         );
       }
       continue;
@@ -679,7 +679,7 @@ export async function previewChargeGenerationExceptions(periodId: string) {
         if (collectedAmount > 0) {
           pushException(
             enrollment,
-            `Mode ${enrollment.billingModel} nhÆ°ng Ä‘Ã£ cÃ³ charge trá»n khÃ³a Ä‘Ã£ thu ${collectedAmount.toLocaleString("vi-VN")}Ä‘ cho lá»›p nÃ y.`,
+            `Mode ${enrollment.billingModel} nhưng đã có charge trọn khóa đã thu ${collectedAmount.toLocaleString("vi-VN")}đ cho lớp này.`,
           );
         }
       }
@@ -705,20 +705,20 @@ export async function previewChargeGenerationExceptions(periodId: string) {
         if (collectedAmount > 0) {
           pushException(
             enrollment,
-            `ÄÃ£ cÃ³ charge mode ${existingCharge.billingModel} trong ká»³ ${period.periodName} vÃ  Ä‘Ã£ thu ${collectedAmount.toLocaleString("vi-VN")}Ä‘.`,
+            `Đã có charge mode ${existingCharge.billingModel} trong kỳ ${period.periodName} và đã thu ${collectedAmount.toLocaleString("vi-VN")}đ.`,
           );
         }
         continue;
       }
 
       if (existingCharge?.installmentId && existingCharge.installmentId !== installment.id) {
-        pushException(enrollment, "Charge hiá»‡n táº¡i Ä‘ang gáº¯n vá»›i installment khÃ¡c.");
+        pushException(enrollment, "Charge hiện tại đang gắn với installment khác.");
       }
       continue;
     }
 
     if (enrollment.billingModel !== "PERIOD") {
-      pushException(enrollment, `Mode ${enrollment.billingModel} chÆ°a Ä‘Æ°á»£c phÃ©p Ä‘i vÃ o sweep thÃ¡ng.`);
+      pushException(enrollment, `Mode ${enrollment.billingModel} chưa được phép đi vào sweep tháng.`);
       continue;
     }
 
@@ -737,7 +737,7 @@ export async function previewChargeGenerationExceptions(periodId: string) {
       if (collectedAmount > 0) {
         pushException(
           enrollment,
-          `ÄÃ£ cÃ³ charge mode ${existingCharge.billingModel} trong ká»³ ${period.periodName} vÃ  Ä‘Ã£ thu ${collectedAmount.toLocaleString("vi-VN")}Ä‘.`,
+          `Đã có charge mode ${existingCharge.billingModel} trong kỳ ${period.periodName} và đã thu ${collectedAmount.toLocaleString("vi-VN")}đ.`,
         );
       }
     }

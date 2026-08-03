@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { SESSION_ROLE_LABEL, computeContractStatus } from "@/lib/server/payroll-rules";
 import TimesheetQuickAddForm from "@/components/payroll/TimesheetQuickAddForm";
@@ -52,6 +52,13 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
   if (!currentUser) notFound();
   const access = await getUserRoleAndOverride(currentUser.id, "hr");
   const isSelf = currentUser?.employeeId === params.id;
+  const canManageFromMainPayroll =
+    !isSelf && (canViewFullWithOverride("hr", access.role, access.override) || canUpdateWithOverride("hr", access.role, access.override));
+
+  if (canManageFromMainPayroll) {
+    redirect(`/payroll?employeeId=${params.id}#employee-detail`);
+  }
+
   if (!isSelf && !canViewFullWithOverride("hr", access.role, access.override)) notFound();
 
   const employee = await prisma.employee.findUnique({

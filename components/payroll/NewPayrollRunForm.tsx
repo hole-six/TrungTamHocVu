@@ -30,7 +30,7 @@ export default function NewPayrollRunForm() {
       setError(data.error ?? "Không thể tạo kỳ lương.");
       return;
     }
-    router.push(`/payroll/${data.item.id}`);
+    router.push(`/payroll?runId=${data.item.id}#payroll-run-detail`);
   }
 
   if (!open) {
