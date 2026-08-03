@@ -23,6 +23,15 @@ function formatMetric(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
+function defaultFormFor(item: RateSetupItem) {
+  return {
+    payMode: item.payMode ?? "HOURLY",
+    teachingHourlyRate: item.teachingHourlyRate != null ? String(item.teachingHourlyRate) : "",
+    assistantHourlyRate: item.assistantHourlyRate != null ? String(item.assistantHourlyRate) : "",
+    staffDailyRate: item.staffDailyRate != null ? String(item.staffDailyRate) : "",
+  };
+}
+
 export default function PayrollRateSetupPanel({
   items,
   title = "Sửa đơn giá ngay trong Payroll",
@@ -34,23 +43,14 @@ export default function PayrollRateSetupPanel({
 }) {
   const router = useRouter();
   const [forms, setForms] = useState<Record<string, { payMode: string; teachingHourlyRate: string; assistantHourlyRate: string; staffDailyRate: string }>>(
-    Object.fromEntries(
-      items.map((item) => [
-        item.id,
-        {
-          payMode: item.payMode ?? "HOURLY",
-          teachingHourlyRate: item.teachingHourlyRate != null ? String(item.teachingHourlyRate) : "",
-          assistantHourlyRate: item.assistantHourlyRate != null ? String(item.assistantHourlyRate) : "",
-          staffDailyRate: item.staffDailyRate != null ? String(item.staffDailyRate) : "",
-        },
-      ]),
-    ),
+    Object.fromEntries(items.map((item) => [item.id, defaultFormFor(item)])),
   );
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function save(itemId: string) {
-    const form = forms[itemId];
+    const item = items.find((candidate) => candidate.id === itemId);
+    const form = forms[itemId] ?? (item ? defaultFormFor(item) : undefined);
     if (!form) return;
     setSavingId(itemId);
     setError(null);
@@ -78,7 +78,7 @@ export default function PayrollRateSetupPanel({
 
       <div className="mt-4 space-y-4">
         {items.map((item) => {
-          const form = forms[item.id];
+          const form = forms[item.id] ?? defaultFormFor(item);
           const missingLabels = [
             item.teachingHours > 0 && item.teachingHourlyRate == null ? "đơn giá dạy" : null,
             item.assistantHours > 0 && item.assistantHourlyRate == null ? "đơn giá trợ giảng" : null,
@@ -129,7 +129,7 @@ export default function PayrollRateSetupPanel({
                       onChange={(e) =>
                         setForms((current) => ({
                           ...current,
-                          [item.id]: { ...current[item.id], payMode: e.target.value },
+                          [item.id]: { ...(current[item.id] ?? defaultFormFor(item)), payMode: e.target.value },
                         }))
                       }
                     >
@@ -148,7 +148,7 @@ export default function PayrollRateSetupPanel({
                       onChange={(e) =>
                         setForms((current) => ({
                           ...current,
-                          [item.id]: { ...current[item.id], teachingHourlyRate: e.target.value },
+                          [item.id]: { ...(current[item.id] ?? defaultFormFor(item)), teachingHourlyRate: e.target.value },
                         }))
                       }
                     />
@@ -164,7 +164,7 @@ export default function PayrollRateSetupPanel({
                       onChange={(e) =>
                         setForms((current) => ({
                           ...current,
-                          [item.id]: { ...current[item.id], assistantHourlyRate: e.target.value },
+                          [item.id]: { ...(current[item.id] ?? defaultFormFor(item)), assistantHourlyRate: e.target.value },
                         }))
                       }
                     />
@@ -178,7 +178,7 @@ export default function PayrollRateSetupPanel({
                       onChange={(e) =>
                         setForms((current) => ({
                           ...current,
-                          [item.id]: { ...current[item.id], staffDailyRate: e.target.value },
+                          [item.id]: { ...(current[item.id] ?? defaultFormFor(item)), staffDailyRate: e.target.value },
                         }))
                       }
                     />
