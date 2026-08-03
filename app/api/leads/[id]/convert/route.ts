@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
+import { canAccessBranch } from "@/lib/branch-filter";
 
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -14,6 +15,9 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   }
 
   const lead = await prisma.lead.findUnique({ where: { id: params.id }, include: { student: true } });
+  if (lead && !(await canAccessBranch(lead.branchId))) {
+    return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
+  }
   if (!lead) return NextResponse.json({ error: "Không tìm thấy lead" }, { status: 404 });
   if (lead.status !== "QUALIFIED") {
     return NextResponse.json({ error: "Chỉ chuyển đổi được lead ở trạng thái 'Đạt, chờ xếp lớp'" }, { status: 409 });

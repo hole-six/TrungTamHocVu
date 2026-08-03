@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { getUserRole } from "@/lib/permissions";
-import { canCreate } from "@/lib/server/role-matrix";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canCreate, canView, canViewFullWithOverride, canViewWithOverride } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import StudentsTable from "./StudentsTable";
 import PageGuide from "@/components/ui/PageGuide";
@@ -44,7 +46,12 @@ export default async function StudentsPage({
   searchParams: { q?: string; status?: string; page?: string; pageSize?: string };
 }) {
   const user = await getCurrentUser();
-  const userRole = user ? await getUserRole(user.id) : null;
+  if (!user) notFound();
+  const access = await getUserRoleAndOverride(user.id, "students");
+  if (!canViewWithOverride("students", access.role, access.override)) notFound();
+  const userRole = access.role;
+  const limitedToAssignedStudents = !canViewFullWithOverride("students", access.role, access.override);
+  const canViewFinance = canView("tuition", userRole);
   const activeBranchId = await getCurrentBranchId();
 
   const q = searchParams.q?.trim() ?? "";
@@ -52,8 +59,29 @@ export default async function StudentsPage({
   const page = Math.max(1, Number(searchParams.page ?? 1));
   const pageSize = Number(searchParams.pageSize ?? PAGE_SIZE);
 
-  const where = {
+  const assignmentScope: Prisma.StudentWhereInput = limitedToAssignedStudents
+    ? user.employeeId
+      ? {
+          enrollments: {
+            some: {
+              status: "ACTIVE",
+              class: {
+                OR: [
+                  { defaultAssignments: { some: { employeeId: user.employeeId, isActive: true } } },
+                  { sessions: { some: { assignments: { some: { employeeId: user.employeeId } } } } },
+                ],
+              },
+            },
+          },
+        }
+      : { id: "__NO_ASSIGNED_STUDENTS__" }
+    : {};
+  const baseWhere: Prisma.StudentWhereInput = {
     ...(activeBranchId ? { branchId: activeBranchId } : {}),
+    ...assignmentScope,
+  };
+  const where: Prisma.StudentWhereInput = {
+    ...baseWhere,
     ...(status ? { status } : {}),
     ...(q
       ? {
@@ -89,14 +117,14 @@ export default async function StudentsPage({
     prisma.student.count({ where }),
     prisma.student.groupBy({
       by: ["status"],
-      where: activeBranchId ? { branchId: activeBranchId } : {},
+      where: baseWhere,
       _count: { _all: true },
     }),
   ]);
 
   const studentIds = items.map((item) => item.id);
   const [chargeRows, allocationTotals, bookIssueRows, studentMetaRows, availableSessionCreditRows] = await Promise.all([
-    prisma.charge.findMany({
+    canViewFinance ? prisma.charge.findMany({
       where: { studentId: { in: studentIds } },
       select: {
         id: true,
@@ -113,13 +141,16 @@ export default async function StudentsPage({
           },
         },
       },
-    }),
-    prisma.paymentAllocation.groupBy({
+    }) : Promise.resolve([]),
+    canViewFinance ? prisma.paymentAllocation.groupBy({
       by: ["chargeId"],
-      where: { charge: { studentId: { in: studentIds } } },
+      where: {
+        charge: { studentId: { in: studentIds } },
+        payment: { status: { notIn: ["VOIDED", "REFUNDED"] } },
+      },
       _sum: { amount: true },
-    }),
-    prisma.bookIssue.findMany({
+    }) : Promise.resolve([]),
+    canViewFinance ? prisma.bookIssue.findMany({
       where: { studentId: { in: studentIds } },
       select: {
         studentId: true,
@@ -127,8 +158,8 @@ export default async function StudentsPage({
         quantity: true,
         paymentStatus: true,
       },
-    }),
-    prisma.student.findMany({
+    }) : Promise.resolve([]),
+    canViewFinance ? prisma.student.findMany({
       where: { id: { in: studentIds } },
       select: {
         id: true,
@@ -141,7 +172,7 @@ export default async function StudentsPage({
           },
         },
       },
-    }),
+    }) : Promise.resolve([]),
     prisma.sessionCredit.groupBy({
       by: ["studentId"],
       where: {
@@ -218,7 +249,7 @@ export default async function StudentsPage({
       currentClassCode: currentEnrollment?.class.classCode ?? null,
       currentBillingModel: currentEnrollment?.billingModel ?? null,
       leadCode: item.lead?.leadCode ?? null,
-      outstanding: (chargeByStudent.get(item.id) ?? 0) - (paidByStudent.get(item.id) ?? 0),
+      outstanding: canViewFinance ? (chargeByStudent.get(item.id) ?? 0) - (paidByStudent.get(item.id) ?? 0) : undefined,
       totalCharged: chargeByStudent.get(item.id) ?? 0,
       totalPaid: paidByStudent.get(item.id) ?? 0,
       tuitionCharged: tuitionByStudent.get(item.id) ?? 0,
@@ -259,9 +290,11 @@ export default async function StudentsPage({
           <Link href="/classes" className="btn-primary">
             Lớp học
           </Link>
-          <Link href="/tuition" className="btn-primary">
-            Học phí
-          </Link>
+          {canViewFinance ? (
+            <Link href="/tuition" className="btn-primary">
+              Học phí
+            </Link>
+          ) : null}
           {canCreate("students", userRole) ? (
             <Link href="/students/new" className="btn-primary">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -280,6 +313,7 @@ export default async function StudentsPage({
         page={page}
         pageSize={pageSize}
         userRole={userRole || "TEACHER"}
+        canViewFinance={canViewFinance}
         searchQuery={q}
         status={status}
         stats={{

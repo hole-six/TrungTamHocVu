@@ -57,6 +57,7 @@ type StudentsTableProps = {
   page: number;
   pageSize: number;
   userRole: string;
+  canViewFinance?: boolean;
   searchQuery?: string;
   status?: string;
   stats?: {
@@ -90,6 +91,7 @@ export default function StudentsTable({
   page,
   pageSize,
   userRole,
+  canViewFinance = true,
   searchQuery = "",
   status = "",
   stats,
@@ -315,6 +317,10 @@ export default function StudentsTable({
       },
     },
   ];
+  if (!canViewFinance) {
+    const financeColumnIndex = columns.findIndex((column) => column.key === "outstanding");
+    if (financeColumnIndex >= 0) columns.splice(financeColumnIndex, 1);
+  }
 
   const actions: Action<Student>[] = [{ label: "Xem", onClick: (row) => router.push(`/students/${row.id}`), variant: "primary" }];
 
@@ -369,7 +375,9 @@ export default function StudentsTable({
         { label: "Đang học", value: stats.active, href: "/students?status=ACTIVE", active: status === "ACTIVE", activeClass: "bg-emerald-500 text-white", idleValueClass: "text-emerald-700" },
         { label: "Đã nghỉ", value: stats.left, href: "/students?status=LEFT", active: status === "LEFT", activeClass: "bg-rose-500 text-white", idleValueClass: "text-rose-700" },
         { label: "Portal", value: stats.portal, href: null, active: false, activeClass: "", idleValueClass: "text-sky-700" },
-        { label: "Công nợ", value: stats.debt, href: null, active: false, activeClass: "", idleValueClass: "text-amber-700" },
+        ...(canViewFinance
+          ? [{ label: "Công nợ", value: stats.debt, href: null, active: false, activeClass: "", idleValueClass: "text-amber-700" }]
+          : []),
       ].map((item) => {
         const className = `inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
           item.active ? `${item.activeClass} border-transparent` : "border-[#dbe7ff] bg-white text-ink hover:border-primary/30"

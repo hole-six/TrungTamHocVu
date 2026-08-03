@@ -6,6 +6,7 @@ import { canUpdate } from "@/lib/server/role-matrix";
 import { computeExtendedEndDate, estimateEndDate, estimateEndDateFromRules } from "@/lib/server/class-rules";
 import { computeSessionBaseHours } from "@/lib/server/payroll-rules";
 import { getHolidayDateSet } from "@/lib/server/holidays";
+import { canAccessBranch } from "@/lib/branch-filter";
 
 // Đổi buổi = 1-1: buổi gốc chuyển RESCHEDULED, tạo đúng 1 buổi bù mới trỏ ngược lại
 // (replacesSessionId) — không được để mất buổi hoặc dư buổi so với tổng đã tính.
@@ -25,12 +26,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     where: { id: params.id },
     include: { assignments: { include: { employee: true } }, replacedBySession: true, class: { include: { scheduleRules: true } } },
   });
+  if (original && !(await canAccessBranch(original.class.branchId))) {
+    return NextResponse.json({ error: "Khong co quyen truy cap co so cua lop nay" }, { status: 403 });
+  }
   if (!original) return NextResponse.json({ error: "Không tìm thấy buổi học" }, { status: 404 });
   if (original.status === "CANCELLED" || original.status === "RESCHEDULED") {
     return NextResponse.json({ error: `Buổi đang ở trạng thái "${original.status}", không thể đổi buổi tiếp.` }, { status: 409 });
   }
   if (original.replacedBySession) {
     return NextResponse.json({ error: "Buổi này đã có buổi bù, không thể đổi thêm lần nữa." }, { status: 409 });
+  }
+  if (original.status === "COMPLETED") {
+    return NextResponse.json({ error: "Buoi da hoan thanh khong the doi lich" }, { status: 409 });
   }
 
   const body = await req.json();
@@ -39,6 +46,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Thiếu hoặc sai ngày bù." }, { status: 400 });
   }
   const reason = body.reason ? String(body.reason).trim() : null;
+  const nextStartTime = body.startTime || original.startTime;
+  const nextEndTime = body.endTime || original.endTime;
+  if (!nextStartTime || !nextEndTime || nextStartTime >= nextEndTime) {
+    return NextResponse.json({ error: "Khung gio buoi doi khong hop le" }, { status: 400 });
+  }
+  const conflict = await prisma.classSession.findFirst({
+    where: {
+      classId: original.classId,
+      id: { not: original.id },
+      sessionDate: newDate,
+      startTime: { lt: nextEndTime },
+      endTime: { gt: nextStartTime },
+      status: { notIn: ["CANCELLED", "RESCHEDULED"] },
+    },
+  });
+  if (conflict) return NextResponse.json({ error: "Lớp đã có buổi học trùng hoặc chồng giờ" }, { status: 409 });
 
   const holidayDates = await getHolidayDateSet(original.class.branchId);
   const currentEnd =
@@ -52,8 +75,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       data: {
         classId: original.classId,
         sessionDate: newDate,
-        startTime: body.startTime || original.startTime,
-        endTime: body.endTime || original.endTime,
+        startTime: nextStartTime,
+        endTime: nextEndTime,
         room: body.room || original.room,
         status: "PLANNED",
         replacesSessionId: original.id,

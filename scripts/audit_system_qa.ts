@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { getBatchInvoiceViewData } from "../lib/server/batch-invoice-view";
 import { previewChargeGenerationExceptions } from "../lib/server/billing-generation";
-import { PAYMENT_STATUS_LABEL } from "../lib/server/tuition-rules";
+import { monthRange, PAYMENT_STATUS_LABEL } from "../lib/server/tuition-rules";
+import { ROLE_MATRIX } from "../lib/server/role-matrix";
 
 const prisma = new PrismaClient();
 const AUDIT_DIR = join(process.cwd(), ".qa");
@@ -479,6 +480,231 @@ async function main() {
     sample: assetMaintenanceParityIssues.slice(0, 5),
   });
 
+  const auditedClasses = await prisma.class.findMany({
+    where: { branchId: branch.id },
+    include: {
+      scheduleRules: { where: { isActive: true } },
+      sessions: {
+        select: {
+          id: true,
+          sessionDate: true,
+          startTime: true,
+          endTime: true,
+          status: true,
+          replacesSessionId: true,
+        },
+      },
+    },
+  });
+  const classEndIssues = auditedClasses
+    .map((cls) => {
+      const activeSessions = cls.sessions.filter((session) => !["CANCELLED", "RESCHEDULED"].includes(session.status));
+      const latest = activeSessions.reduce<Date | null>(
+        (max, session) => (!max || session.sessionDate > max ? session.sessionDate : max),
+        null,
+      );
+      return {
+        classCode: cls.classCode,
+        expectedEndDate: cls.expectedEndDate,
+        latestSessionDate: latest,
+      };
+    })
+    .filter((item) => item.latestSessionDate && (!item.expectedEndDate || item.expectedEndDate < item.latestSessionDate));
+
+  addFinding(findings, {
+    key: "classes.expected-end-date",
+    module: "classes",
+    title: "Ngay ket thuc du kien khong som hon buoi hoc thuc te cuoi cung",
+    passed: classEndIssues.length === 0,
+    severity: "P0",
+    summary: `Co ${classEndIssues.length} lop co ngay ket thuc som hon lich buoi hoc.`,
+    sample: classEndIssues.slice(0, 5),
+  });
+
+  const duplicateSessionIssues: Array<{ classCode: string; key: string; count: number }> = [];
+  const sessionBeforeStartIssues: Array<{ classCode: string; sessionId: string; classStart: Date; sessionDate: Date }> = [];
+  const rescheduleIssues: Array<{ classCode: string; sessionId: string; reason: string }> = [];
+  const scheduleCountIssues: Array<{ classCode: string; stored: number | null; activeRules: number }> = [];
+  const scheduleRuleOverlapIssues: Array<{ classCode: string; weekday: number; first: string; second: string }> = [];
+  for (const cls of auditedClasses) {
+    const active = cls.sessions.filter((session) => !["CANCELLED", "RESCHEDULED"].includes(session.status));
+    for (const session of active) {
+      if (cls.startDate && session.sessionDate < cls.startDate) {
+        sessionBeforeStartIssues.push({
+          classCode: cls.classCode,
+          sessionId: session.id,
+          classStart: cls.startDate,
+          sessionDate: session.sessionDate,
+        });
+      }
+    }
+    for (let firstIndex = 0; firstIndex < active.length; firstIndex += 1) {
+      for (let secondIndex = firstIndex + 1; secondIndex < active.length; secondIndex += 1) {
+        const first = active[firstIndex];
+        const second = active[secondIndex];
+        if (first.sessionDate.toISOString().slice(0, 10) !== second.sessionDate.toISOString().slice(0, 10)) continue;
+        if (!first.startTime || !first.endTime || !second.startTime || !second.endTime) continue;
+        if (first.startTime < second.endTime && first.endTime > second.startTime) {
+          duplicateSessionIssues.push({
+            classCode: cls.classCode,
+            key: `${first.sessionDate.toISOString().slice(0, 10)}|${first.startTime}-${first.endTime} <> ${second.startTime}-${second.endTime}`,
+            count: 2,
+          });
+        }
+      }
+    }
+    const replacementByOriginal = new Map(
+      cls.sessions.filter((session) => session.replacesSessionId).map((session) => [session.replacesSessionId!, session]),
+    );
+    for (const session of cls.sessions.filter((item) => item.status === "RESCHEDULED")) {
+      if (!replacementByOriginal.has(session.id)) {
+        rescheduleIssues.push({ classCode: cls.classCode, sessionId: session.id, reason: "missing replacement" });
+      }
+    }
+    if (cls.scheduleRules.length > 0 && cls.sessionsPerWeek !== cls.scheduleRules.length) {
+      scheduleCountIssues.push({ classCode: cls.classCode, stored: cls.sessionsPerWeek, activeRules: cls.scheduleRules.length });
+    }
+    for (let firstIndex = 0; firstIndex < cls.scheduleRules.length; firstIndex += 1) {
+      for (let secondIndex = firstIndex + 1; secondIndex < cls.scheduleRules.length; secondIndex += 1) {
+        const first = cls.scheduleRules[firstIndex];
+        const second = cls.scheduleRules[secondIndex];
+        if (first.weekday !== second.weekday) continue;
+        if (first.startTime < second.endTime && first.endTime > second.startTime) {
+          scheduleRuleOverlapIssues.push({
+            classCode: cls.classCode,
+            weekday: first.weekday,
+            first: `${first.startTime}-${first.endTime}`,
+            second: `${second.startTime}-${second.endTime}`,
+          });
+        }
+      }
+    }
+  }
+
+  addFinding(findings, {
+    key: "classes.session-before-start",
+    module: "classes",
+    title: "Khong co buoi hoc nam truoc ngay bat dau lop",
+    passed: sessionBeforeStartIssues.length === 0,
+    severity: "P0",
+    summary: `Co ${sessionBeforeStartIssues.length} buoi hoc nam truoc ngay bat dau lop.`,
+    sample: sessionBeforeStartIssues.slice(0, 5),
+  });
+  addFinding(findings, {
+    key: "classes.session.uniqueness",
+    module: "classes",
+    title: "Khong co buoi hoc dang hoat dong trung ngay va gio",
+    passed: duplicateSessionIssues.length === 0,
+    severity: "P0",
+    summary: `Co ${duplicateSessionIssues.length} khung buoi hoc bi trung.`,
+    sample: duplicateSessionIssues.slice(0, 5),
+  });
+  addFinding(findings, {
+    key: "classes.schedule-rule-overlap",
+    module: "classes",
+    title: "Lich co dinh cua lop khong bi chong gio",
+    passed: scheduleRuleOverlapIssues.length === 0,
+    severity: "P0",
+    summary: `Co ${scheduleRuleOverlapIssues.length} cap lich co dinh bi chong gio.`,
+    sample: scheduleRuleOverlapIssues.slice(0, 5),
+  });
+  addFinding(findings, {
+    key: "classes.reschedule.pairs",
+    module: "classes",
+    title: "Moi buoi da doi lich co dung mot buoi thay the",
+    passed: rescheduleIssues.length === 0,
+    severity: "P0",
+    summary: `Co ${rescheduleIssues.length} buoi RESCHEDULED bi mat lien ket thay the.`,
+    sample: rescheduleIssues.slice(0, 5),
+  });
+  addFinding(findings, {
+    key: "classes.schedule-rule-count",
+    module: "classes",
+    title: "So buoi moi tuan khop lich co dinh dang hoat dong",
+    passed: scheduleCountIssues.length === 0,
+    severity: "P1",
+    summary: `Co ${scheduleCountIssues.length} lop lech sessionsPerWeek voi lich co dinh.`,
+    sample: scheduleCountIssues.slice(0, 5),
+  });
+
+  const matrixRoles = [
+    "SUPER_ADMIN", "BOARD", "BRANCH_MANAGER", "REGISTRAR", "ADMISSIONS", "ACCOUNTANT",
+    "HR", "TEACHER", "TEACHING_ASSISTANT", "DIRECTOR", "RECEPTIONIST",
+  ];
+  const roleMatrixIssues = Object.entries(ROLE_MATRIX).flatMap(([module, matrix]) =>
+    matrixRoles.filter((role) => !(role in matrix)).map((role) => ({ module, role })),
+  );
+  addFinding(findings, {
+    key: "permissions.role-matrix.complete",
+    module: "permissions",
+    title: "Ma tran phan quyen co du moi vai tro o moi module",
+    passed: roleMatrixIssues.length === 0,
+    severity: "P0",
+    summary: `Co ${roleMatrixIssues.length} cap module/vai tro bi thieu.`,
+    sample: roleMatrixIssues.slice(0, 10),
+  });
+
+  const [studentLeadRows, enrolledLeads, branchEnrollments, branchCharges, primaryGuardianRows] = await Promise.all([
+    prisma.student.findMany({
+      where: { branchId: branch.id, leadId: { not: null } },
+      include: { lead: true, guardians: true },
+    }),
+    prisma.lead.findMany({ where: { branchId: branch.id, status: "ENROLLED" }, include: { student: true } }),
+    prisma.enrollment.findMany({
+      where: { student: { branchId: branch.id } },
+      include: { student: { select: { studentCode: true, branchId: true } }, class: { select: { classCode: true, branchId: true } } },
+    }),
+    prisma.charge.findMany({
+      where: { student: { branchId: branch.id } },
+      include: {
+        student: { select: { studentCode: true, branchId: true } },
+        class: { select: { classCode: true, branchId: true } },
+        billingPeriod: { select: { periodName: true, branchId: true } },
+      },
+    }),
+    prisma.studentGuardian.findMany({ where: { student: { branchId: branch.id }, isPrimary: true } }),
+  ]);
+  const studentLeadIssues = studentLeadRows
+    .filter((student) =>
+      !student.lead ||
+      student.lead.branchId !== student.branchId ||
+      student.lead.status !== "ENROLLED" ||
+      !student.lead.actualEnrollDate ||
+      (student.lead.guardianId && !student.guardians.some((link) => link.guardianId === student.lead!.guardianId)),
+    )
+    .map((student) => ({ studentCode: student.studentCode, leadCode: student.lead?.leadCode ?? null }));
+  const orphanEnrolledLeads = enrolledLeads
+    .filter((lead) => !lead.student)
+    .map((lead) => ({ leadCode: lead.leadCode, fullName: lead.fullName }));
+  const enrollmentBranchIssues = branchEnrollments
+    .filter((item) => item.student.branchId !== item.class.branchId)
+    .map((item) => ({ studentCode: item.student.studentCode, classCode: item.class.classCode }));
+  const chargeBranchIssues = branchCharges
+    .filter((item) =>
+      item.student.branchId !== item.class.branchId || item.student.branchId !== item.billingPeriod.branchId,
+    )
+    .map((item) => ({ studentCode: item.student.studentCode, classCode: item.class.classCode, period: item.billingPeriod.periodName }));
+  const primaryCounts = new Map<string, number>();
+  for (const link of primaryGuardianRows) primaryCounts.set(link.studentId, (primaryCounts.get(link.studentId) ?? 0) + 1);
+  const duplicatePrimaryGuardians = [...primaryCounts.entries()].filter(([, count]) => count > 1);
+
+  const relationshipIssues = [
+    ...studentLeadIssues.map((item) => ({ type: "student-lead", ...item })),
+    ...orphanEnrolledLeads.map((item) => ({ type: "orphan-enrolled-lead", ...item })),
+    ...enrollmentBranchIssues.map((item) => ({ type: "enrollment-branch", ...item })),
+    ...chargeBranchIssues.map((item) => ({ type: "charge-branch", ...item })),
+    ...duplicatePrimaryGuardians.map(([studentId, count]) => ({ type: "multiple-primary-guardians", studentId, count })),
+  ];
+  addFinding(findings, {
+    key: "crm.student.relationship-integrity",
+    module: "leads-students",
+    title: "Lead, hoc vien, lop, ky thu va phu huynh lien ket nhat quan",
+    passed: relationshipIssues.length === 0,
+    severity: "P0",
+    summary: `Co ${relationshipIssues.length} lien ket CRM/hoc vien bi sai ngu canh.`,
+    sample: relationshipIssues.slice(0, 12),
+  });
+
   const julyRange = {
     start: new Date("2026-07-01T00:00:00.000Z"),
     end: new Date("2026-07-31T23:59:59.999Z"),
@@ -556,6 +782,93 @@ async function main() {
       ? `Có ${payrollIssues.length} dòng lương lệch dữ liệu nguồn.`
       : "Không tìm thấy payroll run tháng 2026-07 để kiểm tra.",
     sample: payrollIssues.slice(0, 5),
+  });
+
+  const payrollAllRunIssues: Array<Record<string, unknown>> = [];
+  for (const run of payrollRuns) {
+    const { start, end } = monthRange(run.periodName);
+    const [assignments, timesheets] = await Promise.all([
+      prisma.sessionAssignment.findMany({
+        where: {
+          session: {
+            class: { branchId: run.branchId },
+            sessionDate: { gte: start, lte: end },
+            status: "COMPLETED",
+          },
+        },
+      }),
+      prisma.timesheetEntry.findMany({
+        where: { employee: { branchId: run.branchId }, workDate: { gte: start, lte: end } },
+      }),
+    ]);
+    const sourceEmployeeIds = new Set([
+      ...assignments.map((item) => item.employeeId),
+      ...timesheets.map((item) => item.employeeId),
+    ]);
+    const lineByEmployee = new Map(run.lines.map((line) => [line.employeeId, line]));
+
+    for (const employeeId of sourceEmployeeIds) {
+      if (!lineByEmployee.has(employeeId)) {
+        payrollAllRunIssues.push({ period: run.periodName, employeeId, reason: "missing payroll line" });
+      }
+    }
+    for (const line of run.lines) {
+      const teaching = assignments.filter((item) => item.employeeId === line.employeeId && item.role === "TEACHER");
+      const assisting = assignments.filter((item) => item.employeeId === line.employeeId && item.role !== "TEACHER");
+      const employeeTimesheets = timesheets.filter((item) => item.employeeId === line.employeeId);
+      const expectedTeachingHours = teaching.reduce((sum, item) => sum + (item.hours ?? 0), 0);
+      const expectedTeachingAmount = teaching.reduce((sum, item) => sum + (item.amount ?? 0), 0);
+      const expectedAssistantHours = assisting.reduce((sum, item) => sum + (item.hours ?? 0), 0);
+      const expectedAssistantAmount = assisting.reduce((sum, item) => sum + (item.amount ?? 0), 0);
+      const expectedStaffDays = employeeTimesheets.reduce((sum, item) => sum + (item.days ?? 0), 0);
+      const expectedTotal = expectedTeachingAmount + expectedAssistantAmount + line.baseSalaryAmount + line.bonus - line.penalty;
+      if (
+        line.employee.branchId !== run.branchId ||
+        Math.abs(line.teachingHours - expectedTeachingHours) > 0.0001 ||
+        line.teachingAmount !== expectedTeachingAmount ||
+        Math.abs(line.assistantHours - expectedAssistantHours) > 0.0001 ||
+        line.assistantAmount !== expectedAssistantAmount ||
+        Math.abs(line.staffDays - expectedStaffDays) > 0.0001 ||
+        line.totalAmount !== expectedTotal ||
+        line.totalAmount < 0 ||
+        line.baseSalaryAmount < 0 ||
+        line.bonus < 0 ||
+        line.penalty < 0
+      ) {
+        payrollAllRunIssues.push({
+          period: run.periodName,
+          employeeCode: line.employee.employeeCode,
+          reason: "source/branch/total mismatch",
+          expectedTeachingHours,
+          expectedTeachingAmount,
+          expectedAssistantHours,
+          expectedAssistantAmount,
+          expectedStaffDays,
+          expectedTotal,
+          actualTotal: line.totalAmount,
+        });
+      }
+    }
+
+    const statusIndex = ["DRAFT", "CALCULATED", "REVIEWED", "APPROVED", "LOCKED", "PAID"].indexOf(run.status);
+    if (
+      statusIndex < 0 ||
+      (statusIndex >= 1 && !run.calculatedAt) ||
+      (statusIndex >= 3 && !run.approvedAt) ||
+      (statusIndex >= 4 && !run.lockedAt) ||
+      (statusIndex >= 5 && !run.paidAt)
+    ) {
+      payrollAllRunIssues.push({ period: run.periodName, status: run.status, reason: "invalid status timestamps" });
+    }
+  }
+  addFinding(findings, {
+    key: "payroll.all-runs.parity",
+    module: "payroll",
+    title: "Tat ca ky luong khop nguon buoi day, cham cong, co so va trang thai",
+    passed: payrollAllRunIssues.length === 0,
+    severity: "P0",
+    summary: `Co ${payrollAllRunIssues.length} sai lech tren toan bo ky luong.`,
+    sample: payrollAllRunIssues.slice(0, 12),
   });
 
   const [leadCount, studentCount, guardianCount, userCount, roleCount, inventoryCount] = await Promise.all([

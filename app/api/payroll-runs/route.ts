@@ -3,20 +3,36 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { ensurePayrollRun } from "@/lib/server/payroll-generation";
 import { getUserRoleAndOverride } from "@/lib/permissions";
-import { canUpdateWithOverride } from "@/lib/server/role-matrix";
+import { canViewFullWithOverride, canViewWithOverride, canUpdateWithOverride } from "@/lib/server/role-matrix";
 import { getBranchWhereClause, getValidBranchIdForCreation } from "@/lib/branch-filter";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
+  const access = user ? await getUserRoleAndOverride(user.id, "hr") : { role: null, override: null };
+  if (user && !canViewWithOverride("hr", access.role, access.override)) {
+    return NextResponse.json({ error: "Khong co quyen xem bang luong" }, { status: 403 });
+  }
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
+  const limitedToOwnPayroll = !canViewFullWithOverride("hr", access.role, access.override);
+  if (limitedToOwnPayroll && !user.employeeId) {
+    return NextResponse.json({ error: "Tài khoản chưa liên kết hồ sơ nhân viên" }, { status: 403 });
+  }
+  const branchWhere = await getBranchWhereClause(searchParams.get("branchId"));
   const items = await prisma.payrollRun.findMany({
-    where: await getBranchWhereClause(searchParams.get("branchId")),
+    where: {
+      ...branchWhere,
+      ...(limitedToOwnPayroll ? { lines: { some: { employeeId: user.employeeId! } } } : {}),
+    },
     orderBy: { periodName: "desc" },
     include: { _count: { select: { lines: true } } },
   });
-  return NextResponse.json({ items });
+  return NextResponse.json({
+    items: limitedToOwnPayroll
+      ? items.map((item) => ({ ...item, _count: { lines: 1 } }))
+      : items,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -31,7 +47,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const periodName = String(body.periodName ?? "").trim();
-  if (!/^\d{4}-\d{2}$/.test(periodName)) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodName)) {
     return NextResponse.json({ error: "Kỳ lương phải theo định dạng YYYY-MM" }, { status: 400 });
   }
 

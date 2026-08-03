@@ -6,6 +6,7 @@ import { canUpdate } from "@/lib/server/role-matrix";
 import { computeExtendedEndDate, estimateEndDate, estimateEndDateFromRules } from "@/lib/server/class-rules";
 import { computeSessionBaseHours } from "@/lib/server/payroll-rules";
 import { getHolidayDateSet } from "@/lib/server/holidays";
+import { canAccessBranch } from "@/lib/branch-filter";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -19,6 +20,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     where: { id: params.id },
     include: { assignments: { include: { employee: true } }, class: { include: { scheduleRules: true } } },
   });
+  if (sourceSession && !(await canAccessBranch(sourceSession.class.branchId))) {
+    return NextResponse.json({ error: "Khong co quyen truy cap co so cua lop nay" }, { status: 403 });
+  }
   if (!sourceSession) {
     return NextResponse.json({ error: "Không tìm thấy buổi học gốc" }, { status: 404 });
   }
@@ -40,6 +44,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const reason = body.reason ? String(body.reason).trim() : null;
   const room = body.room ? String(body.room).trim() : sourceSession.room;
+  const conflict = await prisma.classSession.findFirst({
+    where: {
+      classId: sourceSession.classId,
+      sessionDate: makeupDate,
+      startTime: { lt: endTime },
+      endTime: { gt: startTime },
+      status: { notIn: ["CANCELLED", "RESCHEDULED"] },
+    },
+  });
+  if (conflict) return NextResponse.json({ error: "Lớp đã có buổi học trùng hoặc chồng giờ" }, { status: 409 });
   const notePrefix = `Buổi bù thêm cho buổi ${sourceSession.sessionDate.toLocaleDateString("vi-VN")}`;
   const notes = reason ? `${notePrefix}: ${reason}` : notePrefix;
 

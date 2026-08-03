@@ -7,7 +7,7 @@ export async function createSessionsInRange(classId: string, fromDate: Date, toD
   const cls = await prisma.class.findUnique({
     where: { id: classId },
     include: {
-      scheduleRules: true,
+      scheduleRules: { where: { isActive: true } },
       defaultAssignments: {
         where: { isActive: true },
         include: { employee: true },
@@ -18,18 +18,25 @@ export async function createSessionsInRange(classId: string, fromDate: Date, toD
   if (!cls) throw new Error("Không tìm thấy lớp");
   if (cls.scheduleRules.length === 0) return { created: 0, skipped: 0 };
 
+  const effectiveFromDate = new Date(Math.max(fromDate.getTime(), cls.startDate?.getTime() ?? fromDate.getTime()));
+  if (Number.isNaN(effectiveFromDate.getTime()) || Number.isNaN(toDate.getTime()) || effectiveFromDate > toDate) {
+    return { created: 0, skipped: 0 };
+  }
+
   const holidayDates = await getHolidayDateSet(cls.branchId);
-  const candidates = generateSessionDates(cls.scheduleRules, fromDate, toDate, holidayDates);
+  const candidates = generateSessionDates(cls.scheduleRules, effectiveFromDate, toDate, holidayDates);
 
   const [existing, totalExistingCount] = await Promise.all([
     prisma.classSession.findMany({
-      where: { classId, sessionDate: { gte: fromDate, lte: toDate } },
-      select: { sessionDate: true },
+      where: { classId, sessionDate: { gte: effectiveFromDate, lte: toDate } },
+      select: { sessionDate: true, startTime: true, endTime: true },
     }),
-    prisma.classSession.count({ where: { classId, status: { not: "CANCELLED" } } }),
+    prisma.classSession.count({ where: { classId, status: { notIn: ["CANCELLED", "RESCHEDULED"] } } }),
   ]);
-  const existingDates = new Set(existing.map((session) => session.sessionDate.toISOString().slice(0, 10)));
-  let toCreate = candidates.filter((candidate) => !existingDates.has(candidate.sessionDate.toISOString().slice(0, 10)));
+  const sessionKey = (session: { sessionDate: Date; startTime: string | null; endTime: string | null }) =>
+    `${session.sessionDate.toISOString().slice(0, 10)}|${session.startTime ?? ""}|${session.endTime ?? ""}`;
+  const existingSessions = new Set(existing.map(sessionKey));
+  let toCreate = candidates.filter((candidate) => !existingSessions.has(sessionKey(candidate)));
 
   // Lớp có totalSessions cố định thì không sinh vượt quá cam kết — cắt bớt phần dư
   // nếu cửa sổ ngày (rolling window) dài hơn cần thiết. Lớp không đặt totalSessions
@@ -91,8 +98,11 @@ export async function computeAutoSessionWindow(
   if (!cls) return null;
 
   const [maxSession, generatedCount] = await Promise.all([
-    prisma.classSession.aggregate({ where: { classId }, _max: { sessionDate: true } }),
-    prisma.classSession.count({ where: { classId, status: { not: "CANCELLED" } } }),
+    prisma.classSession.aggregate({
+      where: { classId, status: { notIn: ["CANCELLED", "RESCHEDULED"] } },
+      _max: { sessionDate: true },
+    }),
+    prisma.classSession.count({ where: { classId, status: { notIn: ["CANCELLED", "RESCHEDULED"] } } }),
   ]);
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
@@ -139,7 +149,7 @@ export async function computeEnrollmentSessionProgress(classId: string, enrollDa
   ]);
 
   const planned = cls?.totalSessions ?? null;
-  const remaining = planned !== null ? planned - consumed : null;
+  const remaining = planned !== null ? Math.max(0, planned - consumed) : null;
   const classEnded = cls?.expectedEndDate ? cls.expectedEndDate.getTime() < Date.now() : false;
 
   return { consumed, planned, remaining, classEnded };

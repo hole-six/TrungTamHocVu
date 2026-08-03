@@ -153,6 +153,18 @@ async function ensureTimesheetAndPayroll(branchId: string) {
   };
 }
 
+async function recalculateAllOpenPayrollRuns(branchId: string) {
+  const runs = await prisma.payrollRun.findMany({
+    where: { branchId, status: { in: ["DRAFT", "CALCULATED", "REVIEWED"] } },
+    orderBy: { periodName: "asc" },
+  });
+  const results = [];
+  for (const run of runs) {
+    results.push({ runId: run.id, periodName: run.periodName, result: await generatePayrollForRun(run.id) });
+  }
+  return results;
+}
+
 async function ensurePaymentCashParity(branchId: string) {
   const category =
     (await prisma.transactionCategory.findFirst({
@@ -460,6 +472,7 @@ async function main() {
   const metadata = await ensureQAMetadata(branch.id);
   const assetMaintenance = await ensureAssetMaintenance(branch.id);
   const timesheetAndPayroll = await ensureTimesheetAndPayroll(branch.id);
+  const payrollRecalculation = await recalculateAllOpenPayrollRuns(branch.id);
   const switchCases = await ensureBillingModelSwitchCases(branch.id);
   const paymentCashParity = await ensurePaymentCashParity(branch.id);
   const courseEnrollmentRepair = await ensureActiveCourseEnrollmentsCharged(branch.id);
@@ -471,6 +484,7 @@ async function main() {
     periods: metadata,
     assetMaintenance,
     timesheetAndPayroll,
+    payrollRecalculation,
     switchCases,
     paymentCashParity,
     courseEnrollmentRepair,

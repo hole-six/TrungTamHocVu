@@ -17,8 +17,8 @@ import { computeEnrollmentSessionProgress } from "@/lib/server/class-generation"
 import { getVietnamToday } from "@/lib/server/class-rules";
 import EditableDateField from "@/components/ui/EditableDateField";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { getUserRole } from "@/lib/permissions";
-import { canCreate, canUpdate, canView } from "@/lib/server/role-matrix";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canCreate, canUpdate, canView, canViewFullWithOverride, canViewWithOverride } from "@/lib/server/role-matrix";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -110,8 +110,32 @@ export default async function StudentDetailPage({
   params: { id: string };
   searchParams?: { from?: string; focus?: string };
 }) {
-  const student = await prisma.student.findUnique({
-    where: { id: params.id },
+  const currentUser = await getCurrentUser();
+  if (!currentUser) notFound();
+  const access = await getUserRoleAndOverride(currentUser.id, "students");
+  if (!canViewWithOverride("students", access.role, access.override)) notFound();
+  const limitedToAssignedStudents = !canViewFullWithOverride("students", access.role, access.override);
+  if (limitedToAssignedStudents && !currentUser.employeeId) notFound();
+
+  const student = await prisma.student.findFirst({
+    where: {
+      id: params.id,
+      ...(limitedToAssignedStudents
+        ? {
+            enrollments: {
+              some: {
+                status: "ACTIVE",
+                class: {
+                  OR: [
+                    { defaultAssignments: { some: { employeeId: currentUser.employeeId!, isActive: true } } },
+                    { sessions: { some: { assignments: { some: { employeeId: currentUser.employeeId! } } } } },
+                  ],
+                },
+              },
+            },
+          }
+        : {}),
+    },
     include: {
       lead: true,
       guardians: {
@@ -195,8 +219,7 @@ export default async function StudentDetailPage({
   });
   if (!student) notFound();
 
-  const currentUser = await getCurrentUser();
-  const role = currentUser ? await getUserRole(currentUser.id) : null;
+  const role = access.role;
   const canEditStudent = canUpdate("students", role);
   const canManageFinance = canUpdate("tuition", role);
   const canSeeFinance = canView("tuition", role);
@@ -224,7 +247,7 @@ export default async function StudentDetailPage({
   const showIntakeBanner = searchParams?.from === "intake";
   const autoOpenTuition = showIntakeBanner && searchParams?.focus === "tuition";
 
-  const outstanding = await computeOutstandingBalance(student.id);
+  const outstanding = canSeeFinance ? await computeOutstandingBalance(student.id) : 0;
   const activeEnrollments = student.enrollments.filter((e) => e.status === "ACTIVE");
   const currentEnrollment = activeEnrollments[0] ?? student.enrollments[0] ?? null;
   const courseProgress = currentEnrollment?.classId
@@ -414,6 +437,8 @@ export default async function StudentDetailPage({
 
       {/* ── KPI 6 CARDS ── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {canSeeFinance ? (
+          <>
         <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -438,6 +463,8 @@ export default async function StudentDetailPage({
           <p className="text-2xl font-black text-[#0f1729] mb-1">{formatVnd(totalPaid)}</p>
           <p className="text-xs font-semibold text-[#64748b]">Học phí {formatVnd(Math.round(tuitionPaid))}</p>
         </div>
+          </>
+        ) : null}
         <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fb923c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -454,19 +481,19 @@ export default async function StudentDetailPage({
           <p className="text-lg font-black text-[#0f1729] mb-1 truncate">{primaryGuardian?.user?.email ? primaryGuardian.user.email.split('@')[0] : "Chưa cấp"}</p>
           <p className="text-xs font-semibold text-[#64748b]">{primaryGuardian?.user ? (primaryGuardian.user.isActive ? "Đang hoạt động" : "Đã thu hồi") : "Chưa có tài khoản"}</p>
         </div>
-        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+        {canSeeFinance ? <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
           </div>
           <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Sách chưa thu</p>
           <p className="text-2xl font-black text-[#0f1729] mb-1">{formatVnd(unpaidBookAmount)}</p>
           <p className="text-xs font-semibold text-[#64748b]">{unpaidBookAmount > 0 ? "Còn treo tiền sách" : "Đã thu đủ"}</p>
-        </div>
+        </div> : null}
       </div>
 
       {/* ── TABS ── */}
       <DetailTabs
-        defaultTabKey={autoOpenTuition ? "hocphi" : "tongquan"}
+        defaultTabKey={autoOpenTuition && canSeeFinance ? "hocphi" : "tongquan"}
         tabs={[
           {
             key: "tongquan",
@@ -663,7 +690,7 @@ export default async function StudentDetailPage({
               </div>
             ),
           },
-          {
+          ...(canSeeFinance ? [{
             key: "hocphi",
             label: "Học phí",
             content: (
@@ -776,7 +803,7 @@ export default async function StudentDetailPage({
                 </div>
               </div>
             ),
-          },
+          }] : []),
           {
             key: "hoctap",
             label: "Học tập",

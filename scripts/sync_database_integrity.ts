@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import {
   syncBookQuantityOnHand,
   syncClassDerivedFields,
+  recalculateClassScheduleDerivedFields,
   syncLeadDerivedFields,
   syncStudentDerivedFields,
   syncTimesheetEntryPeriod,
@@ -20,6 +21,7 @@ async function main() {
 
   for (const item of classes) {
     await syncClassDerivedFields(item.id, prisma);
+    await recalculateClassScheduleDerivedFields(item.id);
   }
 
   for (const item of students) {

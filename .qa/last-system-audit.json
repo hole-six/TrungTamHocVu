@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "generatedAt": "2026-08-02T17:13:18.990Z",
+  "generatedAt": "2026-08-02T18:29:36.398Z",
   "branch": {
     "id": "71508ca4-fbfc-485e-8617-f073439e4003",
     "code": "CS1",
@@ -22,8 +22,8 @@
   },
   "stats": {
     "charges": 112,
-    "monthlyCharges": 89,
-    "courseCharges": 11,
+    "monthlyCharges": 90,
+    "courseCharges": 10,
     "installmentCharges": 12,
     "fullPaidCharges": 18,
     "partialCharges": 8,
@@ -34,11 +34,11 @@
     "confirmedBooks": 50,
     "declinedBooks": 12,
     "remedialClasses": 2,
-    "availableCredits": 6,
-    "consumedCredits": 2
+    "availableCredits": 4,
+    "consumedCredits": 4
   },
   "severityCounts": {
-    "PASS": 21,
+    "PASS": 30,
     "P0": 0,
     "P1": 0,
     "P2": 0
@@ -96,7 +96,7 @@
       "title": "Dataset có đủ 3 kiểu thu",
       "passed": true,
       "severity": "PASS",
-      "summary": "Theo tháng: 89, theo khóa: 11, trả góp: 12."
+      "summary": "Theo tháng: 90, theo khóa: 10, trả góp: 12."
     },
     {
       "key": "dataset.payment.states",
@@ -222,16 +222,21 @@
       "title": "Có buổi bổ trợ còn khả dụng và đã dùng",
       "passed": true,
       "severity": "PASS",
-      "summary": "Lớp bổ trợ: 2, credit còn: 6, credit đã dùng: 2.",
+      "summary": "Lớp bổ trợ: 2, credit còn: 4, credit đã dùng: 4.",
       "sample": [
+        {
+          "studentCode": "STRESS-HV019",
+          "sourceSessionId": "19bb973f-0fbb-4f14-8800-e429dec08319",
+          "consumedSessionId": "f99050ea-4c07-4bc0-b293-da22fcf3bf49"
+        },
         {
           "studentCode": "STRESS-HV019",
           "sourceSessionId": "0c688aad-3fa2-4a5e-a634-9089f11f324f",
           "consumedSessionId": "f99050ea-4c07-4bc0-b293-da22fcf3bf49"
         },
         {
-          "studentCode": "STRESS-HV021",
-          "sourceSessionId": "0c688aad-3fa2-4a5e-a634-9089f11f324f",
+          "studentCode": "STRESS-HV019",
+          "sourceSessionId": "d5afb5e7-f4a0-4cf3-8dba-0b6b4c9a3a1c",
           "consumedSessionId": "2e5cbfd3-508c-4831-a2f5-91a4d4ad4758"
         }
       ]
@@ -411,12 +416,93 @@
       "sample": []
     },
     {
+      "key": "classes.expected-end-date",
+      "module": "classes",
+      "title": "Ngay ket thuc du kien khong som hon buoi hoc thuc te cuoi cung",
+      "passed": true,
+      "severity": "PASS",
+      "summary": "Co 0 lop co ngay ket thuc som hon lich buoi hoc.",
+      "sample": []
+    },
+    {
+      "key": "classes.session-before-start",
+      "module": "classes",
+      "title": "Khong co buoi hoc nam truoc ngay bat dau lop",
+      "passed": true,
+      "severity": "PASS",
+      "summary": "Co 0 buoi hoc nam truoc ngay bat dau lop.",
+      "sample": []
+    },
+    {
+      "key": "classes.session.uniqueness",
+      "module": "classes",
+      "title": "Khong co buoi hoc dang hoat dong trung ngay va gio",
+      "passed": true,
+      "severity": "PASS",
+      "summary": "Co 0 khung buoi hoc bi trung.",
+      "sample": []
+    },
+    {
+      "key": "classes.schedule-rule-overlap",
+      "module": "classes",
+      "title": "Lich co dinh cua lop khong bi chong gio",
+      "passed": true,
+      "severity": "PASS",
+      "summary": "Co 0 cap lich co dinh bi chong gio.",
+      "sample": []
+    },
+    {
+      "key": "classes.reschedule.pairs",
+      "module": "classes",
+      "title": "Moi buoi da doi lich co dung mot buoi thay the",
+      "passed": true,
+      "severity": "PASS",
+      "summary": "Co 0 buoi RESCHEDULED bi mat lien ket thay the.",
+      "sample": []
+    },
+    {
+      "key": "classes.schedule-rule-count",
+      "module": "classes",
+      "title": "So buoi moi tuan khop lich co dinh dang hoat dong",
+      "passed": true,
+      "severity": "PASS",
+      "summary": "Co 0 lop lech sessionsPerWeek voi lich co dinh.",
+      "sample": []
+    },
+    {
+      "key": "permissions.role-matrix.complete",
+      "module": "permissions",
+      "title": "Ma tran phan quyen co du moi vai tro o moi module",
+      "passed": true,
+      "severity": "PASS",
+      "summary": "Co 0 cap module/vai tro bi thieu.",
+      "sample": []
+    },
+    {
+      "key": "crm.student.relationship-integrity",
+      "module": "leads-students",
+      "title": "Lead, hoc vien, lop, ky thu va phu huynh lien ket nhat quan",
+      "passed": true,
+      "severity": "PASS",
+      "summary": "Co 0 lien ket CRM/hoc vien bi sai ngu canh.",
+      "sample": []
+    },
+    {
       "key": "payroll.assignment.parity",
       "module": "payroll",
       "title": "Payroll line khớp với session assignment và timesheet",
       "passed": true,
       "severity": "PASS",
       "summary": "Có 0 dòng lương lệch dữ liệu nguồn.",
+      "sample": []
+    },
+    {
+      "key": "payroll.all-runs.parity",
+      "module": "payroll",
+      "title": "Tat ca ky luong khop nguon buoi day, cham cong, co so va trang thai",
+      "passed": true,
+      "severity": "PASS",
+      "summary": "Co 0 sai lech tren toan bo ky luong.",
       "sample": []
     },
     {

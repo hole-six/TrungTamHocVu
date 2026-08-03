@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { canEditPayroll } from "@/lib/server/payroll-rules";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdateWithOverride } from "@/lib/server/role-matrix";
+import { canAccessBranch } from "@/lib/branch-filter";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -14,6 +15,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const line = await prisma.payrollLine.findUnique({ where: { id: params.id }, include: { payrollRun: true } });
+  if (line && !(await canAccessBranch(line.payrollRun.branchId))) {
+    return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
+  }
   if (!line) return NextResponse.json({ error: "Không tìm thấy dòng lương" }, { status: 404 });
   if (!canEditPayroll(line.payrollRun.status)) {
     return NextResponse.json({ error: "Kỳ lương đã duyệt/khóa, không thể sửa." }, { status: 409 });
@@ -23,7 +27,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const bonus = "bonus" in body ? Number(body.bonus) : line.bonus;
   const penalty = "penalty" in body ? Number(body.penalty) : line.penalty;
   const baseSalaryAmount = "baseSalaryAmount" in body ? Number(body.baseSalaryAmount) : line.baseSalaryAmount;
+  if (![bonus, penalty, baseSalaryAmount].every((value) => Number.isFinite(value) && value >= 0)) {
+    return NextResponse.json({ error: "Luong co ban, thuong va phat phai la so khong am" }, { status: 400 });
+  }
   const totalAmount = line.teachingAmount + line.assistantAmount + baseSalaryAmount + bonus - penalty;
+  if (totalAmount < 0) {
+    return NextResponse.json({ error: "Tien phat khong duoc lon hon tong thu nhap" }, { status: 400 });
+  }
 
   const updated = await prisma.payrollLine.update({
     where: { id: params.id },
@@ -42,6 +52,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   }
 
   const line = await prisma.payrollLine.findUnique({ where: { id: params.id }, include: { payrollRun: true } });
+  if (line && !(await canAccessBranch(line.payrollRun.branchId))) {
+    return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
+  }
   if (!line) return NextResponse.json({ error: "Không tìm thấy dòng lương" }, { status: 404 });
   if (!canEditPayroll(line.payrollRun.status)) {
     return NextResponse.json({ error: "Kỳ lương đã duyệt/khóa, không thể xóa dòng." }, { status: 409 });

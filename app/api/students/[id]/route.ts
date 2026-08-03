@@ -2,26 +2,53 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
-import { canUpdateWithOverride, canDeleteWithOverride } from "@/lib/server/role-matrix";
+import { canViewFullWithOverride, canViewWithOverride, canUpdateWithOverride, canDeleteWithOverride } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { computeOutstandingBalance } from "@/lib/server/balance";
+import { canAccessBranch } from "@/lib/branch-filter";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
+  const access = user ? await getUserRoleAndOverride(user.id, "students") : { role: null, override: null };
+  if (user && !canViewWithOverride("students", access.role, access.override)) {
+    return NextResponse.json({ error: "Khong co quyen xem hoc vien" }, { status: 403 });
+  }
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
-  const student = await prisma.student.findUnique({
-    where: { id: params.id },
+  const limitedToAssignedStudents = !canViewFullWithOverride("students", access.role, access.override);
+  if (limitedToAssignedStudents && !user.employeeId) {
+    return NextResponse.json({ error: "Không có quyền xem học viên này" }, { status: 403 });
+  }
+  const student = await prisma.student.findFirst({
+    where: {
+      id: params.id,
+      ...(limitedToAssignedStudents
+        ? {
+            enrollments: {
+              some: {
+                status: "ACTIVE",
+                class: {
+                  OR: [
+                    { defaultAssignments: { some: { employeeId: user.employeeId!, isActive: true } } },
+                    { sessions: { some: { assignments: { some: { employeeId: user.employeeId! } } } } },
+                  ],
+                },
+              },
+            },
+          }
+        : {}),
+    },
     include: {
       guardians: { include: { guardian: true } },
       enrollments: { include: { class: true }, orderBy: { enrollDate: "desc" } },
-      charges: { include: { billingPeriod: true }, orderBy: { createdAt: "desc" } },
-      payments: { orderBy: { paidDate: "desc" } },
+      charges: limitedToAssignedStudents ? false : { include: { billingPeriod: true }, orderBy: { createdAt: "desc" } },
+      payments: limitedToAssignedStudents ? false : { orderBy: { paidDate: "desc" } },
     },
   });
   if (!student) return NextResponse.json({ error: "Không tìm thấy học viên" }, { status: 404 });
 
-  const outstanding = await computeOutstandingBalance(student.id);
+  if (!(await canAccessBranch(student.branchId))) return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
+  const outstanding = limitedToAssignedStudents ? null : await computeOutstandingBalance(student.id);
 
   return NextResponse.json({ item: student, outstanding });
 }
@@ -31,6 +58,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const existing = await prisma.student.findUnique({ where: { id: params.id } });
+  if (existing && !(await canAccessBranch(existing.branchId))) {
+    return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
+  }
   if (!existing) return NextResponse.json({ error: "Không tìm thấy học viên" }, { status: 404 });
   const { role, override } = await getUserRoleAndOverride(user.id, "students");
   if (!canUpdateWithOverride("students", role, override)) {
@@ -74,6 +104,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   if (!canDeleteWithOverride("students", role, override)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền xóa học viên" }, { status: 403 });
   }
+
+  const existing = await prisma.student.findUnique({ where: { id: params.id }, select: { branchId: true } });
+  if (!existing) return NextResponse.json({ error: "Khong tim thay hoc vien" }, { status: 404 });
+  if (!(await canAccessBranch(existing.branchId))) return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
 
   const [chargeCount, paymentCount] = await Promise.all([
     prisma.charge.count({ where: { studentId: params.id } }),

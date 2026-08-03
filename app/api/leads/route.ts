@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
-import { canCreate } from "@/lib/server/role-matrix";
+import { canView, canCreate } from "@/lib/server/role-matrix";
 import { LEAD_STATUSES } from "@/lib/server/lead-rules";
 import { getBranchWhereClause, getValidBranchIdForCreation } from "@/lib/branch-filter";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
+  const role = user ? await getUserRole(user.id) : null;
+  if (user && !canView("leads", role)) return NextResponse.json({ error: "Khong co quyen xem lead" }, { status: 403 });
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
@@ -68,7 +70,10 @@ export async function GET(req: NextRequest) {
     : [];
   const allocations = charges.length
     ? await prisma.paymentAllocation.findMany({
-        where: { chargeId: { in: charges.map((charge) => charge.id) } },
+        where: {
+          chargeId: { in: charges.map((charge) => charge.id) },
+          payment: { status: { notIn: ["VOIDED", "REFUNDED"] } },
+        },
         select: { chargeId: true, amount: true },
       })
     : [];
@@ -132,6 +137,14 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
+  const interestedClassId = body.interestedClassId ? String(body.interestedClassId) : null;
+  if (interestedClassId) {
+    const interestedClass = await prisma.class.findUnique({ where: { id: interestedClassId }, select: { branchId: true } });
+    if (!interestedClass) return NextResponse.json({ error: "Khong tim thay lop quan tam" }, { status: 404 });
+    if (interestedClass.branchId !== branchId) {
+      return NextResponse.json({ error: "Lop quan tam phai cung co so voi lead" }, { status: 409 });
+    }
+  }
   const fullName = String(body.fullName ?? "").trim() || "Chưa rõ";
 
   const leadCode = `LEAD${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
@@ -170,7 +183,7 @@ export async function POST(req: NextRequest) {
       notes: body.notes || null,
       notes2: body.notes2 || null,
       expectedStartDate: body.expectedStartDate ? new Date(body.expectedStartDate) : null,
-      interestedClassId: body.interestedClassId || null,
+      interestedClassId,
       status: LEAD_STATUSES.includes(body.status) ? body.status : "NEW",
     },
   });

@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/server/current-user";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canViewFullWithOverride } from "@/lib/server/role-matrix";
+import { canAccessBranch } from "@/lib/branch-filter";
 import { PAYROLL_RUN_STATUS_LABEL, canEditPayroll, SESSION_ROLE_LABEL } from "@/lib/server/payroll-rules";
 import { monthRange } from "@/lib/server/tuition-rules";
 import PayrollRunActions from "@/components/payroll/PayrollRunActions";
@@ -20,11 +24,17 @@ function isClose(a: number, b: number) {
 }
 
 export default async function PayrollRunDetailPage({ params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user) notFound();
+  const access = await getUserRoleAndOverride(user.id, "hr");
+  if (!canViewFullWithOverride("hr", access.role, access.override)) notFound();
+
   const run = await prisma.payrollRun.findUnique({
     where: { id: params.id },
     include: { lines: { include: { employee: true }, orderBy: { employee: { fullName: "asc" } } } },
   });
   if (!run) notFound();
+  if (!(await canAccessBranch(run.branchId))) notFound();
 
   const editable = canEditPayroll(run.status);
   const totalPayroll = run.lines.reduce((s, l) => s + l.totalAmount, 0);

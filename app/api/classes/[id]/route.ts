@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
-import { canUpdate, canDelete } from "@/lib/server/role-matrix";
+import { canView, canUpdate, canDelete } from "@/lib/server/role-matrix";
+import { canAccessBranch } from "@/lib/branch-filter";
 import { estimateEndDate } from "@/lib/server/class-rules";
 import { syncClassDerivedFields } from "@/lib/server/database-sync";
 import { ensureClassRoadmapItems, normalizeRoadmapItemsInput } from "@/lib/server/class-roadmap";
@@ -10,6 +11,8 @@ import { isValidClassAssignmentRole } from "@/lib/server/class-default-assignmen
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
+  const role = user ? await getUserRole(user.id) : null;
+  if (user && !canView("schedule", role)) return NextResponse.json({ error: "Khong co quyen xem lop" }, { status: 403 });
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const cls = await prisma.class.findUnique({
@@ -24,6 +27,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   });
   if (!cls) return NextResponse.json({ error: "Không tìm thấy lớp" }, { status: 404 });
 
+  if (!(await canAccessBranch(cls.branchId))) return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
   const completedSessions = await prisma.classSession.count({ where: { classId: cls.id, status: "COMPLETED" } });
   const activeStudents = cls.enrollments.filter((e) => e.status === "ACTIVE").length;
 
@@ -152,6 +156,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     return classUpdated;
   });
+  if (existing && !(await canAccessBranch(existing.branchId))) {
+    return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
+  }
   await ensureClassRoadmapItems(updated.id, nextTotalSessions);
   const synced = await syncClassDerivedFields(updated.id);
   return NextResponse.json({ item: synced ?? updated });
@@ -163,6 +170,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const role = await getUserRole(user.id);
   if (!canDelete("schedule", role)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền xóa lớp" }, { status: 403 });
+  }
+
+  const existing = await prisma.class.findUnique({ where: { id: params.id }, select: { branchId: true } });
+  if (!existing) return NextResponse.json({ error: "Khong tim thay lop" }, { status: 404 });
+  if (!(await canAccessBranch(existing.branchId))) {
+    return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
   }
 
   const [enrollmentCount, sessionCount] = await Promise.all([

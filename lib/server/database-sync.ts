@@ -25,6 +25,40 @@ function periodNameOf(date: Date) {
   return `${date.getUTCFullYear()}-${month}`;
 }
 
+export async function recalculateClassScheduleDerivedFields(classId: string) {
+  const cls = await prisma.class.findUnique({
+    where: { id: classId },
+    include: {
+      course: true,
+      scheduleRules: { where: { isActive: true } },
+    },
+  });
+  if (!cls) return null;
+
+  const [holidayDates, latestSession] = await Promise.all([
+    getHolidayDateSet(cls.branchId),
+    prisma.classSession.aggregate({
+      where: { classId, status: { notIn: ["CANCELLED", "RESCHEDULED"] } },
+      _max: { sessionDate: true },
+    }),
+  ]);
+
+  const sessionsPerWeek = cls.scheduleRules.length || cls.sessionsPerWeek || cls.course?.sessionsPerWeek || null;
+  const derivedEnd =
+    estimateEndDateFromRules(cls.startDate, cls.totalSessions, cls.scheduleRules, holidayDates) ??
+    estimateEndDate(cls.startDate, cls.totalSessions, sessionsPerWeek);
+  const latestRealSession = latestSession._max.sessionDate;
+  const expectedEndDate =
+    latestRealSession && (!derivedEnd || latestRealSession.getTime() > derivedEnd.getTime())
+      ? latestRealSession
+      : derivedEnd;
+
+  return prisma.class.update({
+    where: { id: classId },
+    data: { sessionsPerWeek, expectedEndDate },
+  });
+}
+
 export async function syncClassDerivedFields(
   classId: string,
   tx: DbClient = prisma

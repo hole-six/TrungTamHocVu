@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
-import { canCreateWithOverride } from "@/lib/server/role-matrix";
+import { canViewFullWithOverride, canViewWithOverride, canCreateWithOverride } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
+  const access = user ? await getUserRoleAndOverride(user.id, "students") : { role: null, override: null };
+  if (user && !canViewWithOverride("students", access.role, access.override)) {
+    return NextResponse.json({ error: "Khong co quyen xem hoc vien" }, { status: 403 });
+  }
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
@@ -16,9 +21,28 @@ export async function GET(req: NextRequest) {
   const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") ?? 20)));
 
   const branchWhere = await (await import("@/lib/branch-filter")).getBranchWhereClause(searchParams.get("branchId"));
+  const limitedToAssignedStudents = !canViewFullWithOverride("students", access.role, access.override);
+  if (limitedToAssignedStudents && !user.employeeId) {
+    return NextResponse.json({ items: [], total: 0, page, pageSize });
+  }
 
-  const where = {
+  const where: Prisma.StudentWhereInput = {
     ...branchWhere,
+    ...(limitedToAssignedStudents
+      ? {
+          enrollments: {
+            some: {
+              status: "ACTIVE",
+              class: {
+                OR: [
+                  { defaultAssignments: { some: { employeeId: user.employeeId!, isActive: true } } },
+                  { sessions: { some: { assignments: { some: { employeeId: user.employeeId! } } } } },
+                ],
+              },
+            },
+          },
+        }
+      : {}),
     ...(status ? { status } : {}),
     ...(q
       ? {
@@ -55,7 +79,7 @@ export async function GET(req: NextRequest) {
   ]);
 
   const studentIds = items.map((item) => item.id);
-  const charges = await prisma.charge.findMany({
+  const charges = limitedToAssignedStudents ? [] : await prisma.charge.findMany({
     where: { studentId: { in: studentIds } },
     select: {
       id: true,
@@ -64,8 +88,11 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  const allocations = await prisma.paymentAllocation.findMany({
-    where: { charge: { studentId: { in: studentIds } } },
+  const allocations = limitedToAssignedStudents ? [] : await prisma.paymentAllocation.findMany({
+    where: {
+      charge: { studentId: { in: studentIds } },
+      payment: { status: { notIn: ["VOIDED", "REFUNDED"] } },
+    },
     select: { chargeId: true, amount: true },
   });
 
@@ -91,7 +118,9 @@ export async function GET(req: NextRequest) {
       currentClassName: currentEnrollment?.class.className ?? null,
       currentClassCode: currentEnrollment?.class.classCode ?? null,
       leadCode: item.lead?.leadCode ?? null,
-      outstanding: (chargeByStudent.get(item.id) ?? 0) - (paidByStudent.get(item.id) ?? 0),
+      outstanding: limitedToAssignedStudents
+        ? null
+        : (chargeByStudent.get(item.id) ?? 0) - (paidByStudent.get(item.id) ?? 0),
       enrollmentsCount: item.enrollments.length,
     };
   });
@@ -123,22 +152,48 @@ export async function POST(req: NextRequest) {
   const existing = await prisma.student.findUnique({ where: { studentCode } });
   if (existing) return NextResponse.json({ error: "Mã học viên đã tồn tại" }, { status: 409 });
 
-  const student = await prisma.student.create({
-    data: {
-      branchId,
-      studentCode,
-      fullName,
-      leadId: body.leadId || null,
-      gender: body.gender || null,
-      dob: body.dob ? new Date(body.dob) : null,
-      phone: body.phone || null,
-      address: body.address || null,
-      enrollDate: body.enrollDate ? new Date(body.enrollDate) : null,
-      referredBy: body.referredBy || null,
-      notes: body.notes || null,
-      status: body.leaveDate ? "LEFT" : "ACTIVE",
-      leaveDate: body.leaveDate ? new Date(body.leaveDate) : null,
-    },
+  const leadId = body.leadId ? String(body.leadId) : null;
+  const linkedLead = leadId
+    ? await prisma.lead.findUnique({ where: { id: leadId }, include: { student: true } })
+    : null;
+  if (leadId && !linkedLead) return NextResponse.json({ error: "Khong tim thay lead lien ket" }, { status: 404 });
+  if (linkedLead && linkedLead.branchId !== branchId) {
+    return NextResponse.json({ error: "Lead va hoc vien phai cung co so" }, { status: 409 });
+  }
+  if (linkedLead?.student) {
+    return NextResponse.json({ error: "Lead nay da duoc chuyen thanh hoc vien" }, { status: 409 });
+  }
+
+  const student = await prisma.$transaction(async (tx) => {
+    const created = await tx.student.create({
+      data: {
+        branchId,
+        studentCode,
+        fullName,
+        leadId,
+        gender: body.gender || null,
+        dob: body.dob ? new Date(body.dob) : null,
+        phone: body.phone || null,
+        address: body.address || null,
+        enrollDate: body.enrollDate ? new Date(body.enrollDate) : null,
+        referredBy: body.referredBy || null,
+        notes: body.notes || null,
+        status: body.leaveDate ? "LEFT" : "ACTIVE",
+        leaveDate: body.leaveDate ? new Date(body.leaveDate) : null,
+      },
+    });
+    if (linkedLead?.guardianId) {
+      await tx.studentGuardian.create({
+        data: { studentId: created.id, guardianId: linkedLead.guardianId, isPrimary: true },
+      });
+    }
+    if (linkedLead) {
+      await tx.lead.update({
+        where: { id: linkedLead.id },
+        data: { status: "ENROLLED", actualEnrollDate: created.enrollDate ?? new Date() },
+      });
+    }
+    return created;
   });
 
   const synced = await syncStudentDerivedFields(student.id);

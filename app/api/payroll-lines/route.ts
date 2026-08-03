@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { canEditPayroll } from "@/lib/server/payroll-rules";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdateWithOverride } from "@/lib/server/role-matrix";
+import { canAccessBranch } from "@/lib/branch-filter";
 
 // Thêm thủ công 1 nhân viên vào 1 kỳ lương đang mở (DRAFT/CALCULATED/REVIEWED) — dùng
 // khi "Tính lương" hàng loạt bỏ sót 1 nhân viên (vd mới ký hợp đồng giữa tháng, chưa
@@ -25,9 +26,18 @@ export async function POST(req: NextRequest) {
   }
 
   const run = await prisma.payrollRun.findUnique({ where: { id: payrollRunId } });
+  if (run && !(await canAccessBranch(run.branchId))) {
+    return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
+  }
   if (!run) return NextResponse.json({ error: "Không tìm thấy kỳ lương" }, { status: 404 });
   if (!canEditPayroll(run.status)) {
     return NextResponse.json({ error: "Kỳ lương đã duyệt/khóa, không thể thêm nhân sự." }, { status: 409 });
+  }
+
+  const employee = await prisma.employee.findUnique({ where: { id: employeeId }, select: { branchId: true } });
+  if (!employee) return NextResponse.json({ error: "Khong tim thay nhan vien" }, { status: 404 });
+  if (employee.branchId !== run.branchId) {
+    return NextResponse.json({ error: "Nhan vien khong thuoc co so cua ky luong" }, { status: 409 });
   }
 
   const existing = await prisma.payrollLine.findUnique({

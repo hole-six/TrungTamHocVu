@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getBranchWhereClause, getValidBranchIdForCreation } from "@/lib/branch-filter";
 import { getUserRole } from "@/lib/permissions";
-import { canCreate } from "@/lib/server/role-matrix";
+import { canView, canCreate } from "@/lib/server/role-matrix";
 import { estimateEndDate, estimateEndDateFromRules } from "@/lib/server/class-rules";
 import { syncClassDerivedFields } from "@/lib/server/database-sync";
 import { ensureClassRoadmapItems, normalizeRoadmapItemsInput } from "@/lib/server/class-roadmap";
@@ -12,6 +12,8 @@ import { getHolidayDateSet } from "@/lib/server/holidays";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
+  const role = user ? await getUserRole(user.id) : null;
+  if (user && !canView("schedule", role)) return NextResponse.json({ error: "Khong co quyen xem lop" }, { status: 403 });
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);

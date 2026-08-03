@@ -7,7 +7,8 @@ import AppointmentStatusButtons from "@/components/leads/AppointmentStatusButton
 import { LEAD_STATUS_LABEL, calculateAge, suggestGradeLevel } from "@/lib/server/lead-rules";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
-import { canUpdate } from "@/lib/server/role-matrix";
+import { canUpdate, canView } from "@/lib/server/role-matrix";
+import { canAccessBranch } from "@/lib/branch-filter";
 import { computeOutstandingBalance } from "@/lib/server/balance";
 import PageGuide from "@/components/ui/PageGuide";
 
@@ -85,6 +86,10 @@ const LEAD_DETAIL_GUIDE_SECTIONS = [
 ];
 
 export default async function LeadDetailPage({ params }: { params: { id: string } }) {
+  const currentUser = await getCurrentUser();
+  const role = currentUser ? await getUserRole(currentUser.id) : null;
+  if (!currentUser || !canView("leads", role)) notFound();
+
   const lead = await prisma.lead.findUnique({
     where: { id: params.id },
     include: {
@@ -105,9 +110,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     },
   });
   if (!lead) notFound();
-
-  const currentUser = await getCurrentUser();
-  const role = currentUser ? await getUserRole(currentUser.id) : null;
+  if (!(await canAccessBranch(lead.branchId))) notFound();
   const editable = canUpdate("leads", role);
 
   const age = calculateAge(lead.dob);

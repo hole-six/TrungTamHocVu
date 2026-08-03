@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
-import { canCreate } from "@/lib/server/role-matrix";
+import { canCreate, canView } from "@/lib/server/role-matrix";
 import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import LeadsTable from "@/components/leads/LeadsTable";
@@ -46,6 +47,7 @@ export default async function LeadsPage({
 }) {
   const user = await getCurrentUser();
   const userRole = user ? await getUserRole(user.id) : null;
+  if (!user || !canView("leads", userRole)) notFound();
   const activeBranchId = await getCurrentBranchId();
 
   const q = searchParams.q?.trim() ?? "";

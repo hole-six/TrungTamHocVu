@@ -36,10 +36,26 @@ export async function generatePayrollForRun(runId: string) {
   for (const employee of employees) {
     const [teachingAssignments, assistantAssignments, timesheetEntries] = await Promise.all([
       prisma.sessionAssignment.findMany({
-        where: { employeeId: employee.id, role: "TEACHER", session: { sessionDate: { gte: start, lte: end }, status: "COMPLETED" } },
+        where: {
+          employeeId: employee.id,
+          role: "TEACHER",
+          session: {
+            sessionDate: { gte: start, lte: end },
+            status: "COMPLETED",
+            class: { branchId: run.branchId },
+          },
+        },
       }),
       prisma.sessionAssignment.findMany({
-        where: { employeeId: employee.id, role: { in: ["ASSISTANT", "ASSISTANT2"] }, session: { sessionDate: { gte: start, lte: end }, status: "COMPLETED" } },
+        where: {
+          employeeId: employee.id,
+          role: { in: ["ASSISTANT", "ASSISTANT2"] },
+          session: {
+            sessionDate: { gte: start, lte: end },
+            status: "COMPLETED",
+            class: { branchId: run.branchId },
+          },
+        },
       }),
       prisma.timesheetEntry.findMany({ where: { employeeId: employee.id, workDate: { gte: start, lte: end } } }),
     ]);
@@ -50,13 +66,14 @@ export async function generatePayrollForRun(runId: string) {
     const assistantAmount = assistantAssignments.reduce((s, a) => s + (a.amount ?? 0), 0);
     const staffDays = timesheetEntries.reduce((s, t) => s + (t.days ?? 0), 0);
 
-    if (teachingAssignments.length === 0 && assistantAssignments.length === 0 && timesheetEntries.length === 0) continue;
-
-    const totalAmount = teachingAmount + assistantAmount;
-
     const existingLine = await prisma.payrollLine.findUnique({
       where: { payrollRunId_employeeId: { payrollRunId: run.id, employeeId: employee.id } },
     });
+
+    const hasSourceData = teachingAssignments.length > 0 || assistantAssignments.length > 0 || timesheetEntries.length > 0;
+    if (!hasSourceData && !existingLine) continue;
+
+    const totalAmount = teachingAmount + assistantAmount;
 
     if (existingLine) {
       await prisma.payrollLine.update({

@@ -6,8 +6,9 @@ import TimesheetQuickAddForm from "@/components/payroll/TimesheetQuickAddForm";
 import EmployeeProfileEditor from "@/components/payroll/EmployeeProfileEditor";
 import PageGuide from "@/components/ui/PageGuide";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { getUserRole } from "@/lib/permissions";
-import { canCreate, canView, canUpdate } from "@/lib/server/role-matrix";
+import { getUserRoleAndOverride } from "@/lib/permissions";
+import { canCreate, canUpdateWithOverride, canViewFullWithOverride } from "@/lib/server/role-matrix";
+import { canAccessBranch } from "@/lib/branch-filter";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -48,9 +49,10 @@ const EMPLOYEE_DETAIL_GUIDE_SECTIONS = [
 
 export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
   const currentUser = await getCurrentUser();
-  const role = currentUser ? await getUserRole(currentUser.id) : null;
+  if (!currentUser) notFound();
+  const access = await getUserRoleAndOverride(currentUser.id, "hr");
   const isSelf = currentUser?.employeeId === params.id;
-  if (!isSelf && !canView("hr", role)) notFound();
+  if (!isSelf && !canViewFullWithOverride("hr", access.role, access.override)) notFound();
 
   const employee = await prisma.employee.findUnique({
     where: { id: params.id },
@@ -61,6 +63,7 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
     },
   });
   if (!employee) notFound();
+  if (!(await canAccessBranch(employee.branchId))) notFound();
 
   const contractStatus = computeContractStatus(employee.resignDate, employee.contracts[0]?.expiryDate ?? null);
 
@@ -197,10 +200,12 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
               idIssuePlace: employee.idIssuePlace,
               resignDate: employee.resignDate ? employee.resignDate.toISOString() : null,
             }}
-            canEdit={canUpdate("hr", role)}
+            canEdit={canUpdateWithOverride("hr", access.role, access.override)}
           />
 
-          {canCreate("timesheet", role) && (isSelf || canUpdate("hr", role)) && <TimesheetQuickAddForm employeeId={employee.id} />}
+          {canCreate("timesheet", access.role) && (isSelf || canUpdateWithOverride("hr", access.role, access.override)) && (
+            <TimesheetQuickAddForm employeeId={employee.id} />
+          )}
         </div>
       </div>
     </div>
