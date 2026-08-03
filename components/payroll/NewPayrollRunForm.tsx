@@ -35,17 +35,25 @@ export default function NewPayrollRunForm() {
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="btn-primary">
-        + Tạo kỳ lương
-      </button>
+      <div className="flex flex-col items-start gap-2">
+        <button onClick={() => setOpen(true)} className="btn-primary">
+          + Tạo kỳ lương mới
+        </button>
+        <p className="text-sm font-medium text-[#6b7280]">
+          Mỗi kỳ lương tương ứng với một tháng, sau đó bạn mới tính lương và duyệt.
+        </p>
+      </div>
     );
   }
 
   return (
-    <form onSubmit={submit} className="flex items-center gap-2">
-      <input type="month" required className="input" value={periodName} onChange={(e) => setPeriodName(e.target.value)} />
+    <form onSubmit={submit} className="flex flex-wrap items-end gap-2 rounded-2xl border-2 border-[#e5e7eb] bg-white p-4 shadow-sm">
+      <label className="flex flex-col gap-1">
+        <span className="text-xs font-black uppercase tracking-[0.18em] text-[#9ca3af]">Tháng lương</span>
+        <input type="month" required className="input" value={periodName} onChange={(e) => setPeriodName(e.target.value)} />
+      </label>
       <button type="submit" disabled={loading} className="btn-primary whitespace-nowrap">
-        {loading ? "..." : "Tạo"}
+        {loading ? "Đang tạo..." : "Tạo kỳ"}
       </button>
       {error && <p className="text-sm text-red-600">{error}</p>}
     </form>

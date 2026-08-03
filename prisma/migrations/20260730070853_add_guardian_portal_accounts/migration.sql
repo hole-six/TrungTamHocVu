@@ -1,46 +1,8 @@
--- RedefineTables
+-- Reporting tables are introduced by the next migration.  This migration only
+-- adds the guardian relation to users; redefining tables that do not yet exist
+-- made a clean database bootstrap fail before that next migration could run.
 PRAGMA defer_foreign_keys=ON;
 PRAGMA foreign_keys=OFF;
-CREATE TABLE "new_report_snapshots" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "branch_id" TEXT NOT NULL,
-    "period_id" TEXT NOT NULL,
-    "report_code" TEXT NOT NULL,
-    "filter_hash" TEXT NOT NULL,
-    "filter_json" TEXT NOT NULL,
-    "mode" TEXT NOT NULL DEFAULT 'SNAPSHOT',
-    "status" TEXT NOT NULL DEFAULT 'READY',
-    "as_of_at" DATETIME NOT NULL,
-    "summary_json" TEXT,
-    "detail_json" TEXT,
-    "row_count" INTEGER NOT NULL DEFAULT 0,
-    "created_by_id" TEXT,
-    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" DATETIME NOT NULL
-);
-INSERT INTO "new_report_snapshots" ("as_of_at", "branch_id", "created_at", "created_by_id", "detail_json", "filter_hash", "filter_json", "id", "mode", "period_id", "report_code", "row_count", "status", "summary_json", "updated_at") SELECT "as_of_at", "branch_id", "created_at", "created_by_id", "detail_json", "filter_hash", "filter_json", "id", "mode", "period_id", "report_code", "row_count", "status", "summary_json", "updated_at" FROM "report_snapshots";
-DROP TABLE "report_snapshots";
-ALTER TABLE "new_report_snapshots" RENAME TO "report_snapshots";
-CREATE INDEX "report_snapshots_branch_id_report_code_as_of_at_idx" ON "report_snapshots"("branch_id", "report_code", "as_of_at");
-CREATE UNIQUE INDEX "report_snapshots_period_id_report_code_filter_hash_key" ON "report_snapshots"("period_id", "report_code", "filter_hash");
-CREATE TABLE "new_reporting_periods" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "branch_id" TEXT NOT NULL,
-    "period_type" TEXT NOT NULL,
-    "period_key" TEXT NOT NULL,
-    "start_date" DATETIME NOT NULL,
-    "end_date" DATETIME NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'OPEN',
-    "closed_at" DATETIME,
-    "closed_by_id" TEXT,
-    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" DATETIME NOT NULL
-);
-INSERT INTO "new_reporting_periods" ("branch_id", "closed_at", "closed_by_id", "created_at", "end_date", "id", "period_key", "period_type", "start_date", "status", "updated_at") SELECT "branch_id", "closed_at", "closed_by_id", "created_at", "end_date", "id", "period_key", "period_type", "start_date", "status", "updated_at" FROM "reporting_periods";
-DROP TABLE "reporting_periods";
-ALTER TABLE "new_reporting_periods" RENAME TO "reporting_periods";
-CREATE INDEX "reporting_periods_branch_id_start_date_end_date_idx" ON "reporting_periods"("branch_id", "start_date", "end_date");
-CREATE UNIQUE INDEX "reporting_periods_branch_id_period_type_period_key_key" ON "reporting_periods"("branch_id", "period_type", "period_key");
 CREATE TABLE "new_users" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "email" TEXT NOT NULL,

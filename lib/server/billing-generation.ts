@@ -399,11 +399,13 @@ export async function generateChargesForPeriod(periodId: string) {
       let anchorOpeningBalance = 0;
       let anchorCreditToApply = 0;
       if (anchorDraft) {
+        // Credit is carried value from earlier periods; it may clear only the
+        // carried debt, never the current period's newly generated tuition.
         anchorCreditToApply = Math.min(
-          Math.max(snapshot.debtBeforeCredits + anchorDraft.baseAmount, 0),
+          Math.max(snapshot.debtBeforeCredits, 0),
           snapshot.availableCreditAmount,
         );
-        anchorOpeningBalance = snapshot.debtBeforeCredits - anchorCreditToApply;
+        anchorOpeningBalance = Math.max(snapshot.debtBeforeCredits - anchorCreditToApply, 0);
       }
 
       if (anchorCreditToApply > 0) {
@@ -579,11 +581,13 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
     const balanceAnchorDate = options?.billingPeriodId ? period.startDate : enrollment.enrollDate;
     const snapshot = await computeBalanceSnapshot(enrollment.studentId, balanceAnchorDate, tx);
     const chargeBaseAmount = tuitionAmount + materialsAmount;
+    // A course charge follows the same rule as period billing: unused credit
+    // settles prior debt only, so a new charge can never be made negative.
     const creditToApply = Math.min(
-      Math.max(snapshot.debtBeforeCredits + chargeBaseAmount, 0),
+      Math.max(snapshot.debtBeforeCredits, 0),
       snapshot.availableCreditAmount,
     );
-    const openingBalance = snapshot.debtBeforeCredits - creditToApply;
+    const openingBalance = Math.max(snapshot.debtBeforeCredits - creditToApply, 0);
     const totalAmount = computeTotalAmount(tuitionAmount, materialsAmount, openingBalance);
 
     if (creditToApply > 0) {

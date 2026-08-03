@@ -10,6 +10,7 @@ import NewEmployeeForm from "@/components/payroll/NewEmployeeForm";
 import NewPayrollRunForm from "@/components/payroll/NewPayrollRunForm";
 import PayrollDateFilter from "@/components/payroll/PayrollDateFilter";
 import PayrollExportButton from "@/components/payroll/PayrollExportButton";
+import PayrollRateSetupPanel from "@/components/payroll/PayrollRateSetupPanel";
 import PageGuide from "@/components/ui/PageGuide";
 
 function formatVnd(n: number) {
@@ -32,7 +33,11 @@ function getContractTone(status: string | null) {
 }
 
 function getRunTone(status: string) {
-  if (status === "FINALIZED") return "bg-emerald-50 text-emerald-700";
+  if (status === "PAID") return "bg-emerald-50 text-emerald-700";
+  if (status === "LOCKED") return "bg-sky-50 text-sky-700";
+  if (status === "APPROVED") return "bg-violet-50 text-violet-700";
+  if (status === "REVIEWED") return "bg-amber-50 text-amber-700";
+  if (status === "CALCULATED") return "bg-orange-50 text-orange-700";
   if (status === "DRAFT") return "bg-amber-50 text-amber-700";
   return "bg-slate-100 text-slate-700";
 }
@@ -70,7 +75,7 @@ const PAYROLL_PAGE_GUIDE_SECTIONS = [
 export default async function PayrollPage({
   searchParams,
 }: {
-  searchParams?: { fromDate?: string; toDate?: string };
+  searchParams?: { fromDate?: string; toDate?: string; bankStatus?: string };
 }) {
   const user = await getCurrentUser();
   const role = user ? await getUserRole(user.id) : null;
@@ -174,8 +179,13 @@ export default async function PayrollPage({
       fullName: employee.fullName,
       shortName: employee.shortName,
       position: employee.position,
+      bankName: employee.bankName,
+      bankAccountNumber: employee.bankAccountNumber,
+      bankAccountHolder: employee.bankAccountHolder,
       teachingHourlyRate: employee.teachingHourlyRate,
       assistantHourlyRate: employee.assistantHourlyRate,
+      staffDailyRate: employee.staffDailyRate,
+      payMode: employee.payMode,
       workStatus: employee.workStatus,
       contractStatus: employee.contractStatus,
       teachingHours: teaching.hours,
@@ -184,14 +194,26 @@ export default async function PayrollPage({
       assistantAmount: assistant.amount,
       staffDays: timesheet.days,
       staffHours: timesheet.hours,
+      staffAmount: Math.round(timesheet.days * (employee.staffDailyRate ?? 0)),
       sessionCount: teaching.sessions + assistant.sessions,
       timesheetEntryCount: timesheet.entries,
+      hasBankInfo: Boolean(employee.bankName && employee.bankAccountNumber),
     };
   });
 
-  const employeeRows = employeeWork
+  const employeeRowsBase = employeeWork
     .filter((employee) => employee.teachingHours > 0 || employee.assistantHours > 0 || employee.staffDays > 0 || employee.staffHours > 0)
-    .sort((a, b) => b.teachingAmount + b.assistantAmount - (a.teachingAmount + a.assistantAmount));
+    .sort((a, b) => b.teachingAmount + b.assistantAmount + b.staffAmount - (a.teachingAmount + a.assistantAmount + a.staffAmount));
+
+  const bankStatus =
+    searchParams?.bankStatus === "missing" || searchParams?.bankStatus === "ready"
+      ? searchParams.bankStatus
+      : "all";
+  const employeeRows = employeeRowsBase.filter((employee) => {
+    if (bankStatus === "missing") return !employee.hasBankInfo;
+    if (bankStatus === "ready") return employee.hasBankInfo;
+    return true;
+  });
 
   const totalTeachingHours = employeeRows.reduce((sum, employee) => sum + employee.teachingHours, 0);
   const totalTeachingAmount = employeeRows.reduce((sum, employee) => sum + employee.teachingAmount, 0);
@@ -199,12 +221,15 @@ export default async function PayrollPage({
   const totalAssistantAmount = employeeRows.reduce((sum, employee) => sum + employee.assistantAmount, 0);
   const totalStaffDays = employeeRows.reduce((sum, employee) => sum + employee.staffDays, 0);
   const totalStaffHours = employeeRows.reduce((sum, employee) => sum + employee.staffHours, 0);
-  const totalPayroll = totalTeachingAmount + totalAssistantAmount;
+  const totalStaffAmount = employeeRows.reduce((sum, employee) => sum + employee.staffAmount, 0);
+  const totalPayroll = totalTeachingAmount + totalAssistantAmount + totalStaffAmount;
 
   const missingTeachingRate = employeeRows.filter((employee) => employee.teachingHours > 0 && employee.teachingHourlyRate == null).length;
   const missingAssistantRate = employeeRows.filter((employee) => employee.assistantHours > 0 && employee.assistantHourlyRate == null).length;
+  const missingStaffDailyRate = employeeRows.filter((employee) => employee.staffDays > 0 && employee.staffDailyRate == null).length;
   const contractAttentionCount = employees.filter((employee) => employee.contractStatus && employee.contractStatus !== "Chưa có info").length;
-  const reviewCount = missingTeachingRate + missingAssistantRate + contractAttentionCount;
+  const missingBankInfoCount = employeeRowsBase.filter((employee) => !employee.hasBankInfo).length;
+  const reviewCount = missingTeachingRate + missingAssistantRate + missingStaffDailyRate + contractAttentionCount;
   const activeCount = employees.filter((employee) => employee.workStatus === "ACTIVE").length;
 
   const runRows = runs.map((run) => ({
@@ -220,6 +245,12 @@ export default async function PayrollPage({
 
   const fromDateStr = toYmd(rangeStart);
   const toDateStr = toYmd(rangeEnd);
+  const employeesNeedingRateSetup = employeeRows.filter(
+    (employee) =>
+      (employee.teachingHours > 0 && employee.teachingHourlyRate == null) ||
+      (employee.assistantHours > 0 && employee.assistantHourlyRate == null) ||
+      (employee.staffDays > 0 && employee.staffDailyRate == null),
+  );
 
   return (
     <div className="min-h-screen space-y-6 pb-20">
@@ -264,6 +295,13 @@ export default async function PayrollPage({
                 </svg>
                 {formatNumber(employeeRows.length)} có phát sinh
               </span>
+              <span className={`inline-flex items-center gap-2 rounded-full border-2 px-4 py-2 text-sm font-bold ${
+                missingBankInfoCount > 0
+                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  : "border-sky-200 bg-sky-50 text-sky-700"
+              }`}>
+                {missingBankInfoCount > 0 ? `${formatNumber(missingBankInfoCount)} thiếu TK CK` : "Đủ thông tin CK"}
+              </span>
               {reviewCount > 0 && (
                 <span className="inline-flex items-center gap-2 rounded-full border-2 border-amber-200 bg-amber-50 px-4 py-2 text-sm font-bold text-amber-700">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -278,64 +316,89 @@ export default async function PayrollPage({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {canManagePayrollRuns ? <NewPayrollRunForm /> : null}
             {canManagePayrollRuns ? (
-              <Link href="/payroll/assistant-scores" className="btn-ghost">
-                Đánh giá nhân sự
+              <Link href="/payroll/rates" className="inline-flex items-center justify-center rounded-2xl border-2 border-[#fed7aa] bg-white px-5 py-3 text-sm font-bold text-[#c2410c] transition hover:bg-[#fff7ed]">
+                Bảng đơn giá nhân sự
               </Link>
             ) : null}
-            {canManageEmployees ? <NewEmployeeForm /> : null}
-            {canManagePayrollRuns ? <NewPayrollRunForm /> : null}
             <PayrollExportButton
               fromDate={fromDateStr}
               toDate={toDateStr}
-              totals={{ totalTeachingAmount, totalAssistantAmount, totalPayroll }}
+              totals={{ totalTeachingAmount, totalAssistantAmount, totalStaffAmount, totalPayroll }}
               employees={employeeRows}
               runs={runRows}
             />
+            {(canManagePayrollRuns || canManageEmployees) ? (
+              <details className="rounded-2xl border-2 border-[#e5e7eb] bg-white px-4 py-3 shadow-sm">
+                <summary className="cursor-pointer text-sm font-bold text-[#6b7280]">Tác vụ khác</summary>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  {canManagePayrollRuns ? (
+                    <Link href="/payroll/assistant-scores" className="btn-ghost">
+                      Đánh giá nhân sự
+                    </Link>
+                  ) : null}
+                  {canManageEmployees ? <NewEmployeeForm /> : null}
+                </div>
+              </details>
+            ) : null}
           </div>
         </div>
       </section>
 
       {/* Warning Box - Cần xử lý */}
       {reviewCount > 0 && (
-        <div className="rounded-2xl border-2 border-red-200 bg-red-50 px-6 py-5">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-600">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-red-900">⚠️ Cần xử lý trước khi tạo kỳ lương</h3>
-              <div className="mt-3 space-y-2">
-                {missingTeachingRate > 0 && (
-                  <p className="text-sm font-medium text-red-800">
-                    • <strong>{missingTeachingRate} giảng viên</strong> chưa có đơn giá dạy → Không tính được tiền lương
-                  </p>
-                )}
-                {missingAssistantRate > 0 && (
-                  <p className="text-sm font-medium text-red-800">
-                    • <strong>{missingAssistantRate} trợ giảng</strong> chưa có đơn giá TG → Không tính được tiền lương
-                  </p>
-                )}
-                {contractAttentionCount > 0 && (
-                  <p className="text-sm font-medium text-red-800">
-                    • <strong>{contractAttentionCount} người</strong> sắp hết hạn hợp đồng hoặc cần gia hạn
-                  </p>
-                )}
+        <div className="space-y-4">
+          <div className="rounded-2xl border-2 border-red-200 bg-red-50 px-6 py-5">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-600">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
               </div>
-              <div className="mt-4">
-                <Link href="/payroll/employees" className="inline-flex items-center gap-2 rounded-xl border-2 border-red-600 bg-red-600 px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-red-700">
-                  Sửa đơn giá ngay
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </Link>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-red-900">⚠️ Cần xử lý trước khi tạo kỳ lương</h3>
+                <div className="mt-3 space-y-2">
+                  {missingTeachingRate > 0 && (
+                    <p className="text-sm font-medium text-red-800">
+                      • <strong>{missingTeachingRate} giảng viên</strong> chưa có đơn giá dạy → Không tính được tiền lương
+                    </p>
+                  )}
+                  {missingAssistantRate > 0 && (
+                    <p className="text-sm font-medium text-red-800">
+                      • <strong>{missingAssistantRate} trợ giảng</strong> chưa có đơn giá TG → Không tính được tiền lương
+                    </p>
+                  )}
+                  {missingStaffDailyRate > 0 && (
+                    <p className="text-sm font-medium text-red-800">
+                      • <strong>{missingStaffDailyRate} nhân sự</strong> chưa có đơn giá 1 công HC → Công hành chính sẽ ra 0đ
+                    </p>
+                  )}
+                  {contractAttentionCount > 0 && (
+                    <p className="text-sm font-medium text-red-800">
+                      • <strong>{contractAttentionCount} người</strong> sắp hết hạn hợp đồng hoặc cần gia hạn
+                    </p>
+                  )}
+                </div>
+                <div className="mt-4">
+                  <Link href="#employee-rate-setup" className="inline-flex items-center gap-2 rounded-xl border-2 border-red-600 bg-red-600 px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-red-700">
+                    Mở thiết lập đơn giá nhanh
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
+
+          {canManagePayrollRuns && employeesNeedingRateSetup.length > 0 ? (
+            <div id="employee-rate-setup">
+              <PayrollRateSetupPanel items={employeesNeedingRateSetup} />
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -368,7 +431,14 @@ export default async function PayrollPage({
           </div>
         </div>
 
-        <PayrollDateFilter key={`${fromDateStr}|${toDateStr}`} initialFromDate={fromDateStr} initialToDate={toDateStr} />
+        <details>
+          <summary className="cursor-pointer text-sm font-bold text-[#6b7280]">
+            Đổi khoảng thời gian lọc
+          </summary>
+          <div className="mt-3">
+            <PayrollDateFilter key={`${fromDateStr}|${toDateStr}`} initialFromDate={fromDateStr} initialToDate={toDateStr} />
+          </div>
+        </details>
       </section>
 
       {/* KPI Cards */}
@@ -384,7 +454,7 @@ export default async function PayrollPage({
             </div>
           </div>
           <p className="text-2xl font-black text-[#111827]">{formatVnd(totalPayroll)}</p>
-          <p className="mt-1 text-xs text-[#6b7280]">Dạy + Trợ giảng</p>
+          <p className="mt-1 text-xs text-[#6b7280]">Dạy + Trợ giảng + HC</p>
         </div>
 
         <div className="group rounded-2xl border-2 border-[#e5e7eb] bg-white px-5 py-4 transition-all hover:border-[#f97316] hover:shadow-lg">
@@ -442,12 +512,45 @@ export default async function PayrollPage({
             {formatNumber(reviewCount)}
           </p>
           <p className={`mt-1 text-xs ${reviewCount > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-            {reviewCount > 0 ? `Thiếu đơn giá ${formatNumber(missingTeachingRate + missingAssistantRate)}` : 'Sẵn sàng tính lương'}
+            {reviewCount > 0 ? `Thiếu đơn giá ${formatNumber(missingTeachingRate + missingAssistantRate + missingStaffDailyRate)}` : 'Sẵn sàng tính lương'}
           </p>
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.75fr)_360px]">
+      <section className="flex flex-wrap gap-2">
+        <Link
+          href={`/payroll?fromDate=${fromDateStr}&toDate=${toDateStr}#employee-payroll-table`}
+          className={`rounded-full border-2 px-4 py-2 text-sm font-bold ${
+            bankStatus === "all"
+              ? "border-[#fed7aa] bg-[#fff7ed] text-[#ea580c]"
+              : "border-[#e5e7eb] bg-white text-[#6b7280]"
+          }`}
+        >
+          Tất cả nhân sự có phát sinh
+        </Link>
+        <Link
+          href={`/payroll?fromDate=${fromDateStr}&toDate=${toDateStr}&bankStatus=missing#employee-payroll-table`}
+          className={`rounded-full border-2 px-4 py-2 text-sm font-bold ${
+            bankStatus === "missing"
+              ? "border-rose-200 bg-rose-50 text-rose-700"
+              : "border-[#e5e7eb] bg-white text-[#6b7280]"
+          }`}
+        >
+          Thiếu thông tin chuyển khoản ({formatNumber(missingBankInfoCount)})
+        </Link>
+        <Link
+          href={`/payroll?fromDate=${fromDateStr}&toDate=${toDateStr}&bankStatus=ready#employee-payroll-table`}
+          className={`rounded-full border-2 px-4 py-2 text-sm font-bold ${
+            bankStatus === "ready"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-[#e5e7eb] bg-white text-[#6b7280]"
+          }`}
+        >
+          Đủ thông tin chuyển khoản
+        </Link>
+      </section>
+
+      <section id="employee-payroll-table" className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.75fr)_360px]">
         <div className="overflow-hidden rounded-2xl border-2 border-[#e5e7eb] bg-white shadow-lg">
           <div className="flex flex-col gap-3 border-b-2 border-[#f3f4f6] bg-gradient-to-r from-[#fafafa] to-white px-6 py-5 md:flex-row md:items-end md:justify-between">
             <div>
@@ -473,16 +576,17 @@ export default async function PayrollPage({
                   <th className="px-4 py-4 text-center text-xs font-black uppercase tracking-wider text-[#6b7280]">Trợ giảng</th>
                   <th className="px-4 py-4 text-center text-xs font-black uppercase tracking-wider text-[#6b7280]">HC</th>
                   <th className="px-4 py-4 text-right text-xs font-black uppercase tracking-wider text-[#6b7280]">Tổng lương</th>
-                  <th className="px-4 py-4 text-center text-xs font-black uppercase tracking-wider text-[#6b7280]">Đơn giá</th>
+                  <th className="px-4 py-4 text-center text-xs font-black uppercase tracking-wider text-[#6b7280]">Đơn giá cá nhân</th>
                   <th className="px-6 py-4 text-right text-xs font-black uppercase tracking-wider text-[#6b7280]">Trạng thái</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f3f4f6]">
                 {employeeRows.map((employee) => {
-                  const totalAmount = employee.teachingAmount + employee.assistantAmount;
+                  const totalAmount = employee.teachingAmount + employee.assistantAmount + employee.staffAmount;
                   const hasRateIssue = 
                     (employee.teachingHours > 0 && employee.teachingHourlyRate == null) ||
-                    (employee.assistantHours > 0 && employee.assistantHourlyRate == null);
+                    (employee.assistantHours > 0 && employee.assistantHourlyRate == null) ||
+                    (employee.staffDays > 0 && employee.staffDailyRate == null);
 
                   return (
                     <tr 
@@ -520,6 +624,7 @@ export default async function PayrollPage({
                       <td className="px-4 py-5 text-center">
                         <p className="text-base font-bold text-[#111827]">{formatNumber(employee.staffDays)}</p>
                         <p className="mt-0.5 text-xs text-[#9ca3af]">công</p>
+                        <p className="mt-1 text-sm font-semibold text-[#6b7280]">{formatVnd(employee.staffAmount)}</p>
                         <p className="mt-1 text-xs text-[#9ca3af]">{formatNumber(employee.staffHours)} giờ</p>
                       </td>
 
@@ -534,9 +639,9 @@ export default async function PayrollPage({
                             <div className={`flex items-center justify-between gap-2 rounded-lg px-3 py-1.5 ${
                               employee.teachingHourlyRate == null ? 'bg-red-100 border-2 border-red-300' : 'bg-blue-50 border border-blue-200'
                             }`}>
-                              <span className="text-xs font-bold text-[#6b7280]">GV:</span>
+                              <span className="text-xs font-bold text-[#6b7280]">Dạy:</span>
                               <span className={`text-xs font-bold ${employee.teachingHourlyRate == null ? 'text-red-700' : 'text-blue-700'}`}>
-                                {employee.teachingHourlyRate != null ? formatVnd(employee.teachingHourlyRate) : "⚠️ Chưa có"}
+                                {employee.teachingHourlyRate != null ? `${formatVnd(employee.teachingHourlyRate)}/${employee.payMode === "SESSION" ? "ca" : "giờ"}` : "⚠️ Chưa có"}
                               </span>
                             </div>
                           )}
@@ -546,7 +651,17 @@ export default async function PayrollPage({
                             }`}>
                               <span className="text-xs font-bold text-[#6b7280]">TG:</span>
                               <span className={`text-xs font-bold ${employee.assistantHourlyRate == null ? 'text-red-700' : 'text-violet-700'}`}>
-                                {employee.assistantHourlyRate != null ? formatVnd(employee.assistantHourlyRate) : "⚠️ Chưa có"}
+                                {employee.assistantHourlyRate != null ? `${formatVnd(employee.assistantHourlyRate)}/${employee.payMode === "SESSION" ? "ca" : "giờ"}` : "⚠️ Chưa có"}
+                              </span>
+                            </div>
+                          )}
+                          {employee.staffDays > 0 && (
+                            <div className={`flex items-center justify-between gap-2 rounded-lg px-3 py-1.5 ${
+                              employee.staffDailyRate == null ? 'bg-red-100 border-2 border-red-300' : 'bg-emerald-50 border border-emerald-200'
+                            }`}>
+                              <span className="text-xs font-bold text-[#6b7280]">HC:</span>
+                              <span className={`text-xs font-bold ${employee.staffDailyRate == null ? 'text-red-700' : 'text-emerald-700'}`}>
+                                {employee.staffDailyRate != null ? `${formatVnd(employee.staffDailyRate)}/công` : "⚠️ Chưa có"}
                               </span>
                             </div>
                           )}

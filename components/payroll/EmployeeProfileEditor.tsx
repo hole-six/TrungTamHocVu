@@ -14,6 +14,13 @@ type EmployeeProfile = {
   idIssueDate: string | null;
   idIssuePlace: string | null;
   resignDate: string | null;
+  payMode: string;
+  teachingHourlyRate: number | null;
+  assistantHourlyRate: number | null;
+  staffDailyRate: number | null;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  bankAccountHolder: string | null;
 };
 
 function toDateInput(value: string | null) {
@@ -47,6 +54,13 @@ export default function EmployeeProfileEditor({
     idIssueDate: toDateInput(employee.idIssueDate),
     idIssuePlace: employee.idIssuePlace ?? "",
     resignDate: toDateInput(employee.resignDate),
+    payMode: employee.payMode ?? "HOURLY",
+    teachingHourlyRate: employee.teachingHourlyRate != null ? String(employee.teachingHourlyRate) : "",
+    assistantHourlyRate: employee.assistantHourlyRate != null ? String(employee.assistantHourlyRate) : "",
+    staffDailyRate: employee.staffDailyRate != null ? String(employee.staffDailyRate) : "",
+    bankName: employee.bankName ?? "",
+    bankAccountNumber: employee.bankAccountNumber ?? "",
+    bankAccountHolder: employee.bankAccountHolder ?? "",
   });
 
   async function save(e: React.FormEvent) {
@@ -78,6 +92,13 @@ export default function EmployeeProfileEditor({
     ["Ngày cấp", formatDate(employee.idIssueDate)],
     ["Nơi cấp", employee.idIssuePlace ?? "—"],
     ["Ngày nghỉ", formatDate(employee.resignDate)],
+    ["Kiểu tính dạy/TG", employee.payMode === "SESSION" ? "Theo ca" : "Theo giờ"],
+    ["Đơn giá dạy", employee.teachingHourlyRate != null ? `${employee.teachingHourlyRate.toLocaleString("vi-VN")}đ/${employee.payMode === "SESSION" ? "ca" : "giờ"}` : "—"],
+    ["Đơn giá trợ giảng", employee.assistantHourlyRate != null ? `${employee.assistantHourlyRate.toLocaleString("vi-VN")}đ/${employee.payMode === "SESSION" ? "ca" : "giờ"}` : "—"],
+    ["Đơn giá 1 công HC", employee.staffDailyRate != null ? `${employee.staffDailyRate.toLocaleString("vi-VN")}đ/công` : "—"],
+    ["Ngân hàng", employee.bankName ?? "—"],
+    ["Số tài khoản", employee.bankAccountNumber ?? "—"],
+    ["Chủ tài khoản", employee.bankAccountHolder ?? "—"],
   ];
 
   return (
@@ -137,6 +158,41 @@ export default function EmployeeProfileEditor({
           <label className="space-y-1">
             <span className="text-xs font-medium text-ink-muted48">Ngày nghỉ (nếu có)</span>
             <input type="date" className="input" value={form.resignDate} onChange={(e) => setForm((f) => ({ ...f, resignDate: e.target.value }))} />
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-ink-muted48">Kiểu tính dạy/TG</span>
+            <select className="input" value={form.payMode} onChange={(e) => setForm((f) => ({ ...f, payMode: e.target.value }))}>
+              <option value="HOURLY">Theo giờ</option>
+              <option value="SESSION">Theo ca</option>
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-ink-muted48">
+              {form.payMode === "SESSION" ? "Đơn giá dạy/ca" : "Đơn giá dạy/giờ"}
+            </span>
+            <input className="input" type="number" value={form.teachingHourlyRate} onChange={(e) => setForm((f) => ({ ...f, teachingHourlyRate: e.target.value }))} />
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-ink-muted48">
+              {form.payMode === "SESSION" ? "Đơn giá TG/ca" : "Đơn giá TG/giờ"}
+            </span>
+            <input className="input" type="number" value={form.assistantHourlyRate} onChange={(e) => setForm((f) => ({ ...f, assistantHourlyRate: e.target.value }))} />
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-ink-muted48">Đơn giá 1 công HC</span>
+            <input className="input" type="number" value={form.staffDailyRate} onChange={(e) => setForm((f) => ({ ...f, staffDailyRate: e.target.value }))} />
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-ink-muted48">Ngân hàng</span>
+            <input className="input" value={form.bankName} onChange={(e) => setForm((f) => ({ ...f, bankName: e.target.value }))} />
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-ink-muted48">Số tài khoản</span>
+            <input className="input" value={form.bankAccountNumber} onChange={(e) => setForm((f) => ({ ...f, bankAccountNumber: e.target.value }))} />
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-ink-muted48">Chủ tài khoản</span>
+            <input className="input" value={form.bankAccountHolder} onChange={(e) => setForm((f) => ({ ...f, bankAccountHolder: e.target.value }))} />
           </label>
           {error && <p className="col-span-full text-sm text-red-600">{error}</p>}
           <div className="col-span-full flex gap-2">

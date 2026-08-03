@@ -637,6 +637,19 @@ async function main() {
       tuitionPerSession: 200000,
       status: "COMPLETED",
     }),
+    camEnded: await ensureClass({
+      branchId: branch.id,
+      courseId: courses.cam.id,
+      classCode: "ST-CAM-END",
+      classGroup: "CE",
+      className: "Cambridge A2 Key - Ended Debt",
+      totalSessions: 12,
+      startDate: "2026-06-15",
+      expectedEndDate: "2026-07-25",
+      sessionsPerWeek: 2,
+      tuitionPerSession: 190000,
+      status: "COMPLETED",
+    }),
     ielts1: await ensureClass({
       branchId: branch.id,
       courseId: courses.ielts.id,
@@ -681,6 +694,8 @@ async function main() {
   await ensureScheduleRule(classes.eu2.id, 3, "17:30", "19:00", "Room E2");
   await ensureScheduleRule(classes.cam1.id, 6, "08:00", "09:30", "Room C1");
   await ensureScheduleRule(classes.cam1.id, 0, "08:00", "09:30", "Room C1");
+  await ensureScheduleRule(classes.camEnded.id, 2, "18:15", "19:45", "Room C0");
+  await ensureScheduleRule(classes.camEnded.id, 5, "18:15", "19:45", "Room C0");
   await ensureScheduleRule(classes.ielts1.id, 2, "19:15", "20:45", "Room I1");
   await ensureScheduleRule(classes.ielts1.id, 5, "19:15", "20:45", "Room I1");
   await ensureScheduleRule(classes.rem1.id, 3, "18:00", "19:00", "Room R1");
@@ -690,6 +705,7 @@ async function main() {
     eu1: await ensureSessionsForClass(classes.eu1.id, "2026-07-07", "2026-10-29", [2, 4], "17:30", "19:00", "Room E1"),
     eu2: await ensureSessionsForClass(classes.eu2.id, "2026-08-03", "2026-10-28", [1, 3], "17:30", "19:00", "Room E2"),
     cam1: await ensureSessionsForClass(classes.cam1.id, "2026-08-08", "2026-09-26", [6, 0], "08:00", "09:30", "Room C1"),
+    camEnded: await ensureSessionsForClass(classes.camEnded.id, "2026-06-16", "2026-07-25", [2, 5], "18:15", "19:45", "Room C0"),
     ielts1: await ensureSessionsForClass(classes.ielts1.id, "2026-08-04", "2026-10-30", [2, 5], "19:15", "20:45", "Room I1"),
     rem1: await ensureSessionsForClass(classes.rem1.id, "2026-08-12", "2026-10-21", [3], "18:00", "19:00", "Room R1"),
     rem2: await ensureSessionsForClass(classes.rem2.id, "2026-08-14", "2026-10-23", [5], "18:00", "19:00", "Room R2"),
@@ -735,6 +751,18 @@ async function main() {
       enrollDate: "2026-08-08",
       scholarshipPct: i === 19 ? 0.15 : undefined,
       adjustmentPct: i === 20 ? 0.1 : undefined,
+    });
+  }
+
+  for (let i = 31; i <= 32; i++) {
+    scenarios.push({
+      studentCode: `STRESS-HV${String(i).padStart(3, "0")}`,
+      fullName: `${pick(firstNames, i)} Stress CAM END ${i}`,
+      guardianName: `PH Stress CAM END ${i}`,
+      phone: `0987444${String(i).padStart(3, "0")}`,
+      classCode: classes.camEnded.classCode,
+      billingModel: "COURSE",
+      enrollDate: "2026-06-15",
     });
   }
 
@@ -834,6 +862,7 @@ async function main() {
     [classes.eu1.classCode]: classSessions.eu1,
     [classes.eu2.classCode]: classSessions.eu2,
     [classes.cam1.classCode]: classSessions.cam1,
+    [classes.camEnded.classCode]: classSessions.camEnded,
     [classes.ielts1.classCode]: classSessions.ielts1,
   };
 
@@ -1035,17 +1064,28 @@ async function main() {
   }
 
   // Một phần buổi dư được dùng cho lớp bổ trợ.
-  const availableCredits = await prisma.sessionCredit.findMany({
+  const remedialTargetCredits = await prisma.sessionCredit.findMany({
     where: {
       student: { studentCode: { in: ["STRESS-HV019", "STRESS-HV021"] } },
-      status: "AVAILABLE",
     },
-    take: 2,
     orderBy: { createdAt: "asc" },
   });
-  const remedialSessions = [...classSessions.rem1, ...classSessions.rem2].slice(0, availableCredits.length);
-  for (let i = 0; i < availableCredits.length; i++) {
-    const credit = availableCredits[i]!;
+  const creditsToConsume = remedialTargetCredits.slice(0, Math.min(2, remedialTargetCredits.length));
+  const creditsToKeepAvailable = remedialTargetCredits.slice(2);
+  const remedialSessions = [...classSessions.rem1, ...classSessions.rem2].slice(0, creditsToConsume.length);
+  for (const credit of creditsToKeepAvailable) {
+    await prisma.sessionCredit.update({
+      where: { id: credit.id },
+      data: {
+        status: "AVAILABLE",
+        consumedSessionId: null,
+        consumedAt: null,
+        notes: `${TAG} giu lai de test credit con kha dung`,
+      },
+    });
+  }
+  for (let i = 0; i < creditsToConsume.length; i++) {
+    const credit = creditsToConsume[i]!;
     const remedialSession = remedialSessions[i]!;
     await prisma.sessionCredit.update({
       where: { id: credit.id },

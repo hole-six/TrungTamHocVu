@@ -46,6 +46,14 @@ export async function POST(req: NextRequest) {
   const employeeCode = String(body.employeeCode ?? "").trim() || `NV${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
   const existing = await prisma.employee.findUnique({ where: { employeeCode } });
   if (existing) return NextResponse.json({ error: "Mã nhân viên đã tồn tại" }, { status: 409 });
+  for (const field of ["teachingHourlyRate", "assistantHourlyRate", "staffDailyRate"] as const) {
+    if (body[field] !== undefined && body[field] !== null && body[field] !== "") {
+      const value = Number(body[field]);
+      if (!Number.isFinite(value) || value < 0) {
+        return NextResponse.json({ error: "Đơn giá lương phải là số không âm" }, { status: 400 });
+      }
+    }
+  }
 
   const employee = await prisma.employee.create({
     data: {
@@ -64,6 +72,10 @@ export async function POST(req: NextRequest) {
       idIssuePlace: body.idIssuePlace || null,
       teachingHourlyRate: body.teachingHourlyRate ? Number(body.teachingHourlyRate) : null,
       assistantHourlyRate: body.assistantHourlyRate ? Number(body.assistantHourlyRate) : null,
+      staffDailyRate: body.staffDailyRate ? Number(body.staffDailyRate) : null,
+      bankName: body.bankName ? String(body.bankName).trim() : null,
+      bankAccountNumber: body.bankAccountNumber ? String(body.bankAccountNumber).trim() : null,
+      bankAccountHolder: body.bankAccountHolder ? String(body.bankAccountHolder).trim() : null,
       payMode: body.payMode || "HOURLY",
       notes: body.notes || null,
     },

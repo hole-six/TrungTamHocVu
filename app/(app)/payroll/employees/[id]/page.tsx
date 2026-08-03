@@ -173,16 +173,20 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
                 <dd className="font-medium">{employee.contracts[0]?.expiryDate ? formatDate(employee.contracts[0].expiryDate) : "—"}</dd>
               </div>
               <div className="flex justify-between border-b border-hairline/60 py-1">
-                <dt className="text-ink-muted48">Hình thức lương</dt>
+                <dt className="text-ink-muted48">Kiểu tính dạy/TG</dt>
                 <dd className="font-medium">{employee.payMode === "SESSION" ? "Theo ca" : "Theo giờ"}</dd>
               </div>
               <div className="flex justify-between border-b border-hairline/60 py-1">
-                <dt className="text-ink-muted48">Lương/giờ dạy</dt>
+                <dt className="text-ink-muted48">{employee.payMode === "SESSION" ? "Đơn giá dạy/ca" : "Đơn giá dạy/giờ"}</dt>
                 <dd className="font-medium">{employee.teachingHourlyRate != null ? formatVnd(employee.teachingHourlyRate) : "—"}</dd>
               </div>
-              <div className="flex justify-between py-1">
-                <dt className="text-ink-muted48">Lương/giờ trợ giảng</dt>
+              <div className="flex justify-between border-b border-hairline/60 py-1">
+                <dt className="text-ink-muted48">{employee.payMode === "SESSION" ? "Đơn giá TG/ca" : "Đơn giá TG/giờ"}</dt>
                 <dd className="font-medium">{employee.assistantHourlyRate != null ? formatVnd(employee.assistantHourlyRate) : "—"}</dd>
+              </div>
+              <div className="flex justify-between py-1">
+                <dt className="text-ink-muted48">Đơn giá 1 công HC</dt>
+                <dd className="font-medium">{employee.staffDailyRate != null ? formatVnd(employee.staffDailyRate) : "—"}</dd>
               </div>
             </dl>
           </div>
@@ -199,6 +203,13 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
               idIssueDate: employee.idIssueDate ? employee.idIssueDate.toISOString() : null,
               idIssuePlace: employee.idIssuePlace,
               resignDate: employee.resignDate ? employee.resignDate.toISOString() : null,
+              payMode: employee.payMode,
+              teachingHourlyRate: employee.teachingHourlyRate,
+              assistantHourlyRate: employee.assistantHourlyRate,
+              staffDailyRate: employee.staffDailyRate,
+              bankName: employee.bankName,
+              bankAccountNumber: employee.bankAccountNumber,
+              bankAccountHolder: employee.bankAccountHolder,
             }}
             canEdit={canUpdateWithOverride("hr", access.role, access.override)}
           />

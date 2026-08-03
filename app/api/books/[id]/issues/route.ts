@@ -6,6 +6,7 @@ import { canEditCharges } from "@/lib/server/tuition-rules";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canCreateWithOverride } from "@/lib/server/role-matrix";
 import { syncBookQuantityOnHand } from "@/lib/server/database-sync";
+import { canAccessBranch } from "@/lib/branch-filter";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const student = await prisma.student.findUnique({ where: { id: studentId } });
   if (!student) return NextResponse.json({ error: "Không tìm thấy học viên" }, { status: 404 });
-  if (user.branchId && student.branchId !== user.branchId) {
+  if (!(await canAccessBranch(student.branchId))) {
     return NextResponse.json({ error: "Học viên không thuộc chi nhánh của bạn" }, { status: 403 });
   }
 

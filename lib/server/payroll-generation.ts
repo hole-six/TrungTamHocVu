@@ -65,6 +65,7 @@ export async function generatePayrollForRun(runId: string) {
     const assistantHours = assistantAssignments.reduce((s, a) => s + (a.hours ?? 0), 0);
     const assistantAmount = assistantAssignments.reduce((s, a) => s + (a.amount ?? 0), 0);
     const staffDays = timesheetEntries.reduce((s, t) => s + (t.days ?? 0), 0);
+    const baseSalaryAmount = Math.round(staffDays * (employee.staffDailyRate ?? 0));
 
     const existingLine = await prisma.payrollLine.findUnique({
       where: { payrollRunId_employeeId: { payrollRunId: run.id, employeeId: employee.id } },
@@ -73,7 +74,7 @@ export async function generatePayrollForRun(runId: string) {
     const hasSourceData = teachingAssignments.length > 0 || assistantAssignments.length > 0 || timesheetEntries.length > 0;
     if (!hasSourceData && !existingLine) continue;
 
-    const totalAmount = teachingAmount + assistantAmount;
+    const totalAmount = teachingAmount + assistantAmount + baseSalaryAmount;
 
     if (existingLine) {
       await prisma.payrollLine.update({
@@ -84,13 +85,24 @@ export async function generatePayrollForRun(runId: string) {
           assistantHours,
           assistantAmount,
           staffDays,
-          totalAmount: totalAmount + existingLine.baseSalaryAmount + existingLine.bonus - existingLine.penalty,
+          baseSalaryAmount,
+          totalAmount: totalAmount + existingLine.bonus - existingLine.penalty,
         },
       });
       updated++;
     } else {
       await prisma.payrollLine.create({
-        data: { payrollRunId: run.id, employeeId: employee.id, teachingHours, teachingAmount, assistantHours, assistantAmount, staffDays, totalAmount },
+        data: {
+          payrollRunId: run.id,
+          employeeId: employee.id,
+          teachingHours,
+          teachingAmount,
+          assistantHours,
+          assistantAmount,
+          staffDays,
+          baseSalaryAmount,
+          totalAmount,
+        },
       });
       created++;
     }

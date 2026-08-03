@@ -30,7 +30,9 @@ ALTER TABLE "new_charges" RENAME TO "charges";
 CREATE UNIQUE INDEX "charges_installment_id_key" ON "charges"("installment_id");
 CREATE INDEX "charges_billing_period_id_idx" ON "charges"("billing_period_id");
 CREATE UNIQUE INDEX "charges_student_id_class_id_billing_period_id_key" ON "charges"("student_id", "class_id", "billing_period_id");
-CREATE TABLE "new_session_credits" (
+-- session_credits is introduced here.  It did not exist in any prior
+-- migration, so redefining/copying it prevented clean database creation.
+CREATE TABLE "session_credits" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "student_id" TEXT NOT NULL,
     "enrollment_id" TEXT NOT NULL,
@@ -45,9 +47,6 @@ CREATE TABLE "new_session_credits" (
     CONSTRAINT "session_credits_source_session_id_fkey" FOREIGN KEY ("source_session_id") REFERENCES "class_sessions" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "session_credits_consumed_session_id_fkey" FOREIGN KEY ("consumed_session_id") REFERENCES "class_sessions" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
-INSERT INTO "new_session_credits" ("consumed_at", "consumed_session_id", "created_at", "enrollment_id", "id", "notes", "source_session_id", "status", "student_id") SELECT "consumed_at", "consumed_session_id", "created_at", "enrollment_id", "id", "notes", "source_session_id", "status", "student_id" FROM "session_credits";
-DROP TABLE "session_credits";
-ALTER TABLE "new_session_credits" RENAME TO "session_credits";
 CREATE UNIQUE INDEX "session_credits_student_id_source_session_id_key" ON "session_credits"("student_id", "source_session_id");
 PRAGMA foreign_keys=ON;
 PRAGMA defer_foreign_keys=OFF;

@@ -5,6 +5,7 @@ import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canDeleteWithOverride, canUpdateWithOverride } from "@/lib/server/role-matrix";
 import { canEditCharges } from "@/lib/server/tuition-rules";
 import { syncBookQuantityOnHand } from "@/lib/server/database-sync";
+import { canAccessBranch } from "@/lib/branch-filter";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -21,7 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   });
   if (!existing) return NextResponse.json({ error: "Không tìm thấy dòng xuất sách" }, { status: 404 });
 
-  if (user.branchId && existing.student.branchId !== user.branchId) {
+  if (!(await canAccessBranch(existing.student.branchId))) {
     return NextResponse.json({ error: "Dòng xuất sách không thuộc chi nhánh của bạn" }, { status: 403 });
   }
 
@@ -63,7 +64,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   });
   if (!existing) return NextResponse.json({ error: "Không tìm thấy dòng xuất sách" }, { status: 404 });
 
-  if (user.branchId && existing.student.branchId !== user.branchId) {
+  if (!(await canAccessBranch(existing.student.branchId))) {
     return NextResponse.json({ error: "Dòng xuất sách không thuộc chi nhánh của bạn" }, { status: 403 });
   }
 

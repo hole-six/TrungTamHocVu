@@ -189,15 +189,76 @@ async function ensurePaymentCashParity(branchId: string) {
   let repaired = 0;
   for (const payment of payments) {
     const allocatedAmount = payment.allocations.reduce((sum, item) => sum + item.amount, 0);
-    if (allocatedAmount <= 0) continue;
+    const refundedAmount = await prisma.refund.aggregate({
+      where: { paymentId: payment.id },
+      _sum: { amount: true },
+    });
+    const refunded = refundedAmount._sum.amount ?? 0;
+    const netPaymentAmount = Math.max(payment.amount - refunded, 0);
+    const credits = await prisma.creditBalance.findMany({
+      where: { paymentId: payment.id },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    });
+
+    let currentCreditAmount = credits.reduce((sum, item) => sum + item.amount, 0);
+    let overflow = Math.max(allocatedAmount + currentCreditAmount - netPaymentAmount, 0);
+
+    for (const credit of credits) {
+      if (overflow <= 0) break;
+      const deduction = Math.min(credit.amount, overflow);
+      if (deduction >= credit.amount) {
+        await prisma.creditBalance.delete({ where: { id: credit.id } });
+      } else {
+        await prisma.creditBalance.update({
+          where: { id: credit.id },
+          data: { amount: credit.amount - deduction, usedAt: credit.usedAt ?? new Date() },
+        });
+      }
+      currentCreditAmount -= deduction;
+      overflow -= deduction;
+      repaired += 1;
+    }
+
+    const missingCreditAmount = Math.max(netPaymentAmount - allocatedAmount - currentCreditAmount, 0);
+    if (missingCreditAmount > 0) {
+      const reason = `QA credit carry-forward from payment ${payment.paymentNo}`;
+      const existingCredit = await prisma.creditBalance.findFirst({
+        where: { studentId: payment.studentId, paymentId: payment.id, reason },
+      });
+      if (existingCredit) {
+        await prisma.creditBalance.update({
+          where: { id: existingCredit.id },
+          data: { amount: missingCreditAmount, usedAt: null },
+        });
+      } else {
+        await prisma.creditBalance.create({
+          data: {
+            studentId: payment.studentId,
+            paymentId: payment.id,
+            amount: missingCreditAmount,
+            reason,
+          },
+        });
+      }
+      currentCreditAmount = credits.reduce((sum, item) => sum + item.amount, 0) + missingCreditAmount;
+      repaired += 1;
+    }
+
+    const expectedStatus =
+      refunded <= 0
+        ? allocatedAmount > 0 || currentCreditAmount > 0
+          ? "ALLOCATED"
+          : "CONFIRMED"
+        : refunded >= payment.amount
+        ? "REFUNDED"
+        : "PARTIALLY_REFUNDED";
 
     const shouldRepair =
-      allocatedAmount !== payment.amount ||
+      allocatedAmount + currentCreditAmount !== netPaymentAmount ||
+      payment.status !== expectedStatus ||
       payment.cashPosting?.amount !== payment.amount ||
       payment.cashPosting?.cashTransaction.amount !== payment.amount ||
       !payment.cashPosting;
-
-    if (!shouldRepair) continue;
 
     const existingCashTx = await prisma.cashTransaction.findFirst({
       where: {
@@ -213,7 +274,7 @@ async function ensurePaymentCashParity(branchId: string) {
             categoryId: category.id,
             type: "THU",
             txnDate: payment.paidDate,
-            amount: allocatedAmount,
+            amount: payment.amount,
             detail: TAG,
             description: payment.paymentNo,
             handledById: payment.receivedById ?? null,
@@ -227,7 +288,7 @@ async function ensurePaymentCashParity(branchId: string) {
             categoryId: category.id,
             type: "THU",
             txnDate: payment.paidDate,
-            amount: allocatedAmount,
+            amount: payment.amount,
             detail: TAG,
             description: payment.paymentNo,
             handledById: payment.receivedById ?? null,
@@ -240,8 +301,17 @@ async function ensurePaymentCashParity(branchId: string) {
       await prisma.payment.update({
         where: { id: payment.id },
         data: {
-          amount: allocatedAmount,
+          amount: allocatedAmount + currentCreditAmount + refunded,
           notes: `${payment.notes ? `${payment.notes} | ` : ""}${TAG}: amount synced with allocations`,
+        },
+      });
+    }
+
+    if (shouldRepair) {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: expectedStatus,
         },
       });
     }
@@ -250,12 +320,12 @@ async function ensurePaymentCashParity(branchId: string) {
       where: { paymentId: payment.id },
       update: {
         cashTransactionId: cashTransaction.id,
-        amount: allocatedAmount,
+        amount: payment.amount,
       },
       create: {
         paymentId: payment.id,
         cashTransactionId: cashTransaction.id,
-        amount: allocatedAmount,
+        amount: payment.amount,
       },
     });
 
@@ -460,6 +530,40 @@ async function ensureQAMetadata(branchId: string) {
   };
 }
 
+async function ensureSinglePrimaryGuardian(branchId: string) {
+  const links = await prisma.studentGuardian.findMany({
+    where: { student: { branchId }, isPrimary: true },
+    orderBy: [{ id: "asc" }],
+  });
+  const byStudent = new Map<string, typeof links>();
+  for (const link of links) {
+    byStudent.set(link.studentId, [...(byStudent.get(link.studentId) ?? []), link]);
+  }
+
+  let repaired = 0;
+  for (const studentLinks of byStudent.values()) {
+    if (studentLinks.length <= 1) continue;
+    const [keep, ...duplicates] = studentLinks;
+    for (const duplicate of duplicates) {
+      await prisma.studentGuardian.update({
+        where: { id: duplicate.id },
+        data: { isPrimary: false },
+      });
+      repaired += 1;
+    }
+
+    if (!keep.isPrimary) {
+      await prisma.studentGuardian.update({
+        where: { id: keep.id },
+        data: { isPrimary: true },
+      });
+      repaired += 1;
+    }
+  }
+
+  return { repaired };
+}
+
 async function main() {
   runNpmScript("seed:demo");
   runNpmScript("seed:tuition-stress");
@@ -474,8 +578,10 @@ async function main() {
   const timesheetAndPayroll = await ensureTimesheetAndPayroll(branch.id);
   const payrollRecalculation = await recalculateAllOpenPayrollRuns(branch.id);
   const switchCases = await ensureBillingModelSwitchCases(branch.id);
+  runNpmScript("repair:tuition-balances");
   const paymentCashParity = await ensurePaymentCashParity(branch.id);
   const courseEnrollmentRepair = await ensureActiveCourseEnrollmentsCharged(branch.id);
+  const primaryGuardianRepair = await ensureSinglePrimaryGuardian(branch.id);
 
   const summary = {
     ok: true,
@@ -488,6 +594,7 @@ async function main() {
     switchCases,
     paymentCashParity,
     courseEnrollmentRepair,
+    primaryGuardianRepair,
     counts: {
       stressStudents: await prisma.student.count({ where: { studentCode: { startsWith: "STRESS-HV" } } }),
       charges: await prisma.charge.count({ where: { student: { studentCode: { startsWith: "STRESS-HV" } } } }),

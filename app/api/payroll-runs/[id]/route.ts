@@ -6,6 +6,7 @@ import { hasPermission } from "@/lib/server/permissions";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canViewFullWithOverride, canViewWithOverride, canUpdateWithOverride, canDeleteWithOverride } from "@/lib/server/role-matrix";
 import { canAccessBranch } from "@/lib/branch-filter";
+import { evaluatePayrollRunChecklist } from "@/lib/server/payroll-checklist";
 
 // Trạng thái đích -> quyền cần có. APPROVED/LOCKED/PAID là các bước không thể đảo
 // ngược (chốt lương) nên gác bằng RBAC, không chỉ đăng nhập là đủ (Master Spec §10).
@@ -70,6 +71,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const requiredAction = STATUS_PERMISSION[body.status];
   if (requiredAction && !(await hasPermission(user, "payroll", requiredAction))) {
     return NextResponse.json({ error: "Bạn không có quyền thực hiện thao tác này với kỳ lương" }, { status: 403 });
+  }
+  if (body.status === "APPROVED" || body.status === "LOCKED") {
+    const checklist = await evaluatePayrollRunChecklist(run.id);
+    if (!checklist?.isReady) {
+      const pending = checklist?.items.filter((item) => !item.done).map((item) => item.label).join("; ") ?? "Checklist chưa hoàn tất";
+      return NextResponse.json(
+        { error: `Chưa thể ${body.status === "APPROVED" ? "duyệt" : "khóa"} kỳ lương. Cần hoàn tất: ${pending}.` },
+        { status: 409 },
+      );
+    }
   }
 
   const now = new Date();

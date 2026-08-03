@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { hasPermission } from "@/lib/server/permissions";
 import { computeOutstandingBalance } from "@/lib/server/balance";
+import { canAccessBranch } from "@/lib/branch-filter";
 
 const CASH_METHOD = "Tiền mặt";
 const MAX_CASH_DISCOUNT_PERCENT = 10;
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
 
   const student = await prisma.student.findUnique({ where: { id: studentId } });
   if (!student) return NextResponse.json({ error: "Không tìm thấy học viên" }, { status: 404 });
-  if (user.branchId && student.branchId !== user.branchId) {
+  if (!(await canAccessBranch(student.branchId))) {
     return NextResponse.json({ error: "Học viên không thuộc chi nhánh của bạn" }, { status: 403 });
   }
 

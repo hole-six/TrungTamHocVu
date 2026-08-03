@@ -38,12 +38,22 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const data: Record<string, unknown> = {};
   for (const field of [
     "fullName", "shortName", "position", "phone", "email", "workStatus", "payMode", "notes",
-    "hometown", "permanentAddress", "idNumber", "idIssuePlace",
+    "hometown", "permanentAddress", "idNumber", "idIssuePlace", "bankName", "bankAccountNumber", "bankAccountHolder",
   ]) {
     if (field in body) data[field] = body[field] || null;
   }
-  for (const field of ["teachingHourlyRate", "assistantHourlyRate"]) {
-    if (field in body) data[field] = body[field] === "" || body[field] === null ? null : Number(body[field]);
+  for (const field of ["teachingHourlyRate", "assistantHourlyRate", "staffDailyRate"]) {
+    if (field in body) {
+      if (body[field] === "" || body[field] === null) {
+        data[field] = null;
+      } else {
+        const value = Number(body[field]);
+        if (!Number.isFinite(value) || value < 0) {
+          return NextResponse.json({ error: "Đơn giá lương phải là số không âm" }, { status: 400 });
+        }
+        data[field] = value;
+      }
+    }
   }
   for (const field of ["dob", "idIssueDate", "resignDate"]) {
     if (field in body) data[field] = body[field] ? new Date(body[field]) : null;

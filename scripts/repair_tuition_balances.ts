@@ -120,9 +120,11 @@ async function main() {
 
     const creditPool: CreditState[] = credits.map((credit) => ({
       id: credit.id,
-      remainingAmount: credit.amount,
+      // A credit already consumed in a prior period must never be reopened and
+      // applied again while rebuilding later opening balances.
+      remainingAmount: credit.usedAt ? 0 : credit.amount,
       createdAt: credit.createdAt,
-      usedAt: null,
+      usedAt: credit.usedAt,
     }));
 
     const changedCharges: Array<{
@@ -169,9 +171,11 @@ async function main() {
       const debtBeforeCredits = billedBefore - allocatedBefore;
       const availableCredits = creditPool.filter((credit) => credit.createdAt < anchorDate && credit.remainingAmount > 0);
       const availableCreditAmount = availableCredits.reduce((sum, credit) => sum + credit.remainingAmount, 0);
-      const anchorBaseAmount = groupCharges[0].tuitionAmount + groupCharges[0].materialsAmount;
-      const creditToApply = Math.min(Math.max(debtBeforeCredits + anchorBaseAmount, 0), availableCreditAmount);
-      const anchorOpeningBalance = debtBeforeCredits - creditToApply;
+      // Credits settle debt carried from earlier periods only.  Applying them
+      // against this period's new tuition turns the opening balance negative,
+      // which can create a negative invoice total and later over-allocation.
+      const creditToApply = Math.min(Math.max(debtBeforeCredits, 0), availableCreditAmount);
+      const anchorOpeningBalance = Math.max(debtBeforeCredits - creditToApply, 0);
 
       for (const charge of groupCharges) {
         const openingBalance = charge.id === groupCharges[0].id ? anchorOpeningBalance : 0;

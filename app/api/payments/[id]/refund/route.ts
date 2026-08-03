@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { hasPermission } from "@/lib/server/permissions";
+import { canAccessBranch } from "@/lib/branch-filter";
 
 // Hoàn tiền — spec §14 liệt kê "Hoàn tiền/hủy payment" là điểm không được tự động
 // quyết định, nên bắt buộc gác quyền payment.refund (không mặc định cho mọi user
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
   if (!payment) return NextResponse.json({ error: "Không tìm thấy phiếu thu" }, { status: 404 });
   if (payment.status === "VOIDED") return NextResponse.json({ error: "Phiếu thu đã bị hủy" }, { status: 409 });
-  if (user.branchId && payment.student.branchId !== user.branchId) {
+  if (!(await canAccessBranch(payment.student.branchId))) {
     return NextResponse.json({ error: "Phiếu thu không thuộc chi nhánh của bạn" }, { status: 403 });
   }
 

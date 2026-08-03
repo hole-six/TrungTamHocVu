@@ -7,12 +7,18 @@ type EmployeeRow = {
   employeeCode: string;
   fullName: string;
   position: string | null;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  bankAccountHolder: string | null;
+  payMode: string;
   teachingHours: number;
   teachingAmount: number;
   assistantHours: number;
   assistantAmount: number;
   staffDays: number;
   staffHours: number;
+  staffDailyRate: number | null;
+  staffAmount: number;
   sessionCount: number;
   timesheetEntryCount: number;
   contractStatus: string;
@@ -45,7 +51,7 @@ export default function PayrollExportButton({
 }: {
   fromDate: string;
   toDate: string;
-  totals: { totalTeachingAmount: number; totalAssistantAmount: number; totalPayroll: number };
+  totals: { totalTeachingAmount: number; totalAssistantAmount: number; totalStaffAmount: number; totalPayroll: number };
   employees: EmployeeRow[];
   runs: RunRow[];
 }) {
@@ -64,7 +70,8 @@ export default function PayrollExportButton({
             { metric: "Nhan su co phat sinh cong", value: employees.length },
             { metric: "Tien day", value: formatVnd(totals.totalTeachingAmount) },
             { metric: "Tien tro giang", value: formatVnd(totals.totalAssistantAmount) },
-            { metric: "Tong cong day/TG", value: formatVnd(totals.totalPayroll) },
+            { metric: "Tien cong hanh chinh", value: formatVnd(totals.totalStaffAmount) },
+            { metric: "Tong payroll", value: formatVnd(totals.totalPayroll) },
           ],
         },
         {
@@ -73,12 +80,15 @@ export default function PayrollExportButton({
             { key: "employeeCode", label: "Ma NV" },
             { key: "fullName", label: "Ho ten" },
             { key: "position", label: "Vi tri" },
+            { key: "payMode", label: "Kieu tinh day/TG" },
             { key: "teachingHours", label: "Gio day" },
             { key: "teachingAmount", label: "Tien day" },
             { key: "assistantHours", label: "Gio tro giang" },
             { key: "assistantAmount", label: "Tien tro giang" },
             { key: "staffDays", label: "Cong hanh chinh" },
             { key: "staffHours", label: "Gio hanh chinh" },
+            { key: "staffDailyRate", label: "Don gia 1 cong" },
+            { key: "staffAmount", label: "Tien cong HC" },
             { key: "sessionCount", label: "So buoi" },
             { key: "timesheetEntryCount", label: "So ngay cham cong" },
             { key: "contractStatus", label: "Trang thai HD" },
@@ -86,8 +96,34 @@ export default function PayrollExportButton({
           rows: employees.map((item) => ({
             ...item,
             position: item.position ?? "",
+            payMode: item.payMode === "SESSION" ? "Theo ca" : "Theo gio",
             teachingAmount: formatVnd(item.teachingAmount),
             assistantAmount: formatVnd(item.assistantAmount),
+            staffDailyRate: item.staffDailyRate != null ? formatVnd(item.staffDailyRate) : "",
+            staffAmount: formatVnd(item.staffAmount),
+          })),
+        },
+        {
+          title: "Danh sach chuyen khoan nhanh",
+          columns: [
+            { key: "employeeCode", label: "Ma NV" },
+            { key: "fullName", label: "Ho ten" },
+            { key: "bankName", label: "Ngan hang" },
+            { key: "bankAccountNumber", label: "So tai khoan" },
+            { key: "bankAccountHolder", label: "Chu tai khoan" },
+            { key: "amount", label: "So tien" },
+            { key: "transferNote", label: "Noi dung CK" },
+            { key: "note", label: "Ghi chu" },
+          ],
+          rows: employees.map((item) => ({
+            employeeCode: item.employeeCode,
+            fullName: item.fullName,
+            bankName: item.bankName ?? "",
+            bankAccountNumber: item.bankAccountNumber ?? "",
+            bankAccountHolder: item.bankAccountHolder ?? item.fullName,
+            amount: formatVnd(item.teachingAmount + item.assistantAmount + item.staffAmount),
+            transferNote: `Luong ${fromDate}_${toDate} - ${item.fullName}`,
+            note: item.bankName && item.bankAccountNumber ? "" : "Thieu thong tin chuyen khoan",
           })),
         },
         {
@@ -114,8 +150,12 @@ export default function PayrollExportButton({
   }
 
   return (
-    <button onClick={handleExport} className="btn-ghost">
-      Xuất Excel
+    <button
+      type="button"
+      onClick={handleExport}
+      className="inline-flex items-center justify-center rounded-2xl border-2 border-emerald-200 bg-white px-5 py-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50"
+    >
+      Xuất Excel tổng hợp
     </button>
   );
 }

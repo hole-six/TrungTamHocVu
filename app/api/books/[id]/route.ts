@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { computeStockBalance } from "@/lib/server/inventory-rules";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdateWithOverride, canDeleteWithOverride } from "@/lib/server/role-matrix";
+import { canAccessBranch } from "@/lib/branch-filter";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -17,7 +18,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     },
   });
   if (!book) return NextResponse.json({ error: "Không tìm thấy sách" }, { status: 404 });
-  if (user.branchId && book.branchId !== user.branchId) {
+  if (!(await canAccessBranch(book.branchId))) {
     return NextResponse.json({ error: "Sách không thuộc chi nhánh của bạn" }, { status: 403 });
   }
 
