@@ -9,27 +9,18 @@ docs
 tmp/
 __pycache__/
 *.pyc
-.next-dev.stdout.log
 .agents/
 .claude/
+.vscode/
+
 # QA generated files
-.qa/.next-*/
-.qa/**/*.log
-.qa/**/trace
+.qa/
 
 # Next.js
-.next/
-**/.next/
-
-# Logs
-*.log
 .next/
 .next-*/
 **/.next/
 **/.next-*/
 
-.qa/.next-*/
-.qa/**/*.log
-.qa/**/trace
-
+# Logs
 *.log

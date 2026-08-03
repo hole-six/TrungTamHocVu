@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(python -m pip install --quiet pymupdf)",
-      "Bash(mkdir -p \"/c/Users/ACER/AppData/Local/Temp/claude/C--Users-ACER-Downloads-TACH/1ee3f6a1-03b1-4ed1-83ef-2c0ab2f94e50/scratchpad/pdf_pages\")",
-      "Bash(python -c ' *)"
-    ]
-  }
-}
