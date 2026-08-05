@@ -1,16 +1,14 @@
 module.exports = {
   apps: [
     {
-      name: "hole-six",
+      name: "mshangedu",
       script: "node_modules/next/dist/bin/next",
-      args: "start",
-      cwd: "/var/www/hole-six",
-      interpreter: "/root/.nvm/versions/node/v20.20.0/bin/node",
+      args: "start -p 5050 -H 127.0.0.1",
+      cwd: "/var/www/mshangedu",
+      interpreter: "/root/.nvm/versions/node/v20.20.2/bin/node",
       exec_mode: "fork",
       env: {
         NODE_ENV: "production",
-        PORT: "5003",
-        HOSTNAME: "127.0.0.1",
       },
     },
   ],
