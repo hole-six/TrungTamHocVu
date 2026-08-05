@@ -58,16 +58,19 @@ export default function FormGuide({
 
   const buttonClassName =
     position === "inline"
-      ? "inline-flex h-11 items-center gap-2 rounded-2xl border border-[#dbe7ff] bg-white px-4 text-sm font-semibold text-[#1f6feb] shadow-sm transition hover:border-[#1f6feb] hover:bg-[#f7fbff]"
-      : "pointer-events-auto inline-flex h-14 items-center gap-3 rounded-full border border-[#dbe7ff] bg-white/95 px-5 text-sm font-semibold text-[#1f6feb] shadow-[0_18px_45px_rgba(31,111,235,0.16)] backdrop-blur";
+      ? "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#dbe7ff] bg-white text-[#1f6feb] shadow-sm transition hover:border-[#1f6feb] hover:bg-[#f7fbff]"
+      : "pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full border border-[#dbe7ff] bg-white/95 text-[#1f6feb] shadow-[0_18px_45px_rgba(31,111,235,0.16)] backdrop-blur";
 
   return (
     <div className={wrapperClassName}>
-      <button type="button" onClick={() => setOpen((current) => !current)} className={buttonClassName}>
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eaf3ff]">
-          <HelpCircle className="h-4 w-4" strokeWidth={2.4} />
-        </span>
-        <span>{buttonLabel}</span>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className={buttonClassName}
+        aria-label={buttonLabel}
+        title={buttonLabel}
+      >
+        <HelpCircle className="h-5 w-5" strokeWidth={2.4} />
       </button>
 
       {open ? (
