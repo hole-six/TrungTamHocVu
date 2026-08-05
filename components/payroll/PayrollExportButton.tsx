@@ -2,149 +2,160 @@
 
 import { exportSectionsToExcel } from "@/lib/export-utils";
 import { PAYROLL_RUN_STATUS_LABEL } from "@/lib/server/payroll-rules";
-
-type EmployeeRow = {
-  employeeCode: string;
-  fullName: string;
-  position: string | null;
-  bankName: string | null;
-  bankAccountNumber: string | null;
-  bankAccountHolder: string | null;
-  payMode: string;
-  teachingHours: number;
-  teachingAmount: number;
-  assistantHours: number;
-  assistantAmount: number;
-  staffDays: number;
-  staffHours: number;
-  staffDailyRate: number | null;
-  staffAmount: number;
-  sessionCount: number;
-  timesheetEntryCount: number;
-  contractStatus: string;
-};
-
-type RunRow = {
-  periodName: string;
-  status: string;
-  lineCount: number;
-  teachingHours: number;
-  assistantHours: number;
-  staffDays: number;
-  totalAmount: number;
-};
+import type { PayrollEmployeeRow } from "@/lib/server/payroll-row-builder";
 
 function formatVnd(amount: number) {
   return `${amount.toLocaleString("vi-VN")}đ`;
 }
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("vi-VN");
+function formatMonthLabel(period: string) {
+  const [year, month] = period.split("-");
+  return `Tháng ${Number(month)}/${year}`;
 }
 
+// Duy nhất 1 nút xuất Excel cho cả trang (nút "xuất đẹp" cũ ở khu vực kỳ lương đã bỏ vì
+// trùng lặp, không thêm được thông tin gì mới) — nên xuất phải đầy đủ nhất có thể, đủ để
+// dùng độc lập mà không cần mở lại ứng dụng.
 export default function PayrollExportButton({
-  fromDate,
-  toDate,
+  period,
+  rows,
+  runStatus,
   totals,
-  employees,
-  runs,
 }: {
-  fromDate: string;
-  toDate: string;
-  totals: { totalTeachingAmount: number; totalAssistantAmount: number; totalStaffAmount: number; totalPayroll: number };
-  employees: EmployeeRow[];
-  runs: RunRow[];
+  period: string;
+  rows: PayrollEmployeeRow[];
+  runStatus: string | null;
+  totals: {
+    totalTeachingHours: number;
+    totalTeachingAmount: number;
+    totalAssistantHours: number;
+    totalAssistantAmount: number;
+    totalStaffDays: number;
+    totalStaffHours: number;
+    totalStaffAmount: number;
+    totalPayroll: number;
+    sessionCount: number;
+    timesheetEntryCount: number;
+  };
 }) {
   function handleExport() {
+    const totalBonus = rows.reduce((sum, row) => sum + row.bonus, 0);
+    const totalPenalty = rows.reduce((sum, row) => sum + row.penalty, 0);
+    const missingBankCount = rows.filter((row) => !row.hasBankInfo).length;
+
     exportSectionsToExcel(
       [
         {
-          title: "Tong quan payroll",
+          title: "Tổng quan",
           columns: [
-            { key: "metric", label: "Chi so" },
-            { key: "value", label: "Gia tri" },
+            { key: "chiSo", label: "Chỉ số" },
+            { key: "giaTri", label: "Giá trị" },
           ],
           rows: [
-            { metric: "Tu ngay", value: formatDate(fromDate) },
-            { metric: "Den ngay", value: formatDate(toDate) },
-            { metric: "Nhan su co phat sinh cong", value: employees.length },
-            { metric: "Tien day", value: formatVnd(totals.totalTeachingAmount) },
-            { metric: "Tien tro giang", value: formatVnd(totals.totalAssistantAmount) },
-            { metric: "Tien cong hanh chinh", value: formatVnd(totals.totalStaffAmount) },
-            { metric: "Tong payroll", value: formatVnd(totals.totalPayroll) },
+            { chiSo: "Kỳ lương", giaTri: formatMonthLabel(period) },
+            { chiSo: "Trạng thái kỳ lương", giaTri: runStatus ? PAYROLL_RUN_STATUS_LABEL[runStatus] ?? runStatus : "Chưa tạo kỳ lương (số liệu xem trước)" },
+            { chiSo: "Tổng số nhân sự có phát sinh", giaTri: String(rows.length) },
+            { chiSo: "Tổng số buổi dạy/trợ giảng", giaTri: String(totals.sessionCount) },
+            { chiSo: "Tổng số ngày công hành chính", giaTri: String(totals.timesheetEntryCount) },
+            { chiSo: "Tiền dạy", giaTri: formatVnd(totals.totalTeachingAmount) },
+            { chiSo: "Tiền trợ giảng", giaTri: formatVnd(totals.totalAssistantAmount) },
+            { chiSo: "Tiền công hành chính (lương cứng)", giaTri: formatVnd(totals.totalStaffAmount) },
+            { chiSo: "Tổng thưởng", giaTri: formatVnd(totalBonus) },
+            { chiSo: "Tổng phạt", giaTri: formatVnd(totalPenalty) },
+            { chiSo: "Tổng quỹ lương (thực nhận)", giaTri: formatVnd(totals.totalPayroll) },
+            { chiSo: "Số người còn thiếu thông tin chuyển khoản", giaTri: String(missingBankCount) },
           ],
         },
         {
-          title: "Cong phat sinh theo nhan su",
+          title: "Bảng lương chi tiết",
           columns: [
-            { key: "employeeCode", label: "Ma NV" },
-            { key: "fullName", label: "Ho ten" },
-            { key: "position", label: "Vi tri" },
-            { key: "payMode", label: "Kieu tinh day/TG" },
-            { key: "teachingHours", label: "Gio day" },
-            { key: "teachingAmount", label: "Tien day" },
-            { key: "assistantHours", label: "Gio tro giang" },
-            { key: "assistantAmount", label: "Tien tro giang" },
-            { key: "staffDays", label: "Cong hanh chinh" },
-            { key: "staffHours", label: "Gio hanh chinh" },
-            { key: "staffDailyRate", label: "Don gia 1 cong" },
-            { key: "staffAmount", label: "Tien cong HC" },
-            { key: "sessionCount", label: "So buoi" },
-            { key: "timesheetEntryCount", label: "So ngay cham cong" },
-            { key: "contractStatus", label: "Trang thai HD" },
+            { key: "employeeCode", label: "Mã NV" },
+            { key: "fullName", label: "Họ tên" },
+            { key: "position", label: "Vị trí" },
+            { key: "workStatus", label: "Trạng thái làm việc" },
+            { key: "contractStatus", label: "Trạng thái hợp đồng" },
+            { key: "payMode", label: "Kiểu tính công" },
+            { key: "teachingHourlyRate", label: "Đơn giá dạy" },
+            { key: "teachingHours", label: "Giờ/ca dạy" },
+            { key: "teachingAmount", label: "Tiền dạy" },
+            { key: "assistantHourlyRate", label: "Đơn giá trợ giảng" },
+            { key: "assistantHours", label: "Giờ/ca trợ giảng" },
+            { key: "assistantAmount", label: "Tiền trợ giảng" },
+            { key: "staffDailyRate", label: "Đơn giá 1 công HC" },
+            { key: "staffDays", label: "Công hành chính" },
+            { key: "staffHours", label: "Giờ chấm công HC" },
+            { key: "baseSalaryAmount", label: "Lương cứng" },
+            { key: "bonus", label: "Thưởng" },
+            { key: "penalty", label: "Phạt" },
+            { key: "totalAmount", label: "Tổng lương" },
+            { key: "dataSource", label: "Nguồn số liệu" },
+            { key: "notes", label: "Ghi chú" },
           ],
-          rows: employees.map((item) => ({
-            ...item,
-            position: item.position ?? "",
-            payMode: item.payMode === "SESSION" ? "Theo ca" : "Theo gio",
-            teachingAmount: formatVnd(item.teachingAmount),
-            assistantAmount: formatVnd(item.assistantAmount),
-            staffDailyRate: item.staffDailyRate != null ? formatVnd(item.staffDailyRate) : "",
-            staffAmount: formatVnd(item.staffAmount),
+          rows: rows.map((row) => ({
+            employeeCode: row.employeeCode,
+            fullName: row.fullName,
+            position: row.position ?? "",
+            workStatus: row.workStatus === "ACTIVE" ? "Đang làm" : "Đã nghỉ",
+            contractStatus: row.contractStatus || "Ổn định",
+            payMode: row.payMode === "SESSION" ? "Theo ca" : "Theo giờ",
+            teachingHourlyRate: row.teachingHourlyRate != null ? formatVnd(row.teachingHourlyRate) : "",
+            teachingHours: row.teachingHours,
+            teachingAmount: formatVnd(row.teachingAmount),
+            assistantHourlyRate: row.assistantHourlyRate != null ? formatVnd(row.assistantHourlyRate) : "",
+            assistantHours: row.assistantHours,
+            assistantAmount: formatVnd(row.assistantAmount),
+            staffDailyRate: row.staffDailyRate != null ? formatVnd(row.staffDailyRate) : "",
+            staffDays: row.staffDays,
+            staffHours: row.staffHours,
+            baseSalaryAmount: formatVnd(row.baseSalaryAmount),
+            bonus: formatVnd(row.bonus),
+            penalty: formatVnd(row.penalty),
+            totalAmount: formatVnd(row.totalAmount),
+            dataSource: row.lineId ? "Đã tính lương" : "Xem trước (chưa tính lương)",
+            notes: row.notes ?? "",
           })),
         },
         {
-          title: "Danh sach chuyen khoan nhanh",
+          title: "Danh sách chuyển khoản",
           columns: [
-            { key: "employeeCode", label: "Ma NV" },
-            { key: "fullName", label: "Ho ten" },
-            { key: "bankName", label: "Ngan hang" },
-            { key: "bankAccountNumber", label: "So tai khoan" },
-            { key: "bankAccountHolder", label: "Chu tai khoan" },
-            { key: "amount", label: "So tien" },
-            { key: "transferNote", label: "Noi dung CK" },
-            { key: "note", label: "Ghi chu" },
+            { key: "stt", label: "STT" },
+            { key: "employeeCode", label: "Mã NV" },
+            { key: "fullName", label: "Họ tên" },
+            { key: "bankName", label: "Ngân hàng" },
+            { key: "bankAccountNumber", label: "Số tài khoản" },
+            { key: "bankAccountHolder", label: "Chủ tài khoản" },
+            { key: "amount", label: "Số tiền" },
+            { key: "transferNote", label: "Nội dung chuyển khoản" },
+            { key: "note", label: "Ghi chú" },
           ],
-          rows: employees.map((item) => ({
-            employeeCode: item.employeeCode,
-            fullName: item.fullName,
-            bankName: item.bankName ?? "",
-            bankAccountNumber: item.bankAccountNumber ?? "",
-            bankAccountHolder: item.bankAccountHolder ?? item.fullName,
-            amount: formatVnd(item.teachingAmount + item.assistantAmount + item.staffAmount),
-            transferNote: `Luong ${fromDate}_${toDate} - ${item.fullName}`,
-            note: item.bankName && item.bankAccountNumber ? "" : "Thieu thong tin chuyen khoan",
+          rows: rows.map((row, index) => ({
+            stt: index + 1,
+            employeeCode: row.employeeCode,
+            fullName: row.fullName,
+            bankName: row.bankName ?? "",
+            bankAccountNumber: row.bankAccountNumber ?? "",
+            bankAccountHolder: row.bankAccountHolder ?? row.fullName,
+            amount: formatVnd(row.totalAmount),
+            transferNote: `Luong ${period} - ${row.fullName}`,
+            note: row.hasBankInfo ? "" : "Thiếu thông tin chuyển khoản",
           })),
         },
         {
-          title: "Ky luong lien quan",
+          title: "Cách đọc bảng",
           columns: [
-            { key: "periodName", label: "Ky" },
-            { key: "status", label: "Trang thai" },
-            { key: "lineCount", label: "So dong" },
-            { key: "teachingHours", label: "Gio day" },
-            { key: "assistantHours", label: "Gio TG" },
-            { key: "staffDays", label: "Cong NV" },
-            { key: "totalAmount", label: "Tong tien" },
+            { key: "muc", label: "Mục" },
+            { key: "giaiThich", label: "Giải thích" },
           ],
-          rows: runs.map((item) => ({
-            ...item,
-            status: PAYROLL_RUN_STATUS_LABEL[item.status as keyof typeof PAYROLL_RUN_STATUS_LABEL] ?? item.status,
-            totalAmount: formatVnd(item.totalAmount),
-          })),
+          rows: [
+            { muc: "Nguồn số liệu = Đã tính lương", giaiThich: "Số liệu lấy từ dòng lương chính thức của kỳ (đã bấm Tính lại lương), gồm cả thưởng/phạt đã điều chỉnh." },
+            { muc: "Nguồn số liệu = Xem trước", giaiThich: "Kỳ lương tháng này chưa được tạo/tính chính thức — số liệu tính trực tiếp từ buổi dạy/trợ giảng/chấm công, thưởng/phạt mặc định là 0." },
+            { muc: "Theo ca", giaiThich: "Trả cố định 1 đơn vị tiền cho mỗi buổi bất kể buổi đó dạy dài hay ngắn hơn khung giờ chuẩn — tránh sai lệch khi giáo viên dạy quá giờ hoặc cho nghỉ sớm." },
+            { muc: "Theo giờ", giaiThich: "Trả theo đúng số giờ của khung giờ buổi học (giờ kết thúc trừ giờ bắt đầu theo lịch)." },
+            { muc: "Tổng lương", giaiThich: "Tiền dạy + Tiền trợ giảng + Lương cứng + Thưởng − Phạt." },
+          ],
         },
       ],
-      `payroll_${fromDate}_${toDate}`,
+      `payroll_${period}`,
       "Payroll",
     );
   }
@@ -155,7 +166,7 @@ export default function PayrollExportButton({
       onClick={handleExport}
       className="inline-flex items-center justify-center rounded-2xl border-2 border-emerald-200 bg-white px-5 py-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50"
     >
-      Xuất Excel tổng hợp
+      Xuất Excel đầy đủ
     </button>
   );
 }

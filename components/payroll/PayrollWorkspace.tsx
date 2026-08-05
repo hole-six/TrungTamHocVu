@@ -1,12 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import NewEmployeeForm from "@/components/payroll/NewEmployeeForm";
 import NewPayrollRunForm from "@/components/payroll/NewPayrollRunForm";
 import PayrollExportButton from "@/components/payroll/PayrollExportButton";
-import PayrollRunExportButton from "@/components/payroll/PayrollRunExportButton";
 import PayrollRunActions from "@/components/payroll/PayrollRunActions";
 import AddPayrollLineForm from "@/components/payroll/AddPayrollLineForm";
 import PayrollRateCsvTools from "@/components/payroll/PayrollRateCsvTools";
@@ -15,6 +14,8 @@ import { PAYROLL_RUN_STATUS_LABEL } from "@/lib/server/payroll-rules";
 import type { PayrollEmployeeRow } from "@/lib/server/payroll-row-builder";
 
 type FilterMode = "all" | "missing-bank" | "ready-bank" | "missing-rate";
+
+const PAGE_SIZE = 15;
 
 type RunSummary = { id: string; periodName: string; status: string; lineCount: number } | null;
 
@@ -68,6 +69,8 @@ export default function PayrollWorkspace({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
+  const [positionFilter, setPositionFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(initialEmployeeId);
   const [drawerOpen, setDrawerOpen] = useState(Boolean(initialEmployeeId));
 
@@ -91,12 +94,18 @@ export default function PayrollWorkspace({
     router.replace(pageHref({ employeeId: null }), { scroll: false });
   }
 
+  const positionOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.position).filter((value): value is string => Boolean(value)))).sort((a, b) => a.localeCompare(b, "vi")),
+    [rows],
+  );
+
   const filteredRows = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return rows.filter((row) => {
       if (initialFilter === "missing-bank" && row.hasBankInfo) return false;
       if (initialFilter === "ready-bank" && !row.hasBankInfo) return false;
       if (initialFilter === "missing-rate" && !row.hasRateIssue) return false;
+      if (positionFilter && row.position !== positionFilter) return false;
       if (!normalizedQuery) return true;
       return (
         row.fullName.toLowerCase().includes(normalizedQuery) ||
@@ -104,7 +113,25 @@ export default function PayrollWorkspace({
         (row.position ?? "").toLowerCase().includes(normalizedQuery)
       );
     });
-  }, [rows, query, initialFilter]);
+  }, [rows, query, initialFilter, positionFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedRows = filteredRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  function updateSearch(value: string) {
+    setQuery(value);
+    setPage(1);
+  }
+
+  function updatePositionFilter(value: string) {
+    setPositionFilter(value);
+    setPage(1);
+  }
+
+  useEffect(() => {
+    setPage(1);
+  }, [period, initialFilter]);
 
   const totals = useMemo(() => {
     return rows.reduce(
@@ -167,37 +194,7 @@ export default function PayrollWorkspace({
 
             <div className="flex flex-wrap items-start gap-3">
               {!run && permissions.canManagePayrollRuns ? <NewPayrollRunForm defaultPeriod={period} /> : null}
-              <PayrollExportButton
-                fromDate={period}
-                toDate={period}
-                totals={{
-                  totalTeachingAmount: totals.totalTeachingAmount,
-                  totalAssistantAmount: totals.totalAssistantAmount,
-                  totalStaffAmount: totals.totalStaffAmount,
-                  totalPayroll: totals.totalPayroll,
-                }}
-                employees={rows.map((row) => ({
-                  employeeCode: row.employeeCode,
-                  fullName: row.fullName,
-                  position: row.position,
-                  bankName: row.bankName,
-                  bankAccountNumber: row.bankAccountNumber,
-                  bankAccountHolder: row.bankAccountHolder,
-                  payMode: row.payMode,
-                  teachingHours: row.teachingHours,
-                  teachingAmount: row.teachingAmount,
-                  assistantHours: row.assistantHours,
-                  assistantAmount: row.assistantAmount,
-                  staffDays: row.staffDays,
-                  staffHours: row.staffHours,
-                  staffDailyRate: row.staffDailyRate,
-                  staffAmount: row.baseSalaryAmount,
-                  sessionCount: row.sessionCount,
-                  timesheetEntryCount: row.timesheetEntryCount,
-                  contractStatus: row.contractStatus,
-                }))}
-                runs={run ? [{ periodName: run.periodName, status: run.status, lineCount: run.lineCount, teachingHours: totals.totalTeachingHours, assistantHours: totals.totalAssistantHours, staffDays: totals.totalStaffDays, totalAmount: totals.totalPayroll }] : []}
-              />
+              <PayrollExportButton period={period} rows={rows} runStatus={run?.status ?? null} totals={totals} />
               {permissions.canManageEmployees ? <NewEmployeeForm /> : null}
               {permissions.canManageEmployees ? <PayrollRateCsvTools items={rows} /> : null}
             </div>
@@ -222,14 +219,26 @@ export default function PayrollWorkspace({
                   {formatNumber(totals.timesheetEntryCount)} ngày HC
                 </span>
               </div>
-              <label className="w-full xl:w-72">
-                <input
-                  className="input"
-                  placeholder="Tìm theo mã, tên hoặc vị trí..."
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                />
-              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="w-full sm:w-64">
+                  <input
+                    className="input"
+                    placeholder="Tìm theo mã, tên hoặc vị trí..."
+                    value={query}
+                    onChange={(event) => updateSearch(event.target.value)}
+                  />
+                </label>
+                <label className="w-full sm:w-56">
+                  <select className="input" value={positionFilter} onChange={(event) => updatePositionFilter(event.target.value)}>
+                    <option value="">Tất cả vai trò</option>
+                    {positionOptions.map((position) => (
+                      <option key={position} value={position}>
+                        {position}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -287,7 +296,6 @@ export default function PayrollWorkspace({
                 ) : null}
               </div>
             </div>
-            {run.id && permissions.canManagePayrollRuns ? <PayrollRunExportButton runId={run.id} /> : null}
           </div>
 
           {permissions.canManagePayrollRuns ? (
@@ -384,7 +392,7 @@ export default function PayrollWorkspace({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f3f4f6]">
-              {filteredRows.map((row) => {
+              {pagedRows.map((row) => {
                 const isSelected = row.id === selectedEmployeeId;
                 return (
                   <tr
@@ -525,6 +533,33 @@ export default function PayrollWorkspace({
             </tbody>
           </table>
         </div>
+
+        {filteredRows.length > 0 ? (
+          <div className="flex flex-col gap-3 border-t border-[#f3f4f6] px-6 py-4 md:flex-row md:items-center md:justify-between">
+            <p className="text-sm text-[#6b7280]">
+              Trang {currentPage}/{totalPages} · Hiển thị {pagedRows.length} trên tổng {formatNumber(filteredRows.length)} nhân sự
+            </p>
+            <div className="pagination">
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={currentPage <= 1}
+                className="pagination-item disabled:pointer-events-none disabled:opacity-50"
+              >
+                Trước
+              </button>
+              <span className="pagination-item-active">{currentPage}</span>
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                disabled={currentPage >= totalPages}
+                className="pagination-item disabled:pointer-events-none disabled:opacity-50"
+              >
+                Sau
+              </button>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {selectedRow ? (
