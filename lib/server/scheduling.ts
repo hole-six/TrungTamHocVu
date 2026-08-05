@@ -9,15 +9,18 @@
 // /admin?logEntity=... — không cần thêm bảng hay trang mới.
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { computeAutoSessionWindow, createSessionsInRange } from "@/lib/server/class-generation";
+import { computeAutoSessionWindow, createSessionsInRange, computeEnrollmentSessionProgress } from "@/lib/server/class-generation";
 import { ensureBillingPeriod, generateChargesForPeriod } from "@/lib/server/billing-generation";
 import { ensurePayrollRun, generatePayrollForRun } from "@/lib/server/payroll-generation";
 import { monthKey } from "@/lib/server/tuition-rules";
+import { grantRemainingSessionCredits } from "@/lib/server/session-credits";
+import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 
 // Chặt hơn canEditCharges/canEditPayroll (được phép cả REVIEWED/REOPENED) — một khi
 // con người đã bắt đầu rà soát kỳ, sweep tự động không được đụng vào số liệu nữa.
 const AUTOMATION_BILLING_STATUSES = ["DRAFT", "GENERATED"];
 const AUTOMATION_PAYROLL_STATUSES = ["DRAFT", "CALCULATED"];
+const CLASS_END_CREDIT_REASON = "Buổi dư do lớp đã hết hạn dự kiến mà chưa rút lớp";
 
 type SweepResult = {
   correlationId: string;
@@ -28,9 +31,15 @@ type SweepResult = {
 async function logAuto(params: {
   correlationId: string;
   branchId: string | null;
-  entityType: "Class" | "BillingPeriod" | "PayrollRun";
+  entityType: "Class" | "BillingPeriod" | "PayrollRun" | "Enrollment";
   entityId: string;
-  action: "AUTO_GENERATE_SESSIONS" | "AUTO_GENERATE_CHARGES" | "AUTO_GENERATE_PAYROLL" | "AUTO_SKIPPED" | "AUTO_ERROR";
+  action:
+    | "AUTO_GENERATE_SESSIONS"
+    | "AUTO_GENERATE_CHARGES"
+    | "AUTO_GENERATE_PAYROLL"
+    | "AUTO_COMPLETE_ENROLLMENT"
+    | "AUTO_SKIPPED"
+    | "AUTO_ERROR";
   after: unknown;
 }) {
   await prisma.auditLog.create({
@@ -134,6 +143,91 @@ export async function runMonthlyBillingSweep(): Promise<SweepResult> {
         action: "AUTO_ERROR",
         after: { error: error instanceof Error ? error.message : String(error), periodName },
       });
+    }
+  }
+
+  return { correlationId, processed, errors };
+}
+
+// Lớp đã qua expectedEndDate mà enrollment vẫn ACTIVE (không ai chủ động rút lớp) —
+// tự động hoàn tất enrollment và cộng buổi bổ trợ cho phần buổi chưa học, cùng chính
+// sách "rút lớp không hoàn tiền, chỉ cộng buổi bổ trợ" áp dụng khi rút thủ công (xem
+// app/api/enrollments/[id]/route.ts). Bỏ qua lớp bổ trợ (isRemedial) vì lớp đó tự
+// hoàn tất theo cơ chế riêng khi hết buổi dư (app/api/sessions/[id]/attendance/route.ts).
+export async function runClassEndCreditSweep(): Promise<SweepResult> {
+  const correlationId = randomUUID();
+  let processed = 0;
+  let errors = 0;
+
+  const branches = await prisma.branch.findMany({ where: { isActive: true } });
+  for (const branch of branches) {
+    const classes = await prisma.class.findMany({
+      where: { branchId: branch.id, status: "ACTIVE", isRemedial: false, expectedEndDate: { lt: new Date() } },
+    });
+
+    for (const cls of classes) {
+      const enrollments = await prisma.enrollment.findMany({
+        where: { classId: cls.id, status: "ACTIVE" },
+      });
+
+      for (const enrollment of enrollments) {
+        try {
+          const progress = await computeEnrollmentSessionProgress(cls.id, enrollment.enrollDate);
+          const remaining = progress.remaining ?? 0;
+
+          const grantedCredits = await prisma.$transaction(async (tx) => {
+            const credits =
+              remaining > 0
+                ? await grantRemainingSessionCredits(
+                    tx,
+                    { id: enrollment.id, studentId: enrollment.studentId, classId: enrollment.classId },
+                    remaining,
+                    CLASS_END_CREDIT_REASON
+                  )
+                : null;
+
+            await tx.enrollment.update({
+              where: { id: enrollment.id },
+              data: { status: "COMPLETED", endDate: new Date() },
+            });
+
+            await tx.enrollmentStatusHistory.create({
+              data: {
+                studentId: enrollment.studentId,
+                enrollmentId: enrollment.id,
+                fromStatus: enrollment.status,
+                toStatus: "COMPLETED",
+                reason: "Lớp đã hết hạn dự kiến (expectedEndDate) — tự động hoàn tất, hệ thống sweep",
+                changedById: null,
+              },
+            });
+
+            await syncStudentDerivedFields(enrollment.studentId, tx);
+
+            return credits;
+          });
+
+          await logAuto({
+            correlationId,
+            branchId: branch.id,
+            entityType: "Enrollment",
+            entityId: enrollment.id,
+            action: "AUTO_COMPLETE_ENROLLMENT",
+            after: { classId: cls.id, remaining, granted: grantedCredits?.granted ?? 0 },
+          });
+          processed++;
+        } catch (error) {
+          errors++;
+          await logAuto({
+            correlationId,
+            branchId: branch.id,
+            entityType: "Enrollment",
+            entityId: enrollment.id,
+            action: "AUTO_ERROR",
+            after: { classId: cls.id, error: error instanceof Error ? error.message : String(error) },
+          });
+        }
+      }
     }
   }
 

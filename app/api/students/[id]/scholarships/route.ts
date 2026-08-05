@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdateWithOverride } from "@/lib/server/role-matrix";
 import { refreshEditableChargesForStudent } from "@/lib/server/charge-repricing";
+import { overlapsWindow } from "@/lib/server/tuition-rules";
 
 // Dùng canUpdate (không phải canCreate) để nhất quán với các route "tuition" khác
 // (generate-charges, billing-periods, charges/[id]) — không role nào trong ROLE_MATRIX.tuition
@@ -31,18 +32,32 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Ghi danh không hợp lệ hoặc không thuộc học viên này." }, { status: 400 });
   }
 
+  const effectiveFrom = body.effectiveFrom ? new Date(body.effectiveFrom) : new Date();
+  const effectiveTo = body.effectiveTo ? new Date(body.effectiveTo) : null;
+
+  const existingScholarships = await prisma.scholarship.findMany({ where: { enrollmentId } });
+  const hasOverlap = existingScholarships.some((item) =>
+    overlapsWindow(item.effectiveFrom, item.effectiveTo, effectiveFrom, effectiveTo),
+  );
+  if (hasOverlap) {
+    return NextResponse.json(
+      { error: "Ghi danh này đã có học bổng khác trùng khoảng thời gian hiệu lực." },
+      { status: 409 },
+    );
+  }
+
   const scholarship = await prisma.scholarship.create({
     data: {
       studentId: params.id,
       enrollmentId,
       percentage,
       reason: body.reason || null,
-      effectiveFrom: body.effectiveFrom ? new Date(body.effectiveFrom) : new Date(),
-      effectiveTo: body.effectiveTo ? new Date(body.effectiveTo) : null,
+      effectiveFrom,
+      effectiveTo,
     },
   });
 
-  await refreshEditableChargesForStudent(params.id);
+  const { skipped } = await refreshEditableChargesForStudent(params.id);
 
-  return NextResponse.json({ item: scholarship }, { status: 201 });
+  return NextResponse.json({ item: scholarship, chargesSkippedBelowCollected: skipped }, { status: 201 });
 }

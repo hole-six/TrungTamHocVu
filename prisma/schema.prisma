@@ -643,6 +643,7 @@ model Enrollment {
   sessionCredits SessionCredit[]
   installments  EnrollmentInstallment[]
   bookRequirements StudentBookRequirement[]
+  charges       Charge[]
 
   @@index([status])
   @@map("enrollments")
@@ -685,7 +686,7 @@ model StudentAttendance {
   id        String  @id @default(uuid())
   sessionId String  @map("session_id")
   studentId String  @map("student_id")
-  status    String  @default("PRESENT") // PRESENT | ABSENT | MAKEUP | EXCUSED
+  status    String  @default("PRESENT") // PRESENT | ABSENT | MAKEUP
   notes     String?
 
   session ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -832,6 +833,12 @@ model Charge {
   studentId       String   @map("student_id")
   classId         String   @map("class_id")
   billingPeriodId String   @map("billing_period_id")
+  // Enrollment cụ thể mà charge này thuộc về — nullable vì charge cũ (trước khi cột
+  // này tồn tại) không xác định lại được chắc chắn. Mục đích: phân biệt "sinh viên
+  // rút rồi ghi danh lại lớp này lần 2" là 2 charge khác nhau, không để charge cũ (đã
+  // thu tiền, gắn enrollment CŨ) chặn charge mới của enrollment MỚI — xem
+  // generateCourseCharge trong billing-generation.ts.
+  enrollmentId    String?  @map("enrollment_id")
   sessionCount    Int      @default(0) @map("session_count") // So buoi
   absentCount     Int      @default(0) @map("absent_count") // Buoi nghi
   deductedCount   Int      @default(0) @map("deducted_count") // Buoi tru
@@ -855,6 +862,7 @@ model Charge {
   student       Student             @relation(fields: [studentId], references: [id])
   class         Class               @relation(fields: [classId], references: [id])
   billingPeriod BillingPeriod       @relation(fields: [billingPeriodId], references: [id])
+  enrollment    Enrollment?         @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
   invoice       Invoice?
   allocations   PaymentAllocation[]
   bookIssues    BookIssue[]
@@ -862,6 +870,7 @@ model Charge {
 
   @@unique([studentId, classId, billingPeriodId])
   @@index([billingPeriodId])
+  @@index([enrollmentId])
   @@map("charges")
 }
 

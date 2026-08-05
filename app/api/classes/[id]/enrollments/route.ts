@@ -69,6 +69,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const student = await prisma.student.findUnique({ where: { id: studentId } });
   if (!student) return NextResponse.json({ error: "Không tìm thấy học viên" }, { status: 404 });
+  if (student.branchId !== cls.branchId) {
+    return NextResponse.json(
+      { error: "Học viên và lớp học không cùng cơ sở, không thể ghi danh." },
+      { status: 400 },
+    );
+  }
 
   if (cls.isRemedial) {
     const availableCredits = await prisma.sessionCredit.count({

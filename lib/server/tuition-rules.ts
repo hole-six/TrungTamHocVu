@@ -86,6 +86,19 @@ export function monthKey(date: Date): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+// Dùng chung để phát hiện 2 khoảng effectiveFrom/effectiveTo (Scholarship, Adjustment)
+// có chồng lấn ngày hay không — effectiveTo=null nghĩa là "vô thời hạn".
+export function overlapsWindow(
+  effectiveFrom: Date,
+  effectiveTo: Date | null,
+  windowStart: Date,
+  windowEnd: Date | null,
+): boolean {
+  const startsBeforeWindowEnds = !windowEnd || effectiveFrom <= windowEnd;
+  const endsAfterWindowStarts = !effectiveTo || effectiveTo >= windowStart;
+  return startsBeforeWindowEnds && endsAfterWindowStarts;
+}
+
 export function monthRange(periodName: string): { start: Date; end: Date } {
   const [y, m] = periodName.split("-").map(Number);
   const start = new Date(Date.UTC(y, m - 1, 1));

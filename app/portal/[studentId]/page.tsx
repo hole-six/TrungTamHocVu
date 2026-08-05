@@ -15,7 +15,6 @@ const ATTENDANCE_LABEL: Record<string, string> = {
   PRESENT: "Có mặt",
   ABSENT: "Vắng",
   MAKEUP: "Học bù",
-  EXCUSED: "Vắng có phép",
 };
 
 export default async function PortalStudentPage({ params }: { params: { studentId: string } }) {

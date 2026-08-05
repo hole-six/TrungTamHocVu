@@ -18,13 +18,30 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "Trạng thái buổi học không hợp lệ" }, { status: 400 });
   }
 
-  const updated = await prisma.classSession.update({
-    where: { id: params.id },
-    data: {
-      status: body.status,
-      completedAt: body.status === "COMPLETED" ? new Date() : null,
-      notes: "notes" in body ? body.notes || null : undefined,
-    },
+  const existing = await prisma.classSession.findUnique({ where: { id: params.id } });
+  if (!existing) return NextResponse.json({ error: "Không tìm thấy buổi học" }, { status: 404 });
+
+  // Hủy 1 buổi đã hoàn thành coi như buổi đó chưa từng diễn ra: xóa điểm danh (để
+  // absentCount không còn tính nhầm buổi này khi sinh học phí — xem generateChargesForPeriod)
+  // và hoàn lại buổi bổ trợ đã dùng để học bù vào chính buổi này (mirror logic present->absent
+  // ở app/api/sessions/[id]/attendance/route.ts).
+  const updated = await prisma.$transaction(async (tx) => {
+    if (existing.status === "COMPLETED" && body.status === "CANCELLED") {
+      await tx.sessionCredit.updateMany({
+        where: { consumedSessionId: params.id, status: "CONSUMED" },
+        data: { status: "AVAILABLE", consumedSessionId: null, consumedAt: null },
+      });
+      await tx.studentAttendance.deleteMany({ where: { sessionId: params.id } });
+    }
+
+    return tx.classSession.update({
+      where: { id: params.id },
+      data: {
+        status: body.status,
+        completedAt: body.status === "COMPLETED" ? new Date() : null,
+        notes: "notes" in body ? body.notes || null : undefined,
+      },
+    });
   });
 
   return NextResponse.json({ item: updated });

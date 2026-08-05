@@ -1,14 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { canEditCharges, computeEffectiveUnitPrice, computeTotalAmount, computeTuitionAmount } from "@/lib/server/tuition-rules";
-
-function overlapsWindow(
-  effectiveFrom: Date,
-  effectiveTo: Date | null,
-  windowStart: Date,
-  windowEnd: Date,
-) {
-  return effectiveFrom <= windowEnd && (!effectiveTo || effectiveTo >= windowStart);
-}
+import { canEditCharges, computeEffectiveUnitPrice, computeTotalAmount, computeTuitionAmount, overlapsWindow } from "@/lib/server/tuition-rules";
+import { getChargeCollectedAmount } from "@/lib/server/billing-generation";
 
 export async function refreshEditableChargesForStudent(studentId: string) {
   const now = new Date();
@@ -43,6 +35,7 @@ export async function refreshEditableChargesForStudent(studentId: string) {
   ]);
 
   let updated = 0;
+  let skipped = 0;
 
   for (const charge of charges) {
     if (!canEditCharges(charge.billingPeriod.status)) continue;
@@ -73,6 +66,16 @@ export async function refreshEditableChargesForStudent(studentId: string) {
       tuitionAmount !== charge.tuitionAmount ||
       totalAmount !== charge.totalAmount
     ) {
+      // Học bổng/phụ thu mới có thể làm totalAmount tính lại thấp hơn số đã thu — nếu
+      // vậy bỏ qua charge này (giữ nguyên số cũ) thay vì ghi đè xuống dưới số đã thu,
+      // để tránh charge "âm còn nợ" giả trong khi tiền đã thực thu không đổi. Cần rà
+      // soát thủ công (hoàn tiền/credit) cho trường hợp này.
+      const collectedAmount = await getChargeCollectedAmount(charge.id);
+      if (totalAmount < collectedAmount) {
+        skipped++;
+        continue;
+      }
+
       await prisma.charge.update({
         where: { id: charge.id },
         data: {
@@ -85,5 +88,5 @@ export async function refreshEditableChargesForStudent(studentId: string) {
     }
   }
 
-  return { updated };
+  return { updated, skipped };
 }

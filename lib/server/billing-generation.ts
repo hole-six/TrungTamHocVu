@@ -22,6 +22,7 @@ type PendingChargeDraft =
       className: string;
       baseAmount: number;
       existingChargeId: string | null;
+      enrollmentId: string;
       installmentId: string;
       chargePayload: {
         sessionCount: number;
@@ -42,6 +43,7 @@ type PendingChargeDraft =
       className: string;
       baseAmount: number;
       existingChargeId: string | null;
+      enrollmentId: string;
       issueStart: Date;
       issueEnd: Date;
       chargePayload: {
@@ -66,7 +68,7 @@ function periodNameFromDate(date: Date) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-async function getChargeCollectedAmount(chargeId: string) {
+export async function getChargeCollectedAmount(chargeId: string) {
   const aggregate = await prisma.paymentAllocation.aggregate({
     where: {
       chargeId,
@@ -152,11 +154,20 @@ export async function generateChargesForPeriod(periodId: string) {
 
   const courseCharged = await prisma.charge.findMany({
     where: { billingModel: "COURSE", class: { branchId: period.branchId } },
-    select: { id: true, studentId: true, classId: true },
+    select: { id: true, studentId: true, classId: true, enrollmentId: true },
   });
-  const courseChargedMap = new Map<string, (typeof courseCharged)[number]>(
-    courseCharged.map((item) => [`${item.studentId}:${item.classId}`, item]),
-  );
+  const courseChargedMap = new Map<string, (typeof courseCharged)[number][]>();
+  for (const item of courseCharged) {
+    const key = `${item.studentId}:${item.classId}`;
+    courseChargedMap.set(key, [...(courseChargedMap.get(key) ?? []), item]);
+  }
+  // Charge trọn khóa của MỘT enrollment khác (VD: enrollment cũ đã rút) không được
+  // tính là "đã có charge" cho enrollment hiện tại — nếu không sẽ chặn nhầm việc sinh
+  // charge cho lần ghi danh lại (xem generateCourseCharge bên dưới, cùng gốc rễ).
+  // enrollmentId=null (dữ liệu cũ trước khi có cột này, chưa xác định lại được) vẫn
+  // coi là liên quan để giữ hành vi an toàn như trước.
+  const findRelevantCourseCharge = (courseKey: string, enrollmentId: string) =>
+    (courseChargedMap.get(courseKey) ?? []).find((item) => item.enrollmentId === null || item.enrollmentId === enrollmentId) ?? null;
 
   let created = 0;
   let updated = 0;
@@ -176,7 +187,7 @@ export async function generateChargesForPeriod(periodId: string) {
 
     if (enrollment.billingModel === "COURSE") {
       skippedCourseMode++;
-      if (!courseChargedMap.has(courseKey)) {
+      if (!findRelevantCourseCharge(courseKey, enrollment.id)) {
         pushException(
           studentId,
           classId,
@@ -186,7 +197,7 @@ export async function generateChargesForPeriod(periodId: string) {
       continue;
     }
 
-    const existingCourseCharge = courseChargedMap.get(courseKey);
+    const existingCourseCharge = findRelevantCourseCharge(courseKey, enrollment.id);
     if (existingCourseCharge) {
       const replacement = await replaceChargeIfUncollected(
         existingCourseCharge.id,
@@ -203,8 +214,6 @@ export async function generateChargesForPeriod(periodId: string) {
         skippedCourseBilled++;
         continue;
       }
-
-      courseChargedMap.delete(courseKey);
     }
 
     if (enrollment.billingModel === "INSTALLMENT") {
@@ -261,6 +270,7 @@ export async function generateChargesForPeriod(periodId: string) {
         className: enrollment.class.className,
         baseAmount: installment.amount,
         existingChargeId: existingCharge?.id ?? null,
+        enrollmentId: enrollment.id,
         installmentId: installment.id,
         chargePayload: {
           sessionCount: 0,
@@ -297,7 +307,7 @@ export async function generateChargesForPeriod(periodId: string) {
       where: {
         studentId,
         status: "ABSENT",
-        session: { classId, sessionDate: { gte: sessionRangeStart, lte: period.endDate } },
+        session: { classId, status: "COMPLETED", sessionDate: { gte: sessionRangeStart, lte: period.endDate } },
       },
     });
 
@@ -367,6 +377,7 @@ export async function generateChargesForPeriod(periodId: string) {
       className: enrollment.class.className,
       baseAmount: tuitionAmount + materialsAmount,
       existingChargeId: chargeToUpdate?.id ?? null,
+      enrollmentId: enrollment.id,
       issueStart: period.startDate,
       issueEnd: period.endDate,
       chargePayload: {
@@ -430,7 +441,7 @@ export async function generateChargesForPeriod(periodId: string) {
         if (chargeId) {
           await tx.charge.update({
             where: { id: chargeId },
-            data: payload,
+            data: { ...payload, enrollmentId: draft.enrollmentId },
           });
           updated++;
         } else {
@@ -439,6 +450,7 @@ export async function generateChargesForPeriod(periodId: string) {
               studentId: draft.studentId,
               classId: draft.classId,
               billingPeriodId: period.id,
+              enrollmentId: draft.enrollmentId,
               ...payload,
             },
           });
@@ -504,7 +516,12 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
   }
 
   const existing = await prisma.charge.findFirst({
-    where: { studentId: enrollment.studentId, classId: enrollment.classId, billingModel: "COURSE" },
+    where: {
+      studentId: enrollment.studentId,
+      classId: enrollment.classId,
+      billingModel: "COURSE",
+      OR: [{ enrollmentId: null }, { enrollmentId: enrollment.id }],
+    },
   });
   if (existing) {
     const replacement = await replaceChargeIfUncollected(existing.id, "Học viên đã có charge trọn khóa cho lớp này.");
@@ -609,6 +626,7 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
         totalAmount,
         billingModel: "COURSE",
         notes: `Học phí trọn khóa ${cls.className} (${totalSessions} buổi)`,
+        enrollmentId: enrollment.id,
       },
     });
 
@@ -640,11 +658,15 @@ export async function previewChargeGenerationExceptions(periodId: string) {
 
   const courseCharged = await prisma.charge.findMany({
     where: { billingModel: "COURSE", class: { branchId: period.branchId } },
-    select: { id: true, studentId: true, classId: true },
+    select: { id: true, studentId: true, classId: true, enrollmentId: true },
   });
-  const courseChargedMap = new Map<string, (typeof courseCharged)[number]>(
-    courseCharged.map((item) => [`${item.studentId}:${item.classId}`, item]),
-  );
+  const courseChargedMap = new Map<string, (typeof courseCharged)[number][]>();
+  for (const item of courseCharged) {
+    const key = `${item.studentId}:${item.classId}`;
+    courseChargedMap.set(key, [...(courseChargedMap.get(key) ?? []), item]);
+  }
+  const findRelevantCourseCharge = (courseKey: string, enrollmentId: string) =>
+    (courseChargedMap.get(courseKey) ?? []).find((item) => item.enrollmentId === null || item.enrollmentId === enrollmentId) ?? null;
 
   const exceptions: GenerationExceptionPreview[] = [];
   const pushException = (enrollment: (typeof enrollments)[number], reason: string) => {
@@ -663,7 +685,7 @@ export async function previewChargeGenerationExceptions(periodId: string) {
     const courseKey = `${enrollment.studentId}:${enrollment.classId}`;
 
     if (enrollment.billingModel === "COURSE") {
-      if (!courseChargedMap.has(courseKey)) {
+      if (!findRelevantCourseCharge(courseKey, enrollment.id)) {
         pushException(
           enrollment,
           "Mode COURSE nhưng chưa có charge trọn khóa. Cần kiểm tra luồng ghi danh hoặc sinh charge khi vào học.",
@@ -672,16 +694,14 @@ export async function previewChargeGenerationExceptions(periodId: string) {
       continue;
     }
 
-    if (courseChargedMap.has(courseKey)) {
-      const existingCourseCharge = courseChargedMap.get(courseKey);
-      if (existingCourseCharge) {
-        const collectedAmount = await getChargeCollectedAmount(existingCourseCharge.id);
-        if (collectedAmount > 0) {
-          pushException(
-            enrollment,
-            `Mode ${enrollment.billingModel} nhưng đã có charge trọn khóa đã thu ${collectedAmount.toLocaleString("vi-VN")}đ cho lớp này.`,
-          );
-        }
+    const existingCourseCharge = findRelevantCourseCharge(courseKey, enrollment.id);
+    if (existingCourseCharge) {
+      const collectedAmount = await getChargeCollectedAmount(existingCourseCharge.id);
+      if (collectedAmount > 0) {
+        pushException(
+          enrollment,
+          `Mode ${enrollment.billingModel} nhưng đã có charge trọn khóa đã thu ${collectedAmount.toLocaleString("vi-VN")}đ cho lớp này.`,
+        );
       }
       continue;
     }

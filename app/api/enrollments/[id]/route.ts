@@ -37,13 +37,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   let withdrawalRemaining = 0;
   if (body.status === "WITHDRAWN") {
-    const courseCharge = await prisma.charge.findFirst({
-      where: { studentId: existing.studentId, classId: existing.classId, billingModel: "COURSE" },
-    });
-    if (courseCharge) {
-      const progress = await computeEnrollmentSessionProgress(existing.classId, existing.enrollDate);
-      withdrawalRemaining = progress.remaining ?? 0;
-    }
+    // Rút lớp không hoàn tiền, chỉ cộng buổi bổ trợ cho số buổi CHƯA học của lớp —
+    // áp dụng cho MỌI billingModel, kể cả những buổi chưa từng được charge, vì học phí
+    // luôn thu trước (đầu tháng/đầu khóa) nên "buổi chưa học" là đúng cơ sở, không phụ
+    // thuộc cách charge được lập ra sao (xem kế hoạch khóa lỗ hổng học phí, fix #3).
+    const progress = await computeEnrollmentSessionProgress(existing.classId, existing.enrollDate);
+    withdrawalRemaining = progress.remaining ?? 0;
   }
 
   const { updated, sessionCredits } = await prisma.$transaction(async (tx) => {

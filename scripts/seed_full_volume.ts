@@ -370,7 +370,7 @@ async function main() {
     const roster = enrollmentsByClass.get(session.classId) ?? [];
     for (const studentId of roster) {
       const roll = Math.random();
-      const status = roll > 0.92 ? "ABSENT" : roll > 0.88 ? "EXCUSED" : "PRESENT";
+      const status = roll > 0.88 ? "ABSENT" : "PRESENT";
       await prisma.studentAttendance.upsert({
         where: { sessionId_studentId: { sessionId: session.id, studentId } },
         update: {},

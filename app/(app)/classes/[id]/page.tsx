@@ -46,7 +46,6 @@ function attendanceLabel(status: string) {
     case "PRESENT": return "Có mặt";
     case "ABSENT":
     case "MAKEUP":
-    case "EXCUSED":
       return "Vắng";
     default: return status;
   }
@@ -257,12 +256,11 @@ export default async function ClassDetailPage({ params }: { params: { id: string
           if (a.status === "PRESENT") acc.present += 1;
           if (a.status === "ABSENT") acc.absent += 1;
           if (a.status === "MAKEUP") acc.makeup += 1;
-          if (a.status === "EXCUSED") acc.excused += 1;
           return acc;
         },
-        { present: 0, absent: 0, makeup: 0, excused: 0 }
+        { present: 0, absent: 0, makeup: 0 }
       )
-    : { present: 0, absent: 0, makeup: 0, excused: 0 };
+    : { present: 0, absent: 0, makeup: 0 };
 
   const totalOutstanding = cls.enrollments.reduce((sum, enrollment) => {
     const cc = enrollment.student.charges.filter((c) => c.classId === cls.id);

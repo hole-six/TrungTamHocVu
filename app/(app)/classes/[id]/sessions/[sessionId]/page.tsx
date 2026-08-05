@@ -49,8 +49,6 @@ function attendanceLabel(status: string) {
       return "Vắng";
     case "MAKEUP":
       return "Học bù";
-    case "EXCUSED":
-      return "Vắng có phép";
     default:
       return status;
   }

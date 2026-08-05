@@ -42,14 +42,14 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ roster, sessionStatus: session.status });
 }
 
-const ABSENCE_STATUSES = new Set(["ABSENT", "EXCUSED"]);
+const ABSENCE_STATUSES = new Set(["ABSENT"]);
 
 // Lưu điểm danh cho cả lớp trong 1 buổi — đồng thời đánh dấu buổi học là đã hoàn
 // thành (việc điểm danh tức là buổi học đã diễn ra), thay cho cột TTHoc (C/K) cấp
 // lớp trong ChiTietLopHoc gốc nhưng chuẩn hóa xuống cấp học viên.
 //
 // Với học viên đã thu học phí TRỌN KHÓA (Charge.billingModel="COURSE"): mỗi lần điểm
-// danh CHUYỂN sang Vắng/Vắng có phép (dù trước đó là gì) sinh 1 "buổi dư"
+// danh CHUYỂN sang Vắng (dù trước đó là gì) sinh 1 "buổi dư"
 // (SessionCredit) để đăng ký học bù — vắng buổi nào vẫn tính tiền buổi đó, không giảm
 // học phí, bù lại bằng buổi dư (xem lib/server/billing-generation.ts generateCourseCharge).
 // Nếu sau đó sửa lại thành có mặt mà buổi dư đó CHƯA dùng (AVAILABLE) thì hủy

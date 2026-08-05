@@ -49,8 +49,6 @@ function attendanceLabel(status: string) {
       return "Vắng";
     case "MAKEUP":
       return "Học bù";
-    case "EXCUSED":
-      return "Vắng có phép";
     default:
       return status;
   }
@@ -265,10 +263,9 @@ export default async function StudentDetailPage({
       if (attendance.status === "PRESENT") acc.present += 1;
       if (attendance.status === "ABSENT") acc.absent += 1;
       if (attendance.status === "MAKEUP") acc.makeup += 1;
-      if (attendance.status === "EXCUSED") acc.excused += 1;
       return acc;
     },
-    { present: 0, absent: 0, makeup: 0, excused: 0 }
+    { present: 0, absent: 0, makeup: 0 }
   );
 
   const recentSessions = student.attendances.map((attendance) => {

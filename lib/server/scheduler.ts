@@ -6,11 +6,16 @@
 // tra NGÀY ("có phải hôm nay là ngày 1 không") — nên chỉ cần gọi lại 1 lần ngay
 // lúc khởi động là đủ bắt kịp, không cần thư viện dò "tick bị lỡ".
 import cron from "node-cron";
-import { runDailySessionSweep, runMonthlyBillingSweep, runMonthlyPayrollSweep } from "@/lib/server/scheduling";
+import {
+  runDailySessionSweep,
+  runMonthlyBillingSweep,
+  runMonthlyPayrollSweep,
+  runClassEndCreditSweep,
+} from "@/lib/server/scheduling";
 
-type JobName = "sessions" | "billing" | "payroll";
+type JobName = "sessions" | "classEndCredits" | "billing" | "payroll";
 
-const running: Record<JobName, boolean> = { sessions: false, billing: false, payroll: false };
+const running: Record<JobName, boolean> = { sessions: false, classEndCredits: false, billing: false, payroll: false };
 
 async function runOnce(name: JobName, fn: () => Promise<{ correlationId: string; processed: number; errors: number }>) {
   if (running[name]) {
@@ -31,12 +36,17 @@ async function runOnce(name: JobName, fn: () => Promise<{ correlationId: string;
 export function startScheduler() {
   console.log("[scheduler] Khởi động lịch tự động sinh buổi học / học phí / lương.");
 
-  cron.schedule("0 2 * * *", () => runOnce("sessions", runDailySessionSweep));
+  cron.schedule("0 2 * * *", async () => {
+    await runOnce("sessions", runDailySessionSweep);
+    // Chạy sau sessions cùng khung giờ — để 1 lớp vừa sinh xong buổi cuối cùng
+    // lượt này vẫn được lượt sau bắt kịp (expectedEndDate không đổi theo sweep này).
+    await runOnce("classEndCredits", runClassEndCreditSweep);
+  });
   cron.schedule("0 3 1 * *", () => runOnce("billing", runMonthlyBillingSweep));
   cron.schedule("0 4 1 * *", () => runOnce("payroll", runMonthlyPayrollSweep));
 
   // Chạy ngay 1 lần lúc khởi động để bắt kịp nếu server từng tắt qua giờ hẹn.
-  void runOnce("sessions", runDailySessionSweep);
+  void runOnce("sessions", runDailySessionSweep).then(() => runOnce("classEndCredits", runClassEndCreditSweep));
   void runOnce("billing", runMonthlyBillingSweep);
   void runOnce("payroll", runMonthlyPayrollSweep);
 }
