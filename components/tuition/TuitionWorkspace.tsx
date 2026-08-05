@@ -519,50 +519,53 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
   };
 
   return (
-    <div className="space-y-6">
-      <div className="card">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="card p-4 sm:p-6">
+        <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="page-title">Thu học phí</h1>
-            <p className="page-subtitle">Chọn kỳ, xem đúng người còn phải thu và thao tác ngay trên một màn.</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-[#0f1729]">Thu học phí</h1>
+            <p className="mt-1 text-xs sm:text-sm text-[#64748b]">Chọn kỳ, xem đúng người còn phải thu và thao tác ngay trên một màn.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {canManageTuition ? <NewPeriodForm /> : null}
             {data?.selectedPeriod ? (
-              <Link href={`/invoices/batch/${data.selectedPeriod.id}`} className="btn-360">
-                Xuất phiếu kỳ này
+              <Link href={`/invoices/batch/${data.selectedPeriod.id}`} className="btn-360 text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
+                <span className="hidden sm:inline">Xuất phiếu kỳ này</span>
+                <span className="sm:hidden">Phiếu</span>
               </Link>
             ) : null}
-            <button onClick={handleExport} disabled={!data} className="btn-ghost">
-              Xuất Excel
+            <button onClick={handleExport} disabled={!data} className="btn-ghost text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
+              <span className="hidden sm:inline">Xuất Excel</span>
+              <span className="sm:hidden">Excel</span>
             </button>
             {canManageTuition ? (
-              <button onClick={createSnapshot} disabled={creatingSnapshot} className="btn-ghost">
-                {getCreateSnapshotButtonLabel("tuition", creatingSnapshot)}
+              <button onClick={createSnapshot} disabled={creatingSnapshot} className="btn-ghost text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
+                <span className="hidden sm:inline">{getCreateSnapshotButtonLabel("tuition", creatingSnapshot)}</span>
+                <span className="sm:hidden">Chốt</span>
               </button>
             ) : null}
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="mt-3 sm:mt-4 grid grid-cols-1 gap-2 sm:gap-3 md:grid-cols-3">
           <label className="space-y-1">
-            <span className="text-xs font-medium text-ink-muted48">Nguồn dữ liệu</span>
-            <select value={mode} onChange={(event) => setMode(event.target.value as "live" | "snapshot")} className="input">
+            <span className="text-[10px] sm:text-xs font-medium text-ink-muted48">Nguồn dữ liệu</span>
+            <select value={mode} onChange={(event) => setMode(event.target.value as "live" | "snapshot")} className="input h-10 sm:h-11 text-sm">
               <option value="live">{getReportModeLabel("live")}</option>
               <option value="snapshot">{getReportModeLabel("snapshot")}</option>
             </select>
           </label>
           <label className="space-y-1">
-            <span className="text-xs font-medium text-ink-muted48">Kỳ cần thu</span>
-            <input type="month" value={periodKey} onChange={(event) => setPeriodKey(event.target.value)} className="input" />
+            <span className="text-[10px] sm:text-xs font-medium text-ink-muted48">Kỳ cần thu</span>
+            <input type="month" value={periodKey} onChange={(event) => setPeriodKey(event.target.value)} className="input h-10 sm:h-11 text-sm" />
           </label>
           <div className="flex items-end">
-            <button onClick={applyFilters} className="btn-primary w-full">Xem dữ liệu</button>
+            <button onClick={applyFilters} className="btn-primary w-full h-10 sm:h-11 text-sm sm:text-base">Xem dữ liệu</button>
           </div>
         </div>
 
         {data?.meta ? (
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+          <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs">
             <span className={`badge ${data.meta.effectiveMode === "snapshot" ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary"}`}>
               {getReportEffectiveBadge(data.meta.effectiveMode, "tuition")}
             </span>
@@ -575,105 +578,105 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
           </div>
         ) : null}
 
-        {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-red-600">{error}</p> : null}
       </div>
 
       {loading || !data ? (
-        <div className="card">
-          <p className="text-sm text-ink-muted48">Đang tải dữ liệu học phí...</p>
+        <div className="card p-4 sm:p-6">
+          <p className="text-xs sm:text-sm text-ink-muted48">Đang tải dữ liệu học phí...</p>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <div className="stat-card">
-              <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">Phải thu</p>
-              <p className="mt-1 font-display text-2xl font-semibold tracking-tight">{formatVnd(selectedPeriodSummary?.total ?? 0)}</p>
-              <p className="mt-1 text-xs text-ink-muted48">{selectedPeriodSummary?.chargeCount ?? 0} khoản trong kỳ</p>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="stat-card p-4 sm:p-5">
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-ink-muted48">Phải thu</p>
+              <p className="mt-1 font-display text-xl sm:text-2xl font-semibold tracking-tight">{formatVnd(selectedPeriodSummary?.total ?? 0)}</p>
+              <p className="mt-1 text-[10px] sm:text-xs text-ink-muted48">{selectedPeriodSummary?.chargeCount ?? 0} khoản</p>
             </div>
-            <div className="stat-card">
-              <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">Đã thu</p>
-              <p className="mt-1 font-display text-2xl font-semibold tracking-tight text-emerald-600">{formatVnd(selectedPeriodSummary?.paid ?? 0)}</p>
-              <p className="mt-1 text-xs text-ink-muted48">Của kỳ đang xem</p>
+            <div className="stat-card p-4 sm:p-5">
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-ink-muted48">Đã thu</p>
+              <p className="mt-1 font-display text-xl sm:text-2xl font-semibold tracking-tight text-emerald-600">{formatVnd(selectedPeriodSummary?.paid ?? 0)}</p>
+              <p className="mt-1 text-[10px] sm:text-xs text-ink-muted48">Kỳ xem</p>
             </div>
-            <div className="stat-card-accent">
-              <p className="text-xs font-semibold uppercase tracking-widest text-white/70">Còn nợ</p>
-              <p className="mt-1 font-display text-2xl font-semibold tracking-tight text-white">{formatVnd(selectedPeriodSummary?.debt ?? 0)}</p>
-              <p className="mt-1 text-xs text-white/75">Ưu tiên xử lý trước</p>
+            <div className="stat-card-accent p-4 sm:p-5">
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-white/70">Còn nợ</p>
+              <p className="mt-1 font-display text-xl sm:text-2xl font-semibold tracking-tight text-white">{formatVnd(selectedPeriodSummary?.debt ?? 0)}</p>
+              <p className="mt-1 text-[10px] sm:text-xs text-white/75">Xử lý trước</p>
             </div>
-            <div className="stat-card">
-              <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">Học viên cần thu</p>
-              <p className="mt-1 font-display text-2xl font-semibold tracking-tight">{board?.debtorCount ?? 0}</p>
-              <p className="mt-1 text-xs text-ink-muted48">Kỳ {data.selectedPeriod?.periodName ?? data.meta.periodKey ?? periodKey}</p>
+            <div className="stat-card p-4 sm:p-5">
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-ink-muted48">HV cần thu</p>
+              <p className="mt-1 font-display text-xl sm:text-2xl font-semibold tracking-tight">{board?.debtorCount ?? 0}</p>
+              <p className="mt-1 text-[10px] sm:text-xs text-ink-muted48 truncate">Kỳ {data.selectedPeriod?.periodName ?? data.meta.periodKey ?? periodKey}</p>
             </div>
-            <div className="stat-card">
-              <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted48">Nợ cũ / sách</p>
-              <p className="mt-1 font-display text-2xl font-semibold tracking-tight">{carryForwardCount + materialsPendingCount}</p>
-              <p className="mt-1 text-xs text-ink-muted48">{carryForwardCount} nợ cũ · {materialsPendingCount} có sách</p>
+            <div className="stat-card p-4 sm:p-5">
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-ink-muted48">Nợ cũ/sách</p>
+              <p className="mt-1 font-display text-xl sm:text-2xl font-semibold tracking-tight">{carryForwardCount + materialsPendingCount}</p>
+              <p className="mt-1 text-[10px] sm:text-xs text-ink-muted48">{carryForwardCount} cũ · {materialsPendingCount} sách</p>
             </div>
           </div>
 
-          <div className="card">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="card p-4 sm:p-6">
+            <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="font-display text-lg font-semibold tracking-tight">Tiến độ kỳ {selectedPeriodSummary?.periodName ?? data.meta.periodKey ?? periodKey}</h2>
-                <p className="mt-1 text-sm text-ink-muted48">Đã thu bao nhiêu và còn bao nhiêu cần xử lý.</p>
+                <h2 className="text-base sm:text-lg font-display font-semibold tracking-tight">Tiến độ kỳ {selectedPeriodSummary?.periodName ?? data.meta.periodKey ?? periodKey}</h2>
+                <p className="mt-1 text-xs sm:text-sm text-ink-muted48">Đã thu bao nhiêu và còn bao nhiêu cần xử lý.</p>
               </div>
-              <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm">
+              <div className="rounded-xl sm:rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
                 <span className="font-semibold text-ink">{collectionProgress.ratio}% hoàn thành</span>
-                <span className="ml-2 text-ink-muted48">· Đã thu {formatVnd(collectionProgress.paid)} / {formatVnd(collectionProgress.billed)}</span>
+                <span className="hidden sm:inline ml-2 text-ink-muted48">· Đã thu {formatVnd(collectionProgress.paid)} / {formatVnd(collectionProgress.billed)}</span>
               </div>
             </div>
-            <div className="mt-4">
-              <div className="h-4 overflow-hidden rounded-full bg-slate-100">
+            <div className="mt-3 sm:mt-4">
+              <div className="h-3 sm:h-4 overflow-hidden rounded-full bg-slate-100">
                 <div
                   className="h-full rounded-full bg-[linear-gradient(90deg,#22c55e_0%,#16a34a_50%,#0ea5e9_100%)] transition-all"
                   style={{ width: `${collectionProgress.ratio}%` }}
                 />
               </div>
-              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Đã thu</p>
-                  <p className="mt-2 text-lg font-semibold text-emerald-600">{formatVnd(collectionProgress.paid)}</p>
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:gap-3 md:grid-cols-3">
+                <div className="rounded-xl sm:rounded-2xl border border-hairline bg-canvas-parchment/50 p-3 sm:p-4">
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Đã thu</p>
+                  <p className="mt-1 sm:mt-2 text-base sm:text-lg font-semibold text-emerald-600">{formatVnd(collectionProgress.paid)}</p>
                 </div>
-                <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Còn nợ</p>
-                  <p className="mt-2 text-lg font-semibold text-red-600">{formatVnd(collectionProgress.debt)}</p>
+                <div className="rounded-xl sm:rounded-2xl border border-hairline bg-canvas-parchment/50 p-3 sm:p-4">
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Còn nợ</p>
+                  <p className="mt-1 sm:mt-2 text-base sm:text-lg font-semibold text-red-600">{formatVnd(collectionProgress.debt)}</p>
                 </div>
-                <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Phải thu kỳ này</p>
-                  <p className="mt-2 text-lg font-semibold text-ink">{formatVnd(collectionProgress.billed)}</p>
+                <div className="rounded-xl sm:rounded-2xl border border-hairline bg-canvas-parchment/50 p-3 sm:p-4">
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Phải thu kỳ này</p>
+                  <p className="mt-1 sm:mt-2 text-base sm:text-lg font-semibold text-ink">{formatVnd(collectionProgress.billed)}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="card">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="card p-4 sm:p-6">
+            <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="font-display text-lg font-semibold tracking-tight">Tiền trong kỳ này gồm</h2>
-                <p className="mt-1 text-sm text-ink-muted48">Tách riêng học phí, sách và nợ cũ để thu cho đúng.</p>
+                <h2 className="text-base sm:text-lg font-display font-semibold tracking-tight">Tiền trong kỳ này gồm</h2>
+                <p className="mt-1 text-xs sm:text-sm text-ink-muted48">Tách riêng học phí, sách và nợ cũ để thu cho đúng.</p>
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5">
-              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Học phí buổi học</p>
-                <p className="mt-2 text-lg font-semibold text-ink">{formatVnd(feeComposition.tuitionAmount)}</p>
+            <div className="mt-3 sm:mt-4 grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-5">
+              <div className="rounded-xl sm:rounded-2xl border border-hairline bg-canvas-parchment/50 p-3 sm:p-4">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">HP buổi học</p>
+                <p className="mt-1 sm:mt-2 text-sm sm:text-base md:text-lg font-semibold text-ink">{formatVnd(feeComposition.tuitionAmount)}</p>
               </div>
-              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Giáo trình / phát sinh</p>
-                <p className="mt-2 text-lg font-semibold text-ink">{formatVnd(feeComposition.materialsAmount)}</p>
+              <div className="rounded-xl sm:rounded-2xl border border-hairline bg-canvas-parchment/50 p-3 sm:p-4">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">GT/phát sinh</p>
+                <p className="mt-1 sm:mt-2 text-sm sm:text-base md:text-lg font-semibold text-ink">{formatVnd(feeComposition.materialsAmount)}</p>
               </div>
-              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Tồn đầu kỳ</p>
-                <p className="mt-2 text-lg font-semibold text-ink">{formatVnd(feeComposition.openingBalance)}</p>
+              <div className="rounded-xl sm:rounded-2xl border border-hairline bg-canvas-parchment/50 p-3 sm:p-4">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Tồn đầu kỳ</p>
+                <p className="mt-1 sm:mt-2 text-sm sm:text-base md:text-lg font-semibold text-ink">{formatVnd(feeComposition.openingBalance)}</p>
               </div>
-              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Đã thu</p>
-                <p className="mt-2 text-lg font-semibold text-emerald-600">{formatVnd(feeComposition.paidAmount)}</p>
+              <div className="rounded-xl sm:rounded-2xl border border-hairline bg-canvas-parchment/50 p-3 sm:p-4">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Đã thu</p>
+                <p className="mt-1 sm:mt-2 text-sm sm:text-base md:text-lg font-semibold text-emerald-600">{formatVnd(feeComposition.paidAmount)}</p>
               </div>
-              <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Còn nợ</p>
-                <p className="mt-2 text-lg font-semibold text-red-600">{formatVnd(feeComposition.remainingAmount)}</p>
+              <div className="rounded-xl sm:rounded-2xl border border-hairline bg-canvas-parchment/50 p-3 sm:p-4">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Còn nợ</p>
+                <p className="mt-1 sm:mt-2 text-sm sm:text-base md:text-lg font-semibold text-red-600">{formatVnd(feeComposition.remainingAmount)}</p>
               </div>
             </div>
           </div>

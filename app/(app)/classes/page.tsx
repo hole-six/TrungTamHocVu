@@ -166,24 +166,24 @@ export default async function ClassesPage({
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <PageGuide
         title="Guide vận hành lớp học"
         summary="Đây là màn trung tâm của khu lớp học. Người mới chỉ cần hiểu rõ: lớp nào đang chạy, khi nào tạo lớp mới, và khi nào phải đi vào chi tiết lớp để xử lý sâu hơn."
         sections={CLASSES_PAGE_GUIDE_SECTIONS}
         buttonLabel="Guide lớp học"
       />
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+      <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <h1 className="page-title">Quản lý lớp học</h1>
-          <p className="page-subtitle">Theo dõi lịch, sĩ số, tiến độ và học phí từng lớp</p>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-[#0f1729]">Quản lý lớp học</h1>
+          <p className="mt-1 text-xs sm:text-sm text-[#64748b]">Theo dõi lịch, sĩ số, tiến độ và học phí từng lớp</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-        
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {canCreate("schedule", userRole) ? (
-            <Link href="/classes/new" className="btn-primary">
-              + Thêm lớp học
+            <Link href="/classes/new" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
+              <span className="hidden sm:inline">+ Thêm lớp học</span>
+              <span className="sm:hidden">+ Lớp</span>
             </Link>
           ) : null}
         </div>

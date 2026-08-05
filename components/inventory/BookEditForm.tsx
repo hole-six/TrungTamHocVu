@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CategorySelect from "./CategorySelect";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import { formatVnd } from "@/lib/export-utils";
 
 type BookProfile = {
   id: string;
@@ -133,10 +134,12 @@ export default function BookEditForm({ book, categoryOptions }: { book: BookProf
           <label className="space-y-1 block">
             <span className="text-xs font-medium text-ink-muted48">Đơn giá nhập</span>
             <input required type="number" min="0" className="input" value={form.purchasePrice} onChange={(event) => setForm((current) => ({ ...current, purchasePrice: event.target.value }))} />
+            <p className="form-hint">{form.purchasePrice ? formatVnd(Number(form.purchasePrice) || 0) : ""}</p>
           </label>
           <label className="space-y-1 block">
             <span className="text-xs font-medium text-ink-muted48">Đơn giá bán</span>
             <input required type="number" min="0" className="input" value={form.unitPrice} onChange={(event) => setForm((current) => ({ ...current, unitPrice: event.target.value }))} />
+            <p className="form-hint">{form.unitPrice ? formatVnd(Number(form.unitPrice) || 0) : ""}</p>
           </label>
           <label className="space-y-1 block">
             <span className="text-xs font-medium text-ink-muted48">Tình trạng sử dụng</span>

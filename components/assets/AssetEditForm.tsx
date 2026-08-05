@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SlideOver from "@/components/ui/SlideOver";
 import FormGuide from "@/components/ui/FormGuide";
+import { formatVnd } from "@/lib/export-utils";
 
 const GUIDE_SECTIONS = [
   {
@@ -126,6 +127,7 @@ export default function AssetEditForm({
             <label className="form-group">
               <span className="label">Giá trị / đơn vị</span>
               <input type="number" min={0} step={1000} className="input" value={form.unitValue} onChange={(event) => setForm((current) => ({ ...current, unitValue: event.target.value }))} />
+              <p className="form-hint">{form.unitValue ? formatVnd(Number(form.unitValue) || 0) : "Giá gốc của 1 đơn vị tài sản."}</p>
             </label>
 
             <label className="form-group md:col-span-2">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SlideOver from "@/components/ui/SlideOver";
 import FormGuide from "@/components/ui/FormGuide";
+import { formatVnd } from "@/lib/export-utils";
 
 const RECEIPT_GUIDE_SECTIONS = [
   {
@@ -84,6 +85,7 @@ export default function ReceiptForm({ bookId, defaultUnitPrice }: { bookId: stri
             <label className="form-group">
               <span className="label-sm">Giá nhập / đơn vị</span>
               <input type="number" required min="0" placeholder="Giá nhập" className="input" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
+              <p className="form-hint">{unitPrice ? formatVnd(Number(unitPrice) || 0) : ""}</p>
             </label>
             <input placeholder="Ghi chú" className="input" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>

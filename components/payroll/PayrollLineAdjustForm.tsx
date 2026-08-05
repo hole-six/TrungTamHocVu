@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import { formatVnd } from "@/lib/export-utils";
 
 export default function PayrollLineAdjustForm({
   lineId,
@@ -66,6 +67,7 @@ export default function PayrollLineAdjustForm({
             value={form.bonus}
             onChange={(event) => setForm((current) => ({ ...current, bonus: event.target.value }))}
           />
+          <p className="form-hint">{form.bonus ? formatVnd(Number(form.bonus) || 0) : ""}</p>
         </label>
         <label className="space-y-1">
           <span className="text-xs font-medium text-ink-muted48">Phạt</span>
@@ -75,6 +77,7 @@ export default function PayrollLineAdjustForm({
             value={form.penalty}
             onChange={(event) => setForm((current) => ({ ...current, penalty: event.target.value }))}
           />
+          <p className="form-hint">{form.penalty ? formatVnd(Number(form.penalty) || 0) : ""}</p>
         </label>
       </div>
       <label className="space-y-1 block">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SlideOver from "@/components/ui/SlideOver";
 import FormGuide from "@/components/ui/FormGuide";
+import { formatVnd } from "@/lib/export-utils";
 
 type StudentHit = { id: string; fullName: string; studentCode: string };
 type InstallmentDraft = { dueMonth: string; amount: string };
@@ -190,7 +191,10 @@ export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { 
                       {installments.map((item, index) => (
                         <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2">
                           <input aria-label={`Tháng thu đợt ${index + 1}`} type="month" value={item.dueMonth} onChange={(event) => setInstallments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, dueMonth: event.target.value } : row))} className="input-sm" />
-                          <input aria-label={`Số tiền đợt ${index + 1}`} type="number" min="1" step="1000" value={item.amount} onChange={(event) => setInstallments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, amount: event.target.value } : row))} className="input-sm" />
+                          <span className="flex flex-col">
+                            <input aria-label={`Số tiền đợt ${index + 1}`} type="number" min="1" value={item.amount} onChange={(event) => setInstallments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, amount: event.target.value } : row))} className="input-sm" />
+                            <span className="text-[10px] leading-tight text-ink-muted48">{formatVnd(Number(item.amount) || 0)}</span>
+                          </span>
                           {installments.length > 2 ? <button type="button" onClick={() => setInstallments((current) => current.filter((_, rowIndex) => rowIndex !== index))} className="btn-ghost-sm px-3 text-red-600">×</button> : <span />}
                         </div>
                       ))}

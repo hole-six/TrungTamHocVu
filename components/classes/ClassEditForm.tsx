@@ -353,6 +353,7 @@ export default function ClassEditForm({
             <label className="form-group">
               <span className="label">Học phí / buổi</span>
               <input type="number" min={0} className="input" value={form.tuitionPerSession} onChange={(event) => setForm((current) => ({ ...current, tuitionPerSession: event.target.value }))} />
+              <p className="form-hint">{form.tuitionPerSession ? formatVnd(Number(form.tuitionPerSession) || 0) : ""}</p>
             </label>
 
             <label className="form-group">

@@ -129,10 +129,12 @@ function EditBookSlideOver({
         <label className="form-group">
           <span className="label-sm">Đơn giá nhập *</span>
           <input required type="number" min="0" className="input" value={form.purchasePrice} onChange={(event) => setForm((current) => ({ ...current, purchasePrice: event.target.value }))} />
+          <p className="form-hint">{form.purchasePrice ? formatVnd(Number(form.purchasePrice) || 0) : ""}</p>
         </label>
         <label className="form-group">
           <span className="label-sm">Đơn giá bán *</span>
           <input required type="number" min="0" className="input" value={form.unitPrice} onChange={(event) => setForm((current) => ({ ...current, unitPrice: event.target.value }))} />
+          <p className="form-hint">{form.unitPrice ? formatVnd(Number(form.unitPrice) || 0) : ""}</p>
         </label>
         <label className="form-group">
           <span className="label-sm">Tình trạng sử dụng</span>

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { getAppShellConfig } from "@/lib/app-shell";
+import MobileBottomNav from "./MobileBottomNav";
 
 type NavItem = {
   href: string;
@@ -287,58 +288,6 @@ function SidebarContent({
   );
 }
 
-function MobilePrimaryNav({
-  pathname,
-  navItems,
-  navBadges,
-  userRole,
-}: {
-  pathname: string;
-  navItems: NavItem[];
-  navBadges?: NavBadgeMap;
-  userRole?: string;
-}) {
-  const shellConfig = getAppShellConfig(userRole);
-  const itemsByHref = Object.fromEntries(navItems.map((item) => [item.href, item]));
-  const mobileItems = shellConfig.mobilePrimaryRoutes.map((href) => itemsByHref[href]).filter(Boolean);
-
-  if (mobileItems.length === 0) return null;
-
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#f1f5f9] bg-white/95 backdrop-blur-xl px-2 pt-2 pb-[max(env(safe-area-inset-bottom),8px)] shadow-[0_-16px_40px_-12px_rgba(15,23,42,0.15)] md:hidden">
-      <div className="grid grid-cols-5 gap-1.5">
-        {mobileItems.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-          const badge = navBadges?.[item.href];
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`relative flex min-h-[68px] flex-col items-center justify-center gap-2 rounded-2xl px-2 py-3 text-center transition-all duration-200 ${
-                active 
-                  ? "bg-gradient-to-b from-[#fff7ed] to-[#ffedd5] scale-105 shadow-md" 
-                  : "hover:bg-[#f8fafc]"
-              }`}
-            >
-              {badge && badge > 0 ? (
-                <span className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-[#f97316] to-[#ea580c] text-[9px] font-black leading-none text-white shadow-lg shadow-primary/30">
-                  {badge > 9 ? "9+" : badge}
-                </span>
-              ) : null}
-              <span className={`transition-all duration-200 ${active ? "text-[#f97316] scale-110" : "text-[#94a3b8]"}`}>
-                {NAV_ICONS[item.href]}
-              </span>
-              <span className={`text-[11px] font-bold leading-tight transition-colors ${active ? "text-[#f97316]" : "text-[#64748b]"}`}>
-                {item.label}
-              </span>
-            </Link>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export default function Sidebar({
   navItems,
   navBadges,
@@ -399,8 +348,8 @@ export default function Sidebar({
         <SidebarContent pathname={pathname} navItems={navItems} navBadges={navBadges} userRole={userRole} collapsed={!peek} />
       </aside>
 
-      {/* Mobile Bottom Nav */}
-      <MobilePrimaryNav pathname={pathname} navItems={navItems} navBadges={navBadges} userRole={userRole} />
+      {/* New Mobile Bottom Navigation */}
+      <MobileBottomNav />
     </>
   );
 }

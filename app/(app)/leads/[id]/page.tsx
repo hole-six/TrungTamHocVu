@@ -47,10 +47,10 @@ function formatMoney(amount: number | null) {
 
 function InfoItem({ label, value, hint }: { label: string; value: React.ReactNode; hint?: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-[#e8eef8] bg-white px-4 py-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8aa0ba]">{label}</p>
-      <div className="mt-2 text-sm font-semibold text-[#12304a]">{value}</div>
-      {hint ? <div className="mt-1 text-xs text-[#6e7f93]">{hint}</div> : null}
+    <div className="rounded-xl sm:rounded-2xl border border-[#e8eef8] bg-white px-3 py-3 sm:px-4 sm:py-4">
+      <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] sm:tracking-[0.2em] text-[#8aa0ba]">{label}</p>
+      <div className="mt-1.5 sm:mt-2 text-xs sm:text-sm font-semibold text-[#12304a] break-words">{value}</div>
+      {hint ? <div className="mt-1 text-[10px] sm:text-xs text-[#6e7f93]">{hint}</div> : null}
     </div>
   );
 }
@@ -128,39 +128,40 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   const latestPlacement = lead.placementTests[0] ?? null;
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-4 sm:space-y-6 pb-6 sm:pb-8">
       <PageGuide
         title="Guide chi tiết lead"
         summary="Giải thích nhanh cách đọc hành trình CRM của một lead và bước tiếp theo cần xử lý."
         sections={LEAD_DETAIL_GUIDE_SECTIONS}
         buttonLabel="Guide lead"
       />
-      <section className="rounded-[32px] border border-[#dbe7ff] bg-white px-6 py-6 shadow-[0_24px_60px_rgba(15,23,42,0.06)] md:px-8">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div className="space-y-3">
-            <Link href="/leads" className="inline-flex items-center gap-2 text-sm font-medium text-[#3b82f6] hover:underline">
-              ← Về CRM tuyển sinh
+      <section className="rounded-[24px] sm:rounded-[32px] border border-[#dbe7ff] bg-white px-4 py-4 sm:px-6 sm:py-6 md:px-8 shadow-[0_18px_42px_rgba(15,23,42,0.05)] sm:shadow-[0_24px_60px_rgba(15,23,42,0.06)]">
+        <div className="flex flex-col gap-4 sm:gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="space-y-2 sm:space-y-3">
+            <Link href="/leads" className="inline-flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-[#3b82f6] hover:underline">
+              ← <span className="sm:hidden">CRM</span><span className="hidden sm:inline">Về CRM tuyển sinh</span>
             </Link>
 
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#3da3ff]">Lead detail</p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight text-[#12304a] md:text-[40px]">{lead.fullName}</h1>
-              <p className="mt-2 text-sm text-[#607186] md:text-base">
-                Chi tiết hồ sơ tuyển sinh, phụ huynh, lịch hẹn, test đầu vào và trạng thái chuyển đổi được gom lại trên một màn dễ vận hành hơn.
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.28em] sm:tracking-[0.32em] text-[#3da3ff]">Lead detail</p>
+              <h1 className="mt-1.5 sm:mt-2 text-xl sm:text-2xl md:text-3xl lg:text-[40px] font-black tracking-tight text-[#12304a]">{lead.fullName}</h1>
+              <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm md:text-base text-[#607186]">
+                <span className="hidden sm:inline">Chi tiết hồ sơ tuyển sinh, phụ huynh, lịch hẹn, test đầu vào và trạng thái chuyển đổi được gom lại trên một màn dễ vận hành hơn.</span>
+                <span className="sm:hidden">Hồ sơ CRM đầy đủ: lịch hẹn, test đầu vào và trạng thái</span>
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full border border-[#cfe2ff] bg-[#f3f8ff] px-3 py-1 text-sm font-medium text-[#1f5fa8]">
-                Mã lead {lead.leadCode}
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              <span className="rounded-full border border-[#cfe2ff] bg-[#f3f8ff] px-2.5 sm:px-3 py-1 text-[10px] sm:text-sm font-medium text-[#1f5fa8]">
+                <span className="sm:hidden">Lead</span><span className="hidden sm:inline">Mã lead</span> {lead.leadCode}
               </span>
               {age !== null ? (
-                <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-1 text-sm font-medium text-[#50657b]">
+                <span className="rounded-full border border-[#dbe7ff] bg-white px-2.5 sm:px-3 py-1 text-[10px] sm:text-sm font-medium text-[#50657b]">
                   {age} tuổi
                 </span>
               ) : null}
               {suggested ? (
-                <span className="rounded-full border border-[#e9d5ff] bg-[#faf5ff] px-3 py-1 text-sm font-medium text-[#7c3aed]">
+                <span className="rounded-full border border-[#e9d5ff] bg-[#faf5ff] px-2.5 sm:px-3 py-1 text-[10px] sm:text-sm font-medium text-[#7c3aed]">
                   Gợi ý {suggested}
                 </span>
               ) : null}
@@ -168,52 +169,56 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
           </div>
 
           <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-            <span className="rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-4 py-2 text-sm font-semibold text-[#12304a]">
+            <span className="rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-[#12304a]">
               {LEAD_STATUS_LABEL[lead.status as keyof typeof LEAD_STATUS_LABEL] ?? lead.status}
             </span>
             {editable ? (
-              <Link href={`/leads/${lead.id}/edit`} className="btn-ghost">
-                Sửa thông tin
+              <Link href={`/leads/${lead.id}/edit`} className="btn-ghost text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2">
+                <span className="sm:hidden">Sửa</span>
+                <span className="hidden sm:inline">Sửa thông tin</span>
               </Link>
             ) : null}
           </div>
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-[24px] border border-[#d8e7fb] bg-white px-5 py-4 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#8aa0ba]">Lịch hẹn</p>
-          <p className="mt-2 text-3xl font-black text-[#12304a]">{lead.appointments.length}</p>
-          <p className="mt-1 text-sm text-[#6b7a8c]">{latestAppointment ? formatDateTime(latestAppointment.scheduledAt) : "Chưa có lịch"}</p>
+      <section className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-[20px] sm:rounded-[24px] border border-[#d8e7fb] bg-white px-3 py-3 sm:px-5 sm:py-4 shadow-sm">
+          <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.24em] sm:tracking-[0.26em] text-[#8aa0ba]">Lịch hẹn</p>
+          <p className="mt-1.5 sm:mt-2 text-2xl sm:text-3xl font-black text-[#12304a]">{lead.appointments.length}</p>
+          <p className="mt-1 text-xs sm:text-sm text-[#6b7a8c] truncate">{latestAppointment ? formatDateTime(latestAppointment.scheduledAt) : "Chưa có lịch"}</p>
         </div>
-        <div className="rounded-[24px] border border-[#d8e7fb] bg-white px-5 py-4 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#8aa0ba]">Tương tác</p>
-          <p className="mt-2 text-3xl font-black text-[#12304a]">{lead.interactions.length}</p>
-          <p className="mt-1 text-sm text-[#6b7a8c]">{latestInteraction ? formatDateTime(latestInteraction.occurredAt) : "Chưa ghi nhận"}</p>
+        <div className="rounded-[20px] sm:rounded-[24px] border border-[#d8e7fb] bg-white px-3 py-3 sm:px-5 sm:py-4 shadow-sm">
+          <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.24em] sm:tracking-[0.26em] text-[#8aa0ba]">Tương tác</p>
+          <p className="mt-1.5 sm:mt-2 text-2xl sm:text-3xl font-black text-[#12304a]">{lead.interactions.length}</p>
+          <p className="mt-1 text-xs sm:text-sm text-[#6b7a8c] truncate">{latestInteraction ? formatDateTime(latestInteraction.occurredAt) : "Chưa ghi nhận"}</p>
         </div>
-        <div className="rounded-[24px] border border-[#d8e7fb] bg-white px-5 py-4 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#8aa0ba]">Test đầu vào</p>
-          <p className="mt-2 text-3xl font-black text-[#12304a]">{lead.placementTests.length}</p>
-          <p className="mt-1 text-sm text-[#6b7a8c]">{latestPlacement ? formatDate(latestPlacement.testDate) : "Chưa test"}</p>
+        <div className="rounded-[20px] sm:rounded-[24px] border border-[#d8e7fb] bg-white px-3 py-3 sm:px-5 sm:py-4 shadow-sm">
+          <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.24em] sm:tracking-[0.26em] text-[#8aa0ba]">Test đầu vào</p>
+          <p className="mt-1.5 sm:mt-2 text-2xl sm:text-3xl font-black text-[#12304a]">{lead.placementTests.length}</p>
+          <p className="mt-1 text-xs sm:text-sm text-[#6b7a8c] truncate">{latestPlacement ? formatDate(latestPlacement.testDate) : "Chưa test"}</p>
         </div>
-        <div className="rounded-[24px] border border-[#d8e7fb] bg-white px-5 py-4 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#8aa0ba]">Công nợ hiện tại</p>
-          <p className="mt-2 text-3xl font-black text-[#12304a]">{outstanding !== null ? `${outstanding.toLocaleString("vi-VN")}đ` : "0đ"}</p>
-          <p className="mt-1 text-sm text-[#6b7a8c]">{lead.student ? "Đã có hồ sơ học viên" : "Chưa chuyển đổi"}</p>
+        <div className="rounded-[20px] sm:rounded-[24px] border border-[#d8e7fb] bg-white px-3 py-3 sm:px-5 sm:py-4 shadow-sm">
+          <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.24em] sm:tracking-[0.26em] text-[#8aa0ba]"><span className="hidden sm:inline">Công nợ hiện tại</span><span className="sm:hidden">Công nợ</span></p>
+          <p className="mt-1.5 sm:mt-2 text-2xl sm:text-3xl font-black text-[#12304a]">{outstanding !== null ? `${outstanding.toLocaleString("vi-VN")}đ` : "0đ"}</p>
+          <p className="mt-1 text-xs sm:text-sm text-[#6b7a8c] truncate">{lead.student ? <><span className="sm:hidden">Có HV</span><span className="hidden sm:inline">Đã có hồ sơ học viên</span></> : "Chưa chuyển đổi"}</p>
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.75fr)_360px]">
-        <div className="space-y-6">
-          <section className="rounded-[28px] border border-[#dbe7ff] bg-white p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.75fr)_360px]">
+        <div className="space-y-4 sm:space-y-6">
+          <section className="rounded-[22px] sm:rounded-[28px] border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
+            <div className="flex flex-col gap-2 sm:gap-3 md:flex-row md:items-start md:justify-between">
               <div>
-                <h2 className="text-xl font-bold tracking-tight text-[#12304a]">Thông tin hồ sơ</h2>
-                <p className="mt-1 text-sm text-[#6b7a8c]">Gom lại phần liên hệ, nguồn lead và ghi chú ban đầu.</p>
+                <h2 className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-[#12304a]">Thông tin hồ sơ</h2>
+                <p className="mt-1 text-xs sm:text-sm text-[#6b7a8c]">
+                  <span className="hidden sm:inline">Gom lại phần liên hệ, nguồn lead và ghi chú ban đầu.</span>
+                  <span className="sm:hidden">Liên hệ, nguồn và ghi chú</span>
+                </p>
               </div>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="mt-3 sm:mt-4 grid gap-3 sm:gap-4 md:grid-cols-2">
               <InfoItem label="Phụ huynh" value={lead.guardian?.fullName ?? "Chưa có"} hint={lead.phone ?? "Chưa có số điện thoại"} />
               <InfoItem label="Ngày gặp" value={formatDate(lead.meetDate)} hint={`Ngày dự kiến học: ${formatDate(lead.expectedStartDate)}`} />
               <InfoItem label="Nguồn lead" value={lead.source ?? "Chưa ghi"} />
@@ -236,18 +241,21 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             </div>
 
             {lead.notes ? (
-              <div className="mt-4 rounded-2xl border border-[#e8eef8] bg-[#f8fbff] px-4 py-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8aa0ba]">Ghi chú CRM</p>
-                <p className="mt-2 text-sm leading-6 text-[#51657a]">{lead.notes}</p>
+              <div className="mt-3 sm:mt-4 rounded-xl sm:rounded-2xl border border-[#e8eef8] bg-[#f8fbff] px-3 py-3 sm:px-4 sm:py-4">
+                <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] sm:tracking-[0.2em] text-[#8aa0ba]">Ghi chú CRM</p>
+                <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm leading-5 sm:leading-6 text-[#51657a]">{lead.notes}</p>
               </div>
             ) : null}
           </section>
 
-          <section className="rounded-[28px] border border-[#dbe7ff] bg-white p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
-            <h2 className="text-xl font-bold tracking-tight text-[#12304a]">Liên kết vận hành</h2>
-            <p className="mt-1 text-sm text-[#6b7a8c]">Phụ huynh, portal, học viên và lớp hiện tại nếu lead đã chuyển đổi.</p>
+          <section className="rounded-[22px] sm:rounded-[28px] border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
+            <h2 className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-[#12304a]">Liên kết vận hành</h2>
+            <p className="mt-1 text-xs sm:text-sm text-[#6b7a8c]">
+              <span className="hidden sm:inline">Phụ huynh, portal, học viên và lớp hiện tại nếu lead đã chuyển đổi.</span>
+              <span className="sm:hidden">PH, portal, HV và lớp</span>
+            </p>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="mt-3 sm:mt-4 grid gap-3 sm:gap-4 md:grid-cols-2">
               <InfoItem
                 label="Phụ huynh chính"
                 value={
@@ -293,50 +301,50 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             </div>
           </section>
 
-          <section className="rounded-[28px] border border-[#dbe7ff] bg-white p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
-            <h2 className="text-xl font-bold tracking-tight text-[#12304a]">Test đầu vào</h2>
-            <div className="mt-4 space-y-3">
+          <section className="rounded-[22px] sm:rounded-[28px] border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
+            <h2 className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-[#12304a]">Test đầu vào</h2>
+            <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-3">
               {lead.placementTests.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[#dbe7ff] px-4 py-10 text-center text-sm text-[#7b8ea5]">
+                <div className="rounded-xl sm:rounded-2xl border border-dashed border-[#dbe7ff] px-3 py-8 sm:px-4 sm:py-10 text-center text-xs sm:text-sm text-[#7b8ea5]">
                   Chưa có kết quả test đầu vào.
                 </div>
               ) : (
                 lead.placementTests.map((test) => (
-                  <div key={test.id} className="rounded-[22px] border border-[#e8eef8] bg-[#fcfdff] px-4 py-4">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div key={test.id} className="rounded-[18px] sm:rounded-[22px] border border-[#e8eef8] bg-[#fcfdff] px-3 py-3 sm:px-4 sm:py-4">
+                    <div className="flex flex-col gap-2 sm:gap-3 md:flex-row md:items-start md:justify-between">
                       <div>
-                        <p className="font-semibold text-[#12304a]">{formatDate(test.testDate)}</p>
-                        <p className="mt-1 text-sm text-[#6b7a8c]">{test.suggestedClass ?? "Chưa gợi ý lớp"}</p>
+                        <p className="text-sm sm:text-base font-semibold text-[#12304a]">{formatDate(test.testDate)}</p>
+                        <p className="mt-1 text-xs sm:text-sm text-[#6b7a8c]">{test.suggestedClass ?? "Chưa gợi ý lớp"}</p>
                       </div>
                       {test.result ? (
-                        <span className="rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-3 py-1 text-sm font-medium text-[#235f9d]">
+                        <span className="rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-2.5 sm:px-3 py-1 text-xs sm:text-sm font-medium text-[#235f9d]">
                           {test.result}
                         </span>
                       ) : null}
                     </div>
-                    {test.notes ? <p className="mt-3 text-sm leading-6 text-[#51657a]">{test.notes}</p> : null}
+                    {test.notes ? <p className="mt-2 sm:mt-3 text-xs sm:text-sm leading-5 sm:leading-6 text-[#51657a]">{test.notes}</p> : null}
                   </div>
                 ))
               )}
             </div>
           </section>
 
-          <section className="rounded-[28px] border border-[#dbe7ff] bg-white p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
-            <h2 className="text-xl font-bold tracking-tight text-[#12304a]">Lịch hẹn</h2>
-            <div className="mt-4 space-y-3">
+          <section className="rounded-[22px] sm:rounded-[28px] border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
+            <h2 className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-[#12304a]">Lịch hẹn</h2>
+            <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-3">
               {lead.appointments.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[#dbe7ff] px-4 py-10 text-center text-sm text-[#7b8ea5]">
+                <div className="rounded-xl sm:rounded-2xl border border-dashed border-[#dbe7ff] px-3 py-8 sm:px-4 sm:py-10 text-center text-xs sm:text-sm text-[#7b8ea5]">
                   Chưa có lịch hẹn nào.
                 </div>
               ) : (
                 lead.appointments.map((appointment) => (
-                  <div key={appointment.id} className="flex flex-col gap-3 rounded-[22px] border border-[#e8eef8] bg-[#fcfdff] px-4 py-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <p className="font-semibold text-[#12304a]">{formatDateTime(appointment.scheduledAt)}</p>
-                      {appointment.notes ? <p className="mt-1 text-sm text-[#6b7a8c]">{appointment.notes}</p> : null}
+                  <div key={appointment.id} className="flex flex-col gap-2 sm:gap-3 rounded-[18px] sm:rounded-[22px] border border-[#e8eef8] bg-[#fcfdff] px-3 py-3 sm:px-4 sm:py-4 md:flex-row md:items-center md:justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm sm:text-base font-semibold text-[#12304a]">{formatDateTime(appointment.scheduledAt)}</p>
+                      {appointment.notes ? <p className="mt-1 text-xs sm:text-sm text-[#6b7a8c] truncate">{appointment.notes}</p> : null}
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className={`rounded-full border px-3 py-1 text-sm font-medium ${APPOINTMENT_STATUS_COLOR[appointment.status] ?? "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                      <span className={`rounded-full border px-2.5 sm:px-3 py-1 text-xs sm:text-sm font-medium ${APPOINTMENT_STATUS_COLOR[appointment.status] ?? "bg-slate-100 text-slate-600 border-slate-200"}`}>
                         {APPOINTMENT_STATUS_LABEL[appointment.status] ?? appointment.status}
                       </span>
                       {editable ? <AppointmentStatusButtons appointmentId={appointment.id} status={appointment.status} /> : null}
@@ -347,21 +355,21 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             </div>
           </section>
 
-          <section className="rounded-[28px] border border-[#dbe7ff] bg-white p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
-            <h2 className="text-xl font-bold tracking-tight text-[#12304a]">Lịch sử tương tác</h2>
-            <div className="mt-4 space-y-3">
+          <section className="rounded-[22px] sm:rounded-[28px] border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
+            <h2 className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-[#12304a]">Lịch sử tương tác</h2>
+            <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-3">
               {lead.interactions.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[#dbe7ff] px-4 py-10 text-center text-sm text-[#7b8ea5]">
+                <div className="rounded-xl sm:rounded-2xl border border-dashed border-[#dbe7ff] px-3 py-8 sm:px-4 sm:py-10 text-center text-xs sm:text-sm text-[#7b8ea5]">
                   Chưa có tương tác nào.
                 </div>
               ) : (
                 lead.interactions.map((interaction) => (
-                  <div key={interaction.id} className="rounded-[22px] border border-[#e8eef8] bg-[#fcfdff] px-4 py-4">
-                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                      <p className="font-semibold text-[#12304a]">{INTERACTION_LABEL[interaction.type] ?? interaction.type}</p>
-                      <p className="text-sm text-[#7b8ea5]">{formatDateTime(interaction.occurredAt)}</p>
+                  <div key={interaction.id} className="rounded-[18px] sm:rounded-[22px] border border-[#e8eef8] bg-[#fcfdff] px-3 py-3 sm:px-4 sm:py-4">
+                    <div className="flex flex-col gap-1.5 sm:gap-2 md:flex-row md:items-start md:justify-between">
+                      <p className="text-sm sm:text-base font-semibold text-[#12304a]">{INTERACTION_LABEL[interaction.type] ?? interaction.type}</p>
+                      <p className="text-xs sm:text-sm text-[#7b8ea5] whitespace-nowrap">{formatDateTime(interaction.occurredAt)}</p>
                     </div>
-                    {interaction.content ? <p className="mt-2 text-sm leading-6 text-[#51657a]">{interaction.content}</p> : null}
+                    {interaction.content ? <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm leading-5 sm:leading-6 text-[#51657a]">{interaction.content}</p> : null}
                   </div>
                 ))
               )}
@@ -369,25 +377,25 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
           </section>
         </div>
 
-        <aside className="space-y-6">
-          <section className="rounded-[28px] border border-[#dbe7ff] bg-white p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
-            <h2 className="text-xl font-bold tracking-tight text-[#12304a]">Tóm tắt nhanh</h2>
-            <div className="mt-4 space-y-3">
-              <div className="rounded-2xl border border-[#e8eef8] bg-[#f8fbff] px-4 py-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8aa0ba]">Học viên hiện tại</p>
-                <p className="mt-2 text-sm font-semibold text-[#12304a]">
+        <aside className="space-y-4 sm:space-y-6">
+          <section className="rounded-[22px] sm:rounded-[28px] border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
+            <h2 className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-[#12304a]">Tóm tắt nhanh</h2>
+            <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-3">
+              <div className="rounded-xl sm:rounded-2xl border border-[#e8eef8] bg-[#f8fbff] px-3 py-3 sm:px-4 sm:py-4">
+                <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] sm:tracking-[0.2em] text-[#8aa0ba]">Học viên hiện tại</p>
+                <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm font-semibold text-[#12304a] break-words">
                   {lead.student ? lead.student.fullName : "Chưa chuyển đổi"}
                 </p>
               </div>
-              <div className="rounded-2xl border border-[#e8eef8] bg-white px-4 py-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8aa0ba]">Lớp hiện tại</p>
-                <p className="mt-2 text-sm font-semibold text-[#12304a]">
+              <div className="rounded-xl sm:rounded-2xl border border-[#e8eef8] bg-white px-3 py-3 sm:px-4 sm:py-4">
+                <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] sm:tracking-[0.2em] text-[#8aa0ba]">Lớp hiện tại</p>
+                <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm font-semibold text-[#12304a] break-words">
                   {currentEnrollment?.class?.className ?? lead.interestedClass?.className ?? "Chưa gắn lớp"}
                 </p>
               </div>
-              <div className="rounded-2xl border border-[#e8eef8] bg-white px-4 py-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8aa0ba]">Portal phụ huynh</p>
-                <p className="mt-2 text-sm font-semibold text-[#12304a]">
+              <div className="rounded-xl sm:rounded-2xl border border-[#e8eef8] bg-white px-3 py-3 sm:px-4 sm:py-4">
+                <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] sm:tracking-[0.2em] text-[#8aa0ba]">Portal phụ huynh</p>
+                <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm font-semibold text-[#12304a] break-all">
                   {linkedGuardian?.user?.email ?? "Chưa cấp"}
                 </p>
               </div>
@@ -400,8 +408,8 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               <LeadActivityForms leadId={lead.id} />
             </>
           ) : (
-            <section className="rounded-[28px] border border-[#dbe7ff] bg-white p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
-              <p className="text-sm leading-6 text-[#6b7a8c]">
+            <section className="rounded-[22px] sm:rounded-[28px] border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
+              <p className="text-xs sm:text-sm leading-5 sm:leading-6 text-[#6b7a8c]">
                 Vai trò hiện tại chỉ được xem chi tiết lead này. Không thể đổi trạng thái hoặc thêm hoạt động mới.
               </p>
             </section>

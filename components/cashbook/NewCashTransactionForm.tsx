@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import FormGuide from "@/components/ui/FormGuide";
+import { formatVnd } from "@/lib/export-utils";
 
 type Category = { id: string; type: string; name: string };
 
@@ -153,6 +154,7 @@ export default function NewCashTransactionForm({ categories }: { categories: Cat
                   <label className="form-group">
                     <span className="label-sm">Số tiền</span>
                     <input required type="number" min="0" className="input" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Nhập số tiền" />
+                    <p className="form-hint">{form.amount ? formatVnd(Number(form.amount) || 0) : "Nhập số tiền thực tế đã thu/chi."}</p>
                   </label>
 
                   <label className="form-group">

@@ -185,31 +185,35 @@ export default async function InventoryPage({
   const issueMonthOptions = Array.from(new Set(issueRows.map((row) => row.issueMonth))).sort((left, right) => right.localeCompare(left));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <PageGuide
         title="Guide vận hành kho giáo trình"
         summary="Đây là màn quản lý đầu sách, tồn kho và lịch sử xuất sách. Người mới chỉ cần phân biệt rõ ba việc: thêm đầu sách, nhập kho và xuất cho học viên."
         sections={INVENTORY_PAGE_GUIDE_SECTIONS}
         buttonLabel="Guide kho sách"
       />
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+      <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <h1 className="page-title">Kho giáo trình</h1>
-          <p className="page-subtitle">Tra cứu tồn kho, xuất sách và tình trạng thu tiền</p>
+          <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Kho giáo trình</h1>
+          <p className="page-subtitle text-xs sm:text-sm">
+            <span className="hidden sm:inline">Tra cứu tồn kho, xuất sách và tình trạng thu tiền</span>
+            <span className="sm:hidden">Tồn kho, xuất sách và thu tiền</span>
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {canCreate("inventory", role) ? <NewBookForm categoryOptions={categoryOptions} /> : null}
         </div>
       </div>
 
-      <section className="space-y-4 rounded-[28px] border border-hairline bg-white/70 p-5">
+      <section className="space-y-3 sm:space-y-4 rounded-[22px] sm:rounded-[28px] border border-hairline bg-white/70 p-4 sm:p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="font-display text-lg font-semibold tracking-tight">Danh mục sách</h2>
+            <h2 className="font-display text-base sm:text-lg font-semibold tracking-tight">Danh mục sách</h2>
           </div>
-          <Link href="/classes" className="btn-ghost">
-            Khóa học
+          <Link href="/classes" className="btn-ghost text-xs sm:text-sm px-3 sm:px-4 py-2">
+            <span className="sm:hidden">Khóa</span>
+            <span className="hidden sm:inline">Khóa học</span>
           </Link>
         </div>
         <div>
@@ -224,23 +228,23 @@ export default async function InventoryPage({
         </div>
       </section>
 
-      <section className="space-y-4 rounded-[28px] border border-hairline bg-white/70 p-5">
+      <section className="space-y-3 sm:space-y-4 rounded-[22px] sm:rounded-[28px] border border-hairline bg-white/70 p-4 sm:p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="font-display text-lg font-semibold tracking-tight">Sổ xuất giáo trình</h2>
+            <h2 className="font-display text-base sm:text-lg font-semibold tracking-tight">Sổ xuất giáo trình</h2>
           </div>
-          <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-1 text-xs font-semibold text-primary">
-            {issueRows.length} dòng
+          <span className="rounded-full border border-[#dbe7ff] bg-white px-2.5 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold text-primary">
+            {issueRows.length} <span className="hidden sm:inline">dòng</span>
           </span>
         </div>
-        <form className="grid gap-3 rounded-3xl border border-line/70 bg-surface/70 p-4 xl:grid-cols-[minmax(0,1.2fr)_260px_220px_190px_auto]">
+        <form className="grid gap-2 sm:gap-3 rounded-2xl sm:rounded-3xl border border-line/70 bg-surface/70 p-3 sm:p-4 xl:grid-cols-[minmax(0,1.2fr)_260px_220px_190px_auto]">
           <label className="form-group">
-            <span className="label-sm">Tìm kiếm</span>
-            <input type="text" name="q" defaultValue={q} placeholder="Lớp, học viên, sách..." className="input" />
+            <span className="label-sm text-[10px] sm:text-xs">Tìm kiếm</span>
+            <input type="text" name="q" defaultValue={q} placeholder="Lớp, học viên, sách..." className="input h-10 sm:h-11 text-xs sm:text-sm" />
           </label>
           <label className="form-group">
-            <span className="label-sm">Sách</span>
-            <select name="bookId" defaultValue={selectedBookId} className="input">
+            <span className="label-sm text-[10px] sm:text-xs">Sách</span>
+            <select name="bookId" defaultValue={selectedBookId} className="input h-10 sm:h-11 text-xs sm:text-sm">
               <option value="">Tất cả</option>
               {stockRows.map((book) => (
                 <option key={book.id} value={book.id}>
@@ -250,16 +254,16 @@ export default async function InventoryPage({
             </select>
           </label>
           <label className="form-group">
-            <span className="label-sm">Thanh toán</span>
-            <select name="paymentStatus" defaultValue={selectedPaymentStatus} className="input">
+            <span className="label-sm text-[10px] sm:text-xs">Thanh toán</span>
+            <select name="paymentStatus" defaultValue={selectedPaymentStatus} className="input h-10 sm:h-11 text-xs sm:text-sm">
               <option value="">Tất cả</option>
               <option value="PAID">Đã TT</option>
               <option value="UNPAID">Chưa TT</option>
             </select>
           </label>
           <label className="form-group">
-            <span className="label-sm">Tháng</span>
-            <select name="month" defaultValue={selectedMonth} className="input">
+            <span className="label-sm text-[10px] sm:text-xs">Tháng</span>
+            <select name="month" defaultValue={selectedMonth} className="input h-10 sm:h-11 text-xs sm:text-sm">
               <option value="">Tất cả</option>
               {issueMonthOptions.map((month) => (
                 <option key={month} value={month}>
@@ -269,18 +273,18 @@ export default async function InventoryPage({
             </select>
           </label>
           <div className="flex items-end gap-2">
-            <button type="submit" className="btn-primary w-full">
+            <button type="submit" className="btn-primary w-full text-xs sm:text-sm px-3 sm:px-4 py-2">
               Lọc
             </button>
-            <Link href="/inventory" className="btn-ghost whitespace-nowrap">
+            <Link href="/inventory" className="btn-ghost whitespace-nowrap text-xs sm:text-sm px-3 sm:px-4 py-2">
               Reset
             </Link>
           </div>
         </form>
         <div className="flex items-center justify-between gap-4">
-          <h3 className="font-display text-base font-semibold tracking-tight">Danh sách xuất</h3>
-          <p className="text-sm text-ink-muted48">
-            {issueRows.length} dòng · {formatVnd(totalIssueAmount)}
+          <h3 className="font-display text-sm sm:text-base font-semibold tracking-tight">Danh sách xuất</h3>
+          <p className="text-xs sm:text-sm text-ink-muted48">
+            {issueRows.length} <span className="hidden sm:inline">dòng</span> · {formatVnd(totalIssueAmount)}
           </p>
         </div>
 

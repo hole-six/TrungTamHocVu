@@ -4,10 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SlideOver from "@/components/ui/SlideOver";
 import FormGuide from "@/components/ui/FormGuide";
-
-function formatVnd(amount: number) {
-  return `${amount.toLocaleString("vi-VN")}đ`;
-}
+import { formatVnd } from "@/lib/export-utils";
 
 const GUIDE_SECTIONS = [
   {
@@ -115,7 +112,7 @@ export default function QuickMaintenanceButton({
 
           <label className="form-group">
             <span className="label">Số tiền bảo dưỡng</span>
-            <input required type="number" min={1} step={1000} className="input" placeholder="Ví dụ: 250000" value={amount} onChange={(event) => setAmount(event.target.value)} />
+            <input required type="number" min={1} className="input" placeholder="Ví dụ: 250000" value={amount} onChange={(event) => setAmount(event.target.value)} />
             <p className="form-hint">{amount ? `Sẽ ghi nhận ${formatVnd(Number(amount) || 0)} vào chi phí bảo dưỡng.` : "Nhập đúng số tiền thực tế đã chi."}</p>
           </label>
 

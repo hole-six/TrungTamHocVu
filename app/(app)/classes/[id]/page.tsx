@@ -292,7 +292,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
   const defaultAssistantNames = cls.defaultAssignments.filter((i) => getClassAssignmentRoleType(i.role) === "ASSISTANT").map((i) => i.employee.shortName || i.employee.fullName).join(", ");
 
   return (
-    <div className="space-y-5 pb-16">
+    <div className="space-y-3 sm:space-y-5 pb-16 sm:pb-20">
       <PageGuide
         title="Guide chi tiết lớp"
         summary="Giải thích nhanh các tab điều hành lớp, nơi đổi lịch, điểm danh và quản lý học viên."
@@ -301,44 +301,48 @@ export default async function ClassDetailPage({ params }: { params: { id: string
       />
 
       {/* ── HEADER ── */}
-      <div className="rounded-2xl border border-[#e5eaf7] bg-gradient-to-b from-white to-[#f8faff] p-8 shadow-sm">
-        <Link href="/classes" className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold text-[#f97316] hover:bg-[#f97316]/10 transition-colors">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-          Quay lại Lớp &amp; Lịch
+      <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-gradient-to-b from-white to-[#f8faff] p-4 sm:p-6 md:p-8 shadow-sm">
+        <Link href="/classes" className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-semibold text-[#f97316] hover:bg-[#f97316]/10 transition-colors">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sm:w-4 sm:h-4"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          <span className="hidden sm:inline">Quay lại Lớp &amp; Lịch</span>
+          <span className="sm:hidden">Lớp</span>
         </Link>
-        <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#f97316] to-[#ea580c] shadow-lg">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <div className="mt-4 sm:mt-6 flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="flex h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#f97316] to-[#ea580c] shadow-lg">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-7 sm:h-7 md:w-8 md:h-8">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
                 <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
               </svg>
             </div>
-            <div>
-              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide mb-2 ${cls.status === "ACTIVE" ? "bg-[#10b981] text-white" : "bg-[#64748b] text-white"}`}>
-                <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                {cls.status === "ACTIVE" ? "ĐANG HOẠT ĐỘNG" : cls.status}
+            <div className="min-w-0 flex-1">
+              <span className={`inline-flex items-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wide mb-1.5 sm:mb-2 ${cls.status === "ACTIVE" ? "bg-[#10b981] text-white" : "bg-[#64748b] text-white"}`}>
+                <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-white" />
+                <span className="hidden sm:inline">{cls.status === "ACTIVE" ? "ĐANG HOẠT ĐỘNG" : cls.status}</span>
+                <span className="sm:hidden">{cls.status === "ACTIVE" ? "HOẠT ĐỘNG" : cls.status}</span>
               </span>
-              <h1 className="text-3xl font-black tracking-tight text-[#0f1729] mb-3">{cls.className}</h1>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center rounded-lg bg-[#f97316] px-2.5 py-1 text-xs font-bold text-white">{cls.classCode}</span>
-                {cls.course && <span className="inline-flex items-center rounded-lg bg-[#ea580c] px-2.5 py-1 text-xs font-bold text-white">{cls.course.name}</span>}
-                {cls.isRemedial && <span className="inline-flex items-center rounded-lg bg-[#f97316] px-2.5 py-1 text-xs font-bold text-white">Khóa bổ trợ</span>}
-                {totalOutstanding > 0 && <span className="inline-flex items-center rounded-lg bg-[#f59e0b] px-2.5 py-1 text-xs font-bold text-white">Còn nợ {formatVnd(totalOutstanding)}</span>}
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-[#0f1729] mb-2 sm:mb-3 truncate">{cls.className}</h1>
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span className="inline-flex items-center rounded-lg bg-[#f97316] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white">{cls.classCode}</span>
+                {cls.course && <span className="inline-flex items-center rounded-lg bg-[#ea580c] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white truncate max-w-[120px] sm:max-w-none">{cls.course.name}</span>}
+                {cls.isRemedial && <span className="inline-flex items-center rounded-lg bg-[#f97316] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap">Bổ trợ</span>}
+                {totalOutstanding > 0 && <span className="inline-flex items-center rounded-lg bg-[#f59e0b] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap">Nợ {formatVnd(totalOutstanding)}</span>}
                 {nextSession && (
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#f97316] px-2.5 py-1 text-xs font-bold text-white">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    Buổi tới {formatDate(nextSession.sessionDate)}
+                  <span className="inline-flex items-center gap-1 sm:gap-1.5 rounded-lg bg-[#f97316] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sm:w-3 sm:h-3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span className="hidden sm:inline">Buổi tới {formatDate(nextSession.sessionDate)}</span>
+                    <span className="sm:hidden">{formatDate(nextSession.sessionDate)}</span>
                   </span>
                 )}
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {latestSession && (
-              <Link href={`/classes/${cls.id}/sessions/${latestSession.id}`} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#f97316] to-[#ea580c] px-5 py-3 text-sm font-bold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="10 8 16 12 10 16"/></svg>
-                Mở buổi học
+              <Link href={`/classes/${cls.id}/sessions/${latestSession.id}`} className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl bg-gradient-to-r from-[#f97316] to-[#ea580c] px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm font-bold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sm:w-[18px] sm:h-[18px]"><circle cx="12" cy="12" r="10"/><polyline points="10 8 16 12 10 16"/></svg>
+                <span className="hidden sm:inline">Mở buổi học</span>
+                <span className="sm:hidden">Buổi học</span>
               </Link>
             )}
             {canManageClass && <GenerateSessionsForm classId={cls.id} />}
@@ -366,11 +370,11 @@ export default async function ClassDetailPage({ params }: { params: { id: string
               }}
               courses={courses}
               renderSummary={false}
-              triggerLabel="Sửa lớp"
-              triggerClassName="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-5 py-3 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] hover:-translate-y-0.5 transition-all"
+              triggerLabel="Sửa"
+              triggerClassName="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] hover:-translate-y-0.5 transition-all"
             />
             <Link href={`/classes/${cls.id}/edit`} className="hidden">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               Chỉnh sửa
             </Link>
           </div>
@@ -378,46 +382,46 @@ export default async function ClassDetailPage({ params }: { params: { id: string
       </div>
 
       {/* ── KPI 5 CARDS ── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
           </div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Sĩ số</p>
-          <p className="text-2xl font-black text-[#0f1729] mb-1">{activeEnrollments.length}</p>
-          <p className="text-xs font-semibold text-[#64748b]">học sinh</p>
+          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#64748b] mb-0.5 sm:mb-1">Sĩ số</p>
+          <p className="text-lg sm:text-xl md:text-2xl font-black text-[#0f1729] mb-0.5 sm:mb-1">{activeEnrollments.length}</p>
+          <p className="text-[10px] sm:text-xs font-semibold text-[#64748b]">học sinh</p>
         </div>
-        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Buổi đã học</p>
-          <p className="text-2xl font-black text-[#0f1729] mb-1">{completedSessions}{cls.totalSessions ? <span className="text-lg text-[#64748b]"> / {cls.totalSessions}</span> : ""}</p>
-          <p className="text-xs font-semibold text-[#64748b]">buổi hoàn thành</p>
+          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#64748b] mb-0.5 sm:mb-1">Đã học</p>
+          <p className="text-lg sm:text-xl md:text-2xl font-black text-[#0f1729] mb-0.5 sm:mb-1">{completedSessions}{cls.totalSessions ? <span className="text-sm sm:text-base md:text-lg text-[#64748b]"> / {cls.totalSessions}</span> : ""}</p>
+          <p className="text-[10px] sm:text-xs font-semibold text-[#64748b] truncate">buổi hoàn thành</p>
         </div>
-        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           </div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Công nợ</p>
-          <p className="text-2xl font-black text-[#0f1729] mb-1">{formatVnd(totalOutstanding)}</p>
-          <p className="text-xs font-semibold text-[#64748b]">{overdueEnrollments} học viên nợ</p>
+          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#64748b] mb-0.5 sm:mb-1">Công nợ</p>
+          <p className="text-lg sm:text-xl md:text-2xl font-black text-[#0f1729] mb-0.5 sm:mb-1">{formatVnd(totalOutstanding)}</p>
+          <p className="text-[10px] sm:text-xs font-semibold text-[#64748b]">{overdueEnrollments} HV nợ</p>
         </div>
-        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           </div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Điểm danh</p>
-          <p className="text-2xl font-black text-[#0f1729] mb-1">{latestAttendanceStats.present}</p>
-          <p className="text-xs font-semibold text-[#64748b]">có mặt / {latestAttendanceStats.absent} vắng</p>
+          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#64748b] mb-0.5 sm:mb-1">Điểm danh</p>
+          <p className="text-lg sm:text-xl md:text-2xl font-black text-[#0f1729] mb-0.5 sm:mb-1">{latestAttendanceStats.present}</p>
+          <p className="text-[10px] sm:text-xs font-semibold text-[#64748b]">mặt / {latestAttendanceStats.absent} vắng</p>
         </div>
-        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-4">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           </div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Thời gian</p>
-          <p className="text-lg font-black text-[#0f1729] mb-1">{formatDate(cls.startDate)}</p>
-          <p className="text-xs font-semibold text-[#64748b]">đến {formatDate(suggestedEnd)}</p>
+          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#64748b] mb-0.5 sm:mb-1">Thời gian</p>
+          <p className="text-sm sm:text-base md:text-lg font-black text-[#0f1729] mb-0.5 sm:mb-1 truncate">{formatDate(cls.startDate)}</p>
+          <p className="text-[10px] sm:text-xs font-semibold text-[#64748b] truncate">đến {formatDate(suggestedEnd)}</p>
         </div>
       </div>
 

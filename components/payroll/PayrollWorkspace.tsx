@@ -175,24 +175,24 @@ export default function PayrollWorkspace({
   const canEditPayrollLine = Boolean(run && permissions.canManagePayrollRuns && ["DRAFT", "CALCULATED", "REVIEWED"].includes(run.status));
 
   return (
-    <div className="min-h-screen space-y-6 pb-20">
-      <section className="rounded-[28px] border-2 border-[#fed7aa] bg-gradient-to-r from-[#fff7ed] via-white to-[#fff7ed] px-6 py-6 shadow-sm">
-        <div className="space-y-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div className="space-y-3">
-              <div className="inline-flex items-center rounded-full border border-[#fdba74] bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#c2410c]">
+    <div className="min-h-screen space-y-4 pb-20 sm:space-y-6">
+      <section className="rounded-2xl border-2 border-[#fed7aa] bg-gradient-to-r from-[#fff7ed] via-white to-[#fff7ed] px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-6 sm:py-6">
+        <div className="space-y-4 sm:space-y-5">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between sm:gap-4">
+            <div className="space-y-2 sm:space-y-3">
+              <div className="inline-flex items-center rounded-full border border-[#fdba74] bg-white px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#c2410c] sm:px-3 sm:py-1 sm:text-xs">
                 Payroll
               </div>
               <div>
-                <h1 className="text-3xl font-black tracking-tight text-[#111827]">Bảng nhân sự & lương theo tháng</h1>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-[#6b7280]">
+                <h1 className="text-xl font-black tracking-tight text-[#111827] sm:text-2xl md:text-3xl">Bảng nhân sự & lương theo tháng</h1>
+                <p className="mt-1.5 text-xs leading-5 text-[#6b7280] sm:mt-2 sm:max-w-3xl sm:text-sm sm:leading-6">
                   Toàn bộ nhân sự, đơn giá, chuyển khoản, dữ liệu công và dòng lương của tháng nằm trong đúng 1 bảng. Bấm
                   &quot;Sửa&quot; ở bất kỳ dòng nào để chỉnh mọi thứ trong 1 khung.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-start gap-3">
+            <div className="flex flex-wrap items-start gap-2 sm:gap-3">
               {!run && permissions.canManagePayrollRuns ? <NewPayrollRunForm defaultPeriod={period} /> : null}
               <PayrollExportButton period={period} rows={rows} runStatus={run?.status ?? null} totals={totals} />
               {permissions.canManageEmployees ? <NewEmployeeForm /> : null}
@@ -200,36 +200,36 @@ export default function PayrollWorkspace({
             </div>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-2xl border border-[#fed7aa] bg-white/80 px-5 py-4">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col gap-3 rounded-xl border border-[#fed7aa] bg-white/80 px-4 py-3 sm:gap-4 sm:rounded-2xl sm:px-5 sm:py-4">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between sm:gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-bold text-[#111827]">Tháng lương:</span>
+                <span className="text-xs font-bold text-[#111827] sm:text-sm">Tháng lương:</span>
                 <input
                   type="month"
-                  className="input w-auto"
+                  className="input w-auto text-xs sm:text-sm"
                   value={period}
                   onChange={(event) => {
                     if (event.target.value) router.push(pageHref({ period: event.target.value, employeeId: null }));
                   }}
                 />
-                <span className="rounded-full border border-[#e5e7eb] bg-white px-3 py-1.5 text-sm font-medium text-[#6b7280]">
+                <span className="rounded-full border border-[#e5e7eb] bg-white px-2.5 py-1 text-xs font-medium text-[#6b7280] sm:px-3 sm:py-1.5 sm:text-sm">
                   {formatNumber(totals.sessionCount)} buổi
                 </span>
-                <span className="rounded-full border border-[#e5e7eb] bg-white px-3 py-1.5 text-sm font-medium text-[#6b7280]">
+                <span className="rounded-full border border-[#e5e7eb] bg-white px-2.5 py-1 text-xs font-medium text-[#6b7280] sm:px-3 sm:py-1.5 sm:text-sm">
                   {formatNumber(totals.timesheetEntryCount)} ngày HC
                 </span>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="w-full sm:w-64">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                <label className="w-full sm:w-56 md:w-64">
                   <input
-                    className="input"
-                    placeholder="Tìm theo mã, tên hoặc vị trí..."
+                    className="input text-xs sm:text-sm"
+                    placeholder="Tìm theo mã, tên..."
                     value={query}
                     onChange={(event) => updateSearch(event.target.value)}
                   />
                 </label>
-                <label className="w-full sm:w-56">
-                  <select className="input" value={positionFilter} onChange={(event) => updatePositionFilter(event.target.value)}>
+                <label className="w-full sm:w-48 md:w-56">
+                  <select className="input text-xs sm:text-sm" value={positionFilter} onChange={(event) => updatePositionFilter(event.target.value)}>
                     <option value="">Tất cả vai trò</option>
                     {positionOptions.map((position) => (
                       <option key={position} value={position}>
@@ -241,31 +241,31 @@ export default function PayrollWorkspace({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-[#e5e7eb] bg-white px-4 py-3">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#9ca3af]">Tổng payroll</p>
-                <p className="mt-2 text-2xl font-black text-[#111827]">{formatVnd(totals.totalPayroll)}</p>
-                <p className="mt-1 text-xs text-[#6b7280]">Dạy + trợ giảng + hành chính</p>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4">
+              <div className="rounded-xl border border-[#e5e7eb] bg-white px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#9ca3af] sm:text-xs">Tổng payroll</p>
+                <p className="mt-1.5 text-xl font-black text-[#111827] sm:mt-2 sm:text-2xl">{formatVnd(totals.totalPayroll)}</p>
+                <p className="mt-0.5 text-[10px] text-[#6b7280] sm:mt-1 sm:text-xs">Dạy + trợ giảng + hành chính</p>
               </div>
-              <div className="rounded-2xl border border-[#e5e7eb] bg-white px-4 py-3">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#9ca3af]">Giờ giảng dạy</p>
-                <p className="mt-2 text-2xl font-black text-[#111827]">{formatNumber(totals.totalTeachingHours + totals.totalAssistantHours)}</p>
-                <p className="mt-1 text-xs text-[#6b7280]">
+              <div className="rounded-xl border border-[#e5e7eb] bg-white px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#9ca3af] sm:text-xs">Giờ giảng dạy</p>
+                <p className="mt-1.5 text-xl font-black text-[#111827] sm:mt-2 sm:text-2xl">{formatNumber(totals.totalTeachingHours + totals.totalAssistantHours)}</p>
+                <p className="mt-0.5 text-[10px] text-[#6b7280] sm:mt-1 sm:text-xs">
                   Dạy {formatNumber(totals.totalTeachingHours)} · TG {formatNumber(totals.totalAssistantHours)}
                 </p>
               </div>
-              <div className="rounded-2xl border border-[#e5e7eb] bg-white px-4 py-3">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#9ca3af]">Công hành chính</p>
-                <p className="mt-2 text-2xl font-black text-[#111827]">{formatNumber(totals.totalStaffDays)}</p>
-                <p className="mt-1 text-xs text-[#6b7280]">{formatNumber(totals.totalStaffHours)} giờ chấm công</p>
+              <div className="rounded-xl border border-[#e5e7eb] bg-white px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#9ca3af] sm:text-xs">Công hành chính</p>
+                <p className="mt-1.5 text-xl font-black text-[#111827] sm:mt-2 sm:text-2xl">{formatNumber(totals.totalStaffDays)}</p>
+                <p className="mt-0.5 text-[10px] text-[#6b7280] sm:mt-1 sm:text-xs">{formatNumber(totals.totalStaffHours)} giờ chấm công</p>
               </div>
-              <div className={`rounded-2xl border px-4 py-3 ${reviewCount > 0 ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#9ca3af]">Trạng thái dữ liệu</p>
-                <p className={`mt-2 text-2xl font-black ${reviewCount > 0 ? "text-amber-700" : "text-emerald-700"}`}>
-                  {reviewCount > 0 ? `${formatNumber(reviewCount)} lỗi cần xem` : "Sẵn sàng"}
+              <div className={`rounded-xl border px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3 ${reviewCount > 0 ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#9ca3af] sm:text-xs">Trạng thái dữ liệu</p>
+                <p className={`mt-1.5 text-xl font-black sm:mt-2 sm:text-2xl ${reviewCount > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+                  {reviewCount > 0 ? `${formatNumber(reviewCount)} lỗi` : "Sẵn sàng"}
                 </p>
-                <p className={`mt-1 text-xs ${reviewCount > 0 ? "text-amber-700" : "text-emerald-700"}`}>
-                  {reviewCount > 0 ? "Cần sửa trước khi chốt" : "Có thể tiếp tục xử lý kỳ lương"}
+                <p className={`mt-0.5 text-[10px] sm:mt-1 sm:text-xs ${reviewCount > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+                  {reviewCount > 0 ? "Cần sửa trước khi chốt" : "Có thể xử lý lương"}
                 </p>
               </div>
             </div>
@@ -332,41 +332,45 @@ export default function PayrollWorkspace({
         </section>
       )}
 
-      <section className="flex flex-wrap gap-2">
+      <section className="flex flex-wrap gap-1.5 sm:gap-2">
         <Link
           href={pageHref({ filter: "all" })}
-          className={`rounded-full border px-4 py-2 text-sm font-bold ${initialFilter === "all" ? "border-[#fed7aa] bg-[#fff7ed] text-[#ea580c]" : "border-[#e5e7eb] bg-white text-[#6b7280]"}`}
+          className={`rounded-full border px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm ${initialFilter === "all" ? "border-[#fed7aa] bg-[#fff7ed] text-[#ea580c]" : "border-[#e5e7eb] bg-white text-[#6b7280]"}`}
         >
-          Tất cả ({formatNumber(rows.length)})
+          <span className="hidden sm:inline">Tất cả ({formatNumber(rows.length)})</span>
+          <span className="sm:hidden">Tất cả</span>
         </Link>
         <Link
           href={pageHref({ filter: "missing-rate" })}
-          className={`rounded-full border px-4 py-2 text-sm font-bold ${initialFilter === "missing-rate" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-[#e5e7eb] bg-white text-[#6b7280]"}`}
+          className={`rounded-full border px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm ${initialFilter === "missing-rate" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-[#e5e7eb] bg-white text-[#6b7280]"}`}
         >
-          Thiếu đơn giá ({formatNumber(totals.missingRateCount)})
+          <span className="hidden sm:inline">Thiếu đơn giá ({formatNumber(totals.missingRateCount)})</span>
+          <span className="sm:hidden">Thiếu ĐG</span>
         </Link>
         <Link
           href={pageHref({ filter: "missing-bank" })}
-          className={`rounded-full border px-4 py-2 text-sm font-bold ${initialFilter === "missing-bank" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-[#e5e7eb] bg-white text-[#6b7280]"}`}
+          className={`rounded-full border px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm ${initialFilter === "missing-bank" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-[#e5e7eb] bg-white text-[#6b7280]"}`}
         >
-          Thiếu chuyển khoản ({formatNumber(totals.missingBankCount)})
+          <span className="hidden sm:inline">Thiếu chuyển khoản ({formatNumber(totals.missingBankCount)})</span>
+          <span className="sm:hidden">Thiếu CK</span>
         </Link>
         <Link
           href={pageHref({ filter: "ready-bank" })}
-          className={`rounded-full border px-4 py-2 text-sm font-bold ${initialFilter === "ready-bank" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] bg-white text-[#6b7280]"}`}
+          className={`rounded-full border px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm ${initialFilter === "ready-bank" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] bg-white text-[#6b7280]"}`}
         >
-          Đủ thông tin chuyển khoản
+          <span className="hidden sm:inline">Đủ thông tin chuyển khoản</span>
+          <span className="sm:hidden">Đủ CK</span>
         </Link>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border-2 border-[#e5e7eb] bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-[#f3f4f6] px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
-          <h2 className="text-xl font-black text-[#111827]">Bảng nhân sự payroll</h2>
-          <div className="flex flex-wrap gap-2">
-            <span className="rounded-full border border-[#fed7aa] bg-[#fff7ed] px-3 py-1.5 text-sm font-bold text-[#c2410c]">
+      <section className="overflow-hidden rounded-xl border-2 border-[#e5e7eb] bg-white shadow-sm sm:rounded-2xl">
+        <div className="flex flex-col gap-2 border-b border-[#f3f4f6] px-4 py-4 sm:gap-3 sm:px-6 sm:py-5 lg:flex-row lg:items-center lg:justify-between">
+          <h2 className="text-lg font-black text-[#111827] sm:text-xl">Bảng nhân sự payroll</h2>
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
+            <span className="rounded-full border border-[#fed7aa] bg-[#fff7ed] px-2.5 py-1 text-xs font-bold text-[#c2410c] sm:px-3 sm:py-1.5 sm:text-sm">
               {formatNumber(filteredRows.length)} nhân sự
             </span>
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-bold text-emerald-700">
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 sm:px-3 sm:py-1.5 sm:text-sm">
               {formatVnd(filteredRows.reduce((sum, row) => sum + row.totalAmount, 0))}
             </span>
           </div>

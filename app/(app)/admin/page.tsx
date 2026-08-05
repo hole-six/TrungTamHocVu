@@ -111,20 +111,20 @@ export default async function AdminPage({
   const activeUsers = users.filter((u) => u.isActive).length;
 
   return (
-    <div className="min-h-screen space-y-8 pb-20">
+    <div className="min-h-screen space-y-6 pb-20 sm:space-y-8">
       <PageGuide
         title="Guide quản trị"
         summary="Giải thích nhanh cách dùng khu quản trị để tránh cấp sai user hoặc sai quyền."
         sections={ADMIN_PAGE_GUIDE_SECTIONS}
         buttonLabel="Guide quản trị"
       />
-      <section className="rounded-[32px] border border-[#dbe7ff] bg-white px-6 py-6 shadow-[0_24px_60px_rgba(15,23,42,0.06)] md:px-8">
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-          <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#3da3ff]">Admin</p>
+      <section className="rounded-2xl border border-[#dbe7ff] bg-white px-4 py-5 shadow-[0_24px_60px_rgba(15,23,42,0.06)] sm:rounded-[28px] sm:px-6 sm:py-6 md:rounded-[32px] md:px-8">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between sm:gap-6">
+          <div className="space-y-2 sm:space-y-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-[#3da3ff] sm:text-xs">Admin</p>
             <div>
-              <h1 className="text-4xl font-black tracking-tight text-[#12304a]">Quản trị hệ thống</h1>
-              <p className="mt-2 max-w-2xl text-sm text-[#5f7084] md:text-base">
+              <h1 className="text-2xl font-black tracking-tight text-[#12304a] sm:text-3xl md:text-4xl">Quản trị hệ thống</h1>
+              <p className="mt-1.5 text-xs text-[#5f7084] sm:mt-2 sm:max-w-2xl sm:text-sm md:text-base">
                 Quản lý người dùng, vai trò và cơ sở trong cùng một màn. Tạo tài khoản mới ngay tại đây để vận hành nhanh hơn.
               </p>
             </div>
@@ -145,69 +145,69 @@ export default async function AdminPage({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="mt-5 grid gap-3 sm:mt-6 sm:gap-4 md:grid-cols-2">
           <Link
             href="/admin/branches"
-            className="group flex items-center justify-between rounded-[28px] border border-[#e8eef8] bg-[#fffaf5] px-5 py-5 transition hover:border-[#ffd4a8] hover:shadow-md"
+            className="group flex items-center justify-between rounded-2xl border border-[#e8eef8] bg-[#fffaf5] px-4 py-4 transition hover:border-[#ffd4a8] hover:shadow-md sm:rounded-[24px] sm:px-5 sm:py-5 md:rounded-[28px]"
           >
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#f97316] to-[#ea580c] shadow-[0_12px_24px_rgba(249,115,22,0.25)]">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#f97316] to-[#ea580c] shadow-[0_12px_24px_rgba(249,115,22,0.25)] sm:h-14 sm:w-14 sm:rounded-2xl">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" className="sm:h-6 sm:w-6">
                   <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
                 </svg>
               </div>
               <div>
-                <p className="text-xl font-bold text-[#12304a]">Cơ sở</p>
-                <p className="mt-1 text-sm text-[#6d7d90]">{branchCount} địa điểm</p>
+                <p className="text-lg font-bold text-[#12304a] sm:text-xl">Cơ sở</p>
+                <p className="mt-0.5 text-xs text-[#6d7d90] sm:mt-1 sm:text-sm">{branchCount} địa điểm</p>
               </div>
             </div>
-            <span className="text-sm font-semibold text-[#f97316] transition group-hover:translate-x-1">Mở →</span>
+            <span className="text-xs font-semibold text-[#f97316] transition group-hover:translate-x-1 sm:text-sm">Mở →</span>
           </Link>
 
           <Link
             href="/admin/roles"
-            className="group flex items-center justify-between rounded-[28px] border border-[#e8eef8] bg-[#fff8f6] px-5 py-5 transition hover:border-[#ffc5bc] hover:shadow-md"
+            className="group flex items-center justify-between rounded-2xl border border-[#e8eef8] bg-[#fff8f6] px-4 py-4 transition hover:border-[#ffc5bc] hover:shadow-md sm:rounded-[24px] sm:px-5 sm:py-5 md:rounded-[28px]"
           >
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ea580c] to-[#dc2626] shadow-[0_12px_24px_rgba(234,88,12,0.22)]">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#ea580c] to-[#dc2626] shadow-[0_12px_24px_rgba(234,88,12,0.22)] sm:h-14 sm:w-14 sm:rounded-2xl">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" className="sm:h-6 sm:w-6">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
               </div>
               <div>
-                <p className="text-xl font-bold text-[#12304a]">Vai trò</p>
-                <p className="mt-1 text-sm text-[#6d7d90]">{roles.length} quyền hạn</p>
+                <p className="text-lg font-bold text-[#12304a] sm:text-xl">Vai trò</p>
+                <p className="mt-0.5 text-xs text-[#6d7d90] sm:mt-1 sm:text-sm">{roles.length} quyền hạn</p>
               </div>
             </div>
-            <span className="text-sm font-semibold text-[#ea580c] transition group-hover:translate-x-1">Mở →</span>
+            <span className="text-xs font-semibold text-[#ea580c] transition group-hover:translate-x-1 sm:text-sm">Mở →</span>
           </Link>
         </div>
       </section>
 
      
 
-      <section className="overflow-hidden rounded-[30px] border border-[#dbe7ff] bg-white shadow-[0_18px_48px_rgba(15,23,42,0.05)]">
-        <div className="flex flex-col gap-4 border-b border-[#e8eef8] px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+      <section className="overflow-hidden rounded-2xl border border-[#dbe7ff] bg-white shadow-[0_18px_48px_rgba(15,23,42,0.05)] sm:rounded-[26px] md:rounded-[30px]">
+        <div className="flex flex-col gap-3 border-b border-[#e8eef8] px-4 py-4 sm:gap-4 sm:px-6 sm:py-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-[#12304a]">Danh sách người dùng</h2>
-            <p className="mt-1 text-sm text-[#6d7d90]">Theo dõi tài khoản, vai trò, cơ sở và thao tác quản trị ngay trong một bảng gọn.</p>
+            <h2 className="text-xl font-bold tracking-tight text-[#12304a] sm:text-2xl">Danh sách người dùng</h2>
+            <p className="mt-1 text-xs text-[#6d7d90] sm:text-sm">Theo dõi tài khoản, vai trò, cơ sở và thao tác quản trị ngay trong một bảng gọn.</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-[#dbe7ff] bg-[#f7fbff] px-3 py-1 text-sm font-medium text-[#235f9d]">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="rounded-full border border-[#dbe7ff] bg-[#f7fbff] px-2.5 py-0.5 text-xs font-medium text-[#235f9d] sm:px-3 sm:py-1 sm:text-sm">
               {userTotal} tài khoản
             </span>
-            <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-1 text-sm font-medium text-[#5f7084]">
+            <span className="rounded-full border border-[#dbe7ff] bg-white px-2.5 py-0.5 text-xs font-medium text-[#5f7084] sm:px-3 sm:py-1 sm:text-sm">
               {activeUsers} hoạt động
             </span>
           </div>
         </div>
 
-        <div className="border-b border-[#e8eef8] px-6 py-5">
+        <div className="border-b border-[#e8eef8] px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <form action="/admin" method="GET" className="flex w-full flex-col gap-3 sm:flex-row xl:max-w-2xl">
+            <form action="/admin" method="GET" className="flex w-full flex-col gap-2 sm:flex-row sm:gap-3 xl:max-w-2xl">
               <div className="relative flex-1">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" className="absolute left-4 top-1/2 -translate-y-1/2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" className="absolute left-3 top-1/2 -translate-y-1/2 sm:left-4 sm:h-[18px] sm:w-[18px]">
                   <circle cx="11" cy="11" r="8" />
                   <path d="m21 21-4.35-4.35" />
                 </svg>
@@ -215,20 +215,20 @@ export default async function AdminPage({
                   type="search"
                   name="userQuery"
                   defaultValue={userQuery}
-                  placeholder="Tìm theo tên hoặc email..."
-                  className="h-12 w-full rounded-2xl border-2 border-[#dbe7ff] bg-white pl-12 pr-4 text-sm font-medium text-[#0f1729] placeholder:text-[#94a3b8] outline-none transition focus:border-[#3da3ff] focus:ring-4 focus:ring-[#3da3ff]/10"
+                  placeholder="Tìm tên hoặc email..."
+                  className="h-11 w-full rounded-xl border-2 border-[#dbe7ff] bg-white pl-10 pr-3 text-xs font-medium text-[#0f1729] placeholder:text-[#94a3b8] outline-none transition focus:border-[#3da3ff] focus:ring-4 focus:ring-[#3da3ff]/10 sm:h-12 sm:rounded-2xl sm:pl-12 sm:pr-4 sm:text-sm"
                 />
               </div>
-              <button type="submit" className="btn-ghost h-12">
+              <button type="submit" className="btn-ghost h-11 sm:h-12">
                 Tìm
               </button>
             </form>
 
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full border border-[#dbe7ff] bg-[#f7fbff] px-3 py-1 text-sm font-medium text-[#235f9d]">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              <span className="rounded-full border border-[#dbe7ff] bg-[#f7fbff] px-2.5 py-0.5 text-xs font-medium text-[#235f9d] sm:px-3 sm:py-1 sm:text-sm">
                 Trang {userPage}/{userPageCount}
               </span>
-              <span className="rounded-full border border-[#e8eef8] bg-white px-3 py-1 text-sm font-medium text-[#5f7084]">
+              <span className="rounded-full border border-[#e8eef8] bg-white px-2.5 py-0.5 text-xs font-medium text-[#5f7084] sm:px-3 sm:py-1 sm:text-sm">
                 {users.length} bản ghi
               </span>
             </div>

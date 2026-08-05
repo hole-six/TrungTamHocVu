@@ -83,13 +83,13 @@ function KpiCard({ label, value, sub, icon, color, href }: {
   color: string; href: string;
 }) {
   return (
-    <Link href={href} className="group rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all block">
-      <div className={`flex h-12 w-12 items-center justify-center rounded-xl border border-[#e5eaf7] bg-white shadow-md mb-4`}>
+    <Link href={href} className="group rounded-xl border border-[#e5eaf7] bg-white p-4 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all block sm:rounded-2xl sm:p-5">
+      <div className={`flex h-10 w-10 items-center justify-center rounded-lg border border-[#e5eaf7] bg-white shadow-md mb-3 sm:h-12 sm:w-12 sm:rounded-xl sm:mb-4`}>
         <span style={{ color }}>{icon}</span>
       </div>
-      <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">{label}</p>
-      <p className="text-2xl font-black text-[#0f1729] mb-1">{value}</p>
-      <p className="text-xs font-semibold text-[#64748b]">{sub}</p>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-[#64748b] mb-1 sm:text-xs">{label}</p>
+      <p className="text-xl font-black text-[#0f1729] mb-0.5 sm:text-2xl sm:mb-1">{value}</p>
+      <p className="text-[10px] font-semibold text-[#64748b] sm:text-xs">{sub}</p>
     </Link>
   );
 }
@@ -189,24 +189,25 @@ export default async function DashboardPage() {
     <div className="space-y-6 pb-16">
 
       {/* ── Hero header ─────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl border border-[#fed7aa] bg-gradient-to-br from-[#fff7ed] via-[#ffedd5] to-[#fed7aa] p-8 shadow-lg">
+      <div className="relative overflow-hidden rounded-2xl border border-[#fed7aa] bg-gradient-to-br from-[#fff7ed] via-[#ffedd5] to-[#fed7aa] p-5 shadow-lg sm:rounded-3xl sm:p-6 md:p-8">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNiIgc3Ryb2tlPSIjZjk3MzE2IiBzdHJva2Utd2lkdGg9IjEiIG9wYWNpdHk9Ii4xIi8+PC9nPjwvc3ZnPg==')] opacity-30" />
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-bold text-[#c2410c]">{greeting} · {dateLabel}</p>
-            <h1 className="mt-2 text-4xl font-black tracking-tight text-[#7c2d12]">{shell.dashboardTitle}</h1>
-            <p className="mt-3 max-w-xl text-base font-medium text-[#9a3412] leading-relaxed">{shell.dashboardSubtitle}</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-[#c2410c] sm:text-sm truncate">{greeting} · {dateLabel}</p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-[#7c2d12] sm:text-3xl md:text-4xl">{shell.dashboardTitle}</h1>
+            <p className="mt-2 text-sm font-medium text-[#9a3412] leading-relaxed sm:mt-3 sm:text-base sm:max-w-xl">{shell.dashboardSubtitle}</p>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/reports" className="inline-flex items-center gap-2 rounded-xl bg-white border-2 border-[#f97316] px-5 py-3 text-sm font-bold text-[#f97316] hover:bg-[#f97316] hover:text-white shadow-md hover:shadow-xl transition-all">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-              Báo cáo
+          <div className="flex flex-wrap gap-2 sm:gap-3">
+            <Link href="/reports" className="inline-flex items-center gap-1.5 rounded-lg bg-white border-2 border-[#f97316] px-3 py-2 text-xs font-bold text-[#f97316] hover:bg-[#f97316] hover:text-white shadow-md hover:shadow-xl transition-all sm:rounded-xl sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm md:px-5 md:py-3">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sm:h-[18px] sm:w-[18px]"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              <span className="hidden sm:inline">Báo cáo</span>
+              <span className="sm:hidden">BC</span>
             </Link>
             {showCrm && (
-              <Link href="/leads" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#f97316] to-[#ea580c] border-2 border-[#ea580c] px-5 py-3 text-sm font-bold text-white shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              <Link href="/leads" className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#f97316] to-[#ea580c] border-2 border-[#ea580c] px-3 py-2 text-xs font-bold text-white shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all sm:rounded-xl sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm md:px-5 md:py-3">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sm:h-[18px] sm:w-[18px]"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 CRM
-                {stats.openLeads > 0 && <span className="rounded-full bg-white/20 backdrop-blur px-2 py-0.5 text-[10px] font-black">{stats.openLeads}</span>}
+                {stats.openLeads > 0 && <span className="rounded-full bg-white/20 backdrop-blur px-1.5 py-0.5 text-[9px] font-black sm:text-[10px] sm:px-2">{stats.openLeads}</span>}
               </Link>
             )}
           </div>

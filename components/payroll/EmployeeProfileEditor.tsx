@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatVnd } from "@/lib/export-utils";
 
 type EmployeeProfile = {
   id: string;
@@ -171,16 +172,19 @@ export default function EmployeeProfileEditor({
               {form.payMode === "SESSION" ? "Đơn giá dạy/ca" : "Đơn giá dạy/giờ"}
             </span>
             <input className="input" type="number" value={form.teachingHourlyRate} onChange={(e) => setForm((f) => ({ ...f, teachingHourlyRate: e.target.value }))} />
+            <p className="form-hint">{form.teachingHourlyRate ? formatVnd(Number(form.teachingHourlyRate) || 0) : ""}</p>
           </label>
           <label className="space-y-1">
             <span className="text-xs font-medium text-ink-muted48">
               {form.payMode === "SESSION" ? "Đơn giá TG/ca" : "Đơn giá TG/giờ"}
             </span>
             <input className="input" type="number" value={form.assistantHourlyRate} onChange={(e) => setForm((f) => ({ ...f, assistantHourlyRate: e.target.value }))} />
+            <p className="form-hint">{form.assistantHourlyRate ? formatVnd(Number(form.assistantHourlyRate) || 0) : ""}</p>
           </label>
           <label className="space-y-1">
             <span className="text-xs font-medium text-ink-muted48">Đơn giá 1 công HC</span>
             <input className="input" type="number" value={form.staffDailyRate} onChange={(e) => setForm((f) => ({ ...f, staffDailyRate: e.target.value }))} />
+            <p className="form-hint">{form.staffDailyRate ? formatVnd(Number(form.staffDailyRate) || 0) : ""}</p>
           </label>
           <label className="space-y-1">
             <span className="text-xs font-medium text-ink-muted48">Ngân hàng</span>

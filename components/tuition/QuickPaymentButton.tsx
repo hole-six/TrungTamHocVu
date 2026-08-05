@@ -4,10 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import SlideOver from "@/components/ui/SlideOver";
 import FormGuide from "@/components/ui/FormGuide";
-
-function formatVnd(value: number) {
-  return `${value.toLocaleString("vi-VN")}đ`;
-}
+import { formatVnd } from "@/lib/export-utils";
 
 const CASH_METHOD = "Tiền mặt";
 const MAX_CASH_DISCOUNT_PERCENT = 10;
@@ -156,7 +153,10 @@ export default function QuickPaymentButton({
             <label className="space-y-2">
               <span className="label-sm">Số tiền thực thu</span>
               <input type="number" required min="1" max={maxReceivable > 0 ? maxReceivable : undefined} className="input" value={amount} onChange={(event) => setAmount(event.target.value)} />
-              <p className="text-xs text-ink-muted48">Không được nhập lớn hơn {formatVnd(maxReceivable)}.</p>
+              <p className="text-xs text-ink-muted48">
+                {amount ? `Sẽ ghi nhận đã thu ${formatVnd(Number(amount) || 0)}. ` : ""}
+                Không được nhập lớn hơn {formatVnd(maxReceivable)}.
+              </p>
             </label>
 
             <label className="space-y-2">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatVnd } from "@/lib/export-utils";
 
 type CourseLevel = "BEGINNER" | "ELEMENTARY" | "INTERMEDIATE" | "ADVANCED" | "PROFICIENCY";
 type CourseType = "REGULAR" | "INTENSIVE" | "PRIVATE" | "ONLINE" | "HYBRID";
@@ -375,6 +376,7 @@ export default function CourseForm({ course, onSubmit, onCancel, mode = "create"
                 ₫
               </span>
             </div>
+            <p className="form-hint">{formatVnd(formData.tuitionPerSession || 0)}</p>
           </div>
 
           <div className="form-group">
@@ -396,6 +398,7 @@ export default function CourseForm({ course, onSubmit, onCancel, mode = "create"
                 ₫
               </span>
             </div>
+            <p className="form-hint">{formatVnd(formData.bookFee || 0)}</p>
           </div>
 
           <div className="form-group">
@@ -417,6 +420,7 @@ export default function CourseForm({ course, onSubmit, onCancel, mode = "create"
                 ₫
               </span>
             </div>
+            <p className="form-hint">{formatVnd(formData.materialFee || 0)}</p>
           </div>
 
           <div className="form-group">
@@ -438,6 +442,7 @@ export default function CourseForm({ course, onSubmit, onCancel, mode = "create"
                 ₫
               </span>
             </div>
+            <p className="form-hint">{formatVnd(formData.totalFee || 0)}</p>
           </div>
         </div>
 

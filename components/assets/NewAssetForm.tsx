@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SlideOver from "@/components/ui/SlideOver";
 import FormGuide from "@/components/ui/FormGuide";
+import { formatVnd } from "@/lib/export-utils";
 
 const INITIAL_FORM = {
   name: "",
@@ -137,7 +138,7 @@ export default function NewAssetForm() {
             <label className="form-group">
               <span className="label">Giá trị / 1 đơn vị</span>
               <input type="number" min={0} step={1000} className="input" placeholder="1500000" value={form.unitValue} onChange={(event) => setForm((current) => ({ ...current, unitValue: event.target.value }))} />
-              <p className="form-hint">Ví dụ 1 bộ bàn ghế trị giá 1.500.000đ thì nhập đúng giá của 1 bộ.</p>
+              <p className="form-hint">{form.unitValue ? formatVnd(Number(form.unitValue) || 0) : "Ví dụ 1 bộ bàn ghế trị giá 1.500.000đ thì nhập đúng giá của 1 bộ."}</p>
             </label>
           </div>
 

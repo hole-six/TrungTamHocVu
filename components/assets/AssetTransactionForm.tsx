@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import FormGuide from "@/components/ui/FormGuide";
+import { formatVnd } from "@/lib/export-utils";
 
 const ACTION_OPTIONS = [
   { value: "MAINTENANCE", label: "Bảo dưỡng" },
@@ -139,6 +140,7 @@ export default function AssetTransactionForm({
               <label className="form-group">
                 <span className="label">Số tiền bảo dưỡng</span>
                 <input required type="number" min="1" className="input" placeholder="VD: 350000" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                <p className="form-hint">{amount ? `Sẽ ghi nhận ${formatVnd(Number(amount) || 0)} vào chi phí bảo dưỡng.` : "Nhập đúng số tiền thực tế đã chi."}</p>
               </label>
 
               <label className="form-group">

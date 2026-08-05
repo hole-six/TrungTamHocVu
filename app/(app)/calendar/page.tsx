@@ -188,20 +188,23 @@ export default async function CalendarPage({
   const totalStudentTouches = sessionsByDay.reduce((sum, day) => sum + day.totalStudents, 0);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       <PageGuide
         title="Hướng dẫn lịch tổng"
         summary="Cách đọc lịch tuần, lọc đúng buổi học và mở vào chi tiết session."
         sections={CALENDAR_PAGE_GUIDE_SECTIONS}
         buttonLabel="Guide"
       />
-      <div className="flex items-center gap-4">
-        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-sky-50 text-sky-600">
+      <div className="flex items-center gap-3 sm:gap-4">
+        <div className="grid h-10 w-10 sm:h-12 sm:w-12 place-items-center rounded-xl sm:rounded-2xl bg-sky-50 text-sky-600">
           {ICON_CALENDAR}
         </div>
         <div>
-          <h1 className="page-title">Lịch tổng lớp học</h1>
-          <p className="page-subtitle">Xem nhanh lịch dạy trong tuần, trạng thái buổi học và phân công nhân sự.</p>
+          <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Lịch tổng lớp học</h1>
+          <p className="page-subtitle text-xs sm:text-sm">
+            <span className="hidden sm:inline">Xem nhanh lịch dạy trong tuần, trạng thái buổi học và phân công nhân sự.</span>
+            <span className="sm:hidden">Lịch dạy trong tuần</span>
+          </p>
         </div>
       </div>
 
