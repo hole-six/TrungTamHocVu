@@ -1,17 +1,16 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import PayrollRateSetupPanel, { type RateSetupItem } from "@/components/payroll/PayrollRateSetupPanel";
+import SlideOver from "@/components/ui/SlideOver";
 import { exportSectionsToExcel, exportToCSV } from "@/lib/export-utils";
-
-type FilterMode = "ALL" | "MISSING" | "ACTIVE";
+import type { PayrollEmployeeRow } from "@/lib/server/payroll-row-builder";
 
 function formatVnd(value: number) {
   return `${value.toLocaleString("vi-VN")}đ`;
 }
 
-function hasMissingRate(item: RateSetupItem) {
+function hasMissingRate(item: PayrollEmployeeRow) {
   return (
     (item.teachingHours > 0 && item.teachingHourlyRate == null) ||
     (item.assistantHours > 0 && item.assistantHourlyRate == null) ||
@@ -52,29 +51,17 @@ function parseImportedNumber(raw: string | undefined) {
   return raw.replace(/[^\d.-]/g, "");
 }
 
-export default function PayrollRatesWorkspace({ items }: { items: RateSetupItem[] }) {
+// Công cụ chỉnh đơn giá hàng loạt qua CSV — gắn lại từ PayrollRatesWorkspace cũ (trước đây
+// không có trang nào gọi tới), giờ là 1 nút trên thanh công cụ của bảng payroll hợp nhất
+// thay vì 1 trang/bảng riêng.
+export default function PayrollRateCsvTools({ items }: { items: PayrollEmployeeRow[] }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<FilterMode>("MISSING");
   const [isImporting, setIsImporting] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const filteredItems = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    return items.filter((item) => {
-      if (filter === "MISSING" && !hasMissingRate(item)) return false;
-      if (filter === "ACTIVE" && item.teachingHours <= 0 && item.assistantHours <= 0 && item.staffDays <= 0) return false;
-      if (!normalizedQuery) return true;
-      return (
-        item.fullName.toLowerCase().includes(normalizedQuery) ||
-        item.employeeCode.toLowerCase().includes(normalizedQuery) ||
-        (item.position ?? "").toLowerCase().includes(normalizedQuery)
-      );
-    });
-  }, [filter, items, query]);
 
   const missingCount = items.filter(hasMissingRate).length;
   const activeCount = items.filter((item) => item.teachingHours > 0 || item.assistantHours > 0 || item.staffDays > 0).length;
@@ -168,7 +155,7 @@ export default function PayrollRatesWorkspace({ items }: { items: RateSetupItem[
     try {
       const content = await file.text();
       const lines = content
-        .replace(/^\uFEFF/, "")
+        .replace(/^﻿/, "")
         .split(/\r?\n/)
         .map((line) => line.trim())
         .filter(Boolean);
@@ -268,18 +255,24 @@ export default function PayrollRatesWorkspace({ items }: { items: RateSetupItem[
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-3xl border-2 border-[#e5e7eb] bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="flex-1">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#9ca3af]">Bàn thao tác nhanh</p>
-            <h2 className="mt-2 text-xl font-black text-[#111827]">Tìm người, lọc lỗi và cập nhật hàng loạt</h2>
-            <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[#6b7280]">
-              Bạn chỉ cần tập trung vào những người đang có phát sinh công hoặc còn thiếu đơn giá. Sau khi cập nhật xong có thể tính lại các kỳ lương đang mở ngay tại đây.
-            </p>
-          </div>
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center justify-center rounded-2xl border-2 border-amber-200 bg-white px-5 py-3 text-sm font-bold text-amber-700 transition hover:bg-amber-50"
+      >
+        Công cụ đơn giá hàng loạt (CSV)
+      </button>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <SlideOver
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Công cụ đơn giá hàng loạt (CSV)"
+        description="Xuất/nhập đơn giá nhiều người cùng lúc, và tính lại các kỳ lương đang mở sau khi đổi giá."
+        widthClassName="max-w-2xl"
+      >
+        <div className="space-y-5">
+          <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-red-700">Thiếu đơn giá</p>
               <p className="mt-1 text-2xl font-black text-red-800">{missingCount}</p>
@@ -288,113 +281,46 @@ export default function PayrollRatesWorkspace({ items }: { items: RateSetupItem[
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-700">Có phát sinh</p>
               <p className="mt-1 text-2xl font-black text-blue-800">{activeCount}</p>
             </div>
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 sm:col-span-2">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Quỹ lương ước tính theo cấu hình hiện tại</p>
-              <p className="mt-1 text-2xl font-black text-emerald-800">{formatVnd(estimatedConfiguredPayroll)}</p>
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Quỹ lương ước tính</p>
+              <p className="mt-1 text-lg font-black text-emerald-800">{formatVnd(estimatedConfiguredPayroll)}</p>
             </div>
           </div>
-        </div>
 
-        <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto]">
-          <label className="space-y-1">
-            <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#9ca3af]">Tìm nhanh</span>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={exportCurrentConfig} className="btn-ghost">
+              Xuất Excel cấu hình hiện tại
+            </button>
+            <button type="button" onClick={downloadTemplate} className="btn-ghost">
+              Tải mẫu CSV để cập nhật nhanh
+            </button>
+            <button type="button" onClick={() => inputRef.current?.click()} disabled={isImporting} className="btn-ghost disabled:opacity-60">
+              {isImporting ? "Đang import..." : "Import CSV đơn giá"}
+            </button>
+            <button type="button" onClick={recalculateOpenRuns} disabled={isRecalculating} className="btn-primary disabled:opacity-60">
+              {isRecalculating ? "Đang tính lại..." : "Tính lại các kỳ lương đang mở"}
+            </button>
             <input
-              className="input"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Tìm theo mã, tên hoặc vị trí..."
+              ref={inputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void handleImport(file);
+              }}
             />
-          </label>
-
-          <div className="flex flex-wrap items-end gap-2">
-            <button
-              type="button"
-              onClick={() => setFilter("MISSING")}
-              className={`rounded-2xl px-4 py-3 text-sm font-bold transition ${filter === "MISSING" ? "bg-red-600 text-white" : "border border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f9fafb]"}`}
-            >
-              Chỉ người thiếu giá
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter("ACTIVE")}
-              className={`rounded-2xl px-4 py-3 text-sm font-bold transition ${filter === "ACTIVE" ? "bg-[#111827] text-white" : "border border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f9fafb]"}`}
-            >
-              Chỉ người có phát sinh
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter("ALL")}
-              className={`rounded-2xl px-4 py-3 text-sm font-bold transition ${filter === "ALL" ? "bg-[#111827] text-white" : "border border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f9fafb]"}`}
-            >
-              Xem tất cả
-            </button>
           </div>
+
+          <p className="text-xs leading-5 text-ink-muted48">
+            File import nên dùng các cột: employeeCode, payMode, teachingHourlyRate, assistantHourlyRate, staffDailyRate. Có thể
+            bỏ trống ô nào bạn chưa muốn thay đổi.
+          </p>
+
+          {message ? <p className="text-sm font-medium text-emerald-700">{message}</p> : null}
+          {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
         </div>
-
-        <div className="mt-5 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={exportCurrentConfig}
-            className="inline-flex items-center justify-center rounded-2xl border-2 border-emerald-200 bg-white px-5 py-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50"
-          >
-            Xuất Excel cấu hình hiện tại
-          </button>
-          <button
-            type="button"
-            onClick={downloadTemplate}
-            className="inline-flex items-center justify-center rounded-2xl border-2 border-blue-200 bg-white px-5 py-3 text-sm font-bold text-blue-700 transition hover:bg-blue-50"
-          >
-            Tải mẫu CSV để cập nhật nhanh
-          </button>
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={isImporting}
-            className="inline-flex items-center justify-center rounded-2xl border-2 border-amber-200 bg-white px-5 py-3 text-sm font-bold text-amber-700 transition hover:bg-amber-50 disabled:opacity-60"
-          >
-            {isImporting ? "Đang import..." : "Import CSV đơn giá"}
-          </button>
-          <button
-            type="button"
-            onClick={recalculateOpenRuns}
-            disabled={isRecalculating}
-            className="inline-flex items-center justify-center rounded-2xl bg-[#111827] px-5 py-3 text-sm font-bold text-white transition hover:bg-black disabled:opacity-60"
-          >
-            {isRecalculating ? "Đang tính lại..." : "Tính lại các kỳ lương đang mở"}
-          </button>
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void handleImport(file);
-            }}
-          />
-        </div>
-
-        <p className="mt-3 text-xs font-medium leading-5 text-[#6b7280]">
-          File import nên dùng các cột: employeeCode, payMode, teachingHourlyRate, assistantHourlyRate, staffDailyRate.
-          Có thể bỏ trống ô nào bạn chưa muốn thay đổi.
-        </p>
-
-        {message ? <p className="mt-3 text-sm font-medium text-emerald-700">{message}</p> : null}
-        {error ? <p className="mt-2 text-sm font-medium text-red-600">{error}</p> : null}
-      </div>
-
-      {filteredItems.length > 0 ? (
-        <PayrollRateSetupPanel
-          items={filteredItems}
-          title="Chỉnh hàng loạt đơn giá nhân sự"
-          summary={`Đang hiển thị ${filteredItems.length}/${items.length} nhân sự theo bộ lọc hiện tại. Ưu tiên xử lý hết các dòng báo thiếu trước khi duyệt payroll.`}
-        />
-      ) : (
-        <div className="rounded-3xl border-2 border-dashed border-[#d1d5db] bg-white px-6 py-10 text-center">
-          <p className="text-lg font-black text-[#111827]">Không có nhân sự nào khớp bộ lọc</p>
-          <p className="mt-2 text-sm font-medium text-[#6b7280]">Thử đổi bộ lọc hoặc xóa từ khóa tìm kiếm để xem đầy đủ hơn.</p>
-        </div>
-      )}
-    </div>
+      </SlideOver>
+    </>
   );
 }

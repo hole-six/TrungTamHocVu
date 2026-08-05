@@ -81,3 +81,9 @@ export function canTransitionPayrollRun(from: string, to: string): boolean {
 export function canEditPayroll(status: string): boolean {
   return status === "DRAFT" || status === "CALCULATED" || status === "REVIEWED";
 }
+
+// Dung sai so sánh giờ/công thực tế (SessionAssignment/TimesheetEntry) với số đã đóng băng
+// trên PayrollLine — dùng chung cho checklist chốt kỳ và cờ "lệch dữ liệu" trên từng dòng.
+export function isCloseEnough(a: number, b: number): boolean {
+  return Math.abs(a - b) < 0.01;
+}

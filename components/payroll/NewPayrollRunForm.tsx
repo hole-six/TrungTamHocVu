@@ -8,10 +8,10 @@ function currentMonth() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export default function NewPayrollRunForm() {
+export default function NewPayrollRunForm({ defaultPeriod }: { defaultPeriod?: string } = {}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [periodName, setPeriodName] = useState(currentMonth());
+  const [periodName, setPeriodName] = useState(defaultPeriod ?? currentMonth());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -30,7 +30,7 @@ export default function NewPayrollRunForm() {
       setError(data.error ?? "Không thể tạo kỳ lương.");
       return;
     }
-    router.push(`/payroll?runId=${data.item.id}#payroll-run-detail`);
+    router.push(`/payroll?period=${data.item.periodName}`);
   }
 
   if (!open) {

@@ -2,8 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { SESSION_ROLE_LABEL, computeContractStatus } from "@/lib/server/payroll-rules";
-import TimesheetQuickAddForm from "@/components/payroll/TimesheetQuickAddForm";
-import EmployeeProfileEditor from "@/components/payroll/EmployeeProfileEditor";
+import PayrollEmployeeEditPanels from "@/components/payroll/PayrollEmployeeEditPanels";
 import PageGuide from "@/components/ui/PageGuide";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
@@ -56,7 +55,7 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
     !isSelf && (canViewFullWithOverride("hr", access.role, access.override) || canUpdateWithOverride("hr", access.role, access.override));
 
   if (canManageFromMainPayroll) {
-    redirect(`/payroll?employeeId=${params.id}#employee-detail`);
+    redirect(`/payroll?employeeId=${params.id}`);
   }
 
   if (!isSelf && !canViewFullWithOverride("hr", access.role, access.override)) notFound();
@@ -198,8 +197,15 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
             </dl>
           </div>
 
-          <EmployeeProfileEditor
-            employee={{
+          <PayrollEmployeeEditPanels
+            headerSummary={{
+              fullName: employee.fullName,
+              employeeCode: employee.employeeCode,
+              position: employee.position,
+              contractStatus,
+              sourceLabel: null,
+            }}
+            profile={{
               id: employee.id,
               dob: employee.dob ? employee.dob.toISOString() : null,
               phone: employee.phone,
@@ -218,12 +224,12 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
               bankAccountNumber: employee.bankAccountNumber,
               bankAccountHolder: employee.bankAccountHolder,
             }}
-            canEdit={canUpdateWithOverride("hr", access.role, access.override)}
+            canEditProfile={canUpdateWithOverride("hr", access.role, access.override)}
+            canAddTimesheet={canCreate("timesheet", access.role) && (isSelf || canUpdateWithOverride("hr", access.role, access.override))}
+            payrollLine={null}
+            canEditPayrollLine={false}
+            assistant={null}
           />
-
-          {canCreate("timesheet", access.role) && (isSelf || canUpdateWithOverride("hr", access.role, access.override)) && (
-            <TimesheetQuickAddForm employeeId={employee.id} />
-          )}
         </div>
       </div>
     </div>

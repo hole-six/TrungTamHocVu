@@ -1,9 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { monthRange } from "@/lib/server/tuition-rules";
-
-function isClose(a: number, b: number) {
-  return Math.abs(a - b) < 0.01;
-}
+import { isCloseEnough } from "@/lib/server/payroll-rules";
 
 export async function evaluatePayrollRunChecklist(runId: string) {
   const run = await prisma.payrollRun.findUnique({
@@ -38,9 +35,9 @@ export async function evaluatePayrollRunChecklist(runId: string) {
       .reduce((sum, entry) => sum + (entry.days ?? 0), 0);
 
     return (
-      !isClose(liveTeachingHours, line.teachingHours) ||
-      !isClose(liveAssistantHours, line.assistantHours) ||
-      !isClose(liveStaffDays, line.staffDays)
+      !isCloseEnough(liveTeachingHours, line.teachingHours) ||
+      !isCloseEnough(liveAssistantHours, line.assistantHours) ||
+      !isCloseEnough(liveStaffDays, line.staffDays)
     );
   });
 
