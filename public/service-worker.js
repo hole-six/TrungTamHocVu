@@ -1,7 +1,7 @@
 /* eslint-disable no-restricted-globals */
 
-const CACHE_NAME = "tach-v2";
-const RUNTIME_CACHE = "tach-runtime-v2";
+const CACHE_NAME = "tach-v3";
+const RUNTIME_CACHE = "tach-runtime-v3";
 
 // Assets to cache on install
 const PRECACHE_URLS = [
@@ -60,7 +60,8 @@ self.addEventListener("fetch", (event) => {
       fetch(request)
         .then((response) => {
           if (response.status === 200) {
-            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, response.clone()));
+            const responseToCache = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, responseToCache));
           }
           return response;
         })
@@ -72,12 +73,15 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
-      return fetch(request).then((response) => {
-        if (response.status === 200) {
-          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, response.clone()));
-        }
-        return response;
-      });
+      return fetch(request)
+        .then((response) => {
+          if (response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, responseToCache));
+          }
+          return response;
+        })
+        .catch(() => cached);
     }),
   );
 });
