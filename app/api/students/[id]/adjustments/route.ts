@@ -23,13 +23,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const effectiveFrom = body.effectiveFrom ? new Date(body.effectiveFrom) : new Date();
   const effectiveTo = body.effectiveTo ? new Date(body.effectiveTo) : null;
 
+  // enrollmentId trống = áp cho MỌI lớp học viên đang học (vd ưu đãi nhân viên/anh
+  // chị em); có giá trị = chỉ áp cho đúng 1 lớp cụ thể (giống Scholarship).
+  const enrollmentId = body.enrollmentId ? String(body.enrollmentId).trim() : null;
+  if (enrollmentId) {
+    const enrollment = await prisma.enrollment.findFirst({ where: { id: enrollmentId, studentId: params.id } });
+    if (!enrollment) {
+      return NextResponse.json({ error: "Ghi danh không hợp lệ hoặc không thuộc học viên này." }, { status: 400 });
+    }
+  }
+
   const existingAdjustments = await prisma.adjustment.findMany({ where: { studentId: params.id } });
-  const hasOverlap = existingAdjustments.some((item) =>
-    overlapsWindow(item.effectiveFrom, item.effectiveTo, effectiveFrom, effectiveTo),
-  );
+  // Điều chỉnh áp toàn bộ (enrollmentId=null) chồng lấn với BẤT KỲ lớp nào — nên phải
+  // kiểm tra trùng với mọi điều chỉnh khác, không chỉ những cái cùng lớp.
+  const hasOverlap = existingAdjustments
+    .filter((item) => item.enrollmentId === null || enrollmentId === null || item.enrollmentId === enrollmentId)
+    .some((item) => overlapsWindow(item.effectiveFrom, item.effectiveTo, effectiveFrom, effectiveTo));
   if (hasOverlap) {
     return NextResponse.json(
-      { error: "Học viên này đã có điều chỉnh học phí khác trùng khoảng thời gian hiệu lực." },
+      { error: "Học viên này đã có điều chỉnh học phí khác trùng khoảng thời gian hiệu lực (cùng phạm vi lớp)." },
       { status: 409 },
     );
   }
@@ -37,6 +49,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const adjustment = await prisma.adjustment.create({
     data: {
       studentId: params.id,
+      enrollmentId,
       percentage,
       reason: body.reason || null,
       effectiveFrom,

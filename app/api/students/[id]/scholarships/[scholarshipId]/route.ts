@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdateWithOverride } from "@/lib/server/role-matrix";
 import { refreshEditableChargesForStudent } from "@/lib/server/charge-repricing";
+import { overlapsWindow } from "@/lib/server/tuition-rules";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string; scholarshipId: string } }) {
   const user = await getCurrentUser();
@@ -22,13 +23,27 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "Tỷ lệ học bổng phải trong khoảng 0–1." }, { status: 400 });
   }
 
+  const effectiveFrom = body.effectiveFrom ? new Date(body.effectiveFrom) : existing.effectiveFrom;
+  const effectiveTo = body.effectiveTo ? new Date(body.effectiveTo) : null;
+
+  const otherScholarships = await prisma.scholarship.findMany({
+    where: { enrollmentId: existing.enrollmentId, id: { not: existing.id } },
+  });
+  const hasOverlap = otherScholarships.some((item) => overlapsWindow(item.effectiveFrom, item.effectiveTo, effectiveFrom, effectiveTo));
+  if (hasOverlap) {
+    return NextResponse.json(
+      { error: "Ghi danh này đã có học bổng khác trùng khoảng thời gian hiệu lực." },
+      { status: 409 },
+    );
+  }
+
   const updated = await prisma.scholarship.update({
     where: { id: existing.id },
     data: {
       percentage,
       reason: body.reason || null,
-      effectiveFrom: body.effectiveFrom ? new Date(body.effectiveFrom) : existing.effectiveFrom,
-      effectiveTo: body.effectiveTo ? new Date(body.effectiveTo) : null,
+      effectiveFrom,
+      effectiveTo,
     },
   });
 

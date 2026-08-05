@@ -31,6 +31,11 @@ export async function refreshEditableChargesForStudent(studentId: string) {
     }),
     prisma.adjustment.findMany({
       where: { studentId },
+      include: {
+        enrollment: {
+          select: { classId: true },
+        },
+      },
     }),
   ]);
 
@@ -50,7 +55,10 @@ export async function refreshEditableChargesForStudent(studentId: string) {
       .filter((item) => overlapsWindow(item.effectiveFrom, item.effectiveTo, windowStart, windowEnd))
       .reduce((sum, item) => sum + item.percentage, 0);
 
+    // enrollmentId=null nghĩa là áp cho MỌI lớp — chỉ khớp thêm điều chỉnh CHỌN đúng
+    // lớp của charge này (xem prisma/schema.prisma Adjustment.enrollmentId).
     const adjustmentPct = adjustments
+      .filter((item) => item.enrollmentId === null || item.enrollment?.classId === charge.classId)
       .filter((item) => overlapsWindow(item.effectiveFrom, item.effectiveTo, windowStart, windowEnd))
       .reduce((sum, item) => sum + item.percentage, 0);
 

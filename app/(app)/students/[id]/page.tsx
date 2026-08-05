@@ -170,7 +170,7 @@ export default async function StudentDetailPage({
         },
       },
       scholarships: { include: { enrollment: { include: { class: true } } }, orderBy: { effectiveFrom: "desc" } },
-      adjustments: { orderBy: { effectiveFrom: "desc" } },
+      adjustments: { include: { enrollment: { include: { class: true } } }, orderBy: { effectiveFrom: "desc" } },
       creditBalances: { where: { usedAt: null }, orderBy: { createdAt: "asc" } },
       schoolExamScores: { orderBy: { schoolYear: "desc" } },
       bookIssues: {

@@ -300,14 +300,18 @@ export async function generateChargesForPeriod(periodId: string) {
     const basePrice = cls.tuitionPerSession ?? cls.course?.tuitionPerSession ?? 0;
     const sessionRangeStart = enrollment.enrollDate > period.startDate ? enrollment.enrollDate : period.startDate;
 
+    // isMakeup: false — buổi bù thêm (SessionCredit) đã "miễn phí" theo đúng ý nghĩa
+    // của buổi bổ trợ, không được tính vào sessionCount của CẢ LỚP kẻo những học viên
+    // không tham gia buổi bù đó bị charge nhầm thêm 1 buổi (xem comment isMakeup ở
+    // prisma/schema.prisma).
     const sessionCount = await prisma.classSession.count({
-      where: { classId, status: "COMPLETED", sessionDate: { gte: sessionRangeStart, lte: period.endDate } },
+      where: { classId, status: "COMPLETED", isMakeup: false, sessionDate: { gte: sessionRangeStart, lte: period.endDate } },
     });
     const absentCount = await prisma.studentAttendance.count({
       where: {
         studentId,
         status: "ABSENT",
-        session: { classId, status: "COMPLETED", sessionDate: { gte: sessionRangeStart, lte: period.endDate } },
+        session: { classId, status: "COMPLETED", isMakeup: false, sessionDate: { gte: sessionRangeStart, lte: period.endDate } },
       },
     });
 
@@ -322,8 +326,11 @@ export async function generateChargesForPeriod(periodId: string) {
       prisma.adjustment.findMany({
         where: {
           studentId,
+          // enrollmentId=null nghĩa là áp cho MỌI lớp học viên đang học — chỉ khớp
+          // thêm những điều chỉnh CHỌN đúng lớp này (xem prisma/schema.prisma).
+          OR: [{ enrollmentId: null }, { enrollmentId: enrollment.id }],
           effectiveFrom: { lte: period.endDate },
-          OR: [{ effectiveTo: null }, { effectiveTo: { gte: period.startDate } }],
+          AND: [{ OR: [{ effectiveTo: null }, { effectiveTo: { gte: period.startDate } }] }],
         },
       }),
       prisma.bookIssue.aggregate({
@@ -573,8 +580,9 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
     prisma.adjustment.findMany({
       where: {
         studentId: enrollment.studentId,
+        OR: [{ enrollmentId: null }, { enrollmentId: enrollment.id }],
         effectiveFrom: { lte: enrollment.enrollDate },
-        OR: [{ effectiveTo: null }, { effectiveTo: { gte: enrollment.enrollDate } }],
+        AND: [{ OR: [{ effectiveTo: null }, { effectiveTo: { gte: enrollment.enrollDate } }] }],
       },
     }),
     prisma.bookIssue.findMany({

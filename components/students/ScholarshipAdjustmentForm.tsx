@@ -90,7 +90,9 @@ export default function ScholarshipAdjustmentForm({
       body: JSON.stringify({
         percentage: Number(percentage) / 100,
         reason,
-        ...(tab === "scholarship" ? { enrollmentId } : {}),
+        // Học bổng luôn theo 1 lớp cụ thể. Điều chỉnh: rỗng = áp cho MỌI lớp học viên
+        // đang học, có chọn = chỉ áp cho đúng lớp đó — người tạo tự chọn tùy trường hợp.
+        enrollmentId: enrollmentId || null,
       }),
     });
     const data = await res.json();
@@ -130,7 +132,7 @@ export default function ScholarshipAdjustmentForm({
     setEditingId(item.id);
     setPercentage(String(Math.round(item.percentage * 100)));
     setReason(item.reason ?? "");
-    if (isScholarship && item.enrollment?.id) setEnrollmentId(item.enrollment.id);
+    setEnrollmentId(item.enrollment?.id ?? "");
   }
 
   const list = tab === "scholarship" ? scholarships : adjustments;
@@ -157,14 +159,26 @@ export default function ScholarshipAdjustmentForm({
       <div className="tab-bar mb-4">
         <button
           type="button"
-          onClick={() => setTab("scholarship")}
+          onClick={() => {
+            setTab("scholarship");
+            setEditingId(null);
+            setPercentage("");
+            setReason("");
+            setEnrollmentId(enrollments[0]?.id ?? "");
+          }}
           className={tab === "scholarship" ? "tab-item-active" : "tab-item"}
         >
           Học bổng
         </button>
         <button
           type="button"
-          onClick={() => setTab("adjustment")}
+          onClick={() => {
+            setTab("adjustment");
+            setEditingId(null);
+            setPercentage("");
+            setReason("");
+            setEnrollmentId("");
+          }}
           className={tab === "adjustment" ? "tab-item-active" : "tab-item"}
         >
           Điều chỉnh HP
@@ -186,9 +200,9 @@ export default function ScholarshipAdjustmentForm({
             >
               <div>
                 <p className="text-sm font-semibold text-ink">{item.reason ?? "Không có ghi chú"}</p>
-                {isScholarship && item.enrollment ? (
-                  <p className="text-xs font-medium text-primary mt-0.5">{item.enrollment.class.className}</p>
-                ) : null}
+                <p className="text-xs font-medium text-primary mt-0.5">
+                  {item.enrollment ? item.enrollment.class.className : !isScholarship ? "Tất cả các lớp" : ""}
+                </p>
                 <p className="text-xs text-ink-muted48 mt-0.5">
                   Từ {new Date(item.effectiveFrom).toLocaleDateString("vi-VN")}
                   {item.effectiveTo ? ` → ${new Date(item.effectiveTo).toLocaleDateString("vi-VN")}` : " (còn hiệu lực)"}
@@ -223,7 +237,7 @@ export default function ScholarshipAdjustmentForm({
           {editingId ? `Đang sửa ${isScholarship ? "học bổng" : "điều chỉnh"}` : `${isScholarship ? "Thêm học bổng" : "Thêm điều chỉnh"}`}
         </p>
         <form onSubmit={submit} className="space-y-3">
-          {isScholarship && (
+          {isScholarship ? (
             <div className="form-group">
               <label className="label">Áp dụng cho lớp/khóa</label>
               {enrollments.length === 0 ? (
@@ -237,6 +251,18 @@ export default function ScholarshipAdjustmentForm({
                   ))}
                 </select>
               )}
+            </div>
+          ) : (
+            <div className="form-group">
+              <label className="label">Phạm vi áp dụng</label>
+              <select className="input" value={enrollmentId} onChange={(e) => setEnrollmentId(e.target.value)}>
+                <option value="">Tất cả các lớp học viên đang học</option>
+                {enrollments.map((en) => (
+                  <option key={en.id} value={en.id}>
+                    Chỉ lớp: {en.className} {en.status !== "ACTIVE" ? `(${en.status})` : ""}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">

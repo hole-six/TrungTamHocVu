@@ -556,6 +556,14 @@ model ClassSession {
   status      String    @default("PLANNED") // PLANNED|CONFIRMED|COMPLETED|CANCELLED|RESCHEDULED
   completedAt DateTime? @map("completed_at") // Ngay HT
   notes       String?
+  // Buổi được tạo THÊM vào lớp qua app/api/sessions/[id]/makeup/route.ts (không phải
+  // buổi định kỳ theo ScheduleRule) — dùng để 1-2 học viên học bù bằng buổi bổ trợ
+  // (SessionCredit), KHÔNG phải slot của cả lớp. Vì buổi bổ trợ đã "miễn phí" theo
+  // đúng ý nghĩa của SessionCredit, buổi này bị loại khỏi mọi phép tính sessionCount/
+  // absentCount học phí PERIOD (generateChargesForPeriod) và tiến độ khóa COURSE
+  // (computeEnrollmentSessionProgress) — nếu không, cả lớp PERIOD sẽ bị tính nhầm
+  // thêm 1 buổi học phí dù đa số không tham gia buổi bù đó.
+  isMakeup    Boolean   @default(false) @map("is_makeup")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
@@ -640,6 +648,7 @@ model Enrollment {
   class         Class                     @relation(fields: [classId], references: [id])
   statusHistory EnrollmentStatusHistory[]
   scholarships  Scholarship[]
+  adjustments   Adjustment[]
   sessionCredits SessionCredit[]
   installments  EnrollmentInstallment[]
   bookRequirements StudentBookRequirement[]
@@ -988,9 +997,15 @@ model Adjustment {
   reason        String?
   effectiveFrom DateTime  @map("effective_from")
   effectiveTo   DateTime? @map("effective_to")
+  // NULL = áp cho TẤT CẢ các lớp học viên đang học (hành vi gốc, vd ưu đãi nhân
+  // viên/anh chị em). Có giá trị = chỉ áp cho đúng 1 ghi danh/lớp cụ thể, giống
+  // Scholarship — người tạo chọn tùy trường hợp thực tế.
+  enrollmentId  String?   @map("enrollment_id")
 
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student    Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollment Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 
+  @@index([enrollmentId])
   @@map("adjustments")
 }
 

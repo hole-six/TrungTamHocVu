@@ -143,8 +143,10 @@ export async function computeAutoSessionWindow(
 export async function computeEnrollmentSessionProgress(classId: string, enrollDate: Date) {
   const [cls, consumed] = await Promise.all([
     prisma.class.findUnique({ where: { id: classId }, select: { totalSessions: true, expectedEndDate: true } }),
+    // isMakeup: false — buổi bù thêm không thuộc kế hoạch totalSessions gốc, không
+    // tính là buổi "đã học" khi tính buổi bổ trợ còn lại (rút lớp/hết hạn khóa).
     prisma.classSession.count({
-      where: { classId, status: "COMPLETED", sessionDate: { gte: enrollDate } },
+      where: { classId, status: "COMPLETED", isMakeup: false, sessionDate: { gte: enrollDate } },
     }),
   ]);
 

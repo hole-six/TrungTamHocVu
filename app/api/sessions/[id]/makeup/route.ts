@@ -74,6 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         room: room || null,
         status: "PLANNED",
         notes,
+        isMakeup: true,
       },
     });
 

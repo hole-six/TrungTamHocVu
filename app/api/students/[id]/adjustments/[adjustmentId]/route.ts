@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdateWithOverride } from "@/lib/server/role-matrix";
 import { refreshEditableChargesForStudent } from "@/lib/server/charge-repricing";
+import { overlapsWindow } from "@/lib/server/tuition-rules";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string; adjustmentId: string } }) {
   const user = await getCurrentUser();
@@ -22,13 +23,38 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "Tỷ lệ điều chỉnh phải trong khoảng 0–1." }, { status: 400 });
   }
 
+  const effectiveFrom = body.effectiveFrom ? new Date(body.effectiveFrom) : existing.effectiveFrom;
+  const effectiveTo = body.effectiveTo ? new Date(body.effectiveTo) : null;
+
+  const enrollmentId = "enrollmentId" in body ? (body.enrollmentId ? String(body.enrollmentId).trim() : null) : existing.enrollmentId;
+  if (enrollmentId) {
+    const enrollment = await prisma.enrollment.findFirst({ where: { id: enrollmentId, studentId: params.id } });
+    if (!enrollment) {
+      return NextResponse.json({ error: "Ghi danh không hợp lệ hoặc không thuộc học viên này." }, { status: 400 });
+    }
+  }
+
+  const otherAdjustments = await prisma.adjustment.findMany({
+    where: { studentId: params.id, id: { not: existing.id } },
+  });
+  const hasOverlap = otherAdjustments
+    .filter((item) => item.enrollmentId === null || enrollmentId === null || item.enrollmentId === enrollmentId)
+    .some((item) => overlapsWindow(item.effectiveFrom, item.effectiveTo, effectiveFrom, effectiveTo));
+  if (hasOverlap) {
+    return NextResponse.json(
+      { error: "Học viên này đã có điều chỉnh học phí khác trùng khoảng thời gian hiệu lực (cùng phạm vi lớp)." },
+      { status: 409 },
+    );
+  }
+
   const updated = await prisma.adjustment.update({
     where: { id: existing.id },
     data: {
       percentage,
       reason: body.reason || null,
-      effectiveFrom: body.effectiveFrom ? new Date(body.effectiveFrom) : existing.effectiveFrom,
-      effectiveTo: body.effectiveTo ? new Date(body.effectiveTo) : null,
+      effectiveFrom,
+      effectiveTo,
+      enrollmentId,
     },
   });
 
