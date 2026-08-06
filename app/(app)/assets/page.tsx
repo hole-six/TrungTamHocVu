@@ -81,7 +81,7 @@ export default async function AssetsPage({
       : {}),
   };
 
-  const [assets, total] = await Promise.all([
+  const [assets, total, assetsForTotals] = await Promise.all([
     prisma.asset.findMany({
       where,
       orderBy: [{ category: "asc" }, { name: "asc" }],
@@ -94,6 +94,16 @@ export default async function AssetsPage({
       },
     }),
     prisma.asset.count({ where }),
+    // Tổng số lượng/giá trị phải tính trên TOÀN BỘ danh sách đã lọc, không chỉ
+    // trang hiện tại — dùng truy vấn riêng không phân trang cho việc này.
+    prisma.asset.findMany({
+      where,
+      select: {
+        status: true,
+        unitValue: true,
+        transactions: { select: { type: true, quantity: true, amount: true } },
+      },
+    }),
   ]);
 
   const rows = assets.map((asset) => {
@@ -115,12 +125,26 @@ export default async function AssetsPage({
   });
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const totalQuantity = rows.reduce((sum, row) => sum + row.quantity, 0);
-  const totalBaseValue = rows.reduce((sum, row) => sum + row.baseValue, 0);
-  const totalMaintenanceValue = rows.reduce((sum, row) => sum + row.maintenanceValue, 0);
-  const totalValue = rows.reduce((sum, row) => sum + row.totalValue, 0);
-  const maintenanceCount = rows.filter((row) => row.status === "MAINTENANCE").length;
-  const brokenCount = rows.filter((row) => row.status === "BROKEN").length;
+  const summaryRows = assetsForTotals.map((asset) => {
+    const quantity = asset.transactions.reduce((sum, transaction) => sum + transaction.quantity, 0);
+    const baseValue = quantity * (asset.unitValue ?? 0);
+    const maintenanceValue = asset.transactions
+      .filter((transaction) => transaction.type === "MAINTENANCE")
+      .reduce((sum, transaction) => sum + transaction.amount, 0);
+    return {
+      status: asset.status,
+      quantity,
+      baseValue,
+      maintenanceValue,
+      totalValue: computeAssetTotalValue(asset.unitValue, quantity, asset.transactions),
+    };
+  });
+  const totalQuantity = summaryRows.reduce((sum, row) => sum + row.quantity, 0);
+  const totalBaseValue = summaryRows.reduce((sum, row) => sum + row.baseValue, 0);
+  const totalMaintenanceValue = summaryRows.reduce((sum, row) => sum + row.maintenanceValue, 0);
+  const totalValue = summaryRows.reduce((sum, row) => sum + row.totalValue, 0);
+  const maintenanceCount = summaryRows.filter((row) => row.status === "MAINTENANCE").length;
+  const brokenCount = summaryRows.filter((row) => row.status === "BROKEN").length;
   const canManageAssets = canUpdate("assets", role);
   const canRemoveAssets = canDelete("assets", role);
 

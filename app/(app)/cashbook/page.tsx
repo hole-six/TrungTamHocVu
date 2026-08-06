@@ -93,7 +93,7 @@ export default async function CashbookPage({
     ];
   }
 
-  const [totalCount, transactions, categories] = await Promise.all([
+  const [totalCount, transactions, categories, transactionsForTotals] = await Promise.all([
     prisma.cashTransaction.count({ where }),
     prisma.cashTransaction.findMany({
       where,
@@ -103,6 +103,12 @@ export default async function CashbookPage({
       take: itemsPerPage,
     }),
     prisma.transactionCategory.findMany({ orderBy: [{ type: "asc" }, { name: "asc" }] }),
+    // Tổng thu/chi và số dư phải tính trên TOÀN BỘ khoảng ngày đã lọc, không chỉ
+    // trang hiện tại — dùng truy vấn riêng không phân trang cho việc này.
+    prisma.cashTransaction.findMany({
+      where,
+      select: { type: true, amount: true, status: true, category: { select: { name: true } } },
+    }),
   ]);
 
   const txnIds = transactions.map((item) => item.id);
@@ -125,12 +131,12 @@ export default async function CashbookPage({
   ]);
   const handlerNameById = new Map(handlers.map((item) => [item.id, item.fullName]));
 
-  const totalThu = transactions.filter((item) => item.type === "THU" && item.status !== "VOIDED").reduce((sum, item) => sum + item.amount, 0);
-  const totalChi = transactions.filter((item) => item.type === "CHI" && item.status !== "VOIDED").reduce((sum, item) => sum + item.amount, 0);
+  const totalThu = transactionsForTotals.filter((item) => item.type === "THU" && item.status !== "VOIDED").reduce((sum, item) => sum + item.amount, 0);
+  const totalChi = transactionsForTotals.filter((item) => item.type === "CHI" && item.status !== "VOIDED").reduce((sum, item) => sum + item.amount, 0);
   const balance = totalThu - totalChi;
 
   const byCategory = Object.values(
-    transactions.reduce((accumulator, transaction) => {
+    transactionsForTotals.reduce((accumulator, transaction) => {
       const key = transaction.category?.name ?? "Chưa phân loại";
       if (!accumulator[key]) accumulator[key] = { name: key, thu: 0, chi: 0 };
       if (transaction.status !== "VOIDED") {
