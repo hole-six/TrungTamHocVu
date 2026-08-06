@@ -191,6 +191,7 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
   );
   
   function renderChargesTable() {
+    if (!period) return null;
     return (
       <table className="w-full text-left text-sm">
         <thead className="border-b border-hairline bg-canvas-parchment/60 text-xs uppercase tracking-wide text-ink-muted48">

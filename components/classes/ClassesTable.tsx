@@ -493,10 +493,8 @@ export default function ClassesTable({
       stickyHeader
       rowKey="id"
       onRowClick={(row) => router.push(`/classes/${row.id}`)}
-      mobileConfig={{
-        primaryColumn: "className",
-        secondaryColumns: ["status"],
-      }}
+      primaryColumn="className"
+      secondaryColumns={["status"]}
     />
   );
 }

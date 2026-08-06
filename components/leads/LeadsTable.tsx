@@ -674,11 +674,7 @@ export default function LeadsTable({
       rowKey="id"
       onRowClick={(row) => router.push(`/leads/${row.id}`)}
       primaryColumn="fullName"
-      secondaryColumns={["leadCode", "status"]}
-    />
-  );
-}tTest"],
-      }}
+      secondaryColumns={["leadCode", "status", "latestTest"]}
     />
   );
 }

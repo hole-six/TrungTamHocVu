@@ -397,7 +397,8 @@ export default function BooksTable({
           title: "Chưa có đầu sách",
           description: "Bắt đầu bằng cách thêm đầu sách/giáo trình đầu tiên.",
         }}
-        mobileConfig={{ primaryColumn: "name", secondaryColumns: ["categoryLabel", "onHand"] }}
+        primaryColumn="name"
+        secondaryColumns={["categoryLabel", "onHand"]}
       />
 
       {editingBook ? (

@@ -437,6 +437,9 @@ export default function StudentsTable({
         stickyHeader
         rowKey="id"
         onRowClick={(row) => router.push(`/students/${row.id}`)}
+        className="[&_table]:min-w-[1750px]"
+        primaryColumn="fullName"
+        secondaryColumns={["studentCode", "status", "outstanding"]}
       />
 
       {assigningStudent ? (
