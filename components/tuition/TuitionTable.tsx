@@ -6,6 +6,7 @@ import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
 import { canCreate, canUpdate, canDelete, canApprove } from "@/lib/server/role-matrix";
 import { exportToExcel } from "@/lib/export-utils";
+import { BILLING_PERIOD_STATUS_LABEL } from "@/lib/server/tuition-rules";
 
 type BillingPeriod = {
   id: string;
@@ -32,9 +33,12 @@ function formatVnd(n: number) {
 }
 
 const BILLING_STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
-  DRAFT: { label: "Nháp", color: "bg-gray-100 text-gray-700 border-gray-200", icon: "📝" },
-  FINALIZED: { label: "Đã chốt", color: "bg-blue-100 text-blue-700 border-blue-200", icon: "🔒" },
-  CLOSED: { label: "Đã đóng", color: "bg-green-100 text-green-700 border-green-200", icon: "✅" },
+  DRAFT: { label: BILLING_PERIOD_STATUS_LABEL.DRAFT, color: "bg-gray-100 text-gray-700 border-gray-200", icon: "📝" },
+  GENERATED: { label: BILLING_PERIOD_STATUS_LABEL.GENERATED, color: "bg-amber-100 text-amber-700 border-amber-200", icon: "🧮" },
+  REVIEWED: { label: BILLING_PERIOD_STATUS_LABEL.REVIEWED, color: "bg-indigo-100 text-indigo-700 border-indigo-200", icon: "🔍" },
+  POSTED: { label: BILLING_PERIOD_STATUS_LABEL.POSTED, color: "bg-blue-100 text-blue-700 border-blue-200", icon: "🔒" },
+  CLOSED: { label: BILLING_PERIOD_STATUS_LABEL.CLOSED, color: "bg-green-100 text-green-700 border-green-200", icon: "✅" },
+  REOPENED: { label: BILLING_PERIOD_STATUS_LABEL.REOPENED, color: "bg-orange-100 text-orange-700 border-orange-200", icon: "🔓" },
 };
 
 export default function TuitionTable({
@@ -185,26 +189,6 @@ export default function TuitionTable({
       variant: "primary",
     },
   ];
-
-  if (canApprove("tuition", userRole)) {
-    actions.push({
-      label: "Chốt kỳ",
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        </svg>
-      ),
-      onClick: async (row) => {
-        if (confirm(`Chốt kỳ thu ${row.periodName}? Sau khi chốt sẽ không thể sửa học phí.`)) {
-          await fetch(`/api/billing-periods/${row.id}/finalize`, { method: "POST" });
-          router.refresh();
-        }
-      },
-      variant: "secondary",
-      show: (row) => row.status === "DRAFT",
-    });
-  }
 
   if (canDelete("tuition", userRole)) {
     actions.push({

@@ -63,6 +63,10 @@ function formatDate(value: string | null) {
   return new Date(value).toLocaleDateString("vi-VN");
 }
 
+function todayInVietnam() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
+}
+
 export default function EnrollmentIntakeWizard({ courses, classes, students }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(0);
@@ -90,9 +94,9 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
     dob: "",
     studentPhone: "",
     source: "",
-    meetDate: "2026-07-31",
+    meetDate: todayInVietnam(),
     expectedStartDate: "",
-    enrollDate: "2026-07-31",
+    enrollDate: todayInVietnam(),
     initialAssessment: "",
     notes: "",
     courseId: "",
