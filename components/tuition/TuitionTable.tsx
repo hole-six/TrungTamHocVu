@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DataTable } from "@/components/ui/DataTable";
+import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
 import { canCreate, canUpdate, canDelete, canApprove } from "@/lib/server/role-matrix";
 import { exportToExcel } from "@/lib/export-utils";
@@ -281,7 +281,7 @@ export default function TuitionTable({
   };
 
   return (
-    <DataTable
+    <DataTableResponsive
       data={data}
       columns={columns}
       actions={actions}
@@ -312,6 +312,8 @@ export default function TuitionTable({
       stickyHeader
       rowKey="id"
       onRowClick={(row) => router.push(`/tuition/${row.id}`)}
+      primaryColumn="periodName"
+      secondaryColumns={["status"]}
     />
   );
 }

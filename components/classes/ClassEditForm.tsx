@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
 
 type Course = { id: string; code: string; name: string };
@@ -318,7 +318,7 @@ export default function ClassEditForm({
         </button>
       ) : null}
 
-      <SlideOver
+      <ResponsiveDrawer 
         widthClassName="max-w-5xl"
         open={open}
         onClose={() => setOpen(false)}
@@ -495,7 +495,7 @@ export default function ClassEditForm({
             </button>
           </div>
         </form>
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

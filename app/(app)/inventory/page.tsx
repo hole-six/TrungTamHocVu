@@ -288,7 +288,8 @@ export default async function InventoryPage({
           </p>
         </div>
 
-        <div className="table-container">
+        {/* Desktop: Full table */}
+        <div className="hidden lg:block table-container">
           <table className="table">
             <thead>
               <tr>
@@ -334,6 +335,70 @@ export default async function InventoryPage({
               ) : null}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile/Tablet: Card view */}
+        <div className="lg:hidden space-y-3">
+          {pagedIssueRows.map((row) => (
+            <div key={row.id} className="rounded-xl border border-hairline bg-white p-4 shadow-sm">
+              {/* Header: Class + Student */}
+              <div className="mb-3 pb-3 border-b border-hairline">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-ink text-sm">{row.className}</p>
+                    <p className="text-xs text-ink-muted48 mt-0.5">{row.studentLabel}</p>
+                  </div>
+                  <span className="inline-flex rounded-lg text-[10px] font-semibold text-ink-muted80 bg-ink/5 px-2 py-1 whitespace-nowrap">
+                    #{row.stt}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className={categoryBadgeClass(row.bookCategory)}>{row.bookCategory}</span>
+                  <span className={row.paymentStatus === "PAID" ? "badge-green" : "badge-amber"}>
+                    {row.paymentStatus === "PAID" ? "Đã TT" : "Chưa TT"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Book Info */}
+              <div className="mb-3">
+                <Link href={`/inventory/${row.bookId}`} className="font-medium text-primary hover:underline text-sm block">
+                  {row.bookName}
+                </Link>
+                <p className="text-xs text-ink-muted48 mt-1">
+                  Ngày xuất: {row.issueDate.toLocaleDateString("vi-VN")}
+                </p>
+              </div>
+
+              {/* Pricing Grid */}
+              <div className="grid grid-cols-3 gap-2 pt-3 border-t border-hairline">
+                <div>
+                  <p className="text-xs text-ink-muted48">Số lượng</p>
+                  <p className="font-semibold text-ink text-sm mt-0.5">{row.quantity}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-ink-muted48">Đơn giá</p>
+                  <p className="font-semibold text-ink text-sm mt-0.5">{formatVnd(row.unitPrice)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-ink-muted48">Thành tiền</p>
+                  <p className="font-bold text-primary text-sm mt-0.5">{formatVnd(row.amount)}</p>
+                </div>
+              </div>
+
+              {row.notes && (
+                <p className="text-xs text-ink-muted48 mt-3 pt-3 border-t border-hairline italic">
+                  "{row.notes}"
+                </p>
+              )}
+            </div>
+          ))}
+
+          {issueRows.length === 0 && (
+            <div className="py-12 text-center text-sm text-ink-muted48 bg-canvas-parchment/30 rounded-xl border border-dashed border-hairline">
+              Không có dòng xuất nào khớp bộ lọc.
+            </div>
+          )}
         </div>
 
         {issueRows.length > 0 && (

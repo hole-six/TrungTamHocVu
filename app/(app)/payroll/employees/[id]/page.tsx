@@ -95,66 +95,131 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <div className="card overflow-x-auto">
-            <h2 className="font-display text-lg font-semibold tracking-tight">Tất cả buổi dạy/trợ giảng ({employee.sessionAssignments.length})</h2>
-            <table className="mt-3 w-full text-left text-sm">
-              <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
-                <tr>
-                  <th className="py-2 font-medium">Ngày</th>
-                  <th className="py-2 font-medium">Lớp</th>
-                  <th className="py-2 font-medium">Vai trò</th>
-                  <th className="py-2 font-medium">Giờ</th>
-                  <th className="py-2 font-medium">Tiền</th>
-                </tr>
-              </thead>
-              <tbody>
-                {employee.sessionAssignments.map((assignment) => (
-                  <tr key={assignment.id} className="border-b border-hairline last:border-0">
-                    <td className="py-2">{formatDate(assignment.session.sessionDate)}</td>
-                    <td className="py-2 text-ink-muted80">{assignment.session.class.className}</td>
-                    <td className="py-2 text-ink-muted80">{SESSION_ROLE_LABEL[assignment.role] ?? assignment.role}</td>
-                    <td className="py-2 text-ink-muted80">{assignment.hours}</td>
-                    <td className="py-2 font-medium">{formatVnd(assignment.amount ?? 0)}</td>
-                  </tr>
-                ))}
-                {employee.sessionAssignments.length === 0 && (
+          {/* Sessions Table - Desktop: Table, Mobile: Cards */}
+          <div className="card">
+            <h2 className="font-display text-lg font-semibold tracking-tight mb-3">Tất cả buổi dạy/trợ giảng ({employee.sessionAssignments.length})</h2>
+            
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-ink-muted48">
-                      Chưa được phân công buổi dạy nào.
-                    </td>
+                    <th className="py-2 font-medium">Ngày</th>
+                    <th className="py-2 font-medium">Lớp</th>
+                    <th className="py-2 font-medium">Vai trò</th>
+                    <th className="py-2 font-medium">Giờ</th>
+                    <th className="py-2 font-medium">Tiền</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {employee.sessionAssignments.map((assignment) => (
+                    <tr key={assignment.id} className="border-b border-hairline last:border-0">
+                      <td className="py-2">{formatDate(assignment.session.sessionDate)}</td>
+                      <td className="py-2 text-ink-muted80">{assignment.session.class.className}</td>
+                      <td className="py-2 text-ink-muted80">{SESSION_ROLE_LABEL[assignment.role] ?? assignment.role}</td>
+                      <td className="py-2 text-ink-muted80">{assignment.hours}</td>
+                      <td className="py-2 font-medium">{formatVnd(assignment.amount ?? 0)}</td>
+                    </tr>
+                  ))}
+                  {employee.sessionAssignments.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-ink-muted48">
+                        Chưa được phân công buổi dạy nào.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-3">
+              {employee.sessionAssignments.map((assignment) => (
+                <div key={assignment.id} className="rounded-xl border border-hairline bg-canvas-parchment/40 p-3">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-ink text-sm">{assignment.session.class.className}</p>
+                      <p className="text-xs text-ink-muted48 mt-0.5">{formatDate(assignment.session.sessionDate)}</p>
+                    </div>
+                    <span className="inline-flex rounded-lg bg-primary/10 px-2 py-1 text-xs font-bold text-primary whitespace-nowrap">
+                      {SESSION_ROLE_LABEL[assignment.role] ?? assignment.role}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-hairline">
+                    <div>
+                      <p className="text-xs text-ink-muted48">Số giờ</p>
+                      <p className="font-semibold text-ink text-sm">{assignment.hours} giờ</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-ink-muted48">Thù lao</p>
+                      <p className="font-bold text-primary text-sm">{formatVnd(assignment.amount ?? 0)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {employee.sessionAssignments.length === 0 && (
+                <div className="py-8 text-center text-sm text-ink-muted48 bg-canvas-parchment/30 rounded-xl border border-dashed border-hairline">
+                  Chưa được phân công buổi dạy nào.
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="card overflow-x-auto">
-            <h2 className="font-display text-lg font-semibold tracking-tight">Tất cả chấm công ngày ({employee.timesheetEntries.length})</h2>
-            <table className="mt-3 w-full text-left text-sm">
-              <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
-                <tr>
-                  <th className="py-2 font-medium">Ngày</th>
-                  <th className="py-2 font-medium">Giờ</th>
-                  <th className="py-2 font-medium">Công</th>
-                </tr>
-              </thead>
-              <tbody>
-                {employee.timesheetEntries.map((entry) => (
-                  <tr key={entry.id} className="border-b border-hairline last:border-0">
-                    <td className="py-2">{formatDate(entry.workDate)}</td>
-                    <td className="py-2 text-ink-muted80">{entry.hours}</td>
-                    <td className="py-2 font-medium">{entry.days}</td>
-                  </tr>
-                ))}
-                {employee.timesheetEntries.length === 0 && (
+          {/* Timesheet Table - Desktop: Table, Mobile: Cards */}
+          <div className="card">
+            <h2 className="font-display text-lg font-semibold tracking-tight mb-3">Tất cả chấm công ngày ({employee.timesheetEntries.length})</h2>
+            
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
                   <tr>
-                    <td colSpan={3} className="py-6 text-center text-ink-muted48">
-                      Chưa có chấm công nào.
-                    </td>
+                    <th className="py-2 font-medium">Ngày</th>
+                    <th className="py-2 font-medium">Giờ</th>
+                    <th className="py-2 font-medium">Công</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {employee.timesheetEntries.map((entry) => (
+                    <tr key={entry.id} className="border-b border-hairline last:border-0">
+                      <td className="py-2">{formatDate(entry.workDate)}</td>
+                      <td className="py-2 text-ink-muted80">{entry.hours}</td>
+                      <td className="py-2 font-medium">{entry.days}</td>
+                    </tr>
+                  ))}
+                  {employee.timesheetEntries.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="py-6 text-center text-ink-muted48">
+                        Chưa có chấm công nào.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-2">
+              {employee.timesheetEntries.map((entry) => (
+                <div key={entry.id} className="rounded-xl border border-hairline bg-canvas-parchment/40 p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-ink text-sm">{formatDate(entry.workDate)}</p>
+                      <p className="text-xs text-ink-muted48 mt-0.5">{entry.hours} giờ</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-ink-muted48">Số công</p>
+                      <p className="font-bold text-primary text-lg">{entry.days}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {employee.timesheetEntries.length === 0 && (
+                <div className="py-8 text-center text-sm text-ink-muted48 bg-canvas-parchment/30 rounded-xl border border-dashed border-hairline">
+                  Chưa có chấm công nào.
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

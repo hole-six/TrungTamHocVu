@@ -110,7 +110,8 @@ export default async function AssetDetailPage({ params }: { params: { id: string
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <div className="card overflow-x-auto">
+          {/* Desktop Table */}
+          <div className="card hidden lg:block overflow-x-auto">
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-display text-lg font-semibold tracking-tight">Lịch sử giao dịch</h2>
               <span className="badge bg-ink/5 text-ink-muted80">{asset.transactions.length} dòng</span>
@@ -171,6 +172,64 @@ export default async function AssetDetailPage({ params }: { params: { id: string
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="card lg:hidden">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-display text-lg font-semibold tracking-tight">Lịch sử giao dịch</h2>
+              <span className="badge bg-ink/5 text-ink-muted80">{asset.transactions.length} dòng</span>
+            </div>
+            <div className="mt-3 space-y-3">
+              {asset.transactions.map((t) => (
+                <div key={t.id} className="rounded-lg border border-hairline bg-white p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{formatDate(t.txnDate)}</p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                            t.type === "MAINTENANCE"
+                              ? "bg-amber-100 text-amber-700"
+                              : t.type === "DISPOSAL"
+                                ? "bg-rose-100 text-rose-700"
+                                : t.type === "RECEIPT"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-slate-100 text-slate-700"
+                          }`}
+                        >
+                          {ASSET_TXN_TYPE_LABEL[t.type] ?? t.type}
+                        </span>
+                        {t.toRoom ? <span className="text-xs text-ink-muted48">→ {t.toRoom}</span> : null}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {t.type === "MAINTENANCE" ? (
+                        <>
+                          <p className="text-sm font-semibold text-amber-700">{formatVnd(t.amount)}</p>
+                          <p className="mt-0.5 text-[10px] text-ink-muted48">Bảo dưỡng</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm font-semibold">{t.quantity > 0 ? `+${t.quantity}` : t.quantity}</p>
+                          <p className="mt-0.5 text-[10px] text-ink-muted48">Số lượng</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {t.notes && (
+                    <div className="mt-2 border-t border-hairline pt-2 text-xs text-ink-muted80">
+                      <span className="text-ink-muted48">Ghi chú:</span> {t.notes}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {asset.transactions.length === 0 && (
+                <div className="py-8 text-center text-sm text-ink-muted48">
+                  Chưa có giao dịch nào.
+                </div>
+              )}
+            </div>
           </div>
 
           {canManageAsset && <AssetTransactionForm assetId={asset.id} assetName={asset.name} />}

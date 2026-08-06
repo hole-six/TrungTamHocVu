@@ -162,77 +162,159 @@ export default async function AssetsPage({
           </div>
         </div>
 
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Tài sản</th>
-                <th>Nhóm</th>
-                <th>Phòng</th>
-                <th>SL</th>
-                <th>ĐVT</th>
-                <th>Đơn giá</th>
-                <th>Giá gốc</th>
-                <th>Bảo dưỡng</th>
-                <th>Tổng giá trị</th>
-                <th>Trạng thái</th>
-                {(canManageAssets || canRemoveAssets) && <th>Thao tác</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((asset) => (
-                <tr key={asset.id}>
-                  <td>
-                    <Link href={`/assets/${asset.id}`} className="font-medium text-primary hover:underline">
-                      {asset.name}
-                    </Link>
-                    <p className="mt-1 text-xs text-ink-muted48">{asset.assetCode ?? "Chưa có mã"}</p>
-                  </td>
-                  <td>{asset.category ?? "Chưa phân nhóm"}</td>
-                  <td>{asset.room ?? "Chưa gắn phòng"}</td>
-                  <td>{asset.quantity}</td>
-                  <td>{asset.unitName}</td>
-                  <td>{asset.unitValue != null ? formatVnd(asset.unitValue) : "—"}</td>
-                  <td className="font-medium text-slate-700">{formatVnd(asset.baseValue)}</td>
-                  <td className={asset.maintenanceValue > 0 ? "font-medium text-amber-700" : "text-ink-muted48"}>{formatVnd(asset.maintenanceValue)}</td>
-                  <td className="font-medium">{formatVnd(asset.totalValue)}</td>
-                  <td>
-                    <span className={asset.status === "ACTIVE" ? "badge-green" : asset.status === "MAINTENANCE" ? "badge-amber" : asset.status === "BROKEN" ? "badge-red" : "badge-gray"}>
-                      {ASSET_STATUS_LABEL[asset.status] ?? asset.status}
-                    </span>
-                  </td>
-                  {(canManageAssets || canRemoveAssets) && (
+        {/* Desktop Table */}
+        <div className="hidden lg:block">
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Tài sản</th>
+                  <th>Nhóm</th>
+                  <th>Phòng</th>
+                  <th>SL</th>
+                  <th>ĐVT</th>
+                  <th>Đơn giá</th>
+                  <th>Giá gốc</th>
+                  <th>Bảo dưỡng</th>
+                  <th>Tổng giá trị</th>
+                  <th>Trạng thái</th>
+                  {(canManageAssets || canRemoveAssets) && <th>Thao tác</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((asset) => (
+                  <tr key={asset.id}>
                     <td>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {canManageAssets && <QuickMaintenanceButton assetId={asset.id} assetName={asset.name} compact />}
-                        {canManageAssets && (
-                          <AssetEditForm
-                            assetId={asset.id}
-                            compact
-                            initial={{
-                              status: asset.status,
-                              name: asset.name,
-                              category: asset.category ?? "",
-                              room: asset.room ?? "",
-                              unitName: asset.unitName,
-                              unitValue: asset.unitValue?.toString() ?? "",
-                              notes: asset.notes ?? "",
-                            }}
-                          />
-                        )}
-                        {canRemoveAssets && <DeleteAssetButton assetId={asset.id} assetName={asset.name} compact />}
-                      </div>
+                      <Link href={`/assets/${asset.id}`} className="font-medium text-primary hover:underline">
+                        {asset.name}
+                      </Link>
+                      <p className="mt-1 text-xs text-ink-muted48">{asset.assetCode ?? "Chưa có mã"}</p>
                     </td>
+                    <td>{asset.category ?? "Chưa phân nhóm"}</td>
+                    <td>{asset.room ?? "Chưa gắn phòng"}</td>
+                    <td>{asset.quantity}</td>
+                    <td>{asset.unitName}</td>
+                    <td>{asset.unitValue != null ? formatVnd(asset.unitValue) : "—"}</td>
+                    <td className="font-medium text-slate-700">{formatVnd(asset.baseValue)}</td>
+                    <td className={asset.maintenanceValue > 0 ? "font-medium text-amber-700" : "text-ink-muted48"}>{formatVnd(asset.maintenanceValue)}</td>
+                    <td className="font-medium">{formatVnd(asset.totalValue)}</td>
+                    <td>
+                      <span className={asset.status === "ACTIVE" ? "badge-green" : asset.status === "MAINTENANCE" ? "badge-amber" : asset.status === "BROKEN" ? "badge-red" : "badge-gray"}>
+                        {ASSET_STATUS_LABEL[asset.status] ?? asset.status}
+                      </span>
+                    </td>
+                    {(canManageAssets || canRemoveAssets) && (
+                      <td>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {canManageAssets && <QuickMaintenanceButton assetId={asset.id} assetName={asset.name} compact />}
+                          {canManageAssets && (
+                            <AssetEditForm
+                              assetId={asset.id}
+                              compact
+                              initial={{
+                                status: asset.status,
+                                name: asset.name,
+                                category: asset.category ?? "",
+                                room: asset.room ?? "",
+                                unitName: asset.unitName,
+                                unitValue: asset.unitValue?.toString() ?? "",
+                                notes: asset.notes ?? "",
+                              }}
+                            />
+                          )}
+                          {canRemoveAssets && <DeleteAssetButton assetId={asset.id} assetName={asset.name} compact />}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                {rows.length === 0 ? (
+                  <tr className="table-empty">
+                    <td colSpan={11}>Không có tài sản nào khớp bộ lọc.</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="space-y-3 lg:hidden">
+          {rows.map((asset) => (
+            <div key={asset.id} className="rounded-lg border border-hairline bg-white p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <Link href={`/assets/${asset.id}`} className="block font-semibold text-primary hover:underline">
+                    {asset.name}
+                  </Link>
+                  <p className="mt-0.5 text-xs text-ink-muted48">{asset.assetCode ?? "Chưa có mã"}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    <span className="text-xs text-ink-muted80">{asset.category ?? "Chưa phân nhóm"}</span>
+                    {asset.room && (
+                      <>
+                        <span className="text-xs text-ink-muted48">•</span>
+                        <span className="text-xs text-ink-muted80">{asset.room}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <span className={asset.status === "ACTIVE" ? "badge-green" : asset.status === "MAINTENANCE" ? "badge-amber" : asset.status === "BROKEN" ? "badge-red" : "badge-gray"}>
+                  {ASSET_STATUS_LABEL[asset.status] ?? asset.status}
+                </span>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-hairline pt-3 text-xs">
+                <div>
+                  <span className="text-ink-muted48">Số lượng:</span>
+                  <span className="ml-1 font-medium">{asset.quantity} {asset.unitName}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-ink-muted48">Đơn giá:</span>
+                  <span className="ml-1 font-medium">{asset.unitValue != null ? formatVnd(asset.unitValue) : "—"}</span>
+                </div>
+                <div>
+                  <span className="text-ink-muted48">Giá gốc:</span>
+                  <span className="ml-1 font-semibold text-slate-700">{formatVnd(asset.baseValue)}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-ink-muted48">Bảo dưỡng:</span>
+                  <span className={asset.maintenanceValue > 0 ? "ml-1 font-semibold text-amber-700" : "ml-1 text-ink-muted48"}>{formatVnd(asset.maintenanceValue)}</span>
+                </div>
+              </div>
+
+              <div className="mt-2 flex items-center justify-between border-t border-hairline pt-2">
+                <span className="text-xs text-ink-muted48">Tổng giá trị:</span>
+                <span className="text-sm font-semibold">{formatVnd(asset.totalValue)}</span>
+              </div>
+
+              {(canManageAssets || canRemoveAssets) && (
+                <div className="mt-3 flex flex-wrap gap-2 border-t border-hairline pt-3">
+                  {canManageAssets && <QuickMaintenanceButton assetId={asset.id} assetName={asset.name} compact />}
+                  {canManageAssets && (
+                    <AssetEditForm
+                      assetId={asset.id}
+                      compact
+                      initial={{
+                        status: asset.status,
+                        name: asset.name,
+                        category: asset.category ?? "",
+                        room: asset.room ?? "",
+                        unitName: asset.unitName,
+                        unitValue: asset.unitValue?.toString() ?? "",
+                        notes: asset.notes ?? "",
+                      }}
+                    />
                   )}
-                </tr>
-              ))}
-              {rows.length === 0 ? (
-                <tr className="table-empty">
-                  <td colSpan={11}>Không có tài sản nào khớp bộ lọc.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+                  {canRemoveAssets && <DeleteAssetButton assetId={asset.id} assetName={asset.name} compact />}
+                </div>
+              )}
+            </div>
+          ))}
+          {rows.length === 0 ? (
+            <div className="rounded-lg border border-hairline bg-white p-8 text-center text-sm text-ink-muted48">
+              Không có tài sản nào khớp bộ lọc.
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-3 border-t border-[#e6eefc] pt-4 md:flex-row md:items-center md:justify-between">

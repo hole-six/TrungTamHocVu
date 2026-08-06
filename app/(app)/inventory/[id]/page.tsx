@@ -130,80 +130,158 @@ export default async function BookDetailPage({ params }: { params: { id: string 
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="overflow-x-auto rounded-[28px] border border-hairline bg-white/70 p-5">
+        {/* Stock Transactions Table */}
+        <div className="rounded-[28px] border border-hairline bg-white/70 p-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-display text-lg font-semibold tracking-tight">Nhập / điều chỉnh</h2>
             <span className="badge bg-ink/5 text-ink-muted80">{book.stockTransactions.length} dòng</span>
           </div>
-          <table className="mt-3 w-full text-left text-sm">
-            <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
-              <tr>
-                <th className="py-2 font-medium">Ngày</th>
-                <th className="py-2 font-medium">Loại</th>
-                <th className="py-2 font-medium">SL</th>
-                <th className="py-2 font-medium">Giá nhập</th>
-                <th className="py-2 font-medium">Thành tiền</th>
-              </tr>
-            </thead>
-            <tbody>
-              {book.stockTransactions.map((txn) => (
-                <tr key={txn.id} className="border-b border-hairline last:border-0">
-                  <td className="py-2">{formatDate(txn.txnDate)}</td>
-                  <td className="py-2 text-ink-muted80">{STOCK_TXN_TYPE_LABEL[txn.type] ?? txn.type}</td>
-                  <td className="py-2 font-medium">{txn.quantity}</td>
-                  <td className="py-2 text-ink-muted80">{formatVnd(txn.unitPrice)}</td>
-                  <td className="py-2 font-medium">{formatVnd(txn.totalAmount)}</td>
-                </tr>
-              ))}
-              {book.stockTransactions.length === 0 ? (
+
+          {/* Desktop Table */}
+          <div className="hidden lg:block">
+            <table className="mt-3 w-full text-left text-sm">
+              <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-ink-muted48">
-                    Chưa có giao dịch nhập kho.
-                  </td>
+                  <th className="py-2 font-medium">Ngày</th>
+                  <th className="py-2 font-medium">Loại</th>
+                  <th className="py-2 font-medium">SL</th>
+                  <th className="py-2 font-medium">Giá nhập</th>
+                  <th className="py-2 font-medium">Thành tiền</th>
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {book.stockTransactions.map((txn) => (
+                  <tr key={txn.id} className="border-b border-hairline last:border-0">
+                    <td className="py-2">{formatDate(txn.txnDate)}</td>
+                    <td className="py-2 text-ink-muted80">{STOCK_TXN_TYPE_LABEL[txn.type] ?? txn.type}</td>
+                    <td className="py-2 font-medium">{txn.quantity}</td>
+                    <td className="py-2 text-ink-muted80">{formatVnd(txn.unitPrice)}</td>
+                    <td className="py-2 font-medium">{formatVnd(txn.totalAmount)}</td>
+                  </tr>
+                ))}
+                {book.stockTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-ink-muted48">
+                      Chưa có giao dịch nhập kho.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="mt-3 space-y-3 lg:hidden">
+            {book.stockTransactions.map((txn) => (
+              <div key={txn.id} className="rounded-lg border border-hairline bg-white p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{formatDate(txn.txnDate)}</p>
+                    <p className="mt-0.5 text-xs text-ink-muted80">{STOCK_TXN_TYPE_LABEL[txn.type] ?? txn.type}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold">{formatVnd(txn.totalAmount)}</p>
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 border-t border-hairline pt-2 text-xs">
+                  <div>
+                    <span className="text-ink-muted48">Số lượng:</span>
+                    <span className="ml-1 font-medium">{txn.quantity}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-ink-muted48">Giá nhập:</span>
+                    <span className="ml-1 font-medium">{formatVnd(txn.unitPrice)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {book.stockTransactions.length === 0 ? (
+              <div className="py-8 text-center text-sm text-ink-muted48">Chưa có giao dịch nhập kho.</div>
+            ) : null}
+          </div>
         </div>
 
-        <div className="overflow-x-auto rounded-[28px] border border-hairline bg-white/70 p-5">
+        {/* Book Issues Table */}
+        <div className="rounded-[28px] border border-hairline bg-white/70 p-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-display text-lg font-semibold tracking-tight">Đã xuất cho học viên</h2>
             <span className="badge bg-ink/5 text-ink-muted80">{book.bookIssues.length} dòng</span>
           </div>
-          <table className="mt-3 w-full text-left text-sm">
-            <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
-              <tr>
-                <th className="py-2 font-medium">Ngày</th>
-                <th className="py-2 font-medium">Học viên</th>
-                <th className="py-2 font-medium">Lớp</th>
-                <th className="py-2 font-medium">SL</th>
-                <th className="py-2 font-medium">Thành tiền</th>
-              </tr>
-            </thead>
-            <tbody>
-              {book.bookIssues.map((issue) => (
-                <tr key={issue.id} className="border-b border-hairline last:border-0">
-                  <td className="py-2">{formatDate(issue.issueDate)}</td>
-                  <td className="py-2">
-                    <Link href={`/students/${issue.studentId}`} className="text-primary">
-                      {issue.student.fullName} <span className="text-ink-muted48">({issue.student.studentCode})</span>
-                    </Link>
-                  </td>
-                  <td className="py-2 text-ink-muted80">{issue.class?.className ?? "—"}</td>
-                  <td className="py-2 text-ink-muted80">{issue.quantity}</td>
-                  <td className="py-2 font-medium">{formatVnd(issue.amount)}</td>
-                </tr>
-              ))}
-              {book.bookIssues.length === 0 ? (
+
+          {/* Desktop Table */}
+          <div className="hidden lg:block">
+            <table className="mt-3 w-full text-left text-sm">
+              <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-ink-muted48">
-                    Chưa xuất cho học viên nào.
-                  </td>
+                  <th className="py-2 font-medium">Ngày</th>
+                  <th className="py-2 font-medium">Học viên</th>
+                  <th className="py-2 font-medium">Lớp</th>
+                  <th className="py-2 font-medium">SL</th>
+                  <th className="py-2 font-medium">Thành tiền</th>
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {book.bookIssues.map((issue) => (
+                  <tr key={issue.id} className="border-b border-hairline last:border-0">
+                    <td className="py-2">{formatDate(issue.issueDate)}</td>
+                    <td className="py-2">
+                      <Link href={`/students/${issue.studentId}`} className="text-primary">
+                        {issue.student.fullName} <span className="text-ink-muted48">({issue.student.studentCode})</span>
+                      </Link>
+                    </td>
+                    <td className="py-2 text-ink-muted80">{issue.class?.className ?? "—"}</td>
+                    <td className="py-2 text-ink-muted80">{issue.quantity}</td>
+                    <td className="py-2 font-medium">{formatVnd(issue.amount)}</td>
+                  </tr>
+                ))}
+                {book.bookIssues.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-ink-muted48">
+                      Chưa xuất cho học viên nào.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="mt-3 space-y-3 lg:hidden">
+            {book.bookIssues.map((issue) => (
+              <div key={issue.id} className="rounded-lg border border-hairline bg-white p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <Link href={`/students/${issue.studentId}`} className="text-sm font-medium text-primary">
+                      {issue.student.fullName}
+                    </Link>
+                    <p className="mt-0.5 text-xs text-ink-muted48">{issue.student.studentCode}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold">{formatVnd(issue.amount)}</p>
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 border-t border-hairline pt-2 text-xs">
+                  <div>
+                    <span className="text-ink-muted48">Ngày xuất:</span>
+                    <span className="ml-1 font-medium">{formatDate(issue.issueDate)}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-ink-muted48">Số lượng:</span>
+                    <span className="ml-1 font-medium">{issue.quantity}</span>
+                  </div>
+                </div>
+                {issue.class?.className ? (
+                  <div className="mt-1.5 text-xs">
+                    <span className="text-ink-muted48">Lớp:</span>
+                    <span className="ml-1 text-ink-muted80">{issue.class.className}</span>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+            {book.bookIssues.length === 0 ? (
+              <div className="py-8 text-center text-sm text-ink-muted48">Chưa xuất cho học viên nào.</div>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

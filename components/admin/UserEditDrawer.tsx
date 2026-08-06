@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 type Branch = { id: string; name: string };
@@ -79,7 +79,7 @@ export default function UserEditDrawer({
         Sửa
       </button>
 
-      <SlideOver
+      <ResponsiveDrawer
         open={open}
         onClose={() => setOpen(false)}
         title="Sửa người dùng"
@@ -180,7 +180,7 @@ export default function UserEditDrawer({
             </ConfirmActionButton>
           </div>
         </div>
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

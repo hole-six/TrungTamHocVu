@@ -673,9 +673,11 @@ export default function LeadsTable({
       stickyHeader
       rowKey="id"
       onRowClick={(row) => router.push(`/leads/${row.id}`)}
-      mobileConfig={{
-        primaryColumn: "fullName",
-        secondaryColumns: ["leadCode", "status", "latestTest"],
+      primaryColumn="fullName"
+      secondaryColumns={["leadCode", "status"]}
+    />
+  );
+}tTest"],
       }}
     />
   );

@@ -358,7 +358,9 @@ export default async function DashboardPage() {
           <SectionHeading action={<Link href="/tuition" className="text-sm font-bold text-[#f97316]">Mở học phí →</Link>}>
             Top công nợ cần xử lý
           </SectionHeading>
-          <div className="overflow-x-auto">
+
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-[#f8faff]">
                 <tr>
@@ -387,36 +389,125 @@ export default async function DashboardPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Cards */}
+          <div className="space-y-3 md:hidden">
+            {operational.debtors.slice(0, 8).map((s) => (
+              <div key={s.id} className="rounded-xl border border-[#e5eaf7] bg-white p-4">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/students/${s.id}`} className="block font-bold text-[#f97316] hover:text-[#ea580c] truncate">
+                      {s.fullName}
+                    </Link>
+                    <p className="mt-0.5 text-xs text-[#64748b]">{s.studentCode} {s.leadCode ? `· Lead ${s.leadCode}` : ""}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-black text-[#ef4444]">{formatVnd(s.outstanding)}</p>
+                    <p className="text-[10px] text-[#64748b]">Còn nợ</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 border-t border-[#f0f4f8] pt-3 text-xs">
+                  <div>
+                    <span className="text-[#94a3b8]">Lớp:</span>
+                    <span className="ml-1 font-medium text-[#475569]">{s.className ?? "—"}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[#94a3b8]">PH:</span>
+                    <span className="ml-1 font-medium text-[#475569]">{s.guardianName ?? "—"}</span>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between border-t border-[#f0f4f8] pt-2">
+                  <span className="text-xs text-[#94a3b8]">Portal:</span>
+                  <span className={`inline-flex rounded-lg px-2 py-0.5 text-xs font-bold ${s.guardianPortalActive ? "bg-[#dcfce7] text-[#166534]" : "bg-[#fef9c3] text-[#854d0e]"}`}>
+                    {s.guardianPortalActive ? "Hoạt động" : "Chưa có"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {/* ── Branch breakdown (DIRECTOR only) ─────────────────────── */}
       {branchBreakdown && (
-        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm overflow-x-auto">
+        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
           <SectionHeading>Tình hình theo từng cơ sở</SectionHeading>
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[#f8faff]">
-              <tr>
-                {["Cơ sở", "HV đang học", "Lớp HĐ", "Buổi hôm nay", "Công nợ", "Kỳ HP mở", "Kỳ lương", "Lead"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-[#64748b]">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {branchBreakdown.map((b) => (
-                <tr key={b.id} className="border-b border-[#f0f4f8] last:border-0 hover:bg-[#f8faff] transition">
-                  <td className="px-4 py-3 font-bold text-[#0f1729]">{b.name} <span className="text-xs text-[#94a3b8]">({b.code})</span></td>
-                  <td className="px-4 py-3 font-bold text-[#f97316]">{b.activeStudents}</td>
-                  <td className="px-4 py-3 text-[#475569]">{b.activeClasses}</td>
-                  <td className="px-4 py-3"><span className="inline-flex rounded-lg bg-[#fff7ed] px-2 py-0.5 text-xs font-bold text-[#c2410c]">{b.sessionsToday}</span></td>
-                  <td className={`px-4 py-3 font-bold ${b.outstanding > 0 ? "text-[#ef4444]" : "text-[#10b981]"}`}>{formatVnd(b.outstanding)}</td>
-                  <td className="px-4 py-3 text-[#475569]">{b.openBillingPeriods}</td>
-                  <td className="px-4 py-3 text-[#475569]">{b.openPayrollRuns}</td>
-                  <td className="px-4 py-3 text-[#475569]">{b.openLeads}</td>
+
+          {/* Desktop Table */}
+          <div className="hidden lg:block overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-[#f8faff]">
+                <tr>
+                  {["Cơ sở", "HV đang học", "Lớp HĐ", "Buổi hôm nay", "Công nợ", "Kỳ HP mở", "Kỳ lương", "Lead"].map((h) => (
+                    <th key={h} className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-[#64748b]">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {branchBreakdown.map((b) => (
+                  <tr key={b.id} className="border-b border-[#f0f4f8] last:border-0 hover:bg-[#f8faff] transition">
+                    <td className="px-4 py-3 font-bold text-[#0f1729]">{b.name} <span className="text-xs text-[#94a3b8]">({b.code})</span></td>
+                    <td className="px-4 py-3 font-bold text-[#f97316]">{b.activeStudents}</td>
+                    <td className="px-4 py-3 text-[#475569]">{b.activeClasses}</td>
+                    <td className="px-4 py-3"><span className="inline-flex rounded-lg bg-[#fff7ed] px-2 py-0.5 text-xs font-bold text-[#c2410c]">{b.sessionsToday}</span></td>
+                    <td className={`px-4 py-3 font-bold ${b.outstanding > 0 ? "text-[#ef4444]" : "text-[#10b981]"}`}>{formatVnd(b.outstanding)}</td>
+                    <td className="px-4 py-3 text-[#475569]">{b.openBillingPeriods}</td>
+                    <td className="px-4 py-3 text-[#475569]">{b.openPayrollRuns}</td>
+                    <td className="px-4 py-3 text-[#475569]">{b.openLeads}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="space-y-4 lg:hidden">
+            {branchBreakdown.map((b) => (
+              <div key={b.id} className="rounded-xl border border-[#e5eaf7] bg-white p-4">
+                <div className="mb-3">
+                  <p className="font-bold text-[#0f1729]">{b.name}</p>
+                  <p className="text-xs text-[#94a3b8]">Mã: {b.code}</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="rounded-lg bg-[#fff7ed] border border-[#fed7aa] p-2">
+                    <p className="text-[10px] font-bold uppercase text-[#c2410c]">HV đang học</p>
+                    <p className="mt-1 text-lg font-black text-[#f97316]">{b.activeStudents}</p>
+                  </div>
+                  <div className="rounded-lg bg-[#ecfdf5] border border-[#a7f3d0] p-2">
+                    <p className="text-[10px] font-bold uppercase text-[#065f46]">Lớp HĐ</p>
+                    <p className="mt-1 text-lg font-black text-[#10b981]">{b.activeClasses}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 border-t border-[#f0f4f8] pt-3 text-xs">
+                  <div className="text-center">
+                    <p className="text-[10px] text-[#94a3b8] mb-0.5">Buổi hôm nay</p>
+                    <span className="inline-flex rounded-lg bg-[#fff7ed] px-2 py-0.5 text-xs font-bold text-[#c2410c]">{b.sessionsToday}</span>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-[#94a3b8] mb-0.5">Kỳ HP</p>
+                    <p className="font-bold text-[#475569]">{b.openBillingPeriods}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-[#94a3b8] mb-0.5">Kỳ lương</p>
+                    <p className="font-bold text-[#475569]">{b.openPayrollRuns}</p>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[#f0f4f8] pt-3">
+                  <div>
+                    <p className="text-[10px] text-[#94a3b8] mb-1">Công nợ</p>
+                    <p className={`text-sm font-black ${b.outstanding > 0 ? "text-[#ef4444]" : "text-[#10b981]"}`}>{formatVnd(b.outstanding)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-[#94a3b8] mb-1">Lead mở</p>
+                    <p className="text-sm font-black text-[#475569]">{b.openLeads}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

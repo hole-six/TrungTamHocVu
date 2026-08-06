@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
 import { formatVnd } from "@/lib/export-utils";
 
@@ -72,7 +72,7 @@ export default function ReceiptForm({ bookId, defaultUnitPrice }: { bookId: stri
         Nhập kho
       </button>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={open}
         onClose={() => setOpen(false)}
         title="Nhập kho"
@@ -95,7 +95,7 @@ export default function ReceiptForm({ bookId, defaultUnitPrice }: { bookId: stri
             {loading ? "Đang lưu..." : "Nhập kho"}
           </button>
         </form>
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

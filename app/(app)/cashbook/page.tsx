@@ -227,7 +227,8 @@ export default async function CashbookPage({
           </span>
         </div>
 
-        <div className="table-container [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        {/* Desktop: Full table */}
+        <div className="hidden lg:block table-container [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <table className="table">
             <thead>
               <tr>
@@ -257,6 +258,68 @@ export default async function CashbookPage({
               ) : null}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile/Tablet: Card view */}
+        <div className="lg:hidden space-y-3">
+          {normalizedTransactions.map((transaction) => (
+            <div key={transaction.id} className="rounded-xl border border-hairline bg-white p-4 hover:shadow-md transition-shadow">
+              {/* Header: Date & Type */}
+              <div className="flex items-start justify-between gap-2 mb-3 pb-3 border-b border-hairline">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-ink-muted48">{new Date(transaction.txnDate).toLocaleDateString("vi-VN")}</p>
+                  <p className="font-semibold text-ink text-sm mt-1">{transaction.description}</p>
+                  {transaction.detail && (
+                    <p className="text-xs text-ink-muted48 mt-1 line-clamp-2">{transaction.detail}</p>
+                  )}
+                </div>
+                <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold whitespace-nowrap ${transaction.type === "THU" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                  {transaction.type === "THU" ? "THU" : "CHI"}
+                </span>
+              </div>
+
+              {/* Category & Amount */}
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-ink-muted48">Danh mục</p>
+                  <p className="text-sm font-medium text-ink mt-0.5 truncate">
+                    {transaction.categoryName ?? "Chưa phân loại"}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-ink-muted48">{transaction.type === "THU" ? "Thu vào" : "Chi ra"}</p>
+                  <p className={`text-lg font-bold mt-0.5 ${transaction.type === "THU" ? "text-emerald-700" : "text-rose-700"}`}>
+                    {formatVnd(transaction.amount)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Status & Info */}
+              <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-hairline">
+                <span className={`inline-flex rounded-lg px-2 py-1 text-xs font-semibold ${transaction.status === "CONFIRMED" ? "bg-sky-100 text-sky-700" : transaction.status === "VOIDED" ? "bg-slate-100 text-slate-600" : "bg-amber-100 text-amber-700"}`}>
+                  {transaction.status === "CONFIRMED" ? "Đã xác nhận" : transaction.status === "VOIDED" ? "Đã hủy" : "Nháp"}
+                </span>
+                {transaction.isDerived && (
+                  <span className="inline-flex rounded-lg bg-violet-100 px-2 py-1 text-xs font-semibold text-violet-700">
+                    Tự động
+                  </span>
+                )}
+              </div>
+
+              {transaction.handledByName && (
+                <p className="text-xs text-ink-muted48 mt-2">Người xử lý: {transaction.handledByName}</p>
+              )}
+              {transaction.notes && (
+                <p className="text-xs text-ink-muted48 mt-2 italic">"{transaction.notes}"</p>
+              )}
+            </div>
+          ))}
+
+          {normalizedTransactions.length === 0 && (
+            <div className="py-12 text-center text-sm text-ink-muted48 bg-canvas-parchment/30 rounded-xl border border-dashed border-hairline">
+              Chưa có phiếu thu/chi nào trong khoảng ngày đang xem.
+            </div>
+          )}
         </div>
 
         {/* Pagination */}

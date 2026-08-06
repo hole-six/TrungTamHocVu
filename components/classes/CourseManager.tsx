@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 type BookOption = {
@@ -613,23 +613,23 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
         </div>
       </div>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={openCreate}
         onClose={() => setOpenCreate(false)}
         title="Thêm khóa học chuẩn"
         description="Khai báo học phí và bộ sách chuẩn đi kèm khóa học."
       >
         <CourseForm mode="create" books={books} onClose={() => setOpenCreate(false)} />
-      </SlideOver>
+      </ResponsiveDrawer>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={Boolean(editingCourse)}
         onClose={() => setEditingCourse(null)}
         title="Sửa khóa học"
         description="Cập nhật học phí, lịch chuẩn và bộ sách chuẩn của khóa học."
       >
         {editingCourse ? <CourseForm mode="edit" course={editingCourse} books={books} onClose={() => setEditingCourse(null)} /> : null}
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

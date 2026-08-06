@@ -1,7 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { ReactNode } from "react";
 import DataTable, { Column, Action, BulkAction } from "./DataTable";
 import DataTableMobile from "./DataTableMobile";
 
@@ -39,61 +38,36 @@ type DataTableResponsiveProps<T> = {
   headerActions?: ReactNode;
   filterChips?: ReactNode;
   defaultSearchValue?: string;
-  mobileConfig?: {
-    primaryColumn: string;
-    secondaryColumns?: string[];
-  };
-  mobileBreakpoint?: number;
+  // Mobile-specific props
+  primaryColumn: string;
+  secondaryColumns?: string[];
 };
 
+/**
+ * DataTableResponsive - Responsive wrapper that shows:
+ * - Desktop table (DataTable) on md+ screens
+ * - Mobile card view (DataTableMobile) on mobile screens
+ */
 export default function DataTableResponsive<T extends Record<string, any>>({
-  mobileConfig,
-  mobileBreakpoint = 768,
+  primaryColumn,
+  secondaryColumns = [],
   ...props
 }: DataTableResponsiveProps<T>) {
-  const [isMobile, setIsMobile] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  return (
+    <>
+      {/* Desktop Table - Hidden on mobile */}
+      <div className="hidden md:block">
+        <DataTable {...props} />
+      </div>
 
-  useEffect(() => {
-    setMounted(true);
-
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < mobileBreakpoint);
-    };
-
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, [mobileBreakpoint]);
-
-  if (!mounted) {
-    return <DataTable {...props} />;
-  }
-
-  const primaryColumn = mobileConfig?.primaryColumn || props.columns[0]?.key;
-  const secondaryColumns = mobileConfig?.secondaryColumns || props.columns.slice(1, 3).map((column) => column.key);
-
-  if (isMobile) {
-    return (
-      <DataTableMobile
-        data={props.data}
-        columns={props.columns}
-        actions={props.actions}
-        searchable={props.searchable}
-        searchPlaceholder={props.searchPlaceholder}
-        onSearch={props.onSearch}
-        pagination={props.pagination}
-        emptyState={props.emptyState}
-        loading={props.loading}
-        rowKey={props.rowKey}
-        onRowClick={props.onRowClick}
-        primaryColumn={primaryColumn}
-        secondaryColumns={secondaryColumns}
-        className={props.className}
-        defaultSearchValue={props.defaultSearchValue}
-      />
-    );
-  }
-
-  return <DataTable {...props} />;
+      {/* Mobile Card View - Hidden on desktop */}
+      <div className="block md:hidden">
+        <DataTableMobile
+          {...props}
+          primaryColumn={primaryColumn}
+          secondaryColumns={secondaryColumns}
+        />
+      </div>
+    </>
+  );
 }

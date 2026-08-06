@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import DatePicker from "@/components/ui/DatePicker";
 import FormGuide from "@/components/ui/FormGuide";
 
@@ -95,7 +95,7 @@ export default function AddMakeupSessionButton({
         Thêm buổi bù
       </button>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={open}
         onClose={() => setOpen(false)}
         title="Thêm buổi bù riêng"
@@ -140,7 +140,7 @@ export default function AddMakeupSessionButton({
             </button>
           </div>
         </form>
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

@@ -538,7 +538,8 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                       description="Một dòng là một buổi thật: học khi nào, ai dạy, đã điểm danh chưa và có nhật ký chưa."
                     />
                   </div>
-                  <div className="overflow-x-auto">
+                  {/* Desktop: Full 6-column table */}
+                <div className="hidden lg:block overflow-x-auto">
                     <table className="w-full text-left text-sm">
                       <thead className="bg-[#f8fbff] text-xs uppercase tracking-[0.18em] text-[#7b8ea5]">
                         <tr>
@@ -644,6 +645,169 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                       </tbody>
                     </table>
                   </div>
+
+                {/* Mobile/Tablet: Card view */}
+                <div className="lg:hidden space-y-3 p-4">
+                  {projectedSchedule.map((slot) => {
+                    const session = slot.session;
+                    const roadmapItem = roadmapItems.find((item) => item.sessionNumber === slot.number) ?? null;
+                    const present = session ? session.attendances.filter((a) => a.status === "PRESENT").length : 0;
+                    const absent = session ? session.attendances.filter((a) => a.status === "ABSENT").length : 0;
+                    const teacherNames = session
+                      ? session.assignments.filter((a) => getClassAssignmentRoleType(a.role) === "TEACHER").map((a) => a.employee.fullName).join(", ")
+                      : "";
+                    const assistantNames = session
+                      ? session.assignments.filter((a) => getClassAssignmentRoleType(a.role) === "ASSISTANT").map((a) => a.employee.shortName || a.employee.fullName).join(", ")
+                      : "";
+                    const timing = slot.timing;
+
+                    return (
+                      <div key={slot.number} className="rounded-2xl border border-[#e5eaf7] bg-white p-4 shadow-sm">
+                        {/* Header: Session number, date, timing */}
+                        <div className="flex items-start justify-between gap-2 mb-3 pb-3 border-b border-[#e5eaf7]">
+                          <div className="flex-1 min-w-0">
+                            <p className="inline-flex rounded-full bg-[#eff6ff] px-2.5 py-1 font-mono text-xs font-bold text-[#2563eb]">
+                              #{slot.number}/{projectedSchedule.length}
+                            </p>
+                            <p className="mt-1.5 text-base font-bold text-[#12304a]">{formatDate(slot.sessionDate)}</p>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <p className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${timingClass(timing)}`}>
+                                {timingLabel(timing)}
+                              </p>
+                              <p className="inline-flex rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-2.5 py-1 text-xs font-semibold text-[#4b6480]">
+                                {slot.startTime ?? "—"} – {slot.endTime ?? "—"}
+                              </p>
+                              {!session && (
+                                <p className="inline-flex rounded-full border border-[#ffe0b2] bg-[#fff8eb] px-2.5 py-1 text-xs font-semibold text-[#c67c14]">
+                                  Chưa tạo buổi
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Roadmap: Title & objective */}
+                        <div className="mb-3 pb-3 border-b border-[#e5eaf7]">
+                          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Nội dung giảng dạy</p>
+                          <p className="text-sm font-bold text-[#12304a]">
+                            {roadmapItem?.title?.trim() || `Buổi ${slot.number}`}
+                          </p>
+                          <p className="mt-1.5 text-xs leading-5 text-[#64748b]">
+                            {roadmapItem?.objective?.trim() || "Chưa có mục tiêu hoặc ghi chú dạy."}
+                          </p>
+                          {roadmapItem?.materials?.trim() && (
+                            <p className="mt-2 inline-flex rounded-lg border border-[#e8eef8] bg-[#f8fbff] px-2.5 py-1.5 text-xs font-medium text-[#0f1729]">
+                              <span className="text-[#64748b]">Tài liệu: {roadmapItem.materials}</span>
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Teachers & Assistants */}
+                        <div className="mb-3 pb-3 border-b border-[#e5eaf7]">
+                          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Người dạy</p>
+                          <p className="text-sm font-bold text-[#12304a]">{teacherNames || "Chưa phân công GV"}</p>
+                          <p className="mt-1.5 inline-flex rounded-full border border-[#e8eef8] bg-[#f8fbff] px-2.5 py-1 text-xs font-semibold text-[#64748b]">
+                            {assistantNames || "Không có trợ giảng"}
+                          </p>
+                        </div>
+
+                        {/* Attendance & Journal Status */}
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Điểm danh</p>
+                            {session && session.attendances.length ? (
+                              <div className="space-y-1.5">
+                                <p className="inline-flex rounded-full bg-[#ecfdf3] px-2.5 py-1 text-xs font-bold text-[#15803d]">
+                                  {present} có mặt
+                                </p>
+                                <p className="inline-flex rounded-full bg-[#fff1f2] px-2.5 py-1 text-xs font-semibold text-[#e11d48]">
+                                  {absent} vắng
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="inline-flex rounded-lg border border-[#e8eef8] bg-[#f8fbff] px-2.5 py-1.5 text-xs font-semibold text-[#7b8ea5]">
+                                {session ? "Chưa điểm danh" : "Chưa có buổi"}
+                              </p>
+                            )}
+                          </div>
+
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Nhật ký</p>
+                            {session ? (
+                              <div className="space-y-1.5">
+                                <p className="inline-flex rounded-lg border border-[#e8eef8] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#64748b]">
+                                  {session.journal?.publishedAt ? "Đã gửi PH" : session.journal ? "Lưu nháp" : "Chưa có"}
+                                </p>
+                                <span className={`inline-flex rounded-lg px-2 py-1 text-xs font-bold ${badgeClass(session.status)}`}>
+                                  {SESSION_STATUS_LABEL[session.status] ?? session.status}
+                                </span>
+                                {session.status === "RESCHEDULED" && session.replacedBySession && (
+                                  <p className="mt-1 text-xs text-[#f59e0b] font-semibold">
+                                    Bù sang <Link href={`/classes/${cls.id}/sessions/${session.replacedBySession.id}`} className="underline">{formatDate(session.replacedBySession.sessionDate)}</Link>
+                                  </p>
+                                )}
+                                {session.replacesSession && (
+                                  <p className="mt-1 text-xs text-[#64748b]">Buổi bù cho {formatDate(session.replacesSession.sessionDate)}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-[#94a3b8]">Chưa có trạng thái</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="pt-3 border-t border-[#e5eaf7]">
+                          {session ? (
+                            <div className="flex flex-col gap-2">
+                              <Link
+                                href={`/classes/${cls.id}/sessions/${session.id}`}
+                                className="flex items-center justify-center gap-2 rounded-xl bg-[#0ea5e9] px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#0284c7]"
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                                </svg>
+                                Điểm danh / nhật ký
+                              </Link>
+                              {canManageClass && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  {session.status !== "CANCELLED" && (
+                                    <AddMakeupSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} />
+                                  )}
+                                  {session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession && (
+                                    <RescheduleSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} />
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ) : canManageClass ? (
+                            <p className="text-center text-xs text-[#f59e0b] font-semibold">Sinh buổi trước</p>
+                          ) : (
+                            <p className="text-center text-xs text-[#94a3b8]">—</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {projectedSchedule.length === 0 && (
+                    <div className="py-12 text-center">
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f8faff]">
+                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="font-bold text-[#0f1729] mb-2">Chưa có buổi học thực tế nào</p>
+                          <p className="text-sm text-[#64748b] mb-4">Bấm <strong>Sinh buổi học</strong> để tạo buổi từ lịch chuẩn</p>
+                          {canManageClass && <GenerateSessionsForm classId={cls.id} />}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 </div>
               </div>
             ),
@@ -662,7 +826,8 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                   />
                   {canManageClass && <EnrollStudentForm classId={cls.id} courseTotalAmount={(cls.tuitionPerSession ?? 0) * (cls.totalSessions ?? 0)} />}
                 </div>
-                <div className="overflow-x-auto">
+                {/* Desktop: Full 5-column table */}
+                <div className="hidden lg:block overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-[#f8faff] text-xs uppercase tracking-wide text-[#64748b]">
                       <tr>
@@ -763,6 +928,124 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile/Tablet: Card view */}
+                <div className="lg:hidden space-y-3 p-4">
+                  {cls.enrollments.map((enrollment) => {
+                    const primaryGuardian = enrollment.student.guardians.find((g) => g.isPrimary)?.guardian ?? enrollment.student.guardians[0]?.guardian ?? null;
+                    const classCharges = enrollment.student.charges.filter((c) => c.classId === cls.id);
+                    const latestCharge = classCharges[0] ?? null;
+                    const outstanding = classCharges.reduce((s, c) => s + c.totalAmount, 0) - classCharges.reduce((s, c) => s + c.allocations.reduce((ss, a) => ss + a.amount, 0), 0);
+                    const now = new Date();
+                    const activeScholarship = enrollment.scholarships.find((sc) => sc.effectiveFrom <= now && (!sc.effectiveTo || sc.effectiveTo >= now));
+                    const latestAttendance = enrollment.student.attendances[0] ?? null;
+                    const latestBookIssue = enrollment.student.bookIssues[0] ?? null;
+
+                    return (
+                      <div key={enrollment.id} className="rounded-2xl border border-[#e5eaf7] bg-white p-4 shadow-sm">
+                        {/* Student Header with Avatar & Name */}
+                        <div className="flex items-start gap-3 mb-3 pb-3 border-b border-[#e5eaf7]">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#f97316] to-[#ea580c] text-base font-bold text-white shadow-md">
+                            {enrollment.student.fullName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <Link href={`/students/${enrollment.studentId}`} className="font-bold text-[#f97316] hover:text-[#ea580c] block">
+                              {enrollment.student.fullName}
+                            </Link>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                              <span className="rounded-lg bg-[#f97316] px-2 py-0.5 text-xs font-bold text-white">
+                                {enrollment.student.studentCode}
+                              </span>
+                              <span className={`inline-flex rounded-lg px-2 py-0.5 text-xs font-bold ${badgeClass(enrollment.status)}`}>
+                                {ENROLLMENT_STATUS_LABEL[enrollment.status as keyof typeof ENROLLMENT_STATUS_LABEL] ?? enrollment.status}
+                              </span>
+                              <span className="rounded-lg bg-[#eef6ff] px-2 py-0.5 text-xs font-semibold text-[#2563eb]">
+                                {enrollment.billingModel === "COURSE" ? "Theo khóa" : enrollment.billingModel === "INSTALLMENT" ? "Trả góp" : "Theo tháng"}
+                              </span>
+                            </div>
+                            <p className="mt-1.5 text-xs text-[#64748b]">Vào lớp từ {formatDate(enrollment.enrollDate)}</p>
+                          </div>
+                        </div>
+
+                        {/* Guardian Info */}
+                        <div className="mb-3 pb-3 border-b border-[#e5eaf7]">
+                          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Phụ huynh</p>
+                          <p className="font-semibold text-[#0f1729] text-sm">{primaryGuardian?.fullName ?? "Chưa gắn"}</p>
+                          <p className="text-xs text-[#64748b] mt-1">{primaryGuardian?.phone ?? "Chưa có SĐT"}</p>
+                          <p className="text-xs text-[#64748b] mt-0.5 truncate">{primaryGuardian?.user?.email ?? "Chưa có portal"}</p>
+                        </div>
+
+                        {/* Outstanding Balance */}
+                        <div className="mb-3 pb-3 border-b border-[#e5eaf7]">
+                          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Phí đang treo</p>
+                          {latestCharge ? (
+                            <div className="space-y-2">
+                              <div className="flex items-baseline justify-between">
+                                <p className="font-bold text-[#0f1729]">{outstanding > 0 ? formatVnd(outstanding) : "0đ"}</p>
+                                <p className="text-xs text-[#64748b]">{latestCharge.billingPeriod.periodName}</p>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${outstanding > 0 ? "bg-[#fee2e2] text-[#991b1b]" : "bg-[#d1fae5] text-[#065f46]"}`}>
+                                  {outstanding > 0 ? "Còn phải thu" : "Đã thu hết"}
+                                </span>
+                                {activeScholarship && (
+                                  <span className="inline-flex rounded-lg bg-[#ecfdf5] px-2.5 py-1 text-xs font-bold text-[#047857]">
+                                    HB {Math.round(activeScholarship.percentage * 100)}%
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-[#94a3b8]">Chưa sinh</span>
+                          )}
+                        </div>
+
+                        {/* Latest Activity */}
+                        <div className="mb-3 pb-3 border-b border-[#e5eaf7]">
+                          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Cập nhật gần nhất</p>
+                          <div className="space-y-1">
+                            <p className="font-semibold text-[#0f1729] text-sm">
+                              {latestAttendance ? attendanceLabel(latestAttendance.status) : "Chưa điểm danh"}
+                            </p>
+                            <p className="text-xs text-[#64748b]">
+                              {latestAttendance ? formatDate(latestAttendance.session.sessionDate) : "Chưa có buổi gần nhất"}
+                            </p>
+                            <p className="text-xs text-[#64748b]">
+                              {latestBookIssue ? `${latestBookIssue.book.name} · SL ${latestBookIssue.quantity}` : "Chưa phát sách"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-col gap-2">
+                          <Link
+                            href={`/students/${enrollment.studentId}`}
+                            className="flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-bold text-sky-700 transition hover:bg-sky-100"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                            </svg>
+                            Mở hồ sơ học viên
+                          </Link>
+                          {canManageClass && <EnrollmentRowActions enrollmentId={enrollment.id} status={enrollment.status} />}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {cls.enrollments.length === 0 && (
+                    <div className="py-12 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f8faff]">
+                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                          </svg>
+                        </div>
+                        <p className="font-bold text-[#0f1729]">Chưa có học viên ghi danh</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ),
