@@ -107,12 +107,29 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
       : null;
   const roadmapItem =
     sessionNumber != null ? session.class.roadmapItems.find((item) => item.sessionNumber === sessionNumber) ?? null : null;
+
+  // Lớp bổ trợ: mỗi lần điểm danh "Có mặt" trừ 1 buổi bổ trợ (xem attendance/route.ts)
+  // — giáo viên cần thấy số buổi bổ trợ còn lại của từng học viên NGAY trên form điểm
+  // danh để biết ai sắp/đã hết, không phải chờ lưu xong mới biết qua lỗi 409.
+  const availableCreditsByStudent = session.class.isRemedial
+    ? Object.fromEntries(
+        (
+          await prisma.sessionCredit.groupBy({
+            by: ["studentId"],
+            where: { studentId: { in: activeEnrollments.map((e) => e.studentId) }, status: "AVAILABLE" },
+            _count: { _all: true },
+          })
+        ).map((row) => [row.studentId, row._count._all]),
+      )
+    : null;
+
   const roster = activeEnrollments.map((enrollment) => ({
     enrollmentId: enrollment.id,
     studentId: enrollment.studentId,
     fullName: enrollment.student.fullName,
     studentCode: enrollment.student.studentCode,
     status: attendanceByStudent[enrollment.studentId] ?? "PRESENT",
+    availableCredits: availableCreditsByStudent ? availableCreditsByStudent[enrollment.studentId] ?? 0 : null,
   }));
 
   const careAlertStudentIds = await computeCareAlerts(
@@ -275,7 +292,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
                 </div>
               </div>
 
-              <AttendanceForm sessionId={session.id} initialRoster={roster} />
+              <AttendanceForm sessionId={session.id} initialRoster={roster} isRemedial={session.class.isRemedial} />
             </div>
           ) : (
             <div className="card">

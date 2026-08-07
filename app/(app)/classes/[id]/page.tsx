@@ -22,7 +22,6 @@ import ClassTaskManager from "@/components/classes/ClassTaskManager";
 import ClassRecurringTaskManager from "@/components/classes/ClassRecurringTaskManager";
 import ClassEditForm from "@/components/classes/ClassEditForm";
 import RescheduleSessionButton from "@/components/classes/RescheduleSessionButton";
-import AddMakeupSessionButton from "@/components/classes/AddMakeupSessionButton";
 import ClassDefaultAssignmentManager from "@/components/classes/ClassDefaultAssignmentManager";
 import PageGuide from "@/components/ui/PageGuide";
 import { isTaskDueOn, computeTaskLogStatus } from "@/lib/server/class-task-rules";
@@ -616,7 +615,6 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                 {session ? (
                                   <div className="flex flex-col items-end gap-2">
                                     <Link href={`/classes/${cls.id}/sessions/${session.id}`} className="inline-flex min-w-[140px] items-center justify-center rounded-xl bg-[#0ea5e9] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#0284c7]">Điểm danh / nhật ký</Link>
-                                    {canManageClass && session.status !== "CANCELLED" ? <AddMakeupSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} /> : null}
                                     {canManageClass && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession ? <RescheduleSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} /> : null}
                                   </div>
                                 ) : canManageClass ? (
@@ -769,14 +767,9 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                 </svg>
                                 Điểm danh / nhật ký
                               </Link>
-                              {canManageClass && (
-                                <div className="grid grid-cols-2 gap-2">
-                                  {session.status !== "CANCELLED" && (
-                                    <AddMakeupSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} />
-                                  )}
-                                  {session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession && (
-                                    <RescheduleSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} />
-                                  )}
+                              {canManageClass && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession && (
+                                <div className="grid grid-cols-1 gap-2">
+                                  <RescheduleSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} />
                                 </div>
                               )}
                             </div>

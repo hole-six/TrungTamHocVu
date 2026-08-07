@@ -11,6 +11,7 @@ type RosterRow = {
   fullName: string;
   studentCode: string;
   status: string;
+  availableCredits: number | null;
 };
 
 const STATUS_OPTIONS = [
@@ -59,7 +60,15 @@ const ATTENDANCE_FORM_GUIDE_SECTIONS = [
   },
 ];
 
-export default function AttendanceForm({ sessionId, initialRoster }: { sessionId: string; initialRoster: RosterRow[] }) {
+export default function AttendanceForm({
+  sessionId,
+  initialRoster,
+  isRemedial = false,
+}: {
+  sessionId: string;
+  initialRoster: RosterRow[];
+  isRemedial?: boolean;
+}) {
   const router = useRouter();
   const [roster, setRoster] = useState(initialRoster);
   const [loading, setLoading] = useState(false);
@@ -159,14 +168,24 @@ export default function AttendanceForm({ sessionId, initialRoster }: { sessionId
 
     setLoading(false);
 
+    const data = await response.json().catch(() => ({}));
+
     if (!response.ok) {
-      const data = await response.json();
       setError(data.error ?? "Không thể lưu điểm danh.");
       return;
     }
 
     setSaved(true);
     router.refresh();
+
+    const autoCompleted: { studentId: string; fullName: string }[] = data.autoCompleted ?? [];
+    if (autoCompleted.length > 0) {
+      window.alert(
+        `Đã lưu điểm danh. Học viên đã dùng hết buổi bổ trợ và tự động hoàn thành lớp bổ trợ: ${autoCompleted
+          .map((item) => item.fullName)
+          .join(", ")}.`,
+      );
+    }
   }
 
   if (roster.length === 0) {
@@ -304,6 +323,17 @@ export default function AttendanceForm({ sessionId, initialRoster }: { sessionId
                     <p className="text-base font-semibold text-ink">{row.fullName}</p>
                     <p className="text-xs text-ink-muted48">{row.studentCode}</p>
                   </div>
+                  {isRemedial && row.availableCredits != null ? (
+                    row.availableCredits > 0 ? (
+                      <span className="rounded-full bg-[#eef6ff] px-3 py-1 text-xs font-semibold text-primary">
+                        Còn {row.availableCredits} buổi bổ trợ
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
+                        Đã hết buổi bổ trợ
+                      </span>
+                    )
+                  ) : null}
                 </div>
                 {statusSummary(row.status) ? <p className="text-sm text-ink-muted80">Đang chọn: {statusSummary(row.status)}</p> : null}
               </div>
@@ -311,13 +341,20 @@ export default function AttendanceForm({ sessionId, initialRoster }: { sessionId
               <div className="flex flex-wrap gap-2 lg:max-w-[720px] lg:justify-end">
                 {STATUS_OPTIONS.map((option) => {
                   const active = row.status === option.value;
+                  const blockedByNoCredits = isRemedial && option.value === "PRESENT" && row.status !== "PRESENT" && (row.availableCredits ?? 0) <= 0;
                   return (
                     <button
                       key={option.value}
                       type="button"
+                      disabled={blockedByNoCredits}
+                      title={blockedByNoCredits ? "Học viên đã hết buổi bổ trợ khả dụng" : undefined}
                       onClick={() => setStudentStatus(row.studentId, option.value)}
                       className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                        active ? option.tone : "border-[#d9e8f8] bg-white text-ink-muted80 hover:border-primary/40 hover:text-primary"
+                        active
+                          ? option.tone
+                          : blockedByNoCredits
+                            ? "cursor-not-allowed border-[#e5e9f0] bg-[#f5f6f8] text-ink-muted48"
+                            : "border-[#d9e8f8] bg-white text-ink-muted80 hover:border-primary/40 hover:text-primary"
                       }`}
                     >
                       {option.label}

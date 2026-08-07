@@ -81,8 +81,8 @@ function GridValueRow({
 }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_220px] border-b border-black last:border-b-0">
-      <div className={`px-2 py-1.5 text-[13px] ${bold ? "font-semibold" : ""}`}>{label}</div>
-      <div className={`border-l border-black px-2 py-1.5 text-center text-[13px] ${bold ? "font-bold" : ""}`}>{value}</div>
+      <div className={`px-2 py-1.5 text-[13px] break-words ${bold ? "font-semibold" : ""}`}>{label}</div>
+      <div className={`border-l border-black px-2 py-1.5 text-center text-[13px] break-words ${bold ? "font-bold" : ""}`}>{value}</div>
     </div>
   );
 }
@@ -130,16 +130,16 @@ export default function InvoiceDocument({
         <div className="mt-2 border border-black">
           <div className="grid grid-cols-[92px_minmax(0,1fr)_76px_minmax(0,1fr)] border-b border-black">
             <div className="border-r border-black px-2 py-3 text-center text-[13px] font-semibold">Mã Học sinh</div>
-            <div className="border-r border-black px-2 py-3 text-center text-[15px] font-semibold">{charge.student.studentCode}</div>
+            <div className="border-r border-black px-2 py-3 text-center text-[15px] font-semibold break-words">{charge.student.studentCode}</div>
             <div className="border-r border-black px-2 py-3 text-center text-[13px] font-semibold">Cơ sở</div>
-            <div className="px-2 py-3 text-center text-[15px] font-semibold">{branchName}</div>
+            <div className="px-2 py-3 text-center text-[15px] font-semibold break-words">{branchName}</div>
           </div>
 
           <div className="grid grid-cols-[92px_minmax(0,1fr)_76px_minmax(0,1fr)]">
             <div className="border-r border-black px-2 py-3 text-center text-[13px] font-semibold">Họ tên</div>
-            <div className="border-r border-black px-2 py-3 text-center text-[15px] font-semibold">{charge.student.fullName}</div>
+            <div className="border-r border-black px-2 py-3 text-center text-[15px] font-semibold break-words">{charge.student.fullName}</div>
             <div className="border-r border-black px-2 py-3 text-center text-[13px] font-semibold">Lớp</div>
-            <div className="px-2 py-3 text-center text-[15px] font-semibold">{charge.class.className}</div>
+            <div className="px-2 py-3 text-center text-[15px] font-semibold break-words">{charge.class.className}</div>
           </div>
         </div>
 
@@ -198,7 +198,7 @@ export default function InvoiceDocument({
             </div>
 
             <div className="grid grid-cols-[160px_130px_minmax(0,1fr)]">
-              <div className="border-r border-black px-2 py-2 text-[12.5px] leading-5">
+              <div className="border-r border-black px-2 py-2 text-[12.5px] leading-5 break-words">
                 <p>Thanh toán chuyển khoản</p>
                 <p>
                   <strong>NH:</strong> {paymentProfile?.bankName || "Chưa cấu hình"}
@@ -219,7 +219,7 @@ export default function InvoiceDocument({
                 )}
               </div>
 
-              <div className="px-2 py-2 text-[12.5px] leading-5">
+              <div className="px-2 py-2 text-[12.5px] leading-5 break-words">
                 <p>
                   <span className="italic">Nội dung:</span> <strong>{transferContent}</strong>
                 </p>

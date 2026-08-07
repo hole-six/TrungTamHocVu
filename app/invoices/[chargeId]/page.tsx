@@ -51,7 +51,11 @@ export default async function InvoicePage({
         <PrintButton />
       </div>
 
-      <InvoiceDocument charge={{ ...charge, invoice }} />
+      {/* Phiếu dựng cứng theo khổ A4 (px cố định cho cột) — trên màn hình hẹp bọc khung
+          cuộn ngang riêng để không phá layout cả trang; lúc in thì tắt cuộn, in đủ trang. */}
+      <div className="-mx-8 overflow-x-auto px-8 print:mx-0 print:overflow-visible print:px-0">
+        <InvoiceDocument charge={{ ...charge, invoice }} />
+      </div>
     </div>
   );
 }

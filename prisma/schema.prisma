@@ -556,14 +556,6 @@ model ClassSession {
   status      String    @default("PLANNED") // PLANNED|CONFIRMED|COMPLETED|CANCELLED|RESCHEDULED
   completedAt DateTime? @map("completed_at") // Ngay HT
   notes       String?
-  // Buổi được tạo THÊM vào lớp qua app/api/sessions/[id]/makeup/route.ts (không phải
-  // buổi định kỳ theo ScheduleRule) — dùng để 1-2 học viên học bù bằng buổi bổ trợ
-  // (SessionCredit), KHÔNG phải slot của cả lớp. Vì buổi bổ trợ đã "miễn phí" theo
-  // đúng ý nghĩa của SessionCredit, buổi này bị loại khỏi mọi phép tính sessionCount/
-  // absentCount học phí PERIOD (generateChargesForPeriod) và tiến độ khóa COURSE
-  // (computeEnrollmentSessionProgress) — nếu không, cả lớp PERIOD sẽ bị tính nhầm
-  // thêm 1 buổi học phí dù đa số không tham gia buổi bù đó.
-  isMakeup    Boolean   @default(false) @map("is_makeup")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
