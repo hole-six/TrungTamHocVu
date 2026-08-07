@@ -51,7 +51,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (!Number.isInteger(amount) || amount <= 0) return NextResponse.json({ error: "Số tiền bảo dưỡng phải là số nguyên lớn hơn 0" }, { status: 400 });
   }
 
-  const txnDate = body.txnDate ? new Date(body.txnDate) : new Date();
+  let txnDate = new Date();
+  if (body.txnDate) {
+    const parsed = new Date(body.txnDate);
+    if (Number.isNaN(parsed.getTime())) return NextResponse.json({ error: "Ngày giao dịch không hợp lệ" }, { status: 400 });
+    // Cho phép nhập lùi ngày (vd ghi nhận bảo dưỡng trễ so với ngày sửa thật), nhưng không
+    // cho nhập ngày trong tương lai — chưa xảy ra thì chưa có gì để ghi nhận.
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    if (parsed.getTime() > endOfToday.getTime()) {
+      return NextResponse.json({ error: "Ngày giao dịch không được ở tương lai" }, { status: 400 });
+    }
+    txnDate = parsed;
+  }
 
   const txn = await prisma.$transaction(async (tx) => {
     const created = await tx.assetTransaction.create({

@@ -90,7 +90,7 @@ export default async function AssetsPage({
       take: pageSize,
       include: {
         transactions: {
-          select: { id: true, type: true, quantity: true, amount: true, txnDate: true, notes: true },
+          select: { id: true, type: true, quantity: true, amount: true, txnDate: true, notes: true, voidedAt: true, voidReason: true },
         },
       },
     }),
@@ -104,7 +104,7 @@ export default async function AssetsPage({
         unitValue: true,
         maintenanceIntervalMonths: true,
         createdAt: true,
-        transactions: { select: { type: true, quantity: true, amount: true, txnDate: true } },
+        transactions: { select: { type: true, quantity: true, amount: true, txnDate: true, voidedAt: true } },
       },
     }),
   ]);
@@ -114,12 +114,17 @@ export default async function AssetsPage({
     const unitName = normalizeUnit(asset.unitName);
     const baseValue = quantity * (asset.unitValue ?? 0);
     const maintenanceTxns = asset.transactions.filter((transaction) => transaction.type === "MAINTENANCE");
-    const maintenanceValue = maintenanceTxns.reduce((sum, transaction) => sum + transaction.amount, 0);
+    // Đã hủy (voided) thì không tính tiền/không dùng làm mốc tính hạn kế tiếp, nhưng vẫn
+    // hiện trong lịch sử để giữ dấu vết — lọc riêng maintenanceValue/anchor, không lọc history.
+    const maintenanceValue = maintenanceTxns.filter((t) => !t.voidedAt).reduce((sum, transaction) => sum + transaction.amount, 0);
     const maintenanceHistory = maintenanceTxns
       .slice()
       .sort((a, b) => b.txnDate.getTime() - a.txnDate.getTime())
-      .map((t) => ({ id: t.id, txnDate: t.txnDate.toISOString(), amount: t.amount, notes: t.notes }));
-    const lastMaintenanceDate = maintenanceHistory[0] ? new Date(maintenanceHistory[0].txnDate) : null;
+      .map((t) => ({ id: t.id, txnDate: t.txnDate.toISOString(), amount: t.amount, notes: t.notes, voidedAt: t.voidedAt ? t.voidedAt.toISOString() : null, voidReason: t.voidReason }));
+    const lastMaintenanceDate = maintenanceTxns.filter((t) => !t.voidedAt).reduce<Date | null>(
+      (latest, t) => (!latest || t.txnDate.getTime() > latest.getTime() ? t.txnDate : latest),
+      null,
+    );
     const nextMaintenanceDue = computeNextMaintenanceDue(asset.maintenanceIntervalMonths, lastMaintenanceDate, asset.createdAt);
     const maintenanceStatus = computeMaintenanceStatus(nextMaintenanceDue);
 
@@ -140,7 +145,7 @@ export default async function AssetsPage({
   const summaryRows = assetsForTotals.map((asset) => {
     const quantity = asset.transactions.reduce((sum, transaction) => sum + transaction.quantity, 0);
     const baseValue = quantity * (asset.unitValue ?? 0);
-    const maintenanceTxns = asset.transactions.filter((transaction) => transaction.type === "MAINTENANCE");
+    const maintenanceTxns = asset.transactions.filter((transaction) => transaction.type === "MAINTENANCE" && !transaction.voidedAt);
     const maintenanceValue = maintenanceTxns.reduce((sum, transaction) => sum + transaction.amount, 0);
     const lastMaintenanceDate = maintenanceTxns.reduce<Date | null>(
       (latest, t) => (!latest || t.txnDate.getTime() > latest.getTime() ? t.txnDate : latest),
@@ -251,11 +256,13 @@ export default async function AssetsPage({
                     </td>
                     <td>
                       <AssetMaintenanceCell
+                        assetId={asset.id}
                         assetName={asset.name}
                         intervalMonths={asset.maintenanceIntervalMonths}
                         status={asset.maintenanceStatus}
                         nextDue={asset.nextMaintenanceDue ? asset.nextMaintenanceDue.toISOString() : null}
                         history={asset.maintenanceHistory}
+                        canVoid={canManageAssets}
                       />
                     </td>
                     {(canManageAssets || canRemoveAssets) && (
@@ -346,11 +353,13 @@ export default async function AssetsPage({
               <div className="mt-2 flex items-center justify-between border-t border-hairline pt-2">
                 <span className="text-xs text-ink-muted48">Lịch bảo dưỡng:</span>
                 <AssetMaintenanceCell
+                  assetId={asset.id}
                   assetName={asset.name}
                   intervalMonths={asset.maintenanceIntervalMonths}
                   status={asset.maintenanceStatus}
                   nextDue={asset.nextMaintenanceDue ? asset.nextMaintenanceDue.toISOString() : null}
                   history={asset.maintenanceHistory}
+                  canVoid={canManageAssets}
                 />
               </div>
 

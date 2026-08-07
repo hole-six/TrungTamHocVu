@@ -24,13 +24,16 @@ export const ASSET_TXN_TYPE_LABEL: Record<string, string> = {
 
 // Tổng giá trị = số lượng * giá trị/đơn vị + tổng tiền đã bảo dưỡng (bảo dưỡng coi như
 // nâng cấp/duy trì giá trị sử dụng, cộng dồn vào giá trị tài sản chứ không phải chi phí
-// làm giảm giá trị).
+// làm giảm giá trị). Giao dịch đã voided (nhập sai, đã hủy) không được tính vào đây —
+// xem app/api/assets/[id]/transactions/[transactionId]/void/route.ts.
 export function computeAssetTotalValue(
   unitValue: number | null,
   quantity: number,
-  transactions: { type: string; amount: number }[],
+  transactions: { type: string; amount: number; voidedAt?: Date | null }[],
 ): number {
-  const maintenanceValue = transactions.filter((t) => t.type === "MAINTENANCE").reduce((sum, t) => sum + t.amount, 0);
+  const maintenanceValue = transactions
+    .filter((t) => t.type === "MAINTENANCE" && !t.voidedAt)
+    .reduce((sum, t) => sum + t.amount, 0);
   return quantity * (unitValue ?? 0) + maintenanceValue;
 }
 

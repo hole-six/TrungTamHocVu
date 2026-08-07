@@ -1443,6 +1443,12 @@ model AssetTransaction {
   txnDate   DateTime @map("txn_date")
   notes     String?
   createdAt DateTime @default(now()) @map("created_at")
+  // Hủy giao dịch bảo dưỡng nhập sai — KHÔNG xóa để giữ dấu vết, chỉ đánh dấu voided
+  // (cùng nguyên tắc VOIDED của Payment/CashTransaction). Giao dịch đã voided bị loại khỏi
+  // mọi tổng cộng dồn (tổng bảo dưỡng, tổng giá trị tài sản, tính hạn bảo dưỡng kế tiếp) và
+  // phiếu chi liên kết cũng chuyển sang VOIDED cùng lúc — xem app/api/assets/[id]/transactions/[transactionId]/void/route.ts.
+  voidedAt   DateTime? @map("voided_at")
+  voidReason String?   @map("void_reason")
 
   asset       Asset              @relation(fields: [assetId], references: [id], onDelete: Cascade)
   cashPosting AssetCashPosting?

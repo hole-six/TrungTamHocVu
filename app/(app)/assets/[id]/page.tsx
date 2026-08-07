@@ -12,6 +12,7 @@ import {
 import AssetTransactionForm from "@/components/assets/AssetTransactionForm";
 import AssetEditForm from "@/components/assets/AssetEditForm";
 import DeleteAssetButton from "@/components/assets/DeleteAssetButton";
+import VoidMaintenanceControl from "@/components/assets/VoidMaintenanceControl";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate, canDelete } from "@/lib/server/role-matrix";
@@ -40,12 +41,11 @@ export default async function AssetDetailPage({ params }: { params: { id: string
 
   const quantity = asset.transactions.reduce((s, t) => s + t.quantity, 0);
   const baseValue = quantity * (asset.unitValue ?? 0);
-  const maintenanceValue = asset.transactions
-    .filter((transaction) => transaction.type === "MAINTENANCE")
-    .reduce((sum, transaction) => sum + transaction.amount, 0);
+  const activeMaintenanceTxns = asset.transactions.filter((transaction) => transaction.type === "MAINTENANCE" && !transaction.voidedAt);
+  const maintenanceValue = activeMaintenanceTxns.reduce((sum, transaction) => sum + transaction.amount, 0);
   const totalValue = computeAssetTotalValue(asset.unitValue, quantity, asset.transactions);
   const unitName = unitLabel(asset.unitName);
-  const lastMaintenanceDate = asset.transactions.find((t) => t.type === "MAINTENANCE")?.txnDate ?? null;
+  const lastMaintenanceDate = activeMaintenanceTxns[0]?.txnDate ?? null;
   const nextMaintenanceDue = computeNextMaintenanceDue(asset.maintenanceIntervalMonths, lastMaintenanceDate, asset.createdAt);
   const maintenanceStatus = computeMaintenanceStatus(nextMaintenanceDue);
   const MAINTENANCE_STATUS_CARD_CLASS: Record<string, string> = {
@@ -115,7 +115,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
         <div className="card">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Đã chi bảo dưỡng</p>
           <p className="mt-2 font-display text-2xl font-semibold tracking-tight text-amber-700">{formatVnd(maintenanceValue)}</p>
-          <p className="mt-1 text-xs text-ink-muted48">{asset.transactions.filter((transaction) => transaction.type === "MAINTENANCE").length} lần bảo dưỡng</p>
+          <p className="mt-1 text-xs text-ink-muted48">{activeMaintenanceTxns.length} lần bảo dưỡng</p>
         </div>
         <div className={`card border ${MAINTENANCE_STATUS_CARD_CLASS[maintenanceStatus]}`}>
           <p className="text-xs font-medium uppercase tracking-wide opacity-70">Lịch bảo dưỡng</p>
@@ -154,8 +154,8 @@ export default async function AssetDetailPage({ params }: { params: { id: string
               </thead>
               <tbody>
                 {asset.transactions.map((t) => (
-                  <tr key={t.id} className="border-b border-hairline last:border-0">
-                    <td className="py-2">{formatDate(t.txnDate)}</td>
+                  <tr key={t.id} className={`border-b border-hairline last:border-0 ${t.voidedAt ? "bg-slate-50" : ""}`}>
+                    <td className={`py-2 ${t.voidedAt ? "text-ink-muted48 line-through" : ""}`}>{formatDate(t.txnDate)}</td>
                     <td className="py-2 text-ink-muted80">
                       <div className="flex flex-wrap items-center gap-2">
                         <span
@@ -172,12 +172,13 @@ export default async function AssetDetailPage({ params }: { params: { id: string
                           {ASSET_TXN_TYPE_LABEL[t.type] ?? t.type}
                         </span>
                         {t.toRoom ? <span className="text-xs text-ink-muted48">→ {t.toRoom}</span> : null}
+                        {t.voidedAt ? <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600">Đã hủy</span> : null}
                       </div>
                     </td>
-                    <td className="py-2 font-medium">
+                    <td className={`py-2 font-medium ${t.voidedAt ? "line-through" : ""}`}>
                       {t.type === "MAINTENANCE" ? (
                         <div>
-                          <p className="font-semibold text-amber-700">{formatVnd(t.amount)}</p>
+                          <p className={t.voidedAt ? "font-semibold text-ink-muted48" : "font-semibold text-amber-700"}>{formatVnd(t.amount)}</p>
                           <p className="text-xs text-ink-muted48">Tiền bảo dưỡng</p>
                         </div>
                       ) : (
@@ -187,7 +188,16 @@ export default async function AssetDetailPage({ params }: { params: { id: string
                         </div>
                       )}
                     </td>
-                    <td className="py-2 text-ink-muted48">{t.notes ?? "—"}</td>
+                    <td className="py-2 text-ink-muted48">
+                      {t.voidedAt ? (
+                        <span>Lý do hủy: {t.voidReason ?? "—"}</span>
+                      ) : (
+                        t.notes ?? "—"
+                      )}
+                      {canManageAsset && t.type === "MAINTENANCE" && !t.voidedAt ? (
+                        <VoidMaintenanceControl assetId={asset.id} transactionId={t.id} />
+                      ) : null}
+                    </td>
                   </tr>
                 ))}
                 {asset.transactions.length === 0 && (
@@ -209,10 +219,10 @@ export default async function AssetDetailPage({ params }: { params: { id: string
             </div>
             <div className="mt-3 space-y-3">
               {asset.transactions.map((t) => (
-                <div key={t.id} className="rounded-lg border border-hairline bg-white p-3">
+                <div key={t.id} className={`rounded-lg border p-3 ${t.voidedAt ? "border-hairline bg-slate-50" : "border-hairline bg-white"}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
-                      <p className="text-sm font-medium">{formatDate(t.txnDate)}</p>
+                      <p className={`text-sm font-medium ${t.voidedAt ? "text-ink-muted48 line-through" : ""}`}>{formatDate(t.txnDate)}</p>
                       <div className="mt-1.5 flex flex-wrap items-center gap-2">
                         <span
                           className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
@@ -228,12 +238,13 @@ export default async function AssetDetailPage({ params }: { params: { id: string
                           {ASSET_TXN_TYPE_LABEL[t.type] ?? t.type}
                         </span>
                         {t.toRoom ? <span className="text-xs text-ink-muted48">→ {t.toRoom}</span> : null}
+                        {t.voidedAt ? <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600">Đã hủy</span> : null}
                       </div>
                     </div>
                     <div className="text-right">
                       {t.type === "MAINTENANCE" ? (
                         <>
-                          <p className="text-sm font-semibold text-amber-700">{formatVnd(t.amount)}</p>
+                          <p className={`text-sm font-semibold ${t.voidedAt ? "text-ink-muted48 line-through" : "text-amber-700"}`}>{formatVnd(t.amount)}</p>
                           <p className="mt-0.5 text-[10px] text-ink-muted48">Bảo dưỡng</p>
                         </>
                       ) : (
@@ -244,11 +255,20 @@ export default async function AssetDetailPage({ params }: { params: { id: string
                       )}
                     </div>
                   </div>
-                  {t.notes && (
+                  {t.voidedAt ? (
+                    <div className="mt-2 border-t border-hairline pt-2 text-xs text-ink-muted80">
+                      <span className="text-ink-muted48">Lý do hủy:</span> {t.voidReason ?? "—"}
+                    </div>
+                  ) : t.notes ? (
                     <div className="mt-2 border-t border-hairline pt-2 text-xs text-ink-muted80">
                       <span className="text-ink-muted48">Ghi chú:</span> {t.notes}
                     </div>
-                  )}
+                  ) : null}
+                  {canManageAsset && t.type === "MAINTENANCE" && !t.voidedAt ? (
+                    <div className="mt-2 border-t border-hairline pt-2">
+                      <VoidMaintenanceControl assetId={asset.id} transactionId={t.id} />
+                    </div>
+                  ) : null}
                 </div>
               ))}
               {asset.transactions.length === 0 && (

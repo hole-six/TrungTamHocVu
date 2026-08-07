@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import FormGuide from "@/components/ui/FormGuide";
+import DatePicker from "@/components/ui/DatePicker";
 import { formatVnd } from "@/lib/export-utils";
+
+function todayYmd() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 const ACTION_OPTIONS = [
   { value: "MAINTENANCE", label: "Bảo dưỡng" },
@@ -57,6 +63,7 @@ export default function AssetTransactionForm({
   const [quantity, setQuantity] = useState("1");
   const [toRoom, setToRoom] = useState("");
   const [amount, setAmount] = useState("");
+  const [txnDate, setTxnDate] = useState(todayYmd);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +78,7 @@ export default function AssetTransactionForm({
     const res = await fetch(`/api/assets/${assetId}/transactions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type, quantity: Number(quantity), toRoom, amount: Number(amount), notes }),
+      body: JSON.stringify({ type, quantity: Number(quantity), toRoom, amount: Number(amount), txnDate, notes }),
     });
     const data = await res.json().catch(() => ({}));
     setLoading(false);
@@ -84,6 +91,7 @@ export default function AssetTransactionForm({
     setQuantity("1");
     setToRoom("");
     setAmount("");
+    setTxnDate(todayYmd());
     setNotes("");
     setSaved(true);
     router.refresh();
@@ -146,6 +154,12 @@ export default function AssetTransactionForm({
               <label className="form-group">
                 <span className="label">Ghi chú bảo dưỡng</span>
                 <input className="input" placeholder="VD: thay linh kiện, vệ sinh máy..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </label>
+
+              <label className="form-group">
+                <span className="label">Ngày bảo dưỡng thực tế</span>
+                <DatePicker value={txnDate} onChange={setTxnDate} />
+                <p className="form-hint">Nhập trễ thì chọn đúng ngày đã sửa để lịch bảo dưỡng tính đúng hạn kế tiếp.</p>
               </label>
             </div>
 

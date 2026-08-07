@@ -4,7 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
+import DatePicker from "@/components/ui/DatePicker";
 import { formatVnd } from "@/lib/export-utils";
+
+function todayYmd() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 const GUIDE_SECTIONS = [
   {
@@ -49,6 +55,7 @@ export default function QuickMaintenanceButton({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
+  const [txnDate, setTxnDate] = useState(todayYmd);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +71,7 @@ export default function QuickMaintenanceButton({
       body: JSON.stringify({
         type: "MAINTENANCE",
         amount,
+        txnDate,
         notes,
       }),
     });
@@ -77,6 +85,7 @@ export default function QuickMaintenanceButton({
     }
 
     setAmount("");
+    setTxnDate(todayYmd());
     setNotes("");
     setOpen(false);
     router.refresh();
@@ -114,6 +123,12 @@ export default function QuickMaintenanceButton({
             <span className="label">Số tiền bảo dưỡng</span>
             <input required type="number" min={1} className="input" placeholder="Ví dụ: 250000" value={amount} onChange={(event) => setAmount(event.target.value)} />
             <p className="form-hint">{amount ? `Sẽ ghi nhận ${formatVnd(Number(amount) || 0)} vào chi phí bảo dưỡng.` : "Nhập đúng số tiền thực tế đã chi."}</p>
+          </label>
+
+          <label className="form-group">
+            <span className="label">Ngày bảo dưỡng thực tế</span>
+            <DatePicker value={txnDate} onChange={setTxnDate} />
+            <p className="form-hint">Nếu nhập trễ so với ngày sửa thật, hãy chọn đúng ngày đã sửa để lịch bảo dưỡng tính đúng hạn kế tiếp.</p>
           </label>
 
           <label className="form-group">
