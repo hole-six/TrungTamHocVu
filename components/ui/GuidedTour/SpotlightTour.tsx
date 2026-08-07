@@ -85,13 +85,18 @@ function TourOverlay({
 
   useLayoutEffect(() => {
     const target = document.querySelector(step.target);
-    if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+    if (!target) {
+      // Phần tử không tồn tại — thường do bị ẩn theo phân quyền (vd cột "Thao tác" chỉ
+      // hiện với vai trò có quyền sửa/xóa). Tự nhảy qua bước này thay vì hiện overlay
+      // trống không chỉ vào đâu cả.
+      onNext();
+      return;
     }
+    target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
     // Đợi 1 nhịp để scrollIntoView kịp chạy trước khi đo lại vị trí thật.
     const t = setTimeout(() => setRect(measure(step.target)), 260);
     return () => clearTimeout(t);
-  }, [step.target]);
+  }, [step.target, onNext]);
 
   useEffect(() => {
     function recompute() {

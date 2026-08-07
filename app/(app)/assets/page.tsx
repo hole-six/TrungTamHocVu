@@ -15,36 +15,51 @@ import { getCurrentBranchId } from "@/lib/branch-filter";
 const ASSETS_TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="assets-new"]',
-    title: "Thêm tài sản mới",
+    title: "Thêm tài sản mới — 1 dòng = 1 nhóm tài sản cùng loại",
     description:
-      "Mỗi dòng nên là một nhóm tài sản cùng loại, cùng giá và cùng vị trí. Đừng gộp nhiều loại khác nhau vào 1 dòng — sau này bảo dưỡng và thanh lý sẽ rất khó tách bạch đúng cái nào.",
+      "Bấm vào đây khi cơ sở vừa mua hoặc vừa tiếp nhận thiết bị. Quy tắc bắt buộc: mỗi dòng chỉ đại diện cho MỘT nhóm tài sản cùng loại, cùng đơn giá, cùng vị trí — ví dụ 5 cái quạt trần cùng phòng thì gộp 1 dòng số lượng 5, nhưng 3 cái máy lạnh ở 3 phòng khác nhau phải tách 3 dòng riêng. Lý do: khi bảo dưỡng hoặc thanh lý sau này, hệ thống ghi nhận theo TỪNG DÒNG, gộp sai loại vào chung 1 dòng sẽ không tách được cái nào đã sửa, cái nào chưa. Ngay khi lưu, hệ thống tự tạo 1 giao dịch \"Nhập mới\" với đúng số lượng ban đầu — số này chính là điểm khởi đầu để tính tồn kho về sau, không cần nhập tay lại ở đâu khác.",
     placement: "bottom",
   },
   {
     target: '[data-tour="assets-search"]',
-    title: "Tìm theo tên, mã, phòng",
-    description: "Gõ vào đây để lọc theo tên, mã tài sản hoặc phòng/vị trí. Lọc chạy ở backend — không tải hết dữ liệu về máy rồi mới lọc.",
+    title: "Tìm theo tên, mã, phòng — lọc thật ở backend",
+    description:
+      "Gõ tên tài sản, mã tài sản hoặc tên phòng/vị trí rồi Enter. Toàn bộ việc lọc chạy ở server (Prisma query có điều kiện WHERE), trình duyệt không tải sẵn hết dữ liệu rồi lọc bằng JavaScript — nghĩa là dù cơ sở có vài nghìn tài sản, tìm kiếm vẫn nhanh và không làm nặng máy người dùng. Ô này không phân biệt hoa thường và khớp một phần chuỗi, nên gõ \"máy lạnh\" sẽ ra cả \"Máy lạnh Panasonic\" lẫn \"Điều hòa máy lạnh 2 chiều\" nếu tên có chứa đúng cụm đó.",
     placement: "bottom",
   },
   {
     target: '[data-tour="assets-summary"]',
-    title: "Đọc nhanh tình trạng cả cơ sở",
+    title: "5 badge đầu là tiền, 2 badge cuối là số lượng thiết bị cần xử lý",
     description:
-      "3 số tiền đầu tuân theo đúng công thức: Tổng giá trị = Giá gốc + tổng tiền đã bảo dưỡng. 2 badge Quá hạn/Sắp đến hạn tính trên toàn bộ danh sách đã lọc, không chỉ trang đang xem, nên luôn đúng thực tế dù đang ở trang nào.",
+      "3 số tiền đầu tuân đúng công thức kế toán của hệ thống: Tổng giá trị = Giá gốc (số lượng × đơn giá) + tổng tiền đã bảo dưỡng thật sự đã chi — không phải ước tính. \"Đang bảo trì\" và \"Hỏng\" đếm theo trạng thái tài sản đang gắn (xem cột Trạng thái). Hai badge màu đỏ/vàng cuối — Quá hạn bảo dưỡng và Sắp đến hạn (trong 14 ngày) — LUÔN tính trên toàn bộ danh sách đã lọc, không phải chỉ 20 dòng đang hiển thị trên trang này, nên nếu con số này khác 0 mà không thấy dòng nào trên trang 1, hãy chuyển sang các trang sau hoặc lọc theo tên để tìm đúng thiết bị cần xử lý.",
     placement: "bottom",
   },
   {
     target: '[data-tour="assets-table"]',
-    title: "Bảo dưỡng khác Tổng giá trị",
+    title: "Bảo dưỡng ≠ Tổng giá trị — 2 cột dễ nhầm nhất",
     description:
-      "Cột Bảo dưỡng chỉ là tiền đã chi sửa chữa. Cột Tổng giá trị là giá gốc cộng dồn với tiền bảo dưỡng đó. Nếu 2 số này lệch với sổ quỹ, kiểm tra lại xem có giao dịch bảo dưỡng nào đã bị hủy nhưng chưa cập nhật hay không.",
+      "Cột \"Bảo dưỡng\" CHỈ là tổng tiền sửa chữa/bảo trì đã ghi nhận cho riêng tài sản đó — không phải giá trị tài sản. Cột \"Tổng giá trị\" mới là con số đầy đủ: giá gốc cộng dồn với đúng số tiền bảo dưỡng ở cột bên cạnh. Nếu thấy \"Tổng giá trị\" ở đây không khớp với số liệu đối chiếu ở Sổ quỹ, khả năng cao nhất là có một giao dịch bảo dưỡng đã bị hủy (voided) — giao dịch hủy vẫn hiện trong lịch sử để giữ dấu vết nhưng không còn được cộng vào tổng giá trị hay tổng chi phí nữa, nên 2 nơi đối soát cùng lúc sẽ luôn khớp lại đúng con số thật.",
     placement: "top",
   },
   {
     target: '[data-tour="assets-maintenance-col"]',
-    title: "Lịch bảo dưỡng tự tính, không cần đoán",
+    title: "Lịch bảo dưỡng tự tính từ lịch sử thật, không phải ngày cố định",
     description:
-      "Hạn kế tiếp = ngày bảo dưỡng gần nhất cộng chu kỳ đã đặt (đặt chu kỳ ở nút Sửa của từng tài sản). Bấm vào badge để xem lịch sử và hủy đúng lần bị nhập sai nếu cần — hệ thống giữ lại dấu vết, không xóa hẳn.",
+      "Hạn bảo dưỡng kế tiếp KHÔNG phải một ngày cố định nhập tay — công thức là: ngày bảo dưỡng gần nhất (lấy từ giao dịch bảo dưỡng thật, chưa bị hủy) cộng với chu kỳ đã đặt cho tài sản đó (đặt số tháng ở nút Sửa, ví dụ 3 tháng cho điều hòa, 6 tháng cho máy in). Nếu tài sản chưa từng bảo dưỡng lần nào, hạn được tính từ chính ngày tạo tài sản. \"Chưa đặt lịch\" nghĩa là tài sản đó chưa có chu kỳ — hệ thống sẽ không cảnh báo quá hạn cho tới khi anh đặt số tháng cụ thể. Bấm vào badge màu để mở lịch sử đầy đủ: từng lần bảo dưỡng, số tiền, ghi chú, và nút hủy nếu có lần nào bị nhập sai — hủy sẽ tự động hủy luôn phiếu chi tương ứng bên Sổ quỹ, không cần sửa 2 nơi.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="assets-status-col"]',
+    title: "Trạng thái là cờ đang dùng, không thay thế lịch sử bảo dưỡng",
+    description:
+      "4 trạng thái: Đang sử dụng (bình thường), Đang bảo trì (đang sửa, tạm ngừng dùng), Hỏng (chưa sửa được nhưng chưa thanh lý), Đã thanh lý. Lưu ý quan trọng: đổi trạng thái sang \"Đang bảo trì\" chỉ là một cái NHÃN hiển thị, không tự động ghi nhận chi phí hay lịch sử gì cả — muốn ghi tiền sửa chữa thật thì vẫn phải dùng nút Bảo dưỡng riêng. Trạng thái \"Đã thanh lý\" thường tự động chuyển khi tổng số lượng còn lại về 0 sau khi thanh lý hết, không cần tự tay đổi.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="assets-actions-col"]',
+    title: "3 thao tác nhanh: Bảo dưỡng, Sửa, Xóa — mỗi nút một luồng riêng",
+    description:
+      "\"Bảo dưỡng\" chỉ dùng khi ĐÃ thực chi tiền sửa chữa — nhập số tiền và ngày sửa thật, hệ thống tự cộng vào chi phí bảo dưỡng và tự sinh phiếu chi trong Sổ quỹ, không cần nhập tay 2 chỗ. \"Sửa\" dùng để đổi thông tin nền (tên, nhóm, phòng, đơn giá, trạng thái, chu kỳ bảo dưỡng) — không dùng để ghi chi phí sửa chữa. \"Xóa\" chỉ hoạt động khi tài sản gần như chưa có lịch sử giao dịch nào (nhiều nhất 1 dòng) — một khi đã bảo dưỡng hoặc điều chỉnh số lượng, hệ thống chặn xóa để giữ dấu vết; lúc đó chuyển trạng thái sang \"Đã thanh lý\" thay vì cố xóa.",
     placement: "top",
   },
 ];
@@ -177,6 +192,15 @@ export default async function AssetsPage({
   const dueSoonMaintenanceCount = summaryRows.filter((row) => row.maintenanceStatus === "DUE_SOON").length;
   const canManageAssets = canUpdate("assets", role);
   const canRemoveAssets = canDelete("assets", role);
+  const canCreateAsset = canCreate("assets", role);
+  // Bỏ bước tương ứng với phần tử không hiện với vai trò hiện tại, để "Bước x/y" luôn
+  // đúng số bước thật sự người dùng này sẽ thấy — engine cũng tự nhảy qua phần tử thiếu,
+  // đây chỉ là để đếm bước cho chính xác ngay từ đầu.
+  const assetsTourSteps = ASSETS_TOUR_STEPS.filter((step) => {
+    if (step.target === '[data-tour="assets-new"]') return canCreateAsset;
+    if (step.target === '[data-tour="assets-actions-col"]') return canManageAssets || canRemoveAssets;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -187,8 +211,8 @@ export default async function AssetsPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <SpotlightTour steps={ASSETS_TOUR_STEPS} />
-          <div data-tour="assets-new">{canCreate("assets", role) ? <NewAssetForm /> : null}</div>
+          <SpotlightTour steps={assetsTourSteps} />
+          <div data-tour="assets-new">{canCreateAsset ? <NewAssetForm /> : null}</div>
         </div>
       </div>
 
@@ -239,9 +263,9 @@ export default async function AssetsPage({
                   <th>Giá gốc</th>
                   <th>Bảo dưỡng</th>
                   <th>Tổng giá trị</th>
-                  <th>Trạng thái</th>
+                  <th data-tour="assets-status-col">Trạng thái</th>
                   <th data-tour="assets-maintenance-col">Lịch bảo dưỡng</th>
-                  {(canManageAssets || canRemoveAssets) && <th>Thao tác</th>}
+                  {(canManageAssets || canRemoveAssets) && <th data-tour="assets-actions-col">Thao tác</th>}
                 </tr>
               </thead>
               <tbody>
