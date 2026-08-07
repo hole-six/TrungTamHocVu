@@ -19,30 +19,30 @@ import { exportSectionsToExcel } from "@/lib/export-utils";
 
 const DEBTOR_DETAIL_GUIDE_SECTIONS = [
   {
-    title: "Drawer này dùng d? làm gì?",
+    title: "Drawer nï¿½y dï¿½ng d? lï¿½m gï¿½?",
     items: [
-      "Dùng d? d?c m?t dòng công n? th?t k? tru?c khi g?i ph? huynh, thu ti?p ho?c m? h? so 360 c?a h?c viên.",
-      "M?c tiêu là cho ngu?i v?n hành hi?u vì sao h?c viên dang n?, n? ph?n nào và ph? huynh hi?n dang ? tr?ng thái nào.",
-      "Ðây là noi d?c ng? c?nh công n?, không ph?i noi ch?nh c?u trúc h?c phí c?a h?c viên.",
+      "Dï¿½ng d? d?c m?t dï¿½ng cï¿½ng n? th?t k? tru?c khi g?i ph? huynh, thu ti?p ho?c m? h? so 360 c?a h?c viï¿½n.",
+      "M?c tiï¿½u lï¿½ cho ngu?i v?n hï¿½nh hi?u vï¿½ sao h?c viï¿½n dang n?, n? ph?n nï¿½o vï¿½ ph? huynh hi?n dang ? tr?ng thï¿½i nï¿½o.",
+      "ï¿½ï¿½y lï¿½ noi d?c ng? c?nh cï¿½ng n?, khï¿½ng ph?i noi ch?nh c?u trï¿½c h?c phï¿½ c?a h?c viï¿½n.",
     ],
     tone: "info" as const,
   },
   {
-    title: "Cách d?c các kh?i s? li?u",
+    title: "Cï¿½ch d?c cï¿½c kh?i s? li?u",
     items: [
-      "T?ng quan kho?n thu cho bi?t t?ng dòng phí này, dã thu bao nhiêu và còn n? bao nhiêu.",
-      "H?c phí bu?i h?c là ph?n ti?n d?n t? s? bu?i th?c t? c?a k? dó.",
-      "Giáo trình / phát sinh là ph?n h?c li?u ho?c phát sinh thêm ngoài h?c phí bu?i h?c.",
-      "T?n d?u k? là s? n? ho?c s? du du?c kéo t? tru?c sang k? hi?n t?i.",
+      "T?ng quan kho?n thu cho bi?t t?ng dï¿½ng phï¿½ nï¿½y, dï¿½ thu bao nhiï¿½u vï¿½ cï¿½n n? bao nhiï¿½u.",
+      "H?c phï¿½ bu?i h?c lï¿½ ph?n ti?n d?n t? s? bu?i th?c t? c?a k? dï¿½.",
+      "Giï¿½o trï¿½nh / phï¿½t sinh lï¿½ ph?n h?c li?u ho?c phï¿½t sinh thï¿½m ngoï¿½i h?c phï¿½ bu?i h?c.",
+      "T?n d?u k? lï¿½ s? n? ho?c s? du du?c kï¿½o t? tru?c sang k? hi?n t?i.",
     ],
     tone: "success" as const,
   },
   {
-    title: "Hành d?ng dúng sau khi d?c",
+    title: "Hï¿½nh d?ng dï¿½ng sau khi d?c",
     items: [
-      "N?u ch? còn n? ti?n và ph? huynh s?n sàng n?p, dùng nút thu ti?n ngay trong drawer.",
+      "N?u ch? cï¿½n n? ti?n vï¿½ ph? huynh s?n sï¿½ng n?p, dï¿½ng nï¿½t thu ti?n ngay trong drawer.",
       "N?u th?y c?u ph?n n? b?t thu?ng, m? h? so 360 d? ki?m tra chi ti?t hon tru?c khi thu.",
-      "N?u ph? huynh ho?c portal dang thi?u thông tin, nên x? lý ph?n liên h? tru?c khi d?y m?nh thu ti?p.",
+      "N?u ph? huynh ho?c portal dang thi?u thï¿½ng tin, nï¿½n x? lï¿½ ph?n liï¿½n h? tru?c khi d?y m?nh thu ti?p.",
     ],
     tone: "warning" as const,
   },
@@ -254,14 +254,14 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
   );
   const getDebtorReason = (item: (typeof selectedDebtors)[number]) => {
     const reasons: string[] = [];
-    if (item.remainingAmount > 0) reasons.push("Chua thu d? k? này");
-    if (item.totalOutstanding > item.remainingAmount) reasons.push("Có n? cu kéo sang");
-    if (item.materialsAmount > 0) reasons.push("Có ti?n giáo trình / phát sinh");
-    if (item.openingBalance > 0) reasons.push("Có t?n d?u k?");
-    if (!item.guardianPortalEmail) reasons.push("Chua có portal ph? huynh");
-    else if (!item.guardianPortalActive) reasons.push("Portal ph? huynh chua kích ho?t");
-    if (item.currentClassName !== item.className) reasons.push("L?p thu phí khác l?p dang h?c");
-    return reasons.length ? reasons.join(" · ") : "Ðã d? di?u ki?n, ch? c?n theo dõi";
+    if (item.remainingAmount > 0) reasons.push("Chua thu d? k? nï¿½y");
+    if (item.totalOutstanding > item.remainingAmount) reasons.push("Cï¿½ n? cu kï¿½o sang");
+    if (item.materialsAmount > 0) reasons.push("Cï¿½ ti?n giï¿½o trï¿½nh / phï¿½t sinh");
+    if (item.openingBalance > 0) reasons.push("Cï¿½ t?n d?u k?");
+    if (!item.guardianPortalEmail) reasons.push("Chua cï¿½ portal ph? huynh");
+    else if (!item.guardianPortalActive) reasons.push("Portal ph? huynh chua kï¿½ch ho?t");
+    if (item.currentClassName !== item.className) reasons.push("L?p thu phï¿½ khï¿½c l?p dang h?c");
+    return reasons.length ? reasons.join(" ï¿½ ") : "ï¿½ï¿½ d? di?u ki?n, ch? c?n theo dï¿½i";
   };
   const filteredDebtors = useMemo(() => {
     const keyword = debtorKeyword.trim().toLowerCase();
@@ -361,7 +361,7 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
       .then(async (response) => {
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload.error ?? "Không t?i du?c d? li?u h?c phí.");
+          throw new Error(payload.error ?? "Khï¿½ng t?i du?c d? li?u h?c phï¿½.");
         }
         return response.json();
       })
@@ -391,7 +391,7 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
       .then(async (response) => {
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload.error ?? "Không t?i du?c l?ch s? thu ti?n.");
+          throw new Error(payload.error ?? "Khï¿½ng t?i du?c l?ch s? thu ti?n.");
         }
         return response.json();
       })
@@ -423,11 +423,11 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
     try {
       const response = await fetch(`/api/tuition/summary?${next.toString()}`, { method: "POST" });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error ?? "Không ch?t du?c d? li?u h?c phí k? này.");
+      if (!response.ok) throw new Error(payload.error ?? "Khï¿½ng ch?t du?c d? li?u h?c phï¿½ k? nï¿½y.");
       router.push(`${pathname}?${next.toString()}`);
       router.refresh();
     } catch (snapshotError) {
-      setError(snapshotError instanceof Error ? snapshotError.message : "Không ch?t du?c d? li?u h?c phí k? này.");
+      setError(snapshotError instanceof Error ? snapshotError.message : "Khï¿½ng ch?t du?c d? li?u h?c phï¿½ k? nï¿½y.");
     } finally {
       setCreatingSnapshot(false);
     }
@@ -439,28 +439,28 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
     exportSectionsToExcel(
       [
         {
-          title: "T?ng quan h?c phí",
+          title: "T?ng quan h?c phï¿½",
           columns: [
             { key: "metric", label: "Ch? s?" },
-            { key: "value", label: "Giá tr?" },
+            { key: "value", label: "Giï¿½ tr?" },
           ],
           rows: [
-            { metric: "K? báo cáo", value: data.meta.periodKey ?? periodKey },
-            { metric: "Ch? d? d? li?u", value: data.meta.effectiveMode === "snapshot" ? "K? dã ch?t" : "D? li?u hi?n t?i" },
+            { metric: "K? bï¿½o cï¿½o", value: data.meta.periodKey ?? periodKey },
+            { metric: "Ch? d? d? li?u", value: data.meta.effectiveMode === "snapshot" ? "K? dï¿½ ch?t" : "D? li?u hi?n t?i" },
             { metric: "T?ng ph?i thu", value: formatVnd(data.totals.totalBilled) },
-            { metric: "Ðã thu", value: formatVnd(data.totals.totalPaid) },
-            { metric: "Còn n?", value: formatVnd(data.totals.totalDebt) },
+            { metric: "ï¿½ï¿½ thu", value: formatVnd(data.totals.totalPaid) },
+            { metric: "Cï¿½n n?", value: formatVnd(data.totals.totalDebt) },
           ],
         },
         {
-          title: "Danh sách k? h?c phí",
+          title: "Danh sï¿½ch k? h?c phï¿½",
           columns: [
             { key: "periodName", label: "K?" },
-            { key: "status", label: "Tr?ng thái" },
+            { key: "status", label: "Tr?ng thï¿½i" },
             { key: "chargeCount", label: "S? kho?n thu" },
             { key: "total", label: "Ph?i thu" },
-            { key: "paid", label: "Ðã thu" },
-            { key: "debt", label: "Còn n?" },
+            { key: "paid", label: "ï¿½ï¿½ thu" },
+            { key: "debt", label: "Cï¿½n n?" },
           ],
           rows: data.periods.map((item) => ({
             ...item,
@@ -470,18 +470,18 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
           })),
         },
         {
-          title: "T?ng h?p h?c phí theo l?p",
+          title: "T?ng h?p h?c phï¿½ theo l?p",
           columns: [
-            { key: "classCode", label: "Mã l?p" },
-            { key: "className", label: "Tên l?p" },
+            { key: "classCode", label: "Mï¿½ l?p" },
+            { key: "className", label: "Tï¿½n l?p" },
             { key: "studentCount", label: "S? HV" },
             { key: "sessionCount", label: "S? bu?i" },
             { key: "openingBalance", label: "T?n d?u k?" },
-            { key: "tuitionAmount", label: "H?c phí" },
-            { key: "materialsAmount", label: "Giáo trình" },
+            { key: "tuitionAmount", label: "H?c phï¿½" },
+            { key: "materialsAmount", label: "Giï¿½o trï¿½nh" },
             { key: "billedAmount", label: "Ph?i thu" },
-            { key: "collectedAmount", label: "Ðã thu" },
-            { key: "remainingAmount", label: "Còn n?" },
+            { key: "collectedAmount", label: "ï¿½ï¿½ thu" },
+            { key: "remainingAmount", label: "Cï¿½n n?" },
           ],
           rows: data.latestSummary.classes.map((item) => ({
             ...item,
@@ -494,16 +494,16 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
           })),
         },
         {
-          title: "Công n? c?n x? lý",
+          title: "Cï¿½ng n? c?n x? lï¿½",
           columns: [
-            { key: "studentName", label: "H?c viên" },
-            { key: "studentCode", label: "Mã HV" },
-            { key: "leadCode", label: "Mã lead" },
-            { key: "className", label: "L?p thu phí" },
-            { key: "guardianName", label: "Ph? huynh chính" },
-            { key: "guardianPhone", label: "SÐT PH" },
+            { key: "studentName", label: "H?c viï¿½n" },
+            { key: "studentCode", label: "Mï¿½ HV" },
+            { key: "leadCode", label: "Mï¿½ lead" },
+            { key: "className", label: "L?p thu phï¿½" },
+            { key: "guardianName", label: "Ph? huynh chï¿½nh" },
+            { key: "guardianPhone", label: "Sï¿½T PH" },
             { key: "guardianPortalEmail", label: "Portal PH" },
-            { key: "remainingAmount", label: "N? k? này" },
+            { key: "remainingAmount", label: "N? k? nï¿½y" },
             { key: "totalOutstanding", label: "T?ng n?" },
           ],
           rows: (data.selectedPeriod?.debtors ?? []).map((item) => ({
@@ -523,14 +523,14 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
       <div className="card p-4 sm:p-6">
         <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-[#0f1729]">Thu h?c phí</h1>
-            <p className="mt-1 text-xs sm:text-sm text-[#64748b]">Ch?n k?, xem dúng ngu?i còn ph?i thu và thao tác ngay trên m?t màn.</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-[#0f1729]">Thu h?c phï¿½</h1>
+            <p className="mt-1 text-xs sm:text-sm text-[#64748b]">Ch?n k?, xem dï¿½ng ngu?i cï¿½n ph?i thu vï¿½ thao tï¿½c ngay trï¿½n m?t mï¿½n.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {canManageTuition ? <NewPeriodForm /> : null}
             {data?.selectedPeriod ? (
               <Link href={`/invoices/batch/${data.selectedPeriod.id}`} className="btn-360 text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
-                <span className="hidden sm:inline">Xu?t phi?u k? này</span>
+                <span className="hidden sm:inline">Xu?t phi?u k? nï¿½y</span>
                 <span className="sm:hidden">Phi?u</span>
               </Link>
             ) : null}
@@ -583,7 +583,7 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
 
       {loading || !data ? (
         <div className="card p-4 sm:p-6">
-          <p className="text-xs sm:text-sm text-ink-muted48">Ðang t?i d? li?u h?c phí...</p>
+          <p className="text-xs sm:text-sm text-ink-muted48">ï¿½ang t?i d? li?u h?c phï¿½...</p>
         </div>
       ) : (
         <>
@@ -594,14 +594,14 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
               <p className="mt-1 text-[10px] sm:text-xs text-ink-muted48">{selectedPeriodSummary?.chargeCount ?? 0} kho?n</p>
             </div>
             <div className="stat-card p-4 sm:p-5">
-              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-ink-muted48">Ðã thu</p>
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-ink-muted48">ï¿½ï¿½ thu</p>
               <p className="mt-1 font-display text-xl sm:text-2xl font-semibold tracking-tight text-emerald-600">{formatVnd(selectedPeriodSummary?.paid ?? 0)}</p>
               <p className="mt-1 text-[10px] sm:text-xs text-ink-muted48">K? xem</p>
             </div>
             <div className="stat-card-accent p-4 sm:p-5">
-              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-white/70">Còn n?</p>
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-white/70">Cï¿½n n?</p>
               <p className="mt-1 font-display text-xl sm:text-2xl font-semibold tracking-tight text-white">{formatVnd(selectedPeriodSummary?.debt ?? 0)}</p>
-              <p className="mt-1 text-[10px] sm:text-xs text-white/75">X? lý tru?c</p>
+              <p className="mt-1 text-[10px] sm:text-xs text-white/75">X? lï¿½ tru?c</p>
             </div>
             <div className="stat-card p-4 sm:p-5">
               <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-ink-muted48">HV c?n thu</p>
@@ -609,9 +609,9 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
               <p className="mt-1 text-[10px] sm:text-xs text-ink-muted48 truncate">K? {data.selectedPeriod?.periodName ?? data.meta.periodKey ?? periodKey}</p>
             </div>
             <div className="stat-card p-4 sm:p-5">
-              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-ink-muted48">N? cu/sách</p>
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-ink-muted48">N? cu/sï¿½ch</p>
               <p className="mt-1 font-display text-xl sm:text-2xl font-semibold tracking-tight">{carryForwardCount + materialsPendingCount}</p>
-              <p className="mt-1 text-[10px] sm:text-xs text-ink-muted48">{carryForwardCount} cu · {materialsPendingCount} sách</p>
+              <p className="mt-1 text-[10px] sm:text-xs text-ink-muted48">{carryForwardCount} cu ï¿½ {materialsPendingCount} sï¿½ch</p>
             </div>
           </div>
 
@@ -619,11 +619,11 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
             <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="text-base sm:text-lg font-display font-semibold tracking-tight">Ti?n d? k? {selectedPeriodSummary?.periodName ?? data.meta.periodKey ?? periodKey}</h2>
-                <p className="mt-1 text-xs sm:text-sm text-ink-muted48">Ðã thu bao nhiêu và còn bao nhiêu c?n x? lý.</p>
+                <p className="mt-1 text-xs sm:text-sm text-ink-muted48">ï¿½ï¿½ thu bao nhiï¿½u vï¿½ cï¿½n bao nhiï¿½u c?n x? lï¿½.</p>
               </div>
               <div className="rounded-xl sm:rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
-                <span className="font-semibold text-ink">{collectionProgress.ratio}% hoàn thành</span>
-                <span className="hidden sm:inline ml-2 text-ink-muted48">· Ðã thu {formatVnd(collectionProgress.paid)} / {formatVnd(collectionProgress.billed)}</span>
+                <span className="font-semibold text-ink">{collectionProgress.ratio}% hoï¿½n thï¿½nh</span>
+                <span className="hidden sm:inline ml-2 text-ink-muted48">ï¿½ ï¿½ï¿½ thu {formatVnd(collectionProgress.paid)} / {formatVnd(collectionProgress.billed)}</span>
               </div>
             </div>
             <div className="mt-3 sm:mt-4">
@@ -635,15 +635,15 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
               </div>
               <div className="mt-3 grid grid-cols-1 gap-2 sm:gap-3 md:grid-cols-3">
                 <div className="rounded-xl sm:rounded-2xl border border-hairline bg-canvas-parchment/50 p-3 sm:p-4">
-                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Ðã thu</p>
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">ï¿½ï¿½ thu</p>
                   <p className="mt-1 sm:mt-2 text-base sm:text-lg font-semibold text-emerald-600">{formatVnd(collectionProgress.paid)}</p>
                 </div>
                 <div className="rounded-xl sm:rounded-2xl border border-hairline bg-canvas-parchment/50 p-3 sm:p-4">
-                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Còn n?</p>
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Cï¿½n n?</p>
                   <p className="mt-1 sm:mt-2 text-base sm:text-lg font-semibold text-red-600">{formatVnd(collectionProgress.debt)}</p>
                 </div>
                 <div className="rounded-xl sm:rounded-2xl border border-hairline bg-canvas-parchment/50 p-3 sm:p-4">
-                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Ph?i thu k? này</p>
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Ph?i thu k? nï¿½y</p>
                   <p className="mt-1 sm:mt-2 text-base sm:text-lg font-semibold text-ink">{formatVnd(collectionProgress.billed)}</p>
                 </div>
               </div>
@@ -653,8 +653,8 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
           <div className="card p-4 sm:p-6">
             <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-base sm:text-lg font-display font-semibold tracking-tight">Ti?n trong k? này g?m</h2>
-                <p className="mt-1 text-xs sm:text-sm text-ink-muted48">Tách riêng h?c phí, sách và n? cu d? thu cho dúng.</p>
+                <h2 className="text-base sm:text-lg font-display font-semibold tracking-tight">Ti?n trong k? nï¿½y g?m</h2>
+                <p className="mt-1 text-xs sm:text-sm text-ink-muted48">Tï¿½ch riï¿½ng h?c phï¿½, sï¿½ch vï¿½ n? cu d? thu cho dï¿½ng.</p>
               </div>
             </div>
             <div className="mt-3 sm:mt-4 grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-5">
@@ -663,7 +663,7 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                 <p className="mt-1 sm:mt-2 text-sm sm:text-base md:text-lg font-semibold text-ink">{formatVnd(feeComposition.tuitionAmount)}</p>
               </div>
               <div className="rounded-xl sm:rounded-2xl border border-hairline bg-canvas-parchment/50 p-3 sm:p-4">
-                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">GT/phát sinh</p>
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">GT/phï¿½t sinh</p>
                 <p className="mt-1 sm:mt-2 text-sm sm:text-base md:text-lg font-semibold text-ink">{formatVnd(feeComposition.materialsAmount)}</p>
               </div>
               <div className="rounded-xl sm:rounded-2xl border border-hairline bg-canvas-parchment/50 p-3 sm:p-4">
@@ -671,22 +671,22 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                 <p className="mt-1 sm:mt-2 text-sm sm:text-base md:text-lg font-semibold text-ink">{formatVnd(feeComposition.openingBalance)}</p>
               </div>
               <div className="rounded-xl sm:rounded-2xl border border-hairline bg-canvas-parchment/50 p-3 sm:p-4">
-                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Ðã thu</p>
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">ï¿½ï¿½ thu</p>
                 <p className="mt-1 sm:mt-2 text-sm sm:text-base md:text-lg font-semibold text-emerald-600">{formatVnd(feeComposition.paidAmount)}</p>
               </div>
               <div className="rounded-xl sm:rounded-2xl border border-hairline bg-canvas-parchment/50 p-3 sm:p-4">
-                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Còn n?</p>
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Cï¿½n n?</p>
                 <p className="mt-1 sm:mt-2 text-sm sm:text-base md:text-lg font-semibold text-red-600">{formatVnd(feeComposition.remainingAmount)}</p>
               </div>
             </div>
           </div>
 
           <div className="space-y-6">
-              <div className="card overflow-x-auto">
+              <div className="card overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <h2 className="font-display text-lg font-semibold tracking-tight">T?ng h?p theo l?p</h2>
-                    <p className="mt-1 text-sm text-ink-muted48">Nhìn l?p nào còn n? d? x? lý nhanh.</p>
+                    <p className="mt-1 text-sm text-ink-muted48">Nhï¿½n l?p nï¿½o cï¿½n n? d? x? lï¿½ nhanh.</p>
                   </div>
                 </div>
                 <table className="mt-3 w-full text-left text-sm">
@@ -696,9 +696,9 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                       <th className="py-2 font-medium">HV</th>
                       <th className="py-2 font-medium">Bu?i</th>
                       <th className="py-2 font-medium">T?n d?u</th>
-                      <th className="py-2 font-medium">H?c phí + phát sinh</th>
-                      <th className="py-2 font-medium">Ðã thu</th>
-                      <th className="py-2 font-medium">Còn n?</th>
+                      <th className="py-2 font-medium">H?c phï¿½ + phï¿½t sinh</th>
+                      <th className="py-2 font-medium">ï¿½ï¿½ thu</th>
+                      <th className="py-2 font-medium">Cï¿½n n?</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -723,50 +723,50 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
               <div className="card">
                 <div className="flex items-center justify-between gap-4">
               <div>
-                <h2 className="font-display text-lg font-semibold tracking-tight">Danh sách c?n thu</h2>
+                <h2 className="font-display text-lg font-semibold tracking-tight">Danh sï¿½ch c?n thu</h2>
                 <p className="mt-1 text-sm text-ink-muted48">
-                      Ch? gi? dúng ngu?i dang c?n thao tác trong k? {data.selectedPeriod?.periodName ?? data.meta.periodKey ?? periodKey}.
+                      Ch? gi? dï¿½ng ngu?i dang c?n thao tï¿½c trong k? {data.selectedPeriod?.periodName ?? data.meta.periodKey ?? periodKey}.
                 </p>
               </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
                   <label className="space-y-1">
-                    <span className="text-xs font-medium text-ink-muted48">Tìm h?c viên / l?p / ph? huynh</span>
+                    <span className="text-xs font-medium text-ink-muted48">Tï¿½m h?c viï¿½n / l?p / ph? huynh</span>
                     <input
                       className="input"
                       value={debtorKeyword}
                       onChange={(event) => setDebtorKeyword(event.target.value)}
-                      placeholder="Nh?p tên h?c viên, mã HV, l?p, ph? huynh, s? di?n tho?i..."
+                      placeholder="Nh?p tï¿½n h?c viï¿½n, mï¿½ HV, l?p, ph? huynh, s? di?n tho?i..."
                     />
                   </label>
                   <label className="space-y-1">
                     <span className="text-xs font-medium text-ink-muted48">L?c</span>
                     <select className="input" value={debtorFilter} onChange={(event) => setDebtorFilter(event.target.value as typeof debtorFilter)}>
                       <option value="all">T?t c? dang hi?n</option>
-                      <option value="has_debt">Ch? còn n?</option>
+                      <option value="has_debt">Ch? cï¿½n n?</option>
                       <option value="missing_portal">Thi?u portal</option>
-                      <option value="inactive_portal">Portal chua kích ho?t</option>
+                      <option value="inactive_portal">Portal chua kï¿½ch ho?t</option>
                       <option value="high_debt">N? cao t? 1.000.000d</option>
                     </select>
                   </label>
                   <label className="space-y-1">
                     <span className="text-xs font-medium text-ink-muted48">S?p x?p</span>
                     <select className="input" value={debtorSort} onChange={(event) => setDebtorSort(event.target.value as typeof debtorSort)}>
-                      <option value="period_debt_desc">N? k? này gi?m d?n</option>
+                      <option value="period_debt_desc">N? k? nï¿½y gi?m d?n</option>
                       <option value="total_debt_desc">T?ng n? gi?m d?n</option>
-                      <option value="student_asc">Tên h?c viên A ? Z</option>
-                      <option value="class_asc">Tên l?p A ? Z</option>
-                      <option value="guardian_asc">Tên ph? huynh A ? Z</option>
+                      <option value="student_asc">Tï¿½n h?c viï¿½n A ? Z</option>
+                      <option value="class_asc">Tï¿½n l?p A ? Z</option>
+                      <option value="guardian_asc">Tï¿½n ph? huynh A ? Z</option>
                     </select>
                   </label>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   {[ 
-                    { key: "period_debt", label: "N? k? này", count: debtorTabCounts.period_debt },
-                    { key: "portfolio_debt", label: "Còn n?", count: debtorTabCounts.portfolio_debt },
-                    { key: "ready", label: "Ðã d?", count: debtorTabCounts.ready },
+                    { key: "period_debt", label: "N? k? nï¿½y", count: debtorTabCounts.period_debt },
+                    { key: "portfolio_debt", label: "Cï¿½n n?", count: debtorTabCounts.portfolio_debt },
+                    { key: "ready", label: "ï¿½ï¿½ d?", count: debtorTabCounts.ready },
                     { key: "missing_portal", label: "Portal", count: debtorTabCounts.missing_portal },
                   ].map((tab) => (
                     <button
@@ -784,21 +784,21 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
 
                 <div className="mt-3 rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
                   <p>
-                    <strong className="text-ink">{filteredDebtors.length}</strong> h?c viên kh?p · dang xem{" "}
-                    <strong className="text-ink">{debtorTab === "period_debt" ? "N? k? này" : debtorTab === "portfolio_debt" ? "Còn n?" : debtorTab === "ready" ? "Ðã d?" : "Portal"}</strong>
+                    <strong className="text-ink">{filteredDebtors.length}</strong> h?c viï¿½n kh?p ï¿½ dang xem{" "}
+                    <strong className="text-ink">{debtorTab === "period_debt" ? "N? k? nï¿½y" : debtorTab === "portfolio_debt" ? "Cï¿½n n?" : debtorTab === "ready" ? "ï¿½ï¿½ d?" : "Portal"}</strong>
                   </p>
                 </div>
 
-                <div className="mt-4 overflow-x-auto">
+                <div className="mt-4 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                   <table className="w-full min-w-[1080px] text-left text-sm">
                     <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
                       <tr>
-                        <th className="py-3 font-medium">H?c viên / l?p</th>
+                        <th className="py-3 font-medium">H?c viï¿½n / l?p</th>
                         <th className="py-3 font-medium">Ng? c?nh</th>
-                        <th className="py-3 font-medium">N? k? này</th>
+                        <th className="py-3 font-medium">N? k? nï¿½y</th>
                         <th className="py-3 font-medium">T?ng n?</th>
                         <th className="py-3 font-medium">Portal</th>
-                        <th className="py-3 font-medium text-right">Thao tác</th>
+                        <th className="py-3 font-medium text-right">Thao tï¿½c</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -812,21 +812,21 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                               <span className="text-xs text-ink-muted48">({debtor.studentCode})</span>
                             </div>
                             <p className="font-medium text-ink">{debtor.className}</p>
-                            <p className="mt-1 text-xs text-ink-muted48">{debtor.guardianName ?? "Chua g?n PH"} · {debtor.guardianPhone ?? "Chua có SÐT"}</p>
+                            <p className="mt-1 text-xs text-ink-muted48">{debtor.guardianName ?? "Chua g?n PH"} ï¿½ {debtor.guardianPhone ?? "Chua cï¿½ Sï¿½T"}</p>
                           </td>
                           <td className="py-3 align-top">
                             <p className="text-sm text-ink">{getDebtorReason(debtor)}</p>
                             <p className="mt-1 text-xs text-ink-muted48">
-                              HP {formatVnd(debtor.tuitionAmount)} · Sách {formatVnd(debtor.materialsAmount)} · N? cu {formatVnd(debtor.openingBalance)}
+                              HP {formatVnd(debtor.tuitionAmount)} ï¿½ Sï¿½ch {formatVnd(debtor.materialsAmount)} ï¿½ N? cu {formatVnd(debtor.openingBalance)}
                             </p>
                           </td>
                           <td className="py-3 align-top">
                             <p className="font-semibold text-red-600">{formatVnd(debtor.remainingAmount)}</p>
-                            <p className="mt-1 text-xs text-ink-muted48">Ðã thu {formatVnd(debtor.paidAmount)}</p>
+                            <p className="mt-1 text-xs text-ink-muted48">ï¿½ï¿½ thu {formatVnd(debtor.paidAmount)}</p>
                           </td>
                           <td className="py-3 align-top">
                             <p className="font-medium text-ink">{formatVnd(debtor.totalOutstanding)}</p>
-                            {debtor.currentClassName !== debtor.className ? <p className="mt-1 text-xs text-sky-700">Ðang h?c: {debtor.currentClassName}</p> : null}
+                            {debtor.currentClassName !== debtor.className ? <p className="mt-1 text-xs text-sky-700">ï¿½ang h?c: {debtor.currentClassName}</p> : null}
                           </td>
                           <td className="py-3 align-top">
                             {!debtor.guardianPortalEmail ? (
@@ -834,7 +834,7 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                             ) : debtor.guardianPortalActive ? (
                               <span className="badge bg-emerald-100 text-emerald-700">Portal ho?t d?ng</span>
                             ) : (
-                              <span className="badge bg-amber-100 text-amber-700">Portal chua kích ho?t</span>
+                              <span className="badge bg-amber-100 text-amber-700">Portal chua kï¿½ch ho?t</span>
                             )}
                             {debtor.guardianPortalEmail ? <p className="mt-1 text-xs text-ink-muted48">{debtor.guardianPortalEmail}</p> : null}
                           </td>
@@ -845,7 +845,7 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                               </button>
                               {canManageTuition ? <QuickPaymentButton studentId={debtor.studentId} suggestedAmount={debtor.remainingAmount} /> : null}
                               <Link href={`/students/${debtor.studentId}?tab=hocphi`} className="btn-360">
-                                H? so phí
+                                H? so phï¿½
                               </Link>
                             </div>
                           </td>
@@ -854,10 +854,10 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                     </tbody>
                   </table>
                   {(data.selectedPeriod?.debtors.length ?? 0) === 0 ? (
-                    <p className="text-sm text-ink-muted48">Không có công n? m? trong k? dang xem.</p>
+                    <p className="text-sm text-ink-muted48">Khï¿½ng cï¿½ cï¿½ng n? m? trong k? dang xem.</p>
                   ) : null}
                   {(data.selectedPeriod?.debtors.length ?? 0) > 0 && filteredDebtors.length === 0 ? (
-                    <p className="pt-4 text-sm text-ink-muted48">Không có h?c viên nào kh?p b? l?c dang ch?n.</p>
+                    <p className="pt-4 text-sm text-ink-muted48">Khï¿½ng cï¿½ h?c viï¿½n nï¿½o kh?p b? l?c dang ch?n.</p>
                   ) : null}
                 </div>
               </div>
@@ -870,9 +870,9 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                   <th>K?</th>
                   <th>S? kho?n thu</th>
                   <th>Ph?i thu</th>
-                  <th>Ðã thu</th>
-                  <th>Còn n?</th>
-                  <th>Tr?ng thái</th>
+                  <th>ï¿½ï¿½ thu</th>
+                  <th>Cï¿½n n?</th>
+                  <th>Tr?ng thï¿½i</th>
                 </tr>
               </thead>
               <tbody>
@@ -894,8 +894,8 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                   <tr className="table-empty">
                     <td colSpan={6}>
                       <div className="empty-state">
-                        <p className="empty-state-title">Chua có k? thu nào</p>
-                        <p className="empty-state-desc">T?o k? thu d? b?t d?u v?n hành h?c phí chu?n theo k?.</p>
+                        <p className="empty-state-title">Chua cï¿½ k? thu nï¿½o</p>
+                        <p className="empty-state-desc">T?o k? thu d? b?t d?u v?n hï¿½nh h?c phï¿½ chu?n theo k?.</p>
                       </div>
                     </td>
                   </tr>
@@ -908,96 +908,96 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
             open={Boolean(selectedDebtor)}
             onClose={() => setSelectedDebtor(null)}
             widthClassName="max-w-3xl"
-            title={selectedDebtor ? `Chi ti?t công n? · ${selectedDebtor.studentName}` : "Chi ti?t công n?"}
+            title={selectedDebtor ? `Chi ti?t cï¿½ng n? ï¿½ ${selectedDebtor.studentName}` : "Chi ti?t cï¿½ng n?"}
             description={
               selectedDebtor
-                ? "Xem d?y d? c?u ph?n phí, lý do công n?, tình tr?ng ph? huynh và các phi?u thu g?n nh?t c?a h?c viên này."
+                ? "Xem d?y d? c?u ph?n phï¿½, lï¿½ do cï¿½ng n?, tï¿½nh tr?ng ph? huynh vï¿½ cï¿½c phi?u thu g?n nh?t c?a h?c viï¿½n nï¿½y."
                 : undefined
             }
-            guide={<FormGuide title="Hu?ng d?n d?c chi ti?t công n?" summary="Drawer này giúp ngu?i v?n hành hi?u rõ m?t h?c viên dang n? vì lý do gì, n? ? c?u ph?n nào và bu?c ti?p theo nên là thu ti?p, g?i ph? huynh hay m? h? so 360." sections={DEBTOR_DETAIL_GUIDE_SECTIONS} position="inline" />}
+            guide={<FormGuide title="Hu?ng d?n d?c chi ti?t cï¿½ng n?" summary="Drawer nï¿½y giï¿½p ngu?i v?n hï¿½nh hi?u rï¿½ m?t h?c viï¿½n dang n? vï¿½ lï¿½ do gï¿½, n? ? c?u ph?n nï¿½o vï¿½ bu?c ti?p theo nï¿½n lï¿½ thu ti?p, g?i ph? huynh hay m? h? so 360." sections={DEBTOR_DETAIL_GUIDE_SECTIONS} position="inline" />}
           >
             {selectedDebtor ? (
               <div className="space-y-5">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">H?c viên / l?p thu phí</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">H?c viï¿½n / l?p thu phï¿½</p>
                     <p className="mt-2 text-lg font-semibold text-ink">{selectedDebtor.studentName}</p>
                     <p className="mt-1 text-sm text-ink-muted48">
-                      {selectedDebtor.studentCode} {selectedDebtor.leadCode ? `· Lead ${selectedDebtor.leadCode}` : ""}
+                      {selectedDebtor.studentCode} {selectedDebtor.leadCode ? `ï¿½ Lead ${selectedDebtor.leadCode}` : ""}
                     </p>
                     <p className="mt-3 text-sm text-ink">
-                      L?p thu phí: <strong>{selectedDebtor.className}</strong>
+                      L?p thu phï¿½: <strong>{selectedDebtor.className}</strong>
                     </p>
                     <p className="mt-1 text-sm text-ink-muted48">
                       {selectedDebtor.currentClassName !== selectedDebtor.className
-                        ? `Ðang h?c th?c t?: ${selectedDebtor.currentClassName}`
-                        : "L?p thu phí trùng l?p dang h?c"}
+                        ? `ï¿½ang h?c th?c t?: ${selectedDebtor.currentClassName}`
+                        : "L?p thu phï¿½ trï¿½ng l?p dang h?c"}
                     </p>
                   </div>
 
                   <div className="rounded-2xl border border-hairline bg-canvas-parchment/50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Ph? huynh / portal</p>
-                    <p className="mt-2 text-lg font-semibold text-ink">{selectedDebtor.guardianName ?? "Chua g?n ph? huynh chính"}</p>
-                    <p className="mt-1 text-sm text-ink-muted48">{selectedDebtor.guardianPhone ?? "Chua có s? di?n tho?i"}</p>
+                    <p className="mt-2 text-lg font-semibold text-ink">{selectedDebtor.guardianName ?? "Chua g?n ph? huynh chï¿½nh"}</p>
+                    <p className="mt-1 text-sm text-ink-muted48">{selectedDebtor.guardianPhone ?? "Chua cï¿½ s? di?n tho?i"}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {!selectedDebtor.guardianPortalEmail ? (
                         <span className="badge bg-amber-100 text-amber-700">Thi?u portal</span>
                       ) : selectedDebtor.guardianPortalActive ? (
                         <span className="badge bg-emerald-100 text-emerald-700">Portal ho?t d?ng</span>
                       ) : (
-                        <span className="badge bg-amber-100 text-amber-700">Portal chua kích ho?t</span>
+                        <span className="badge bg-amber-100 text-amber-700">Portal chua kï¿½ch ho?t</span>
                       )}
                     </div>
-                    <p className="mt-2 text-sm text-ink-muted48">{selectedDebtor.guardianPortalEmail ?? "Chua có email portal"}</p>
+                    <p className="mt-2 text-sm text-ink-muted48">{selectedDebtor.guardianPortalEmail ?? "Chua cï¿½ email portal"}</p>
                   </div>
                 </div>
 
                 <div className="rounded-3xl border border-[#dbe7ff] bg-[#f8fbff] p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">T?ng quan kho?n thu c?a dòng này</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">T?ng quan kho?n thu c?a dï¿½ng nï¿½y</p>
                       <p className="mt-2 text-2xl font-semibold text-ink">{formatVnd(selectedDebtor.totalAmount)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-emerald-600">Ðã thu {formatVnd(selectedDebtor.paidAmount)}</p>
-                      <p className="mt-1 text-lg font-semibold text-red-600">Còn n? {formatVnd(selectedDebtor.remainingAmount)}</p>
-                      <p className="mt-1 text-xs text-ink-muted48">T?ng n? h?c viên: {formatVnd(selectedDebtor.totalOutstanding)}</p>
+                      <p className="text-sm font-semibold text-emerald-600">ï¿½ï¿½ thu {formatVnd(selectedDebtor.paidAmount)}</p>
+                      <p className="mt-1 text-lg font-semibold text-red-600">Cï¿½n n? {formatVnd(selectedDebtor.remainingAmount)}</p>
+                      <p className="mt-1 text-xs text-ink-muted48">T?ng n? h?c viï¿½n: {formatVnd(selectedDebtor.totalOutstanding)}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <div className="rounded-2xl border border-hairline p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">H?c phí bu?i h?c</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">H?c phï¿½ bu?i h?c</p>
                     <p className="mt-2 text-lg font-semibold text-ink">{formatVnd(selectedDebtor.tuitionAmount)}</p>
                     <p className="mt-2 text-xs text-ink-muted48">
-                      {selectedDebtor.sessionCount} bu?i · ngh? {selectedDebtor.absentCount} · tr? {selectedDebtor.deductedCount} · don giá {formatVnd(selectedDebtor.unitPrice)}
+                      {selectedDebtor.sessionCount} bu?i ï¿½ ngh? {selectedDebtor.absentCount} ï¿½ tr? {selectedDebtor.deductedCount} ï¿½ don giï¿½ {formatVnd(selectedDebtor.unitPrice)}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-hairline p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Giáo trình / phát sinh</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Giï¿½o trï¿½nh / phï¿½t sinh</p>
                     <p className="mt-2 text-lg font-semibold text-ink">{formatVnd(selectedDebtor.materialsAmount)}</p>
-                    <p className="mt-2 text-xs text-ink-muted48">Kho?n này thu?ng d?n t? giáo trình ho?c phát sinh h?c li?u trong k?.</p>
+                    <p className="mt-2 text-xs text-ink-muted48">Kho?n nï¿½y thu?ng d?n t? giï¿½o trï¿½nh ho?c phï¿½t sinh h?c li?u trong k?.</p>
                   </div>
                   <div className="rounded-2xl border border-hairline p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">T?n d?u k?</p>
                     <p className="mt-2 text-lg font-semibold text-ink">{formatVnd(selectedDebtor.openingBalance)}</p>
-                    <p className="mt-2 text-xs text-ink-muted48">Ðây là ph?n n? cu ho?c s? du du?c kéo sang d?u k? hi?n t?i.</p>
+                    <p className="mt-2 text-xs text-ink-muted48">ï¿½ï¿½y lï¿½ ph?n n? cu ho?c s? du du?c kï¿½o sang d?u k? hi?n t?i.</p>
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-hairline p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">K?t lu?n v?n hành cho dòng này</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">K?t lu?n v?n hï¿½nh cho dï¿½ng nï¿½y</p>
                   <p className="mt-2 text-sm leading-7 text-ink">{getDebtorReason(selectedDebtor)}</p>
                 </div>
 
                 <div className="rounded-2xl border border-hairline p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-ink">Phi?u thu g?n nh?t c?a h?c viên</p>
-                      <p className="mt-1 text-xs text-ink-muted48">Hi?n th? các phi?u thu m?i nh?t d? d?i chi?u nhanh tru?c khi g?i ph? huynh ho?c thu ti?p.</p>
+                      <p className="text-sm font-semibold text-ink">Phi?u thu g?n nh?t c?a h?c viï¿½n</p>
+                      <p className="mt-1 text-xs text-ink-muted48">Hi?n th? cï¿½c phi?u thu m?i nh?t d? d?i chi?u nhanh tru?c khi g?i ph? huynh ho?c thu ti?p.</p>
                     </div>
-                    {studentFinanceLoading ? <span className="text-xs text-ink-muted48">Ðang t?i...</span> : null}
+                    {studentFinanceLoading ? <span className="text-xs text-ink-muted48">ï¿½ang t?i...</span> : null}
                   </div>
                   <div className="mt-4 space-y-3">
                     {drawerPayments.map((payment) => (
@@ -1006,7 +1006,7 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                           <div>
                             <p className="text-sm font-semibold text-ink">{payment.paymentNo}</p>
                             <p className="mt-1 text-xs text-ink-muted48">
-                              {new Date(payment.paidDate).toLocaleDateString("vi-VN")} · {payment.method ?? "Chua ghi hình th?c"} · {payment.status}
+                              {new Date(payment.paidDate).toLocaleDateString("vi-VN")} ï¿½ {payment.method ?? "Chua ghi hï¿½nh th?c"} ï¿½ {payment.status}
                             </p>
                             {payment.notes ? <p className="mt-2 text-xs text-ink-muted48">{payment.notes}</p> : null}
                           </div>
@@ -1014,7 +1014,7 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                         </div>
                       </div>
                     ))}
-                    {!studentFinanceLoading && drawerPayments.length === 0 ? <p className="text-sm text-ink-muted48">Chua có phi?u thu nào c?a h?c viên này.</p> : null}
+                    {!studentFinanceLoading && drawerPayments.length === 0 ? <p className="text-sm text-ink-muted48">Chua cï¿½ phi?u thu nï¿½o c?a h?c viï¿½n nï¿½y.</p> : null}
                   </div>
                 </div>
 
@@ -1024,7 +1024,7 @@ export default function TuitionWorkspace({ canManageTuition }: { canManageTuitio
                     M? h? so 360
                   </Link>
                   <button type="button" onClick={() => setSelectedDebtor(null)} className="btn-ghost">
-                    Ðóng
+                    ï¿½ï¿½ng
                   </button>
                 </div>
               </div>

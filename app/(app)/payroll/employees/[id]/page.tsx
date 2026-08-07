@@ -100,7 +100,7 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
             <h2 className="font-display text-lg font-semibold tracking-tight mb-3">Tất cả buổi dạy/trợ giảng ({employee.sessionAssignments.length})</h2>
             
             {/* Desktop Table */}
-            <div className="hidden md:block overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <table className="w-full text-left text-sm">
                 <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
                   <tr>
@@ -170,7 +170,7 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
             <h2 className="font-display text-lg font-semibold tracking-tight mb-3">Tất cả chấm công ngày ({employee.timesheetEntries.length})</h2>
             
             {/* Desktop Table */}
-            <div className="hidden md:block overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <table className="w-full text-left text-sm">
                 <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
                   <tr>

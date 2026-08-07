@@ -169,7 +169,7 @@ export default function DataTable<T extends Record<string, any>>({
         data-dt="table-shell"
         className="overflow-hidden rounded-[28px] border border-[#e4ebf8] bg-white shadow-[0_24px_70px_-45px_rgba(15,23,42,0.45)]"
       >
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <table data-dt="table" className="w-full">
             <thead data-dt="thead" className={`border-b border-[#e8edf5] bg-[linear-gradient(135deg,#fbfcff_0%,#f4f8ff_100%)] ${stickyHeader ? "sticky top-0 z-10" : ""}`}>
               <tr>

@@ -503,7 +503,7 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
           </div>
 
           <div className="overflow-hidden rounded-[30px] border border-[#dce6f5] bg-white shadow-[0_30px_80px_-52px_rgba(15,23,42,0.45)]">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <table className="w-full">
                 <thead className="border-b border-[#e8edf5] bg-[linear-gradient(180deg,#fbfdff_0%,#f3f8ff_100%)]">
                   <tr>

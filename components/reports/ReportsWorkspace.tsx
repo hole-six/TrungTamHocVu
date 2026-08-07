@@ -326,7 +326,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
           {/* ── Row 4: Tuition by class table ────────── */}
           {data.dashboard.tuitionByClass.length > 0 && (
             <SectionCard title={`Học phí theo lớp — kỳ ${data.reportHp?.periodName ?? ""}`}>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-[#f8faff]">
                     <tr>
@@ -372,7 +372,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
           {/* ── Row 5: Students by class + Payroll breakdown ── */}
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             <SectionCard title="Học viên theo lớp">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-[#f8faff]">
                     <tr>

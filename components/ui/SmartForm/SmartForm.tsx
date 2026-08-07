@@ -296,7 +296,7 @@ export default function SmartForm({
   return (
     <form onSubmit={handleSubmit} className={`space-y-5 ${className}`}>
       {sections.length > 1 && (
-        <div className="overflow-x-auto rounded-[24px] border border-[#e4ebf8] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] px-5 py-4 shadow-[0_16px_40px_-32px_rgba(15,23,42,0.45)]">
+        <div className="overflow-x-auto rounded-[24px] border border-[#e4ebf8] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] px-5 py-4 shadow-[0_16px_40px_-32px_rgba(15,23,42,0.45)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <div className="flex min-w-max items-center">
             {sections.map((section, sectionIdx) => (
               <div key={sectionIdx} className="flex items-center">

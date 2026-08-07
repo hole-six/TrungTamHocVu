@@ -236,7 +236,7 @@ export default async function AdminPage({
         </div>
 
         {/* Desktop Table */}
-        <div className="hidden lg:block overflow-x-auto">
+        <div className="hidden lg:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <table className="w-full min-w-[1080px]">
             <thead className="border-b border-[#e8eef8] bg-[#f8fbff]">
               <tr>

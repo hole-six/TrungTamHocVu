@@ -376,7 +376,7 @@ export default function PayrollWorkspace({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <table className="w-full min-w-[1700px]">
             <thead className="bg-[#fafafa]">
               <tr>

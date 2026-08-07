@@ -360,7 +360,7 @@ export default async function DashboardPage() {
           </SectionHeading>
 
           {/* Desktop Table */}
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <table className="w-full text-left text-sm">
               <thead className="bg-[#f8faff]">
                 <tr>
@@ -434,7 +434,7 @@ export default async function DashboardPage() {
           <SectionHeading>Tình hình theo từng cơ sở</SectionHeading>
 
           {/* Desktop Table */}
-          <div className="hidden lg:block overflow-x-auto">
+          <div className="hidden lg:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <table className="w-full text-left text-sm">
               <thead className="bg-[#f8faff]">
                 <tr>

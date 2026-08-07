@@ -243,7 +243,7 @@ export default function RemediationWorkbench({
             <div className="card">
               <h2 className="font-display text-lg font-semibold tracking-tight">Xem nhanh dữ liệu đã điền</h2>
               {selectedTable?.previewRows.length ? (
-                <div className="mt-3 overflow-x-auto">
+                <div className="mt-3 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                   <table className="w-full text-left text-xs">
                     <thead className="border-b border-hairline text-ink-muted48">
                       <tr>

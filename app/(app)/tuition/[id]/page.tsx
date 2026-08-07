@@ -86,7 +86,7 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
       {canManageTuition && <BillingPeriodExceptionQueue periodId={period.id} />}
 
       {/* Desktop: Full table */}
-      <div className="hidden lg:block card overflow-x-auto p-0">{renderChargesTable()}</div>
+      <div className="hidden lg:block card overflow-x-auto p-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">{renderChargesTable()}</div>
 
       {/* Mobile & Tablet: Card view */}
       <div className="lg:hidden space-y-3">

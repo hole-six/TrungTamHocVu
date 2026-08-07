@@ -215,7 +215,7 @@ export default async function CalendarPage({
         initialTimePreset={timePreset}
       />
 
-      <div className="overflow-x-auto pb-2">
+      <div className="overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="grid min-w-[1460px] grid-cols-7 gap-3">
           {sessionsByDay.map((day) => {
             const iso = day.date.toISOString().slice(0, 10);

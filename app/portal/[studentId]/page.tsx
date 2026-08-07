@@ -117,7 +117,7 @@ export default async function PortalStudentPage({ params }: { params: { studentI
         <p className="mt-1 text-xs text-ink-muted48">{outstanding > 0 ? "Còn phải đóng" : "Đã đóng đủ"}</p>
       </div>
 
-      <div className="card overflow-x-auto">
+      <div className="card overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <h2 className="font-display text-lg font-semibold tracking-tight">Học phí theo kỳ</h2>
         <table className="mt-3 w-full text-left text-sm">
           <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
@@ -150,7 +150,7 @@ export default async function PortalStudentPage({ params }: { params: { studentI
         </table>
       </div>
 
-      <div className="card overflow-x-auto">
+      <div className="card overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <h2 className="font-display text-lg font-semibold tracking-tight">Lịch sử thanh toán</h2>
         <table className="mt-3 w-full text-left text-sm">
           <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
@@ -179,7 +179,7 @@ export default async function PortalStudentPage({ params }: { params: { studentI
         </table>
       </div>
 
-      <div className="card overflow-x-auto">
+      <div className="card overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <h2 className="font-display text-lg font-semibold tracking-tight">Nhật ký lớp học</h2>
         <div className="mt-3 space-y-3">
           {journalEntries.map((entry) => (
@@ -212,7 +212,7 @@ export default async function PortalStudentPage({ params }: { params: { studentI
         </div>
       </div>
 
-      <div className="card overflow-x-auto">
+      <div className="card overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <h2 className="font-display text-lg font-semibold tracking-tight">Lịch học & điểm danh</h2>
         <table className="mt-3 w-full text-left text-sm">
           <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">

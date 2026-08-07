@@ -223,7 +223,7 @@ export default async function JournalPrintPage({ params }: { params: { sessionId
             </h3>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-[#d1d9e6]">
+          <div className="overflow-x-auto rounded-xl border border-[#d1d9e6] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <table className="min-w-full border-collapse text-left text-sm">
               <thead>
                 <tr>

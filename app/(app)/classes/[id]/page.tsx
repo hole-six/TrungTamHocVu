@@ -539,7 +539,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                     />
                   </div>
                   {/* Desktop: Full 6-column table */}
-                <div className="hidden lg:block overflow-x-auto">
+                <div className="hidden lg:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <table className="w-full text-left text-sm">
                       <thead className="bg-[#f8fbff] text-xs uppercase tracking-[0.18em] text-[#7b8ea5]">
                         <tr>
@@ -827,7 +827,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                   {canManageClass && <EnrollStudentForm classId={cls.id} courseTotalAmount={(cls.tuitionPerSession ?? 0) * (cls.totalSessions ?? 0)} />}
                 </div>
                 {/* Desktop: Full 5-column table */}
-                <div className="hidden lg:block overflow-x-auto">
+                <div className="hidden lg:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-[#f8faff] text-xs uppercase tracking-wide text-[#64748b]">
                       <tr>

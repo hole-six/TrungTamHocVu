@@ -515,7 +515,7 @@ export default function BatchInvoiceView({
           </div>
 
           <div className="mt-4 overflow-hidden rounded-2xl border border-hairline">
-            <div className="max-h-[70vh] overflow-auto">
+            <div className="max-h-[70vh] overflow-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 z-10 border-b border-hairline bg-white">
                   <tr className="text-xs uppercase tracking-wide text-ink-muted48">

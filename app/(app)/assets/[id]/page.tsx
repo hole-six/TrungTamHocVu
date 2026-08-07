@@ -138,7 +138,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           {/* Desktop Table */}
-          <div className="card hidden lg:block overflow-x-auto">
+          <div className="card hidden lg:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-display text-lg font-semibold tracking-tight">Lịch sử giao dịch</h2>
               <span className="badge bg-ink/5 text-ink-muted80">{asset.transactions.length} dòng</span>

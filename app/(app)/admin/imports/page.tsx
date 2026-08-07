@@ -86,7 +86,21 @@ function formatDateTime(value: Date | string | null) {
   return new Date(value).toLocaleString("vi-VN");
 }
 
-export default async function AdminImportsPage() {
+const IMPORT_JOBS_PAGE_SIZE = 30;
+
+function buildImportJobsHref(base: { status?: string }, page: number) {
+  const params = new URLSearchParams();
+  if (base.status) params.set("status", base.status);
+  if (page > 1) params.set("page", String(page));
+  const qs = params.toString();
+  return `/admin/imports${qs ? `?${qs}` : ""}`;
+}
+
+export default async function AdminImportsPage({
+  searchParams,
+}: {
+  searchParams: { page?: string; status?: string };
+}) {
   const session = await auth();
 
   if (!session?.user) {
@@ -102,12 +116,21 @@ export default async function AdminImportsPage() {
   const overrideSummaryPath = path.join(process.cwd(), "docs", "generated", "workbook_2026", "override_summary.json");
   const remediationIndexPath = path.join(process.cwd(), "docs", "generated", "workbook_2026", "remediation", "_index.json");
 
-  const [readiness, manifest, overrideSummary, remediationIndex, importJobs] = await Promise.all([
+  const statusFilter = searchParams.status?.trim() ?? "";
+  const importJobPage = Math.max(1, Number(searchParams.page) || 1);
+  const importJobWhere = statusFilter ? { status: statusFilter } : {};
+
+  const [readiness, manifest, overrideSummary, remediationIndex, importJobTotal, importJobStatusCounts, importJobs] = await Promise.all([
     readJsonIfExists<ImportReadiness>(readinessPath),
     readJsonIfExists<ImportManifest>(manifestPath),
     readJsonIfExists<OverrideSummary>(overrideSummaryPath),
     readJsonIfExists<RemediationIndex>(remediationIndexPath),
+    prisma.importJob.count({ where: importJobWhere }),
+    // Badge tổng hợp theo trạng thái phải tính trên TOÀN BỘ tập đã lọc, không chỉ trang
+    // hiện tại — cùng nguyên tắc đã áp dụng ở sổ quỹ/tài sản.
+    prisma.importJob.groupBy({ by: ["status"], where: importJobWhere, _count: { _all: true } }),
     prisma.importJob.findMany({
+      where: importJobWhere,
       include: {
         branch: {
           select: {
@@ -117,13 +140,16 @@ export default async function AdminImportsPage() {
         },
       },
       orderBy: { createdAt: "desc" },
-      take: 50,
+      skip: (importJobPage - 1) * IMPORT_JOBS_PAGE_SIZE,
+      take: IMPORT_JOBS_PAGE_SIZE,
     }),
   ]);
 
-  const importedCount = importJobs.filter((item) => item.status === "IMPORTED").length;
-  const failedCount = importJobs.filter((item) => item.status === "FAILED").length;
-  const validatingCount = importJobs.filter((item) => item.status === "VALIDATING").length;
+  const importJobPageCount = Math.max(1, Math.ceil(importJobTotal / IMPORT_JOBS_PAGE_SIZE));
+  const countByStatus = (status: string) => importJobStatusCounts.find((row) => row.status === status)?._count._all ?? 0;
+  const importedCount = countByStatus("IMPORTED");
+  const failedCount = countByStatus("FAILED");
+  const validatingCount = countByStatus("VALIDATING");
 
   return (
     <div className="space-y-6">
@@ -260,7 +286,7 @@ export default async function AdminImportsPage() {
           </div>
 
           {/* Desktop Table */}
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-hairline bg-canvas-parchment/60 text-xs uppercase tracking-wide text-ink-muted48">
                 <tr>
@@ -314,12 +340,30 @@ export default async function AdminImportsPage() {
       ) : null}
 
       <div className="card p-0">
-        <div className="border-b border-hairline px-4 py-3">
+        <div className="flex flex-col gap-3 border-b border-hairline px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-display text-lg font-semibold tracking-tight">Nhật ký ImportJob</h2>
+          <form action="/admin/imports" method="GET" className="flex items-center gap-2">
+            <select name="status" defaultValue={statusFilter} className="input h-9 text-xs">
+              <option value="">Tất cả trạng thái</option>
+              {Object.entries(IMPORT_JOB_STATUS_LABEL).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="btn-ghost h-9 text-xs">
+              Lọc
+            </button>
+            {statusFilter ? (
+              <Link href="/admin/imports" className="btn-ghost h-9 text-xs">
+                Xóa lọc
+              </Link>
+            ) : null}
+          </form>
         </div>
 
         {/* Desktop Table */}
-        <div className="hidden lg:block overflow-x-auto">
+        <div className="hidden lg:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-hairline bg-canvas-parchment/60 text-xs uppercase tracking-wide text-ink-muted48">
               <tr>
@@ -410,6 +454,27 @@ export default async function AdminImportsPage() {
             </div>
           )}
         </div>
+
+        <div className="flex flex-col gap-3 border-t border-hairline px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-ink-muted48">{importJobTotal} bản ghi</p>
+          {importJobPageCount > 1 ? (
+            <div className="flex items-center gap-2">
+              {importJobPage > 1 ? (
+                <Link href={buildImportJobsHref({ status: statusFilter }, importJobPage - 1)} className="btn-ghost h-9 text-xs">
+                  Trước
+                </Link>
+              ) : null}
+              <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-1.5 text-xs font-semibold text-ink">
+                Trang {importJobPage}/{importJobPageCount}
+              </span>
+              {importJobPage < importJobPageCount ? (
+                <Link href={buildImportJobsHref({ status: statusFilter }, importJobPage + 1)} className="btn-ghost h-9 text-xs">
+                  Sau
+                </Link>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {readiness?.blockedTables?.length ? (
@@ -419,7 +484,7 @@ export default async function AdminImportsPage() {
           </div>
 
           {/* Desktop Table */}
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-hairline bg-canvas-parchment/60 text-xs uppercase tracking-wide text-ink-muted48">
                 <tr>
