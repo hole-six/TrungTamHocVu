@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import InvoiceDocument, { type InvoiceChargeData, type PaymentProfileData } from "@/components/tuition/InvoiceDocument";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import DetailTabs from "@/components/ui/DetailTabs";
+import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 
 type BatchCharge = InvoiceChargeData & {
   enrollmentId: string | null;
@@ -100,7 +101,7 @@ export default function BatchInvoiceView({
         charges
           .filter((charge) => {
             const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
-            return !hasBillingMismatch(charge) && charge.totalAmount - paid > 0;
+            return !hasBillingMismatch(charge) && chargeOwnDueAmount(charge) - paid > 0;
           })
           .map((charge) => charge.id),
       ),
@@ -128,7 +129,7 @@ export default function BatchInvoiceView({
     return charges.filter((charge) => {
       const effectiveBillingModel = getEffectiveBillingModel(charge);
       const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
-      const remaining = Math.max(charge.totalAmount - paid, 0);
+      const remaining = Math.max(chargeOwnDueAmount(charge) - paid, 0);
 
       if (onlyEndedCourses && charge.billingModel === "COURSE" && !charge.classEndedThisPeriod) return false;
       if (billingModelFilter !== "ALL" && effectiveBillingModel !== billingModelFilter) return false;
@@ -151,7 +152,7 @@ export default function BatchInvoiceView({
   const stats = useMemo(() => {
     const totalAmount = visibleCharges.reduce((sum, charge) => sum + charge.totalAmount, 0);
     const totalSelectedAmount = selectedCharges.reduce((sum, charge) => sum + charge.totalAmount, 0);
-    const unpaidCount = visibleCharges.filter((charge) => charge.totalAmount - charge.allocations.reduce((s, item) => s + item.amount, 0) > 0).length;
+    const unpaidCount = visibleCharges.filter((charge) => chargeOwnDueAmount(charge) - charge.allocations.reduce((s, item) => s + item.amount, 0) > 0).length;
     const mismatchCount = visibleCharges.filter((charge) => hasBillingMismatch(charge)).length;
     return {
       visibleCount: visibleCharges.length,
@@ -188,7 +189,7 @@ export default function BatchInvoiceView({
       const next = new Set(current);
       visibleCharges.forEach((charge) => {
         const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
-        if (charge.totalAmount - paid > 0) next.add(charge.id);
+        if (chargeOwnDueAmount(charge) - paid > 0) next.add(charge.id);
         else next.delete(charge.id);
       });
       return next;
@@ -532,7 +533,7 @@ export default function BatchInvoiceView({
                 <tbody>
                   {visibleCharges.map((charge) => {
                     const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
-                    const meta = getChargeCollectionMeta(charge.totalAmount, paid);
+                    const meta = getChargeCollectionMeta(chargeOwnDueAmount(charge), paid);
                     const remaining = meta.remainingAmount;
                     const billingMismatch = hasBillingMismatch(charge);
                     const effectiveBillingModel = getEffectiveBillingModel(charge);

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 
 export async function getBatchInvoiceViewData(periodId: string) {
   const period = await prisma.billingPeriod.findUnique({
@@ -24,7 +25,7 @@ export async function getBatchInvoiceViewData(periodId: string) {
 
   const chargesWithRemaining = period.charges.filter((charge) => {
     const paidAmount = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
-    return Math.max(charge.totalAmount - paidAmount, 0) > 0;
+    return Math.max(chargeOwnDueAmount(charge) - paidAmount, 0) > 0;
   });
 
   const activeEnrollments = await prisma.enrollment.findMany({

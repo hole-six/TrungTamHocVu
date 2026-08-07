@@ -13,6 +13,7 @@ import GuardianAccountPanel from "@/components/guardians/GuardianAccountPanel";
 import DetailTabs from "@/components/ui/DetailTabs";
 import PageGuide from "@/components/ui/PageGuide";
 import { computeOutstandingBalance } from "@/lib/server/balance";
+import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import { computeEnrollmentSessionProgress } from "@/lib/server/class-generation";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import EditableDateField from "@/components/ui/EditableDateField";
@@ -293,7 +294,7 @@ export default async function StudentDetailPage({
     .sort((a, b) => a.billingPeriod.startDate.getTime() - b.billingPeriod.startDate.getTime())
     .forEach((charge) => {
       const paidAmount = charge.allocations.reduce((sum, alloc) => sum + alloc.amount, 0);
-      const rawRemaining = Math.max(0, charge.totalAmount - paidAmount);
+      const rawRemaining = Math.max(0, chargeOwnDueAmount(charge) - paidAmount);
       const creditApplied = Math.min(rawRemaining, creditLeft);
       creditLeft -= creditApplied;
       chargeRemainingMap.set(charge.id, {
@@ -305,7 +306,7 @@ export default async function StudentDetailPage({
   const chargeSummaries = student.charges.map((charge) => {
     const paymentState = chargeRemainingMap.get(charge.id) ?? {
       paidAmount: charge.allocations.reduce((sum, alloc) => sum + alloc.amount, 0),
-      remainingAmount: Math.max(0, charge.totalAmount - charge.allocations.reduce((sum, alloc) => sum + alloc.amount, 0)),
+      remainingAmount: Math.max(0, chargeOwnDueAmount(charge) - charge.allocations.reduce((sum, alloc) => sum + alloc.amount, 0)),
     };
     return {
       id: charge.id,
@@ -338,9 +339,10 @@ export default async function StudentDetailPage({
   // chính xác hơn vì dữ liệu gốc không lưu allocation theo khoản mục).
   const { tuitionPaid, materialsPaid } = chargeSummaries.reduce(
     (acc, charge) => {
-      if (charge.totalAmount > 0) {
-        acc.tuitionPaid += charge.paidAmount * (charge.tuitionAmount / charge.totalAmount);
-        acc.materialsPaid += charge.paidAmount * (charge.materialsAmount / charge.totalAmount);
+      const ownDue = chargeOwnDueAmount(charge);
+      if (ownDue > 0) {
+        acc.tuitionPaid += charge.paidAmount * (charge.tuitionAmount / ownDue);
+        acc.materialsPaid += charge.paidAmount * (charge.materialsAmount / ownDue);
       }
       return acc;
     },
@@ -738,7 +740,7 @@ export default async function StudentDetailPage({
                   <div className="space-y-3">
                     {student.charges.slice(0, 6).map((charge) => {
                       const paid = charge.allocations.reduce((sum, alloc) => sum + alloc.amount, 0);
-                      const remaining = charge.totalAmount - paid;
+                      const remaining = chargeOwnDueAmount(charge) - paid;
                       return (
                         <div key={charge.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] p-4 hover:border-[#3b82f6] transition-colors">
                           <div className="flex items-start justify-between gap-3">

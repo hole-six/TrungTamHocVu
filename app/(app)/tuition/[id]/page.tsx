@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { BILLING_PERIOD_STATUS_LABEL, chargePaymentStatus, PAYMENT_STATUS_LABEL, canEditCharges } from "@/lib/server/tuition-rules";
+import { BILLING_PERIOD_STATUS_LABEL, chargePaymentStatus, chargeOwnDueAmount, PAYMENT_STATUS_LABEL, canEditCharges } from "@/lib/server/tuition-rules";
 import BillingPeriodActions from "@/components/tuition/BillingPeriodActions";
 import BillingPeriodExceptionQueue from "@/components/tuition/BillingPeriodExceptionQueue";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
@@ -92,7 +92,7 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
       <div className="lg:hidden space-y-3">
         {period.charges.map((c) => {
           const paid = c.allocations.reduce((s, a) => s + a.amount, 0);
-          const status = chargePaymentStatus(c.totalAmount, paid);
+          const status = chargePaymentStatus(chargeOwnDueAmount(c), paid);
           const primaryGuardian = c.student.guardians.find((item) => item.isPrimary)?.guardian ?? c.student.guardians[0]?.guardian ?? null;
           
           return (
@@ -172,7 +172,7 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
 
               {/* Actions */}
               <div className="flex items-center gap-2 pt-2 border-t border-hairline">
-                {canManageTuition && <QuickPaymentButton studentId={c.studentId} suggestedAmount={c.totalAmount - paid} />}
+                {canManageTuition && <QuickPaymentButton studentId={c.studentId} suggestedAmount={chargeOwnDueAmount(c) - paid} />}
                 <a href={`/api/invoices/${c.id}/pdf`} className="btn-ghost-sm">
                   Tải phiếu
                 </a>
@@ -214,7 +214,7 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
         <tbody>
           {period.charges.map((c) => {
             const paid = c.allocations.reduce((s, a) => s + a.amount, 0);
-            const status = chargePaymentStatus(c.totalAmount, paid);
+            const status = chargePaymentStatus(chargeOwnDueAmount(c), paid);
             const primaryGuardian = c.student.guardians.find((item) => item.isPrimary)?.guardian ?? c.student.guardians[0]?.guardian ?? null;
             return (
               <tr key={c.id} className="border-b border-hairline last:border-0 hover:bg-canvas-parchment/40">
@@ -251,7 +251,7 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    {canManageTuition && <QuickPaymentButton studentId={c.studentId} suggestedAmount={c.totalAmount - paid} />}
+                    {canManageTuition && <QuickPaymentButton studentId={c.studentId} suggestedAmount={chargeOwnDueAmount(c) - paid} />}
                     <a href={`/api/invoices/${c.id}/pdf`} className="text-xs text-ink-muted48 hover:text-primary">
                       Tải phiếu
                     </a>

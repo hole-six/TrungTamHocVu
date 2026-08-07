@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { hasPermission } from "@/lib/server/permissions";
 import { computeOutstandingBalance } from "@/lib/server/balance";
+import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import { canAccessBranch } from "@/lib/branch-filter";
 
 const CASH_METHOD = "Tiền mặt";
@@ -97,7 +98,10 @@ export async function POST(req: NextRequest) {
     for (const charge of openCharges) {
       if (remaining <= 0) break;
       const alreadyPaid = charge.allocations.reduce((sum, allocation) => sum + allocation.amount, 0);
-      const due = charge.totalAmount - alreadyPaid;
+      // chargeOwnDueAmount (KHÔNG dùng totalAmount) — totalAmount cộng cả openingBalance
+      // (bản chụp lại nợ charge kỳ TRƯỚC), nếu dùng trực tiếp sẽ đếm trùng đúng khoản nợ
+      // đó 2 lần: 1 lần ở chính charge kỳ trước, 1 lần nữa ở đây.
+      const due = chargeOwnDueAmount(charge) - alreadyPaid;
       if (due <= 0) continue;
 
       const allocAmount = Math.min(due, remaining);

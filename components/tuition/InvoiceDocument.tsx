@@ -1,3 +1,5 @@
+import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
+
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
 }
@@ -95,7 +97,10 @@ export default function InvoiceDocument({
   paymentProfile?: PaymentProfileData | null;
 }) {
   const paid = charge.allocations.reduce((sum, allocation) => sum + allocation.amount, 0);
-  const remaining = Math.max(charge.totalAmount - paid, 0);
+  // chargeOwnDueAmount (KHÔNG dùng totalAmount trực tiếp) — totalAmount cộng cả
+  // openingBalance (bản chụp nợ kỳ TRƯỚC), dùng thẳng sẽ đếm trùng khoản nợ cũ đó với
+  // chính hóa đơn kỳ trước, khiến "Còn cần nộp" hiện sai dù phụ huynh đã đóng đủ.
+  const remaining = Math.max(chargeOwnDueAmount(charge) - paid, 0);
   const periodLabel = formatPeriodLabel(charge.billingPeriod.periodName);
   const serial = getInvoiceSerial(charge.invoice?.invoiceNo);
   const branchName = charge.class.branch.name || "Trung tâm";

@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canCreate, canView, canViewFullWithOverride, canViewWithOverride } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
+import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import StudentsTable from "./StudentsTable";
 import PageGuide from "@/components/ui/PageGuide";
 
@@ -192,7 +193,9 @@ export default async function StudentsPage({
   const billingModesByStudent = new Map<string, Set<string>>();
   for (const row of chargeRows) {
     chargeOwner.set(row.id, row.studentId);
-    chargeByStudent.set(row.studentId, (chargeByStudent.get(row.studentId) ?? 0) + row.totalAmount);
+    // chargeOwnDueAmount (không dùng row.totalAmount) — cộng dồn qua nhiều charge của
+    // cùng 1 học viên, dùng totalAmount trực tiếp sẽ đếm trùng nợ cũ (openingBalance).
+    chargeByStudent.set(row.studentId, (chargeByStudent.get(row.studentId) ?? 0) + chargeOwnDueAmount(row));
     tuitionByStudent.set(row.studentId, (tuitionByStudent.get(row.studentId) ?? 0) + row.tuitionAmount);
     materialsByStudent.set(row.studentId, (materialsByStudent.get(row.studentId) ?? 0) + row.materialsAmount);
     openingBalanceByStudent.set(row.studentId, (openingBalanceByStudent.get(row.studentId) ?? 0) + row.openingBalance);
@@ -217,7 +220,7 @@ export default async function StudentsPage({
   const unpaidChargeCountByStudent = new Map<string, number>();
   for (const charge of chargeRows) {
     const paid = paidByCharge.get(charge.id) ?? 0;
-    if (charge.totalAmount - paid > 0) {
+    if (chargeOwnDueAmount(charge) - paid > 0) {
       unpaidChargeCountByStudent.set(charge.studentId, (unpaidChargeCountByStudent.get(charge.studentId) ?? 0) + 1);
     }
   }
