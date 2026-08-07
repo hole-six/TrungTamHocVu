@@ -49,6 +49,7 @@ export default function AssetEditForm({
     room: string;
     unitName: string;
     unitValue: string;
+    maintenanceIntervalMonths: string;
     notes: string;
   };
   compact?: boolean;
@@ -128,6 +129,20 @@ export default function AssetEditForm({
               <span className="label">Giá trị / đơn vị</span>
               <input type="number" min={0} step={1000} className="input" value={form.unitValue} onChange={(event) => setForm((current) => ({ ...current, unitValue: event.target.value }))} />
               <p className="form-hint">{form.unitValue ? formatVnd(Number(form.unitValue) || 0) : "Giá gốc của 1 đơn vị tài sản."}</p>
+            </label>
+
+            <label className="form-group">
+              <span className="label">Chu kỳ bảo dưỡng (tháng)</span>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                className="input"
+                placeholder="VD: 3, 6, 12"
+                value={form.maintenanceIntervalMonths}
+                onChange={(event) => setForm((current) => ({ ...current, maintenanceIntervalMonths: event.target.value }))}
+              />
+              <p className="form-hint">Để trống nếu tài sản này không cần lịch bảo dưỡng định kỳ.</p>
             </label>
 
             <label className="form-group md:col-span-2">

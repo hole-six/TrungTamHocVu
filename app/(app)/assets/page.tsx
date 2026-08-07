@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { ASSET_STATUS_LABEL, computeAssetTotalValue } from "@/lib/server/asset-rules";
+import { ASSET_STATUS_LABEL, computeAssetTotalValue, computeNextMaintenanceDue, computeMaintenanceStatus } from "@/lib/server/asset-rules";
 import NewAssetForm from "@/components/assets/NewAssetForm";
 import AssetEditForm from "@/components/assets/AssetEditForm";
 import DeleteAssetButton from "@/components/assets/DeleteAssetButton";
 import QuickMaintenanceButton from "@/components/assets/QuickMaintenanceButton";
+import AssetMaintenanceCell from "@/components/assets/AssetMaintenanceCell";
 import PageGuide from "@/components/ui/PageGuide";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate, canUpdate, canDelete } from "@/lib/server/role-matrix";
@@ -89,19 +90,21 @@ export default async function AssetsPage({
       take: pageSize,
       include: {
         transactions: {
-          select: { type: true, quantity: true, amount: true },
+          select: { id: true, type: true, quantity: true, amount: true, txnDate: true, notes: true },
         },
       },
     }),
     prisma.asset.count({ where }),
-    // Tổng số lượng/giá trị phải tính trên TOÀN BỘ danh sách đã lọc, không chỉ
-    // trang hiện tại — dùng truy vấn riêng không phân trang cho việc này.
+    // Tổng số lượng/giá trị/số thiết bị quá hạn phải tính trên TOÀN BỘ danh sách đã
+    // lọc, không chỉ trang hiện tại — dùng truy vấn riêng không phân trang cho việc này.
     prisma.asset.findMany({
       where,
       select: {
         status: true,
         unitValue: true,
-        transactions: { select: { type: true, quantity: true, amount: true } },
+        maintenanceIntervalMonths: true,
+        createdAt: true,
+        transactions: { select: { type: true, quantity: true, amount: true, txnDate: true } },
       },
     }),
   ]);
@@ -110,9 +113,15 @@ export default async function AssetsPage({
     const quantity = asset.transactions.reduce((sum, transaction) => sum + transaction.quantity, 0);
     const unitName = normalizeUnit(asset.unitName);
     const baseValue = quantity * (asset.unitValue ?? 0);
-    const maintenanceValue = asset.transactions
-      .filter((transaction) => transaction.type === "MAINTENANCE")
-      .reduce((sum, transaction) => sum + transaction.amount, 0);
+    const maintenanceTxns = asset.transactions.filter((transaction) => transaction.type === "MAINTENANCE");
+    const maintenanceValue = maintenanceTxns.reduce((sum, transaction) => sum + transaction.amount, 0);
+    const maintenanceHistory = maintenanceTxns
+      .slice()
+      .sort((a, b) => b.txnDate.getTime() - a.txnDate.getTime())
+      .map((t) => ({ id: t.id, txnDate: t.txnDate.toISOString(), amount: t.amount, notes: t.notes }));
+    const lastMaintenanceDate = maintenanceHistory[0] ? new Date(maintenanceHistory[0].txnDate) : null;
+    const nextMaintenanceDue = computeNextMaintenanceDue(asset.maintenanceIntervalMonths, lastMaintenanceDate, asset.createdAt);
+    const maintenanceStatus = computeMaintenanceStatus(nextMaintenanceDue);
 
     return {
       ...asset,
@@ -120,6 +129,9 @@ export default async function AssetsPage({
       unitName,
       baseValue,
       maintenanceValue,
+      maintenanceHistory,
+      nextMaintenanceDue,
+      maintenanceStatus,
       totalValue: computeAssetTotalValue(asset.unitValue, quantity, asset.transactions),
     };
   });
@@ -128,14 +140,19 @@ export default async function AssetsPage({
   const summaryRows = assetsForTotals.map((asset) => {
     const quantity = asset.transactions.reduce((sum, transaction) => sum + transaction.quantity, 0);
     const baseValue = quantity * (asset.unitValue ?? 0);
-    const maintenanceValue = asset.transactions
-      .filter((transaction) => transaction.type === "MAINTENANCE")
-      .reduce((sum, transaction) => sum + transaction.amount, 0);
+    const maintenanceTxns = asset.transactions.filter((transaction) => transaction.type === "MAINTENANCE");
+    const maintenanceValue = maintenanceTxns.reduce((sum, transaction) => sum + transaction.amount, 0);
+    const lastMaintenanceDate = maintenanceTxns.reduce<Date | null>(
+      (latest, t) => (!latest || t.txnDate.getTime() > latest.getTime() ? t.txnDate : latest),
+      null,
+    );
+    const nextMaintenanceDue = computeNextMaintenanceDue(asset.maintenanceIntervalMonths, lastMaintenanceDate, asset.createdAt);
     return {
       status: asset.status,
       quantity,
       baseValue,
       maintenanceValue,
+      maintenanceStatus: computeMaintenanceStatus(nextMaintenanceDue),
       totalValue: computeAssetTotalValue(asset.unitValue, quantity, asset.transactions),
     };
   });
@@ -145,6 +162,8 @@ export default async function AssetsPage({
   const totalValue = summaryRows.reduce((sum, row) => sum + row.totalValue, 0);
   const maintenanceCount = summaryRows.filter((row) => row.status === "MAINTENANCE").length;
   const brokenCount = summaryRows.filter((row) => row.status === "BROKEN").length;
+  const overdueMaintenanceCount = summaryRows.filter((row) => row.maintenanceStatus === "OVERDUE").length;
+  const dueSoonMaintenanceCount = summaryRows.filter((row) => row.maintenanceStatus === "DUE_SOON").length;
   const canManageAssets = canUpdate("assets", role);
   const canRemoveAssets = canDelete("assets", role);
 
@@ -175,6 +194,8 @@ export default async function AssetsPage({
           <span className="rounded-full border border-[#e4ddff] bg-[#f7f5ff] px-3 py-2 text-xs font-semibold text-violet-700">Tổng giá trị {formatVnd(totalValue)}</span>
           <span className="rounded-full border border-[#fde7d8] bg-[#fff8f2] px-3 py-2 text-xs font-semibold text-amber-700">Đang bảo trì {maintenanceCount}</span>
           <span className="rounded-full border border-[#ffe0e0] bg-[#fff7f7] px-3 py-2 text-xs font-semibold text-rose-700">Hỏng {brokenCount}</span>
+          <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">Quá hạn bảo dưỡng {overdueMaintenanceCount}</span>
+          <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">Sắp đến hạn {dueSoonMaintenanceCount}</span>
         </form>
       </div>
 
@@ -202,6 +223,7 @@ export default async function AssetsPage({
                   <th>Bảo dưỡng</th>
                   <th>Tổng giá trị</th>
                   <th>Trạng thái</th>
+                  <th>Lịch bảo dưỡng</th>
                   {(canManageAssets || canRemoveAssets) && <th>Thao tác</th>}
                 </tr>
               </thead>
@@ -227,6 +249,15 @@ export default async function AssetsPage({
                         {ASSET_STATUS_LABEL[asset.status] ?? asset.status}
                       </span>
                     </td>
+                    <td>
+                      <AssetMaintenanceCell
+                        assetName={asset.name}
+                        intervalMonths={asset.maintenanceIntervalMonths}
+                        status={asset.maintenanceStatus}
+                        nextDue={asset.nextMaintenanceDue ? asset.nextMaintenanceDue.toISOString() : null}
+                        history={asset.maintenanceHistory}
+                      />
+                    </td>
                     {(canManageAssets || canRemoveAssets) && (
                       <td>
                         <div className="flex flex-wrap items-center gap-2">
@@ -242,6 +273,7 @@ export default async function AssetsPage({
                                 room: asset.room ?? "",
                                 unitName: asset.unitName,
                                 unitValue: asset.unitValue?.toString() ?? "",
+                                maintenanceIntervalMonths: asset.maintenanceIntervalMonths?.toString() ?? "",
                                 notes: asset.notes ?? "",
                               }}
                             />
@@ -254,7 +286,7 @@ export default async function AssetsPage({
                 ))}
                 {rows.length === 0 ? (
                   <tr className="table-empty">
-                    <td colSpan={11}>Không có tài sản nào khớp bộ lọc.</td>
+                    <td colSpan={12}>Không có tài sản nào khớp bộ lọc.</td>
                   </tr>
                 ) : null}
               </tbody>
@@ -311,6 +343,17 @@ export default async function AssetsPage({
                 <span className="text-sm font-semibold">{formatVnd(asset.totalValue)}</span>
               </div>
 
+              <div className="mt-2 flex items-center justify-between border-t border-hairline pt-2">
+                <span className="text-xs text-ink-muted48">Lịch bảo dưỡng:</span>
+                <AssetMaintenanceCell
+                  assetName={asset.name}
+                  intervalMonths={asset.maintenanceIntervalMonths}
+                  status={asset.maintenanceStatus}
+                  nextDue={asset.nextMaintenanceDue ? asset.nextMaintenanceDue.toISOString() : null}
+                  history={asset.maintenanceHistory}
+                />
+              </div>
+
               {(canManageAssets || canRemoveAssets) && (
                 <div className="mt-3 flex flex-wrap gap-2 border-t border-hairline pt-3">
                   {canManageAssets && <QuickMaintenanceButton assetId={asset.id} assetName={asset.name} compact />}
@@ -325,6 +368,7 @@ export default async function AssetsPage({
                         room: asset.room ?? "",
                         unitName: asset.unitName,
                         unitValue: asset.unitValue?.toString() ?? "",
+                        maintenanceIntervalMonths: asset.maintenanceIntervalMonths?.toString() ?? "",
                         notes: asset.notes ?? "",
                       }}
                     />

@@ -34,6 +34,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
   if ("unitValue" in body) data.unitValue = body.unitValue === "" || body.unitValue === null ? null : Number(body.unitValue);
 
+  if ("maintenanceIntervalMonths" in body) {
+    if (body.maintenanceIntervalMonths === "" || body.maintenanceIntervalMonths === null) {
+      data.maintenanceIntervalMonths = null;
+    } else {
+      const parsed = Number(body.maintenanceIntervalMonths);
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        return NextResponse.json({ error: "Chu kỳ bảo dưỡng phải là số tháng nguyên dương" }, { status: 400 });
+      }
+      data.maintenanceIntervalMonths = parsed;
+    }
+  }
+
   const asset = await prisma.asset.update({ where: { id: params.id }, data });
   return NextResponse.json({ item: asset });
 }

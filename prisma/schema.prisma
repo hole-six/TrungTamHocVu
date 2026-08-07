@@ -1412,6 +1412,10 @@ model Asset {
   unitName  String?  @map("unit_name") // đơn vị tính: cái, bộ, chiếc...
   unitValue Int?     @map("unit_value") // giá trị/đơn vị (VNĐ)
   status    String   @default("ACTIVE") // ACTIVE | MAINTENANCE | BROKEN | DISPOSED
+  // Chu kỳ bảo dưỡng định kỳ (tháng) — null nghĩa là tài sản này không cần lịch định kỳ.
+  // Hạn kế tiếp tính động từ lần bảo dưỡng gần nhất (xem computeNextMaintenanceDue trong
+  // lib/server/asset-rules.ts), không lưu ở đây để tránh lệch với lịch sử giao dịch thật.
+  maintenanceIntervalMonths Int? @map("maintenance_interval_months")
   notes     String?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

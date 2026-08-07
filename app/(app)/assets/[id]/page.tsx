@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { ASSET_STATUS_LABEL, ASSET_TXN_TYPE_LABEL, computeAssetTotalValue } from "@/lib/server/asset-rules";
+import {
+  ASSET_STATUS_LABEL,
+  ASSET_TXN_TYPE_LABEL,
+  MAINTENANCE_STATUS_LABEL,
+  computeAssetTotalValue,
+  computeNextMaintenanceDue,
+  computeMaintenanceStatus,
+} from "@/lib/server/asset-rules";
 import AssetTransactionForm from "@/components/assets/AssetTransactionForm";
 import AssetEditForm from "@/components/assets/AssetEditForm";
 import DeleteAssetButton from "@/components/assets/DeleteAssetButton";
@@ -38,6 +45,15 @@ export default async function AssetDetailPage({ params }: { params: { id: string
     .reduce((sum, transaction) => sum + transaction.amount, 0);
   const totalValue = computeAssetTotalValue(asset.unitValue, quantity, asset.transactions);
   const unitName = unitLabel(asset.unitName);
+  const lastMaintenanceDate = asset.transactions.find((t) => t.type === "MAINTENANCE")?.txnDate ?? null;
+  const nextMaintenanceDue = computeNextMaintenanceDue(asset.maintenanceIntervalMonths, lastMaintenanceDate, asset.createdAt);
+  const maintenanceStatus = computeMaintenanceStatus(nextMaintenanceDue);
+  const MAINTENANCE_STATUS_CARD_CLASS: Record<string, string> = {
+    OVERDUE: "border-rose-200 bg-rose-50 text-rose-700",
+    DUE_SOON: "border-amber-200 bg-amber-50 text-amber-700",
+    OK: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    NOT_SCHEDULED: "border-slate-200 bg-slate-50 text-slate-500",
+  };
 
   return (
     <div className="space-y-6">
@@ -100,6 +116,17 @@ export default async function AssetDetailPage({ params }: { params: { id: string
           <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Đã chi bảo dưỡng</p>
           <p className="mt-2 font-display text-2xl font-semibold tracking-tight text-amber-700">{formatVnd(maintenanceValue)}</p>
           <p className="mt-1 text-xs text-ink-muted48">{asset.transactions.filter((transaction) => transaction.type === "MAINTENANCE").length} lần bảo dưỡng</p>
+        </div>
+        <div className={`card border ${MAINTENANCE_STATUS_CARD_CLASS[maintenanceStatus]}`}>
+          <p className="text-xs font-medium uppercase tracking-wide opacity-70">Lịch bảo dưỡng</p>
+          <p className="mt-2 font-display text-2xl font-semibold tracking-tight">{MAINTENANCE_STATUS_LABEL[maintenanceStatus]}</p>
+          <p className="mt-1 text-xs opacity-70">
+            {asset.maintenanceIntervalMonths
+              ? nextMaintenanceDue
+                ? `Hạn kế tiếp: ${formatDate(nextMaintenanceDue)} (chu kỳ ${asset.maintenanceIntervalMonths} tháng)`
+                : `Chu kỳ ${asset.maintenanceIntervalMonths} tháng`
+              : "Chưa đặt chu kỳ định kỳ — sửa thông tin tài sản để đặt lịch"}
+          </p>
         </div>
         <div className="card sm:col-span-2 xl:col-span-4">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Tổng giá trị</p>
@@ -245,6 +272,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
               room: asset.room ?? "",
               unitName: asset.unitName ?? "cái",
               unitValue: asset.unitValue?.toString() ?? "",
+              maintenanceIntervalMonths: asset.maintenanceIntervalMonths?.toString() ?? "",
               notes: asset.notes ?? "",
             }}
           />
