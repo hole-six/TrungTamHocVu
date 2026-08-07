@@ -326,7 +326,7 @@ export default function BatchInvoiceView({
               </p>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2" data-tour="tuition-summary">
               <div className="rounded-2xl border border-[#dfe8f2] bg-[#f8fbff] p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Kỳ đang xuất</p>
                 <p className="mt-2 text-lg font-semibold text-ink">{periodName}</p>
@@ -349,7 +349,7 @@ export default function BatchInvoiceView({
               </div>
             </div>
 
-            <div className="mt-4">
+            <div className="mt-4" data-tour="tuition-tabs">
               <DetailTabs
                 tabs={[
                   {
@@ -514,7 +514,7 @@ export default function BatchInvoiceView({
             ) : null}
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-2xl border border-hairline">
+          <div className="mt-4 overflow-hidden rounded-2xl border border-hairline" data-tour="tuition-table">
             <div className="max-h-[70vh] overflow-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 z-10 border-b border-hairline bg-white">
@@ -524,9 +524,9 @@ export default function BatchInvoiceView({
                     </th>
                     <th className="px-4 py-3 font-medium">Học viên</th>
                     <th className="px-4 py-3 font-medium">Lớp / kỳ</th>
-                    <th className="px-4 py-3 font-medium">Kiểu thu</th>
+                    <th className="px-4 py-3 font-medium" data-tour="tuition-billing-col">Kiểu thu</th>
                     <th className="px-4 py-3 font-medium">Số tiền</th>
-                    <th className="px-4 py-3 font-medium">Thao tác</th>
+                    <th className="px-4 py-3 font-medium" data-tour="tuition-actions-col">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>

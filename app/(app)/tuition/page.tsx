@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BatchInvoiceView from "@/components/tuition/BatchInvoiceView";
-import PageGuide from "@/components/ui/PageGuide";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
@@ -9,34 +9,41 @@ import { canView, canUpdate } from "@/lib/server/role-matrix";
 import { getBatchInvoiceViewData } from "@/lib/server/batch-invoice-view";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 
-const TUITION_PAGE_GUIDE_SECTIONS = [
+const TUITION_TOUR_STEPS: TourStep[] = [
   {
-    title: "Màn này để làm gì?",
-    items: [
-      "Đây là màn vận hành học phí chính theo từng kỳ/tháng thu.",
-      "Từ đây người vận hành chọn kỳ, xem danh sách cần thu, mở chi tiết công nợ và xử lý thu tiền hoặc xuất phiếu.",
-      "Hãy luôn nhìn đúng kỳ đang mở trước khi thao tác để tránh thu hay in nhầm tháng.",
-    ],
-    tone: "info" as const,
+    target: '[data-tour="tuition-period-switcher"]',
+    title: "Chọn đúng kỳ trước khi làm bất cứ gì",
+    description:
+      "Mọi số liệu trên trang này — công nợ, đã thu, danh sách xuất phiếu — đều thuộc về ĐÚNG kỳ đang chọn ở đây, không phải \"tháng hiện tại\" theo lịch thật. Các nút tròn là 6 kỳ gần nhất; nếu cần lùi xa hơn, gõ trực tiếp tháng/năm vào ô bên cạnh rồi bấm Mở kỳ. Thao tác nhầm kỳ là lỗi phổ biến nhất khi in phiếu hàng loạt — luôn nhìn lại tên kỳ đang hiện ở tiêu đề trước khi chọn học viên để in.",
+    placement: "bottom",
   },
   {
-    title: "Thứ tự thao tác nên đi",
-    items: [
-      "Bước 1: chọn đúng kỳ thu cần làm việc.",
-      "Bước 2: rà danh sách công nợ hoặc batch phiếu của kỳ đó.",
-      "Bước 3: mở chi tiết một học viên nếu cần hiểu cấu phần nợ.",
-      "Bước 4: thu tiền, in phiếu hoặc mở hồ sơ 360 tùy tình huống.",
-    ],
-    tone: "success" as const,
+    target: '[data-tour="tuition-summary"]',
+    title: "5 số cần đọc đúng thứ tự",
+    description:
+      "\"Đã chọn\" và \"Tổng tiền chọn\" chỉ tính trên những dòng anh đã tick chọn để in/xử lý — không phải tổng cả kỳ. \"Còn nợ\" đếm số HỌC VIÊN chưa thu đủ, không phải số tiền. Quan trọng nhất là \"Lệch kiểu thu\" (badge vàng): đây là số phiếu đã được sinh ra theo một kiểu thu (theo tháng hoặc trọn khóa) nhưng sau đó học viên đã ĐỔI kiểu thu khác — phiếu cũ lúc này sai và cần làm mới trước khi gửi cho phụ huynh, xem chi tiết ở bước sau.",
+    placement: "bottom",
   },
   {
-    title: "Điểm cần tránh",
-    items: [
-      "Không thao tác khi chưa chắc kỳ đang mở là tháng nào.",
-      "Không nhìn số còn nợ tổng mà bỏ qua cấu phần nợ bên trong.",
-      "Không in hoặc thu theo quán tính nếu phụ huynh vừa đổi kiểu đóng theo tháng/trọn khóa mà chưa được cập nhật đúng.",
-    ],
-    tone: "warning" as const,
+    target: '[data-tour="tuition-tabs"]',
+    title: "3 tab tách biệt: Lọc danh sách, Xuất phiếu, Chuyển khoản/QR",
+    description:
+      "\"Lọc danh sách\" để tìm đúng nhóm học viên cần xử lý (theo tên, kiểu thu, đã/chưa thu) và có 2 nút chọn nhanh: \"Chọn người còn nợ\" (tick tất cả ai chưa thu đủ) và \"Chọn tất cả đang thấy\" (tick theo đúng bộ lọc hiện tại). \"Xuất phiếu\" chọn chế độ gộp chung 1 file PDF hay tách riêng từng phiếu — nút tải chỉ bật khi đã chọn ít nhất 1 học viên ở tab kia. \"Chuyển khoản/QR\" là nơi khai báo số tài khoản và ảnh QR — cấu hình này dùng CHUNG cho mọi phiếu in ra từ trang này, sửa 1 lần ở đây là áp dụng hết, không cần chỉnh từng phiếu.",
+    placement: "right",
+  },
+  {
+    target: '[data-tour="tuition-billing-col"]',
+    title: "Badge vàng \"Phiếu lệch kiểu thu\" — phải xử lý trước khi in",
+    description:
+      "Mỗi dòng luôn có 2 badge: kiểu thu (Theo tháng/Trọn khóa) và trạng thái đã thu. Nếu thấy thêm badge vàng \"Phiếu lệch kiểu thu\", nghĩa là kiểu thu ghi trên phiếu này khác với kiểu thu học viên đang áp dụng THỰC TẾ ở thời điểm hiện tại — thường do phụ huynh vừa đổi từ đóng theo tháng sang trọn khóa (hoặc ngược lại) sau khi phiếu đã được sinh. In phiếu này ngay sẽ gửi sai số tiền cho phụ huynh. Nếu phiếu đó CHƯA thu tiền, hệ thống cho phép bấm nút \"Chuyển thu tháng\"/\"Chuyển trọn khóa\" ngay trên dòng đó để làm mới phiếu đúng kiểu — nếu ĐÃ thu tiền một phần thì không tự chuyển được nữa, cần xử lý thủ công để tránh mất tiền đã thu.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="tuition-actions-col"]',
+    title: "3 lối tắt: hồ sơ học phí, tải phiếu, thu nhanh",
+    description:
+      "\"Học phí HV\" mở thẳng tab học phí trong hồ sơ học viên đó — dùng khi cần xem toàn bộ lịch sử công nợ nhiều kỳ, không chỉ kỳ đang xem. \"Tải phiếu\" chỉ hiện khi còn nợ, xuất đúng 1 file PDF cho riêng dòng đó. Nút thu tiền nhanh (nếu anh có quyền) mở form nhập số tiền đã thu ngay tại chỗ, số gợi ý sẵn đúng bằng phần còn thiếu — không cần tính tay.",
+    placement: "top",
   },
 ];
 
@@ -93,12 +100,6 @@ export default async function TuitionPage({
 
   return (
     <div className="space-y-6">
-      <PageGuide
-        title="Guide vận hành học phí"
-        summary="Đây là màn trung tâm để xử lý học phí theo kỳ. Người mới chỉ cần nắm đúng kỳ đang mở, hiểu từng dòng công nợ và biết khi nào nên thu tiền, in phiếu hay mở hồ sơ 360."
-        sections={TUITION_PAGE_GUIDE_SECTIONS}
-        buttonLabel="Guide học phí"
-      />
       <section className="rounded-[28px] border border-hairline bg-white px-5 py-4 shadow-[0_12px_34px_rgba(31,68,111,0.08)]">
         <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
           <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center">
@@ -109,10 +110,11 @@ export default async function TuitionPage({
                 <span className="rounded-full border border-[#dfe8f2] bg-[#f8fbff] px-3 py-1 text-sm font-medium text-[#6f7f94]">
                   {selectedPeriod._count.charges} phiếu
                 </span>
+                <SpotlightTour steps={TUITION_TOUR_STEPS} />
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2" data-tour="tuition-period-switcher">
               {periods.slice(0, 6).map((period) => {
                 const active = period.id === selectedPeriod.id;
                 return (
