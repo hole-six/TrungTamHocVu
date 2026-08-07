@@ -459,7 +459,7 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-6" data-tour="classes-course-manager">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight text-ink">Khóa học chuẩn</h2>
