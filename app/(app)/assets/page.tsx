@@ -7,39 +7,45 @@ import AssetEditForm from "@/components/assets/AssetEditForm";
 import DeleteAssetButton from "@/components/assets/DeleteAssetButton";
 import QuickMaintenanceButton from "@/components/assets/QuickMaintenanceButton";
 import AssetMaintenanceCell from "@/components/assets/AssetMaintenanceCell";
-import PageGuide from "@/components/ui/PageGuide";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate, canUpdate, canDelete } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 
-const ASSETS_PAGE_GUIDE_SECTIONS = [
+const ASSETS_TOUR_STEPS: TourStep[] = [
   {
-    title: "Màn này để làm gì?",
-    items: [
-      "Đây là màn quản lý tài sản và thiết bị của cơ sở.",
-      "Người vận hành nhìn ở đây để biết tài sản nào đang có, ở đâu, giá gốc bao nhiêu, đã đổ thêm bao nhiêu tiền bảo dưỡng.",
-      "Từ đây có thể thêm mới, sửa thông tin, bảo dưỡng nhanh hoặc đi sâu vào chi tiết từng tài sản.",
-    ],
-    tone: "info" as const,
+    target: '[data-tour="assets-new"]',
+    title: "Thêm tài sản mới",
+    description:
+      "Mỗi dòng nên là một nhóm tài sản cùng loại, cùng giá và cùng vị trí. Đừng gộp nhiều loại khác nhau vào 1 dòng — sau này bảo dưỡng và thanh lý sẽ rất khó tách bạch đúng cái nào.",
+    placement: "bottom",
   },
   {
-    title: "Cách đọc số liệu",
-    items: [
-      "Giá gốc là giá trị ban đầu theo số lượng và đơn giá.",
-      "Bảo dưỡng là tổng tiền đã chi thêm cho tài sản trong quá trình sử dụng.",
-      "Tổng giá trị là giá gốc cộng toàn bộ tiền bảo dưỡng đã ghi nhận.",
-      "Trạng thái cho biết tài sản đang dùng, đang bảo trì hay đã hỏng/thanh lý.",
-    ],
-    tone: "success" as const,
+    target: '[data-tour="assets-search"]',
+    title: "Tìm theo tên, mã, phòng",
+    description: "Gõ vào đây để lọc theo tên, mã tài sản hoặc phòng/vị trí. Lọc chạy ở backend — không tải hết dữ liệu về máy rồi mới lọc.",
+    placement: "bottom",
   },
   {
-    title: "Điểm cần tránh",
-    items: [
-      "Không dùng sửa thông tin để thay thế luồng bảo dưỡng.",
-      "Không ghi nhận bảo dưỡng khi tiền chưa chi thực tế.",
-      "Không gộp nhiều loại tài sản khác nhau vào cùng một dòng vì sẽ rất khó đối chiếu về sau.",
-    ],
-    tone: "warning" as const,
+    target: '[data-tour="assets-summary"]',
+    title: "Đọc nhanh tình trạng cả cơ sở",
+    description:
+      "3 số tiền đầu tuân theo đúng công thức: Tổng giá trị = Giá gốc + tổng tiền đã bảo dưỡng. 2 badge Quá hạn/Sắp đến hạn tính trên toàn bộ danh sách đã lọc, không chỉ trang đang xem, nên luôn đúng thực tế dù đang ở trang nào.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="assets-table"]',
+    title: "Bảo dưỡng khác Tổng giá trị",
+    description:
+      "Cột Bảo dưỡng chỉ là tiền đã chi sửa chữa. Cột Tổng giá trị là giá gốc cộng dồn với tiền bảo dưỡng đó. Nếu 2 số này lệch với sổ quỹ, kiểm tra lại xem có giao dịch bảo dưỡng nào đã bị hủy nhưng chưa cập nhật hay không.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="assets-maintenance-col"]',
+    title: "Lịch bảo dưỡng tự tính, không cần đoán",
+    description:
+      "Hạn kế tiếp = ngày bảo dưỡng gần nhất cộng chu kỳ đã đặt (đặt chu kỳ ở nút Sửa của từng tài sản). Bấm vào badge để xem lịch sử và hủy đúng lần bị nhập sai nếu cần — hệ thống giữ lại dấu vết, không xóa hẳn.",
+    placement: "top",
   },
 ];
 
@@ -174,33 +180,39 @@ export default async function AssetsPage({
 
   return (
     <div className="space-y-6">
-      <PageGuide
-        title="Guide vận hành tài sản"
-        summary="Đây là màn tổng quản tài sản của cơ sở. Người mới chỉ cần nhớ: thêm đúng tài sản, bảo dưỡng đi đúng luồng, và đọc rõ chênh lệch giữa giá gốc - bảo dưỡng - tổng giá trị."
-        sections={ASSETS_PAGE_GUIDE_SECTIONS}
-        buttonLabel="Guide tài sản"
-      />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="page-title">Tài sản & thiết bị</h1>
           <p className="page-subtitle">Theo dõi giá trị gốc, chi phí bảo dưỡng và tổng giá trị sử dụng của từng tài sản.</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">{canCreate("assets", role) ? <NewAssetForm /> : null}</div>
+        <div className="flex flex-wrap items-center gap-3">
+          <SpotlightTour steps={ASSETS_TOUR_STEPS} />
+          <div data-tour="assets-new">{canCreate("assets", role) ? <NewAssetForm /> : null}</div>
+        </div>
       </div>
 
       <div className="card">
         <form className="flex flex-wrap items-center gap-3">
-          <input type="text" name="q" defaultValue={q} placeholder="Tìm tên, mã tài sản, phòng..." className="input min-w-[220px] flex-1" />
-          <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-ink">Tài sản {total}</span>
-          <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-sky-700">Số lượng {totalQuantity}</span>
-          <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-indigo-700">Giá gốc {formatVnd(totalBaseValue)}</span>
-          <span className="rounded-full border border-[#fde7d8] bg-[#fff8f2] px-3 py-2 text-xs font-semibold text-amber-700">Bảo dưỡng {formatVnd(totalMaintenanceValue)}</span>
-          <span className="rounded-full border border-[#e4ddff] bg-[#f7f5ff] px-3 py-2 text-xs font-semibold text-violet-700">Tổng giá trị {formatVnd(totalValue)}</span>
-          <span className="rounded-full border border-[#fde7d8] bg-[#fff8f2] px-3 py-2 text-xs font-semibold text-amber-700">Đang bảo trì {maintenanceCount}</span>
-          <span className="rounded-full border border-[#ffe0e0] bg-[#fff7f7] px-3 py-2 text-xs font-semibold text-rose-700">Hỏng {brokenCount}</span>
-          <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">Quá hạn bảo dưỡng {overdueMaintenanceCount}</span>
-          <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">Sắp đến hạn {dueSoonMaintenanceCount}</span>
+          <input
+            type="text"
+            name="q"
+            defaultValue={q}
+            placeholder="Tìm tên, mã tài sản, phòng..."
+            className="input min-w-[220px] flex-1"
+            data-tour="assets-search"
+          />
+          <div data-tour="assets-summary" className="flex flex-wrap items-center gap-3">
+            <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-ink">Tài sản {total}</span>
+            <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-sky-700">Số lượng {totalQuantity}</span>
+            <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-indigo-700">Giá gốc {formatVnd(totalBaseValue)}</span>
+            <span className="rounded-full border border-[#fde7d8] bg-[#fff8f2] px-3 py-2 text-xs font-semibold text-amber-700">Bảo dưỡng {formatVnd(totalMaintenanceValue)}</span>
+            <span className="rounded-full border border-[#e4ddff] bg-[#f7f5ff] px-3 py-2 text-xs font-semibold text-violet-700">Tổng giá trị {formatVnd(totalValue)}</span>
+            <span className="rounded-full border border-[#fde7d8] bg-[#fff8f2] px-3 py-2 text-xs font-semibold text-amber-700">Đang bảo trì {maintenanceCount}</span>
+            <span className="rounded-full border border-[#ffe0e0] bg-[#fff7f7] px-3 py-2 text-xs font-semibold text-rose-700">Hỏng {brokenCount}</span>
+            <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">Quá hạn bảo dưỡng {overdueMaintenanceCount}</span>
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">Sắp đến hạn {dueSoonMaintenanceCount}</span>
+          </div>
         </form>
       </div>
 
@@ -213,7 +225,7 @@ export default async function AssetsPage({
         </div>
 
         {/* Desktop Table */}
-        <div className="hidden lg:block">
+        <div className="hidden lg:block" data-tour="assets-table">
           <div className="table-container">
             <table className="table">
               <thead>
@@ -228,7 +240,7 @@ export default async function AssetsPage({
                   <th>Bảo dưỡng</th>
                   <th>Tổng giá trị</th>
                   <th>Trạng thái</th>
-                  <th>Lịch bảo dưỡng</th>
+                  <th data-tour="assets-maintenance-col">Lịch bảo dưỡng</th>
                   {(canManageAssets || canRemoveAssets) && <th>Thao tác</th>}
                 </tr>
               </thead>
