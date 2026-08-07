@@ -22,25 +22,33 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const type = String(body.type ?? "");
   if (!VALID_TYPES.includes(type)) return NextResponse.json({ error: "Loại giao dịch không hợp lệ" }, { status: 400 });
 
+  // Number(...) trên input rác (chữ, rỗng sau khi trim, ký hiệu lạ) trả về NaN — so sánh
+  // kiểu "NaN <= 0" luôn là false nên lọt qua các check phía dưới nếu chỉ dùng <=/=== 0.
+  // Chặn thẳng NaN/số không nguyên ở đây vì amount/quantity đều là cột Int, một dòng NaN
+  // lọt vào sẽ làm NaN lan ra mọi tổng cộng dồn (.reduce) ở học phí/sổ quỹ/tài sản.
   let quantity = 0;
   let amount = 0;
   if (type === "RECEIPT") {
     quantity = Math.abs(Number(body.quantity ?? 0));
-    if (quantity <= 0) return NextResponse.json({ error: "Số lượng nhập phải lớn hơn 0" }, { status: 400 });
+    if (!Number.isInteger(quantity) || quantity <= 0) return NextResponse.json({ error: "Số lượng nhập phải là số nguyên lớn hơn 0" }, { status: 400 });
   } else if (type === "DISPOSAL") {
+    const rawQuantity = Number(body.quantity);
+    if (body.quantity !== undefined && (!Number.isInteger(rawQuantity) || rawQuantity < 0)) {
+      return NextResponse.json({ error: "Số lượng thanh lý phải là số nguyên không âm" }, { status: 400 });
+    }
     const current = await computeAssetQuantity(asset.id);
-    quantity = -Math.min(Math.abs(Number(body.quantity ?? current)), current);
+    quantity = -Math.min(Math.abs(Number.isInteger(rawQuantity) ? rawQuantity : current), current);
     if (quantity === 0) return NextResponse.json({ error: "Không có số lượng để thanh lý" }, { status: 400 });
   } else if (type === "ADJUSTMENT") {
     quantity = Number(body.quantity ?? 0);
-    if (quantity === 0) return NextResponse.json({ error: "Số lượng điều chỉnh không được bằng 0" }, { status: 400 });
+    if (!Number.isInteger(quantity) || quantity === 0) return NextResponse.json({ error: "Số lượng điều chỉnh phải là số nguyên khác 0" }, { status: 400 });
   } else if (type === "TRANSFER") {
     quantity = 0;
     if (!body.toRoom) return NextResponse.json({ error: "Thiếu phòng/vị trí mới" }, { status: 400 });
   } else if (type === "MAINTENANCE") {
     quantity = 0;
     amount = Math.abs(Number(body.amount ?? 0));
-    if (amount <= 0) return NextResponse.json({ error: "Số tiền bảo dưỡng phải lớn hơn 0" }, { status: 400 });
+    if (!Number.isInteger(amount) || amount <= 0) return NextResponse.json({ error: "Số tiền bảo dưỡng phải là số nguyên lớn hơn 0" }, { status: 400 });
   }
 
   const txnDate = body.txnDate ? new Date(body.txnDate) : new Date();
