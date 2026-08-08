@@ -318,7 +318,12 @@ export async function generateChargesForPeriod(periodId: string) {
 
     const cls = enrollment.class;
     const basePrice = cls.tuitionPerSession ?? cls.course?.tuitionPerSession ?? 0;
-    const sessionRangeStart = enrollment.enrollDate > period.startDate ? enrollment.enrollDate : period.startDate;
+    // enrollDate mang cả giờ-phút-giây lúc ghi danh, còn sessionDate luôn chuẩn hóa về
+    // UTC-midnight (xem generateSessionDates) — so trực tiếp hai giá trị này làm buổi học
+    // CÙNG NGÀY ghi danh (nhưng ghi danh sau 00:00) bị loại nhầm khỏi kỳ thu, mất doanh thu
+    // âm thầm không báo lỗi. Phải quy enrollDate về đầu ngày UTC trước khi so.
+    const enrollDateStartOfDay = new Date(Date.UTC(enrollment.enrollDate.getUTCFullYear(), enrollment.enrollDate.getUTCMonth(), enrollment.enrollDate.getUTCDate()));
+    const sessionRangeStart = enrollDateStartOfDay > period.startDate ? enrollDateStartOfDay : period.startDate;
 
     const sessionCount = await prisma.classSession.count({
       where: { classId, status: "COMPLETED", sessionDate: { gte: sessionRangeStart, lte: period.endDate } },

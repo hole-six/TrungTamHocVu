@@ -202,26 +202,28 @@ export default function InvoiceDocument({
               </div>
             </div>
 
-            <div className="grid grid-cols-[160px_130px_minmax(0,1fr)]">
-              <div className="border-r border-black px-2 py-2 text-[12.5px] leading-5 break-words">
-                <p>Thanh toán chuyển khoản</p>
-                <p>
-                  <strong>NH:</strong> {paymentProfile?.bankName || "Chưa cấu hình"}
-                </p>
-                <p>
-                  <strong>STK:</strong> {paymentProfile?.accountNumber || "Chưa cấu hình"}
-                </p>
-                <p>{paymentProfile?.accountHolder || "Chưa cấu hình chủ tài khoản"}</p>
-              </div>
+            <div>
+              <div className="grid grid-cols-[minmax(0,1fr)_130px] border-b border-black">
+                <div className="border-r border-black px-2 py-2 text-[12.5px] leading-5 break-words">
+                  <p>Thanh toán chuyển khoản</p>
+                  <p>
+                    <strong>NH:</strong> {paymentProfile?.bankName || "Chưa cấu hình"}
+                  </p>
+                  <p>
+                    <strong>STK:</strong> {paymentProfile?.accountNumber || "Chưa cấu hình"}
+                  </p>
+                  <p>{paymentProfile?.accountHolder || "Chưa cấu hình chủ tài khoản"}</p>
+                </div>
 
-              <div className="flex items-center justify-center border-r border-black px-2 py-2">
-                {paymentProfile?.qrImageData ? (
-                  <img src={paymentProfile.qrImageData} alt="QR thanh toán" className="h-[92px] w-[92px] object-contain" />
-                ) : (
-                  <div className="flex h-[92px] w-[92px] items-center justify-center border border-dashed border-slate-400 p-2 text-center text-[10px] text-slate-500">
-                    Chưa có QR
-                  </div>
-                )}
+                <div className="flex items-center justify-center px-2 py-2">
+                  {paymentProfile?.qrImageData ? (
+                    <img src={paymentProfile.qrImageData} alt="QR thanh toán" className="h-[92px] w-[92px] object-contain" />
+                  ) : (
+                    <div className="flex h-[92px] w-[92px] items-center justify-center border border-dashed border-slate-400 p-2 text-center text-[10px] text-slate-500">
+                      Chưa có QR
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="px-2 py-2 text-[12.5px] leading-5 break-words">

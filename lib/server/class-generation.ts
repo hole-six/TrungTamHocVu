@@ -141,10 +141,14 @@ export async function computeAutoSessionWindow(
 }
 
 export async function computeEnrollmentSessionProgress(classId: string, enrollDate: Date) {
+  // enrollDate mang cả giờ-phút-giây lúc ghi danh, còn sessionDate luôn chuẩn hóa về
+  // UTC-midnight (xem generateSessionDates) — so trực tiếp làm buổi học CÙNG NGÀY ghi
+  // danh (nhưng ghi danh sau 00:00) bị loại nhầm khỏi tiến độ/công nợ rút học.
+  const enrollDateStartOfDay = new Date(Date.UTC(enrollDate.getUTCFullYear(), enrollDate.getUTCMonth(), enrollDate.getUTCDate()));
   const [cls, consumed] = await Promise.all([
     prisma.class.findUnique({ where: { id: classId }, select: { totalSessions: true, expectedEndDate: true } }),
     prisma.classSession.count({
-      where: { classId, status: "COMPLETED", sessionDate: { gte: enrollDate } },
+      where: { classId, status: "COMPLETED", sessionDate: { gte: enrollDateStartOfDay } },
     }),
   ]);
 

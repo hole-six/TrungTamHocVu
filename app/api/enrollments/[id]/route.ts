@@ -59,7 +59,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         const today = getVietnamToday();
         const currentPeriodName = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}`;
         const { start, end } = monthRange(currentPeriodName);
-        const rangeStart = existing.enrollDate > start ? existing.enrollDate : start;
+        // enrollDate mang giờ-phút-giây lúc ghi danh, còn sessionDate luôn chuẩn hóa về
+        // UTC-midnight — so trực tiếp làm buổi học CÙNG NGÀY ghi danh (đã hoàn thành) bị
+        // loại khỏi periodCompleted, và có thể khiến buổi gốc đã dời lịch bị tính nhầm là
+        // "đẩy ra khỏi tháng" dù buổi thay thế vẫn nằm trong tháng — cấp thừa buổi bổ trợ.
+        const enrollDateStartOfDay = new Date(Date.UTC(existing.enrollDate.getUTCFullYear(), existing.enrollDate.getUTCMonth(), existing.enrollDate.getUTCDate()));
+        const rangeStart = enrollDateStartOfDay > start ? enrollDateStartOfDay : start;
 
         const [normalSessions, rescheduledOutOfRange, periodCompleted] = await Promise.all([
           // Buổi bình thường + buổi ĐÃ dời lịch vào ĐÚNG khoảng tháng này (buổi thay thế
