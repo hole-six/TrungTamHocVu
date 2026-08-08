@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 type Branch = {
   id?: string;
@@ -62,6 +63,21 @@ export default function BranchDrawer({ mode, branch, organizationId, isOpen, onC
     }
     setError(null);
   }, [branch, isOpen]);
+
+  async function handleDelete() {
+    if (!branch?.id) return;
+    setLoading(true);
+    setError(null);
+    const response = await fetch(`/api/branches/${branch.id}`, { method: "DELETE" });
+    setLoading(false);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setError(data.error ?? "Không thể xóa cơ sở");
+      return;
+    }
+    router.refresh();
+    onClose();
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -239,6 +255,28 @@ export default function BranchDrawer({ mode, branch, organizationId, isOpen, onC
                 Hủy bỏ
               </button>
             </div>
+
+            {mode === "edit" && branch?.id ? (
+              <div className="mt-2 rounded-xl border border-red-200 bg-red-50/50 px-4 py-4">
+                <p className="text-sm font-semibold text-red-700">Xóa cơ sở</p>
+                <p className="mt-1 text-xs leading-5 text-red-700/80">
+                  Chỉ xóa được khi cơ sở chưa có nhân viên, học viên, lớp học hoặc user nào gắn vào. Thao tác không thể hoàn tác.
+                </p>
+                <div className="mt-3">
+                  <ConfirmActionButton
+                    title="Xác nhận xóa cơ sở?"
+                    description={`Xóa cơ sở "${form.name}" (${form.code}) khỏi hệ thống. Thao tác này không thể hoàn tác.`}
+                    confirmLabel="Xóa cơ sở"
+                    tone="danger"
+                    disabled={loading}
+                    className="btn-danger-sm"
+                    onConfirm={handleDelete}
+                  >
+                    {loading ? "Đang xóa..." : "Xóa cơ sở"}
+                  </ConfirmActionButton>
+                </div>
+              </div>
+            ) : null}
           </form>
         </div>
       </div>

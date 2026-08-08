@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { formatVnd } from "@/lib/export-utils";
 
 const CASH_METHOD = "Tiền mặt";
@@ -60,6 +61,7 @@ export default function QuickPaymentButton({
   const [discountReason, setDiscountReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const numericAmount = Number(amount) || 0;
   const maxReceivable = Math.max(0, suggestedAmount);
@@ -73,27 +75,35 @@ export default function QuickPaymentButton({
     return `Thu thực nhận ${formatVnd(numericAmount)} · Giảm ${numericDiscountPercent}% = ${formatVnd(discountAmount)} · Công nợ giảm ${formatVnd(totalDebtReduction)}`;
   }, [cashDiscountActive, discountAmount, numericAmount, numericDiscountPercent, totalDebtReduction]);
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
+  function validate(): boolean {
     setError(null);
 
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       setError("Số tiền thực thu phải lớn hơn 0.");
-      return;
+      return false;
     }
     if (numericAmount > maxReceivable) {
       setError(`Số tiền thực thu không được lớn hơn công nợ còn lại ${formatVnd(maxReceivable)}.`);
-      return;
+      return false;
     }
     if (totalDebtReduction > maxReceivable) {
       setError(`Tổng số tiền giảm công nợ sau chiết khấu là ${formatVnd(totalDebtReduction)}, đang vượt công nợ còn lại ${formatVnd(maxReceivable)}.`);
-      return;
+      return false;
     }
     if (cashDiscountActive && !discountReason.trim()) {
       setError("Cần nhập lý do chiết khấu tiền mặt.");
-      return;
+      return false;
     }
+    return true;
+  }
 
+  function handleFormSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (validate()) setConfirmOpen(true);
+  }
+
+  async function submit() {
+    if (!validate()) return;
     setLoading(true);
 
     const response = await fetch("/api/payments", {
@@ -118,6 +128,7 @@ export default function QuickPaymentButton({
       return;
     }
 
+    setConfirmOpen(false);
     setOpen(false);
     setNotes("");
     setDescription("");
@@ -140,7 +151,7 @@ export default function QuickPaymentButton({
         description="Lưu rõ số tiền đã nhận, ngày thu, hình thức thanh toán và phần giảm riêng cho tiền mặt nếu có."
         guide={<FormGuide title="Hướng dẫn xác nhận đã thu tiền" summary="Đây là bước chốt tiền đã nhận vào hệ thống. Người vận hành chỉ cần hiểu 3 thứ: số tiền thật nhận, hình thức thu và tác động giảm công nợ sau khi lưu." sections={GUIDE_SECTIONS} position="inline" />}
       >
-        <form onSubmit={submit} className="space-y-5">
+        <form onSubmit={handleFormSubmit} className="space-y-5">
           <div className="rounded-3xl border-2 border-rose-200 bg-gradient-to-r from-rose-50 via-amber-50 to-orange-50 px-5 py-4 text-sm text-rose-800 shadow-[0_16px_34px_rgba(244,63,94,0.08)]">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-rose-700">Giới hạn thu tiền</p>
             <p className="mt-2 text-base font-semibold">
@@ -253,6 +264,18 @@ export default function QuickPaymentButton({
           </div>
         </form>
       </ResponsiveDrawer>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Xác nhận đã thu tiền?"
+        description={`Ghi nhận đã thu ${formatVnd(numericAmount)} bằng ${method}${cashDiscountActive ? `, kèm chiết khấu ${numericDiscountPercent}% (giảm công nợ tổng cộng ${formatVnd(totalDebtReduction)})` : ""}. Chỉ xác nhận khi tiền đã thực sự vào tay hoặc đã có bằng chứng chuyển khoản rõ ràng.`}
+        confirmLabel="Xác nhận đã thu"
+        loading={loading}
+        onConfirm={submit}
+        onClose={() => {
+          if (!loading) setConfirmOpen(false);
+        }}
+      />
     </>
   );
 }

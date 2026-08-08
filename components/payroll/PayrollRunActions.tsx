@@ -14,6 +14,8 @@ const NEXT: Record<
     label: "Bước 2: Xác nhận đã kiểm tra",
     description:
       "Dùng khi bạn đã rà soát xong số giờ, công, lương cứng và điều chỉnh.",
+    confirm:
+      "Xác nhận đã kiểm tra xong số liệu kỳ lương này? Hãy chắc chắn giờ dạy, công và các khoản điều chỉnh đã đúng trước khi qua bước duyệt.",
   },
   REVIEWED: {
     to: "APPROVED",
@@ -27,11 +29,15 @@ const NEXT: Record<
     to: "LOCKED",
     label: "Bước 4: Khóa kỳ lương",
     description: "Khóa kỳ để ngừng chỉnh sửa trước khi trả lương thực tế.",
+    confirm:
+      "Khóa kỳ lương này? Sau khi khóa, các dòng lương sẽ không còn sửa được — chỉ mở lại được qua thao tác quản trị riêng.",
   },
   LOCKED: {
     to: "PAID",
     label: "Bước 5: Đánh dấu đã trả lương",
     description: "Chỉ dùng khi tiền lương đã được chi trả thực tế.",
+    confirm:
+      "Đánh dấu kỳ lương này ĐÃ TRẢ? Chỉ xác nhận khi tiền lương đã thực sự được chi trả cho toàn bộ nhân sự trong kỳ.",
   },
   PAID: null,
 };
@@ -104,9 +110,7 @@ export default function PayrollRunActions({
     router.refresh();
   }
 
-  async function setStatus(to: string, confirmMsg?: string) {
-    if (confirmMsg && !window.confirm(confirmMsg)) return;
-
+  async function setStatus(to: string) {
     setLoading(to);
     setError(null);
 
@@ -191,19 +195,23 @@ export default function PayrollRunActions({
           ) : null}
 
           {nextAction ? (
-            <button
-              onClick={() => setStatus(nextAction.to, nextAction.confirm)}
+            <ConfirmActionButton
+              title="Xác nhận chuyển bước kỳ lương?"
+              description={nextAction.confirm ?? nextAction.description}
+              confirmLabel={nextAction.label}
+              tone={nextAction.to === "PAID" ? "danger" : "default"}
               disabled={
                 loading === nextAction.to ||
                 ((nextAction.to === "APPROVED" || nextAction.to === "LOCKED") &&
                   !checklistReady)
               }
               className="inline-flex items-center justify-center rounded-2xl border-2 border-[#fdba74] bg-white px-5 py-3 text-sm font-bold text-[#c2410c] transition hover:bg-[#fff7ed] disabled:cursor-not-allowed disabled:opacity-60"
+              onConfirm={() => setStatus(nextAction.to)}
             >
               {loading === nextAction.to
                 ? "Đang chuyển bước..."
                 : nextAction.label}
-            </button>
+            </ConfirmActionButton>
           ) : null}
         </div>
 

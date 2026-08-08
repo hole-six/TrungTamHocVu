@@ -3,13 +3,26 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
-const NEXT: Record<string, { to: string; label: string; confirm?: string }[]> = {
+const NEXT: Record<string, { to: string; label: string; confirm: string; danger?: boolean }[]> = {
   DRAFT: [],
-  GENERATED: [{ to: "REVIEWED", label: "Đánh dấu đã soát" }],
-  REVIEWED: [{ to: "POSTED", label: "Chốt sổ", confirm: "Chốt sổ sẽ khóa kỳ này khỏi việc sinh/sửa học phí. Tiếp tục?" }],
-  POSTED: [{ to: "CLOSED", label: "Đóng kỳ" }],
-  CLOSED: [{ to: "REOPENED", label: "Mở lại kỳ" }],
+  GENERATED: [
+    {
+      to: "REVIEWED",
+      label: "Đánh dấu đã soát",
+      confirm: "Xác nhận đã soát xong các khoản học phí trong kỳ này? Hãy chắc chắn số buổi, số tiền từng khoản đã đúng trước khi qua bước chốt sổ.",
+    },
+  ],
+  REVIEWED: [
+    { to: "POSTED", label: "Chốt sổ", confirm: "Chốt sổ sẽ khóa kỳ này khỏi việc sinh/sửa học phí. Tiếp tục?", danger: true },
+  ],
+  POSTED: [
+    { to: "CLOSED", label: "Đóng kỳ", confirm: "Đóng kỳ thu này? Sau khi đóng, kỳ sẽ được xem là hoàn tất và chỉ mở lại được qua thao tác riêng.", danger: true },
+  ],
+  CLOSED: [
+    { to: "REOPENED", label: "Mở lại kỳ", confirm: "Mở lại kỳ thu đã đóng? Các khoản học phí trong kỳ sẽ có thể sinh/sửa lại — chỉ dùng khi thực sự cần đính chính." },
+  ],
   REOPENED: [],
 };
 
@@ -62,8 +75,7 @@ export default function BillingPeriodActions({ periodId, status }: { periodId: s
     router.refresh();
   }
 
-  async function setStatus(to: string, confirmMsg?: string) {
-    if (confirmMsg && !window.confirm(confirmMsg)) return;
+  async function setStatus(to: string) {
     setLoading(to);
     setError(null);
     const res = await fetch(`/api/billing-periods/${periodId}`, {
@@ -93,9 +105,18 @@ export default function BillingPeriodActions({ periodId, status }: { periodId: s
           </button>
         )}
         {options.map((option) => (
-          <button key={option.to} onClick={() => setStatus(option.to, option.confirm)} disabled={loading === option.to} className="btn-ghost">
+          <ConfirmActionButton
+            key={option.to}
+            title="Xác nhận chuyển trạng thái kỳ thu?"
+            description={option.confirm}
+            confirmLabel={option.label}
+            tone={option.danger ? "danger" : "default"}
+            disabled={loading === option.to}
+            className="btn-ghost"
+            onConfirm={() => setStatus(option.to)}
+          >
             {loading === option.to ? "..." : option.label}
-          </button>
+          </ConfirmActionButton>
         ))}
       </div>
 

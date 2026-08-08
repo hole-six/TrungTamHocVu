@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 export default function AppointmentStatusButtons({ appointmentId, status }: { appointmentId: string; status: string }) {
   const router = useRouter();
@@ -28,9 +29,17 @@ export default function AppointmentStatusButtons({ appointmentId, status }: { ap
       <button onClick={() => setStatus("MISSED")} disabled={!!loading} className="text-xs text-red-600">
         {loading === "MISSED" ? "..." : "Vắng"}
       </button>
-      <button onClick={() => setStatus("CANCELLED")} disabled={!!loading} className="text-xs text-ink-muted48">
+      <ConfirmActionButton
+        title="Xác nhận hủy lịch hẹn?"
+        description="Lịch hẹn này sẽ được đánh dấu đã hủy."
+        confirmLabel="Hủy lịch hẹn"
+        tone="danger"
+        disabled={!!loading}
+        className="text-xs text-ink-muted48"
+        onConfirm={() => setStatus("CANCELLED")}
+      >
         {loading === "CANCELLED" ? "..." : "Hủy"}
-      </button>
+      </ConfirmActionButton>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CASH_TXN_STATUS_LABEL } from "@/lib/server/cash-rules";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 type Category = { id: string; type: string; name: string };
 
@@ -52,6 +53,22 @@ export default function CashTransactionRow({
   });
 
   const canEdit = canManageCashbook && !transaction.isDerived && transaction.status !== "VOIDED";
+  const [voidError, setVoidError] = useState<string | null>(null);
+
+  async function voidTransaction() {
+    setVoidError(null);
+    const response = await fetch(`/api/cash-transactions/${transaction.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "VOIDED" }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setVoidError(data.error ?? "Không thể hủy phiếu.");
+      return;
+    }
+    router.refresh();
+  }
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
@@ -142,13 +159,27 @@ export default function CashTransactionRow({
                   </ul>
 
                   {canEdit ? (
-                    <button type="button" onClick={() => setEditing(true)} className="btn-ghost mt-4 text-xs">
-                      Sửa thông tin phiếu
-                    </button>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button type="button" onClick={() => setEditing(true)} className="btn-ghost text-xs">
+                        Sửa thông tin phiếu
+                      </button>
+                      <ConfirmActionButton
+                        title="Xác nhận hủy phiếu?"
+                        description={`Hủy phiếu ${transaction.type === "THU" ? "thu" : "chi"} "${transaction.description ?? ""}" (${formatVnd(transaction.amount)}). Phiếu đã hủy sẽ không còn tính vào tổng thu/chi nhưng vẫn giữ lại để đối soát.`}
+                        confirmLabel="Hủy phiếu"
+                        tone="danger"
+                        className="btn-ghost text-xs text-red-600"
+                        onConfirm={voidTransaction}
+                      >
+                        Hủy phiếu
+                      </ConfirmActionButton>
+                    </div>
                   ) : null}
 
+                  {voidError ? <p className="mt-2 text-xs text-red-600">{voidError}</p> : null}
+
                   {transaction.isDerived ? (
-                    <p className="mt-4 text-xs text-ink-muted48">Phiếu này sinh tự động từ nghiệp vụ gốc nên không sửa trực tiếp tại sổ quỹ.</p>
+                    <p className="mt-4 text-xs text-ink-muted48">Phiếu này sinh tự động từ nghiệp vụ gốc nên không sửa/hủy trực tiếp tại sổ quỹ.</p>
                   ) : null}
                 </div>
               </div>

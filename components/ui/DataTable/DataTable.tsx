@@ -25,6 +25,9 @@ export type Action<T> = {
   variant?: "primary" | "secondary" | "danger";
   permission?: string;
   show?: (row: T) => boolean;
+  /** Nếu có, bấm nút này sẽ mở hộp thoại xác nhận với nội dung này trước khi gọi onClick. */
+  confirmMessage?: string;
+  confirmTitle?: string;
 };
 
 export type BulkAction<T> = {

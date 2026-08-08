@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 const TIMESHEET_TOUR_STEPS: TourStep[] = [
   {
@@ -76,14 +77,17 @@ export default function TimesheetsWorkspace({
   monthLabel,
   defaultDate,
   canManageEmployees,
+  canDeleteTimesheet,
 }: {
   employees: EmployeeRow[];
   monthLabel: string;
   defaultDate: string;
   canManageEmployees: boolean;
+  canDeleteTimesheet: boolean;
 }) {
   const [selectedDate, setSelectedDate] = useState(defaultDate);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [keyword, setKeyword] = useState("");
@@ -184,6 +188,26 @@ export default function TimesheetsWorkspace({
     setNotice("Đã lưu chấm công.");
     setOpenEmployeeId(null);
     // Next.js server component ở page.tsx cần refresh để entries mới nhất được nạp lại.
+    if (typeof window !== "undefined") window.location.reload();
+  }
+
+  async function deleteEntry(entryId: string) {
+    setDeletingId(entryId);
+    setError(null);
+    setNotice(null);
+
+    const response = await fetch(`/api/timesheet-entries/${entryId}`, { method: "DELETE" });
+    const result = await response.json().catch(() => ({}));
+
+    setDeletingId(null);
+
+    if (!response.ok) {
+      setError(result.error ?? "Không xóa được chấm công.");
+      return;
+    }
+
+    setNotice("Đã xóa chấm công.");
+    setOpenEmployeeId(null);
     if (typeof window !== "undefined") window.location.reload();
   }
 
@@ -338,6 +362,19 @@ export default function TimesheetsWorkspace({
                                 <button type="button" onClick={closeRow} className="btn-ghost">
                                   Huỷ
                                 </button>
+                                {existing && canDeleteTimesheet ? (
+                                  <ConfirmActionButton
+                                    title="Xác nhận xóa chấm công?"
+                                    description={`Xóa chấm công ngày ${formatVnDate(selectedDate)} của ${employee.fullName}. Thao tác này không thể hoàn tác.`}
+                                    confirmLabel="Xóa chấm công"
+                                    tone="danger"
+                                    disabled={deletingId === existing.id}
+                                    className="btn-ghost text-red-600"
+                                    onConfirm={() => deleteEntry(existing.id)}
+                                  >
+                                    {deletingId === existing.id ? "Đang xóa..." : "Xóa chấm công"}
+                                  </ConfirmActionButton>
+                                ) : null}
                               </div>
                             </td>
                           </tr>

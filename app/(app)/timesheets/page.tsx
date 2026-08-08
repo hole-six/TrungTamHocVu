@@ -3,7 +3,7 @@ import TimesheetsWorkspace from "@/components/timesheets/TimesheetsWorkspace";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
-import { canView } from "@/lib/server/role-matrix";
+import { canView, canDelete } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 
 function currentMonthRange() {
@@ -38,6 +38,7 @@ export default async function TimesheetsPage() {
       monthLabel={`Tháng ${start.getUTCMonth() + 1}/${start.getUTCFullYear()}`}
       defaultDate={new Date().toISOString().slice(0, 10)}
       canManageEmployees={canView("hr", role)}
+      canDeleteTimesheet={canDelete("timesheet", role)}
       employees={employees.map((employee) => ({
         id: employee.id,
         fullName: employee.fullName,

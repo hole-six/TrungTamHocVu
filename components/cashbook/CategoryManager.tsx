@@ -3,11 +3,111 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CASH_TXN_TYPE_LABEL } from "@/lib/server/cash-rules";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 type Category = { id: string; type: string; name: string; detail: string | null };
 
 function formatVnd(amount: number) {
   return `${amount.toLocaleString("vi-VN")}đ`;
+}
+
+function CategoryRow({
+  category,
+  type,
+  amount,
+  onSaved,
+}: {
+  category: Category;
+  type: "THU" | "CHI";
+  amount: number | undefined;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(category.name);
+  const [detail, setDetail] = useState(category.detail ?? "");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setLoading(true);
+    setError(null);
+    const res = await fetch(`/api/cash-categories/${category.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, detail }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setLoading(false);
+    if (!res.ok) {
+      setError(data.error ?? "Không thể lưu danh mục.");
+      return;
+    }
+    setEditing(false);
+    onSaved();
+  }
+
+  async function remove() {
+    const res = await fetch(`/api/cash-categories/${category.id}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.error ?? "Không thể xóa danh mục.");
+      return;
+    }
+    onSaved();
+  }
+
+  if (editing) {
+    return (
+      <tr className="border-b border-hairline last:border-0 bg-[#fbfdff]">
+        <td className="px-4 py-2">
+          <input className="input h-8 text-xs" value={name} onChange={(e) => setName(e.target.value)} />
+        </td>
+        <td className="px-4 py-2">
+          <input className="input h-8 text-xs" value={detail} onChange={(e) => setDetail(e.target.value)} placeholder="Chi tiết" />
+        </td>
+        <td className="px-4 py-2 text-right text-ink-muted48">—</td>
+        <td className="px-4 py-2">
+          <div className="flex items-center justify-end gap-2">
+            <button type="button" onClick={save} disabled={loading} className="text-xs font-semibold text-primary">
+              {loading ? "..." : "Lưu"}
+            </button>
+            <button type="button" onClick={() => setEditing(false)} className="text-xs text-ink-muted48">
+              Hủy
+            </button>
+          </div>
+          {error ? <p className="mt-1 text-right text-[11px] text-red-600">{error}</p> : null}
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr className="border-b border-hairline last:border-0">
+      <td className="px-4 py-3 font-medium text-ink">{category.name}</td>
+      <td className="px-4 py-3 text-ink-muted80">{category.detail || "—"}</td>
+      <td className={`px-4 py-3 text-right font-semibold ${type === "THU" ? "text-emerald-700" : "text-rose-700"}`}>
+        {amount ? formatVnd(amount) : "—"}
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center justify-end gap-3">
+          <button type="button" onClick={() => setEditing(true)} className="text-xs text-primary">
+            Sửa
+          </button>
+          <ConfirmActionButton
+            title="Xác nhận xóa danh mục?"
+            description={`Xóa danh mục "${category.name}"${category.detail ? ` (${category.detail})` : ""}. Chỉ xóa được khi chưa có giao dịch nào dùng danh mục này.`}
+            confirmLabel="Xóa danh mục"
+            tone="danger"
+            className="text-xs text-red-600"
+            onConfirm={remove}
+          >
+            Xóa
+          </ConfirmActionButton>
+        </div>
+        {error ? <p className="mt-1 text-right text-[11px] text-red-600">{error}</p> : null}
+      </td>
+    </tr>
+  );
 }
 
 export default function CategoryManager({
@@ -86,21 +186,22 @@ export default function CategoryManager({
                     <th className="px-4 py-3 font-medium">Tên danh mục</th>
                     <th className="px-4 py-3 font-medium">Chi tiết</th>
                     <th className="px-4 py-3 text-right font-medium">Số tiền kỳ này</th>
+                    <th className="px-4 py-3 text-right font-medium">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
                   {grouped[type].map((category) => (
-                    <tr key={category.id} className="border-b border-hairline last:border-0">
-                      <td className="px-4 py-3 font-medium text-ink">{category.name}</td>
-                      <td className="px-4 py-3 text-ink-muted80">{category.detail || "—"}</td>
-                      <td className={`px-4 py-3 text-right font-semibold ${type === "THU" ? "text-emerald-700" : "text-rose-700"}`}>
-                        {amountByCategory[category.name] ? formatVnd(amountByCategory[category.name]) : "—"}
-                      </td>
-                    </tr>
+                    <CategoryRow
+                      key={category.id}
+                      category={category}
+                      type={type}
+                      amount={amountByCategory[category.name]}
+                      onSaved={() => router.refresh()}
+                    />
                   ))}
                   {grouped[type].length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="px-4 py-4 text-center text-ink-muted48">
+                      <td colSpan={4} className="px-4 py-4 text-center text-ink-muted48">
                         Chưa có danh mục nào.
                       </td>
                     </tr>

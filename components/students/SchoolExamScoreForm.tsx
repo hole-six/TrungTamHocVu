@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 type Score = {
   id: string;
@@ -30,6 +31,21 @@ export default function SchoolExamScoreForm({ studentId, scores }: { studentId: 
   const [finalTerm2, setFinalTerm2] = useState(existing?.finalTerm2?.toString() ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function removeScore(scoreId: string) {
+    setDeletingId(scoreId);
+    setDeleteError(null);
+    const res = await fetch(`/api/students/${studentId}/exam-scores/${scoreId}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    setDeletingId(null);
+    if (!res.ok) {
+      setDeleteError(data.error ?? "Không thể xóa điểm.");
+      return;
+    }
+    router.refresh();
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,16 +80,30 @@ export default function SchoolExamScoreForm({ studentId, scores }: { studentId: 
 
       <div className="mt-3 space-y-2">
         {scores.map((s) => (
-          <div key={s.id} className="rounded-lg border border-hairline px-3 py-2 text-sm">
-            <p className="font-medium">Năm học {s.schoolYear}</p>
-            <div className="mt-1 grid grid-cols-4 gap-2 text-ink-muted48">
-              <span>Giữa HKI: <strong className="text-ink">{s.midTerm1 ?? "—"}</strong></span>
-              <span>Cuối HKI: <strong className="text-ink">{s.finalTerm1 ?? "—"}</strong></span>
-              <span>Giữa HKII: <strong className="text-ink">{s.midTerm2 ?? "—"}</strong></span>
-              <span>Cuối HKII: <strong className="text-ink">{s.finalTerm2 ?? "—"}</strong></span>
+          <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg border border-hairline px-3 py-2 text-sm">
+            <div>
+              <p className="font-medium">Năm học {s.schoolYear}</p>
+              <div className="mt-1 grid grid-cols-4 gap-2 text-ink-muted48">
+                <span>Giữa HKI: <strong className="text-ink">{s.midTerm1 ?? "—"}</strong></span>
+                <span>Cuối HKI: <strong className="text-ink">{s.finalTerm1 ?? "—"}</strong></span>
+                <span>Giữa HKII: <strong className="text-ink">{s.midTerm2 ?? "—"}</strong></span>
+                <span>Cuối HKII: <strong className="text-ink">{s.finalTerm2 ?? "—"}</strong></span>
+              </div>
             </div>
+            <ConfirmActionButton
+              title="Xác nhận xóa điểm học lực?"
+              description={`Xóa toàn bộ điểm học lực năm học ${s.schoolYear}. Thao tác này không thể hoàn tác.`}
+              confirmLabel="Xóa"
+              tone="danger"
+              disabled={deletingId === s.id}
+              className="shrink-0 text-xs text-red-600"
+              onConfirm={() => removeScore(s.id)}
+            >
+              {deletingId === s.id ? "..." : "Xóa"}
+            </ConfirmActionButton>
           </div>
         ))}
+        {deleteError && <p className="text-xs text-red-600">{deleteError}</p>}
         {scores.length === 0 && <p className="text-sm text-ink-muted48">Chưa có điểm học lực nào.</p>}
       </div>
 

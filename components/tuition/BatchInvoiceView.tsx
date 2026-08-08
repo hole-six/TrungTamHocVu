@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import InvoiceDocument, { type InvoiceChargeData, type PaymentProfileData } from "@/components/tuition/InvoiceDocument";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import DetailTabs from "@/components/ui/DetailTabs";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 
 type BatchCharge = InvoiceChargeData & {
@@ -122,6 +123,7 @@ export default function BatchInvoiceView({
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
   const [switchingKey, setSwitchingKey] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [pendingSwitch, setPendingSwitch] = useState<{ charge: BatchCharge; nextBillingModel: "PERIOD" | "COURSE" } | null>(null);
   const [exporting, setExporting] = useState(false);
 
   const visibleCharges = useMemo(() => {
@@ -230,18 +232,15 @@ export default function BatchInvoiceView({
     setProfileMessage(response.ok ? "Đã lưu cấu hình thanh toán cho toàn bộ phiếu." : data.error ?? "Không thể lưu cấu hình thanh toán.");
   }
 
-  async function switchBillingModel(charge: BatchCharge, nextBillingModel: "PERIOD" | "COURSE") {
+  function requestSwitchBillingModel(charge: BatchCharge, nextBillingModel: "PERIOD" | "COURSE") {
     if (!charge.enrollmentId) {
       setActionMessage("Không tìm thấy ghi danh đang hoạt động để đổi kiểu thu.");
       return;
     }
+    setPendingSwitch({ charge, nextBillingModel });
+  }
 
-    const nextLabel = nextBillingModel === "COURSE" ? "thu trọn khóa" : "thu theo tháng";
-    const confirmed = window.confirm(
-      `Xác nhận chuyển học viên ${charge.student.fullName} sang ${nextLabel}?\n\nPhiếu hiện tại chỉ được thay thế khi chưa thu tiền. Nếu phiếu này đã phát sinh thu thực tế, hệ thống sẽ tự chặn để tránh lệch công nợ.`,
-    );
-    if (!confirmed) return;
-
+  async function switchBillingModel(charge: BatchCharge, nextBillingModel: "PERIOD" | "COURSE") {
     setSwitchingKey(`${charge.id}:${nextBillingModel}`);
     setActionMessage(null);
 
@@ -256,10 +255,12 @@ export default function BatchInvoiceView({
 
     if (!response.ok) {
       setActionMessage(data.error ?? "Không thể đổi kiểu thu.");
+      setPendingSwitch(null);
       return;
     }
 
     setActionMessage(nextBillingModel === "COURSE" ? "Đã chuyển sang thu trọn khóa và sinh lại phiếu phù hợp." : "Đã chuyển sang thu theo tháng và làm mới charge của kỳ này.");
+    setPendingSwitch(null);
     router.refresh();
   }
 
@@ -601,7 +602,7 @@ export default function BatchInvoiceView({
                               {charge.currentEnrollmentBillingModel !== "PERIOD" ? (
                                 <button
                                   type="button"
-                                  onClick={() => switchBillingModel(charge, "PERIOD")}
+                                  onClick={() => requestSwitchBillingModel(charge, "PERIOD")}
                                   disabled={switchingKey === `${charge.id}:PERIOD`}
                                   className="rounded-full border border-[#b7dff8] bg-[#f6fcff] px-3 py-1 text-xs font-semibold text-[#077dc8] transition hover:border-[#8fcdf3] hover:bg-[#eaf7ff] disabled:cursor-not-allowed disabled:opacity-60"
                                 >
@@ -611,7 +612,7 @@ export default function BatchInvoiceView({
                               {charge.currentEnrollmentBillingModel !== "COURSE" ? (
                                 <button
                                   type="button"
-                                  onClick={() => switchBillingModel(charge, "COURSE")}
+                                  onClick={() => requestSwitchBillingModel(charge, "COURSE")}
                                   disabled={switchingKey === `${charge.id}:COURSE`}
                                   className="rounded-full border border-[#d8ccff] bg-[#f3efff] px-3 py-1 text-xs font-semibold text-[#7b4df5] transition hover:border-[#c3aeff] hover:bg-[#ebe3ff] disabled:cursor-not-allowed disabled:opacity-60"
                                 >
@@ -646,6 +647,22 @@ export default function BatchInvoiceView({
           </div>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={!!pendingSwitch}
+        title="Xác nhận đổi kiểu thu học phí?"
+        description={
+          pendingSwitch
+            ? `Chuyển học viên ${pendingSwitch.charge.student.fullName} sang ${pendingSwitch.nextBillingModel === "COURSE" ? "thu trọn khóa" : "thu theo tháng"}. Phiếu hiện tại chỉ được thay thế khi chưa thu tiền — nếu đã phát sinh thu thực tế, hệ thống sẽ tự chặn để tránh lệch công nợ.`
+            : undefined
+        }
+        confirmLabel="Xác nhận đổi"
+        loading={!!pendingSwitch && switchingKey === `${pendingSwitch.charge.id}:${pendingSwitch.nextBillingModel}`}
+        onConfirm={() => {
+          if (pendingSwitch) void switchBillingModel(pendingSwitch.charge, pendingSwitch.nextBillingModel);
+        }}
+        onClose={() => setPendingSwitch(null)}
+      />
     </div>
   );
 }

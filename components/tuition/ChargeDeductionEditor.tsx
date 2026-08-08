@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 export default function ChargeDeductionEditor({ chargeId, deductedCount }: { chargeId: string; deductedCount: number }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [value, setValue] = useState(String(deductedCount));
   const [loading, setLoading] = useState(false);
 
@@ -17,6 +19,7 @@ export default function ChargeDeductionEditor({ chargeId, deductedCount }: { cha
       body: JSON.stringify({ deductedCount: Number(value) }),
     });
     setLoading(false);
+    setConfirmOpen(false);
     setEditing(false);
     router.refresh();
   }
@@ -38,9 +41,21 @@ export default function ChargeDeductionEditor({ chargeId, deductedCount }: { cha
         onChange={(e) => setValue(e.target.value)}
         autoFocus
       />
-      <button onClick={save} disabled={loading} className="text-xs text-primary">
+      <button onClick={() => setConfirmOpen(true)} disabled={loading} className="text-xs text-primary">
         {loading ? "..." : "OK"}
       </button>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Xác nhận sửa số buổi trừ?"
+        description={`Đổi số buổi trừ từ ${deductedCount} thành ${value || 0} — số tiền phải thu trên hóa đơn sẽ tự tính lại theo giá trị mới này.`}
+        confirmLabel="Lưu thay đổi"
+        loading={loading}
+        onConfirm={save}
+        onClose={() => {
+          if (!loading) setConfirmOpen(false);
+        }}
+      />
     </span>
   );
 }
