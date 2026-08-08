@@ -166,7 +166,6 @@ export default function TimesheetsWorkspace({
           <div className="space-y-2">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">Chấm công ngày</h1>
-              <p className="mt-1 text-sm text-ink-muted48">Tìm đúng nhân viên, bấm Chấm công, điền giờ rồi lưu — không cần cuộn qua cả danh sách.</p>
             </div>
 
             <div className="flex flex-wrap gap-2 text-xs">
@@ -358,24 +357,6 @@ export default function TimesheetsWorkspace({
         </div>
 
         <div className="space-y-6">
-          <div className="card">
-            <h2 className="font-display text-base font-bold tracking-tight text-ink">Nguyên tắc</h2>
-            <div className="mt-3 space-y-3 text-sm">
-              <div className="rounded-2xl border border-hairline p-4">
-                <p className="font-semibold text-ink">Dùng cho ai?</p>
-                <p className="mt-1 text-ink-muted48">Chủ yếu cho hành chính, văn phòng, điều phối. Giáo viên/trợ giảng lấy công dạy tự động từ buổi học đã phân công — chỉ chấm công thêm nếu họ có làm việc hành chính ngoài giờ dạy.</p>
-              </div>
-              <div className="rounded-2xl border border-hairline p-4">
-                <p className="font-semibold text-ink">Tính công thế nào?</p>
-                <p className="mt-1 text-ink-muted48">Tổng giờ = giờ sáng + giờ chiều. Số công = tổng giờ / 8, làm tròn 2 chữ số thập phân.</p>
-              </div>
-              <div className="rounded-2xl border border-hairline p-4">
-                <p className="font-semibold text-ink">Nhập sai thì sao?</p>
-                <p className="mt-1 text-ink-muted48">Bấm "Sửa" trên đúng ngày đó, lưu lại sẽ cập nhật đè lên bản ghi cũ.</p>
-              </div>
-            </div>
-          </div>
-
           <div className="card">
             <h2 className="font-display text-base font-bold tracking-tight text-ink">Tổng hợp tháng</h2>
             <p className="mt-1 text-xs text-ink-muted48">{stats.monthHours} giờ chấm công trong tháng, toàn bộ nhân viên</p>
