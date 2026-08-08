@@ -9,10 +9,44 @@ import ChargeDeductionEditor from "@/components/tuition/ChargeDeductionEditor";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
 }
+
+const TUITION_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="tuition-header"]',
+    title: "Kỳ thu học phí — theo tháng và chi nhánh",
+    description: "Mỗi kỳ gom các khoản phải thu của một tháng. Trạng thái kỳ (Nháp/Đã duyệt/Đã khoá) quyết định các khoản thu trong kỳ có còn sửa được hay không.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="tuition-kpi"]',
+    title: "Tổng phải thu, Đã thu, Còn nợ",
+    description: "\"Tổng phải thu\" là số gốc trên hoá đơn (gồm cả nợ đầu kỳ đã hiển thị). \"Còn nợ\" của TOÀN kỳ lấy tổng trừ đã thu — số nợ thật của từng khoản xem ở cột \"Trạng thái\" trong bảng bên dưới.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="tuition-actions"]',
+    title: "Sinh học phí / Duyệt / Khoá kỳ",
+    description: "Sinh học phí tạo các khoản thu cho kỳ này. Duyệt và Khoá kỳ chuyển trạng thái — sau khi khoá, các khoản thu trong kỳ không tự động sửa số liệu nữa (phải mở lại kỳ nếu cần sửa buổi/điểm danh đã qua).",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="tuition-exceptions"]',
+    title: "Hàng đợi ngoại lệ khi sinh học phí",
+    description: "Liệt kê các trường hợp hệ thống không tự sinh được học phí (thiếu giá, học viên chưa có lớp hợp lệ...) để xử lý thủ công trước khi duyệt kỳ.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="tuition-table"]',
+    title: "Danh sách khoản thu — Trừ, Đầu kỳ, Trạng thái",
+    description: "Cột \"Trừ\" là số buổi được khấu trừ (nghỉ có hoàn buổi...). Cột \"Đầu kỳ\" chỉ là hiển thị lại nợ từ kỳ trước, không phải khoản nợ riêng — trạng thái Đã thu/Chưa thu tính đúng theo từng khoản, không bị tính trùng nợ đầu kỳ.",
+    placement: "top",
+  },
+];
 
 export default async function BillingPeriodDetailPage({ params }: { params: { id: string } }) {
   const period = await prisma.billingPeriod.findUnique({
@@ -53,12 +87,18 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
         <Link href="/tuition" className="text-sm text-primary">
           ← Quay lại Học phí
         </Link>
-        <div className="mt-2 flex items-center justify-between">
+        <div className="mt-2 flex items-center justify-between" data-tour="tuition-header">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Kỳ thu {period.periodName}</h1>
             <p className="mt-1 text-sm text-ink-muted48">{period.charges.length} khoản phải thu</p>
           </div>
           <div className="flex items-center gap-2">
+            <SpotlightTour
+              steps={TUITION_TOUR_STEPS.filter((step) => {
+                if (!canManageTuition && (step.target.includes("tuition-actions") || step.target.includes("tuition-exceptions"))) return false;
+                return true;
+              })}
+            />
             <Link href={`/invoices/batch/${period.id}`} target="_blank" className="btn-ghost">
               Xuất phiếu hàng loạt
             </Link>
@@ -67,7 +107,7 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3" data-tour="tuition-kpi">
         <div className="card">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Tổng phải thu</p>
           <p className="mt-2 font-display text-2xl font-semibold tracking-tight">{formatVnd(totalReceivable)}</p>
@@ -82,9 +122,18 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
         </div>
       </div>
 
-      {canManageTuition && <BillingPeriodActions periodId={period.id} status={period.status} />}
-      {canManageTuition && <BillingPeriodExceptionQueue periodId={period.id} />}
+      {canManageTuition && (
+        <div data-tour="tuition-actions">
+          <BillingPeriodActions periodId={period.id} status={period.status} />
+        </div>
+      )}
+      {canManageTuition && (
+        <div data-tour="tuition-exceptions">
+          <BillingPeriodExceptionQueue periodId={period.id} />
+        </div>
+      )}
 
+      <div data-tour="tuition-table">
       {/* Desktop: Full table */}
       <div className="hidden lg:block card overflow-x-auto p-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">{renderChargesTable()}</div>
 
@@ -187,9 +236,10 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
           </div>
         )}
       </div>
+      </div>
     </div>
   );
-  
+
   function renderChargesTable() {
     if (!period) return null;
     return (

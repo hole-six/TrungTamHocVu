@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { SESSION_ROLE_LABEL, computeContractStatus } from "@/lib/server/payroll-rules";
 import PayrollEmployeeEditPanels from "@/components/payroll/PayrollEmployeeEditPanels";
 import PageGuide from "@/components/ui/PageGuide";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canCreate, canUpdateWithOverride, canViewFullWithOverride } from "@/lib/server/role-matrix";
@@ -46,6 +47,33 @@ const EMPLOYEE_DETAIL_GUIDE_SECTIONS = [
   },
 ];
 
+const EMPLOYEE_DETAIL_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="employee-header"]',
+    title: "Hồ sơ nhân sự — nguồn công gốc cho lương",
+    description: "Cảnh báo hợp đồng ở đây chỉ là nhắc việc, không tự động ảnh hưởng đến việc tính công/lương của người này.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="employee-sessions"]',
+    title: "Buổi dạy/trợ giảng — tự sinh từ phân công lớp",
+    description: "Không nhập tay: mỗi khi được phân công dạy/trợ giảng một buổi, dòng này tự xuất hiện với số giờ và tiền tính theo đơn giá + payMode (theo ca hoặc theo giờ).",
+    placement: "right",
+  },
+  {
+    target: '[data-tour="employee-timesheet"]',
+    title: "Chấm công ngày — riêng cho công hành chính",
+    description: "Tách biệt hoàn toàn với buổi dạy — chỉ cộng thêm khi người này có làm việc hành chính ngoài giờ dạy.",
+    placement: "right",
+  },
+  {
+    target: '[data-tour="employee-summary"]',
+    title: "Đơn giá áp dụng cho người này",
+    description: "Đơn giá dạy/TG/công HC ở đây là nguồn tính tiền cho mọi buổi/công phía trên — đổi đơn giá không ảnh hưởng ngược lại các dòng đã tính trong kỳ lương đã chốt.",
+    placement: "left",
+  },
+];
+
 export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) notFound();
@@ -81,22 +109,25 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
         sections={EMPLOYEE_DETAIL_GUIDE_SECTIONS}
         buttonLabel="Guide nhân sự"
       />
-      <div>
-        <Link href="/payroll" className="text-sm text-primary">
-          ← Quay lại Nhân sự & Lương
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">{employee.fullName}</h1>
-        <p className="mt-1 text-sm text-ink-muted48">
-          Mã NV: {employee.employeeCode} · Tên ngắn: {employee.shortName} · {employee.position ?? "—"}
-        </p>
-        {contractStatus === "Đã hết hạn HĐ" && <span className="badge-red mt-2 inline-flex">Đã hết hạn HĐ</span>}
-        {contractStatus === "Sắp hết hạn HĐ" && <span className="badge-amber mt-2 inline-flex">Sắp hết hạn HĐ</span>}
+      <div className="flex items-start justify-between gap-3" data-tour="employee-header">
+        <div>
+          <Link href="/payroll" className="text-sm text-primary">
+            ← Quay lại Nhân sự & Lương
+          </Link>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight">{employee.fullName}</h1>
+          <p className="mt-1 text-sm text-ink-muted48">
+            Mã NV: {employee.employeeCode} · Tên ngắn: {employee.shortName} · {employee.position ?? "—"}
+          </p>
+          {contractStatus === "Đã hết hạn HĐ" && <span className="badge-red mt-2 inline-flex">Đã hết hạn HĐ</span>}
+          {contractStatus === "Sắp hết hạn HĐ" && <span className="badge-amber mt-2 inline-flex">Sắp hết hạn HĐ</span>}
+        </div>
+        <SpotlightTour steps={EMPLOYEE_DETAIL_TOUR_STEPS} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           {/* Sessions Table - Desktop: Table, Mobile: Cards */}
-          <div className="card">
+          <div className="card" data-tour="employee-sessions">
             <h2 className="font-display text-lg font-semibold tracking-tight mb-3">Tất cả buổi dạy/trợ giảng ({employee.sessionAssignments.length})</h2>
             
             {/* Desktop Table */}
@@ -166,7 +197,7 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
           </div>
 
           {/* Timesheet Table - Desktop: Table, Mobile: Cards */}
-          <div className="card">
+          <div className="card" data-tour="employee-timesheet">
             <h2 className="font-display text-lg font-semibold tracking-tight mb-3">Tất cả chấm công ngày ({employee.timesheetEntries.length})</h2>
             
             {/* Desktop Table */}
@@ -224,7 +255,7 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
         </div>
 
         <div className="space-y-6">
-          <div className="card">
+          <div className="card" data-tour="employee-summary">
             <h2 className="font-display text-lg font-semibold tracking-tight">Công việc & Lương</h2>
             <dl className="mt-3 space-y-2 text-sm">
               <div className="flex justify-between border-b border-hairline/60 py-1">

@@ -2,6 +2,34 @@
 
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+
+const TIMESHEET_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="timesheet-header"]',
+    title: "Chấm công dành cho công hành chính, không phải công dạy",
+    description: "Giáo viên/trợ giảng lấy công dạy tự động theo phân công lớp — chỉ chấm công thêm ở đây nếu họ có làm việc hành chính ngoài giờ dạy.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="timesheet-filters"]',
+    title: "Đổi ngày trước, tìm/lọc sau",
+    description: "Bảng luôn hiển thị trạng thái chấm công của ĐÚNG ngày đang chọn ở góc trên — đổi ngày sẽ tự đóng dòng đang sửa dở.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="timesheet-table"]',
+    title: "Bấm \"Chấm công\" để mở đúng 1 dòng cần điền",
+    description: "Chỉ dòng đang mở mới hiện 4 ô giờ — thiết kế vậy để trang không bị nặng khi có hàng trăm nhân viên.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="timesheet-summary"]',
+    title: "Tổng hợp công tháng theo bộ lọc đang áp dụng",
+    description: "Danh sách bên phải đồng bộ với ô tìm kiếm/lọc vị trí bên trái — lọc để xem tổng công tháng của đúng nhóm cần đối chiếu.",
+    placement: "left",
+  },
+];
 
 type Entry = {
   id: string;
@@ -161,7 +189,7 @@ export default function TimesheetsWorkspace({
 
   return (
     <div className="space-y-6">
-      <div className="card space-y-5">
+      <div className="card space-y-5" data-tour="timesheet-header">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-2">
             <div>
@@ -177,6 +205,7 @@ export default function TimesheetsWorkspace({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <SpotlightTour steps={TIMESHEET_TOUR_STEPS} />
             <label className="space-y-2">
               <span className="label">Ngày chấm công</span>
               <input type="date" className="input min-w-[220px]" value={selectedDate} onChange={(event) => loadDate(event.target.value)} />
@@ -199,7 +228,7 @@ export default function TimesheetsWorkspace({
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center" data-tour="timesheet-filters">
             <input
               className="input flex-1"
               placeholder="Tìm theo tên hoặc mã nhân viên..."
@@ -219,7 +248,7 @@ export default function TimesheetsWorkspace({
           {error ? <div className="alert-danger">{error}</div> : null}
           {notice ? <div className="alert-success">{notice}</div> : null}
 
-          <div className="overflow-hidden rounded-2xl border border-hairline">
+          <div className="overflow-hidden rounded-2xl border border-hairline" data-tour="timesheet-table">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="border-b border-hairline bg-canvas-parchment/50 text-xs uppercase tracking-wide text-ink-muted48">
@@ -356,7 +385,7 @@ export default function TimesheetsWorkspace({
           ) : null}
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-6" data-tour="timesheet-summary">
           <div className="card">
             <h2 className="font-display text-base font-bold tracking-tight text-ink">Tổng hợp tháng</h2>
             <p className="mt-1 text-xs text-ink-muted48">{stats.monthHours} giờ chấm công trong tháng, toàn bộ nhân viên</p>

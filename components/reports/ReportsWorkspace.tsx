@@ -6,6 +6,34 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
 import { getCreateSnapshotButtonLabel, getLiveFallbackLabel, getReportEffectiveBadge, getReportModeLabel, getSnapshotTimestampLabel } from "@/lib/reporting-ui";
 import { exportSectionsToExcel } from "@/lib/export-utils";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+
+const REPORTS_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="reports-header"]',
+    title: "Live vs Bản đã chốt — khác nhau ở đâu?",
+    description: "\"Live\" luôn tính lại theo dữ liệu hiện tại, có thể đổi nếu ai đó sửa dữ liệu sau này. \"Bản đã chốt\" là ảnh chụp cố định tại thời điểm bấm chốt — dùng khi cần số liệu không đổi để báo cáo chính thức.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="reports-kpi"]',
+    title: "6 số tổng quan của kỳ đang xem",
+    description: "Tất cả số liệu trên trang đều theo đúng kỳ và chế độ (live/chốt) đã chọn ở bộ lọc phía trên — đổi kỳ sẽ tính lại toàn bộ các khối bên dưới.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="reports-pipeline-revenue"]',
+    title: "Phễu tuyển sinh & Doanh thu theo kỳ",
+    description: "Phễu đếm lead theo trạng thái hiện tại (không phải lịch sử). % doanh thu tính trên từng kỳ học phí độc lập, không cộng dồn giữa các kỳ.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="reports-debtors-alerts"]',
+    title: "Top công nợ & Cảnh báo vận hành",
+    description: "Đây là các việc cần xử lý sớm nhất: học viên nợ nhiều, chưa có portal phụ huynh, hoặc lead đạt nhưng chưa xếp lớp.",
+    placement: "top",
+  },
+];
 
 type ReportsResponse = {
   meta: { requestedMode: "live"|"snapshot"; effectiveMode: "live"|"snapshot"; filters: { mode: "live"|"snapshot"; periodKey: string|null; keyword: string|null; timePreset: string }; snapshotReady: boolean; snapshotId: string|null; snapshotAt: string|null; periodKey: string|null };
@@ -127,13 +155,14 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
     <div className="space-y-6 pb-16">
 
       {/* ── Header + filters ─────────────────────────── */}
-      <div className="rounded-2xl border border-[#e5eaf7] bg-gradient-to-b from-white to-[#f8faff] p-6 shadow-sm">
+      <div className="rounded-2xl border border-[#e5eaf7] bg-gradient-to-b from-white to-[#f8faff] p-6 shadow-sm" data-tour="reports-header">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-[#0f1729]">Báo cáo tổng hợp</h1>
             <p className="mt-1 text-sm text-[#64748b]">Chọn kỳ, xem live hoặc bản đã chốt. Không sửa dữ liệu gốc từ đây.</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <SpotlightTour steps={REPORTS_TOUR_STEPS} />
             <button onClick={handleExport} disabled={!data} className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2.5 text-sm font-bold text-[#475569] hover:border-[#f97316] hover:text-[#f97316] transition disabled:opacity-40">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Xuất Excel
@@ -197,7 +226,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
         <div className="space-y-5">
 
           {/* ── Row 1: KPI tiles ─────────────────────── */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6" data-tour="reports-kpi">
             <KpiTile label="Đang học" value={String(data.dashboard.studentActive)} sub={`${data.dashboard.studentLeft} đã nghỉ`} color="#f97316" />
             <KpiTile label="Tổng lead" value={String(data.dashboard.totalLeads)} color="#ea580c" />
             <KpiTile label="Tỉ lệ CĐ" value={`${data.dashboard.conversionRate}%`} sub="lead → HV" color="#10b981" />
@@ -207,7 +236,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
           </div>
 
           {/* ── Row 2: Pipeline + Revenue ─────────────── */}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2" data-tour="reports-pipeline-revenue">
             <SectionCard title="Phễu tuyển sinh">
               <div className="grid grid-cols-2 gap-3 mb-5">
                 <div className="rounded-xl bg-[#fff7ed] border border-[#fed7aa] p-3 text-center">
@@ -263,7 +292,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
           </div>
 
           {/* ── Row 3: Debtors + Operational alerts ────── */}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2" data-tour="reports-debtors-alerts">
             <SectionCard title="Top công nợ" action={<Link href="/tuition" className="text-sm font-bold text-[#f97316]">Mở học phí →</Link>}>
               <div className="space-y-2">
                 {data.dashboard.debtors.map((d) => (

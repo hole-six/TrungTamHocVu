@@ -10,6 +10,34 @@ import NewCashTransactionForm from "@/components/cashbook/NewCashTransactionForm
 import CategoryManager from "@/components/cashbook/CategoryManager";
 import CashTransactionRow from "@/components/cashbook/CashTransactionRow";
 import PageGuide from "@/components/ui/PageGuide";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+
+const CASHBOOK_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="cashbook-header"]',
+    title: "Sổ quỹ — dòng tiền thực tế của cơ sở",
+    description: "Mặc định xem từ đầu tháng hiện tại đến hôm nay — đổi khoảng ngày ở bộ lọc bên dưới để xem kỳ khác.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="cashbook-filters"]',
+    title: "Lọc theo ngày, loại phiếu, danh mục",
+    description: "Luôn chọn đúng khoảng ngày trước khi xuất báo cáo — 3 số Tổng thu/Tổng chi/Số dư bên dưới tính trên TOÀN BỘ khoảng ngày đang lọc, không chỉ trang đang xem.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="cashbook-kpi"]',
+    title: "Tổng thu, Tổng chi, Số dư",
+    description: "Giao dịch đã hủy (VOIDED) không được cộng vào 3 số này, dù vẫn còn hiển thị trong bảng bên dưới để giữ dấu vết.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="cashbook-table"]',
+    title: "Nhãn \"Tự động\" — phiếu sinh từ nghiệp vụ khác",
+    description: "Phiếu thu học phí, hoàn tiền hoặc nhập kho tự sinh phiếu thu/chi ở đây và chỉ sửa được từ đúng nghiệp vụ gốc, không sửa trực tiếp tại Sổ quỹ.",
+    placement: "top",
+  },
+];
 
 const CASHBOOK_PAGE_GUIDE_SECTIONS = [
   {
@@ -176,13 +204,14 @@ export default async function CashbookPage({
         sections={CASHBOOK_PAGE_GUIDE_SECTIONS}
         buttonLabel="Guide sổ quỹ"
       />
-      <div className="flex flex-col gap-4 rounded-[28px] border border-hairline bg-white px-5 py-4 shadow-[0_18px_45px_rgba(15,23,41,0.06)] xl:flex-row xl:items-start xl:justify-between">
+      <div className="flex flex-col gap-4 rounded-[28px] border border-hairline bg-white px-5 py-4 shadow-[0_18px_45px_rgba(15,23,41,0.06)] xl:flex-row xl:items-start xl:justify-between" data-tour="cashbook-header">
         <div>
           <h1 className="page-title">Sổ quỹ</h1>
           <p className="page-subtitle">Thu vào, chi ra và số dư thực tế của cơ sở.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <SpotlightTour steps={CASHBOOK_TOUR_STEPS} />
           {canCreateCashbook ? <NewCashTransactionForm categories={categories} /> : null}
           <CashbookExportButton
             fromDate={fromDateStr}
@@ -195,17 +224,19 @@ export default async function CashbookPage({
         </div>
       </div>
 
-      <CashbookFilters
-        key={`${fromDateStr}|${toDateStr}|${typeFilter}|${searchQuery}|${categoryIdFilter}`}
-        initialFromDate={fromDateStr}
-        initialToDate={toDateStr}
-        initialType={typeFilter}
-        initialSearch={searchQuery}
-        initialCategoryId={categoryIdFilter}
-        categories={categories}
-      />
+      <div data-tour="cashbook-filters">
+        <CashbookFilters
+          key={`${fromDateStr}|${toDateStr}|${typeFilter}|${searchQuery}|${categoryIdFilter}`}
+          initialFromDate={fromDateStr}
+          initialToDate={toDateStr}
+          initialType={typeFilter}
+          initialSearch={searchQuery}
+          initialCategoryId={categoryIdFilter}
+          categories={categories}
+        />
+      </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3" data-tour="cashbook-kpi">
         <div className="rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Tổng thu vào</p>
           <p className="mt-2 font-display text-2xl font-semibold tracking-tight text-emerald-800">{formatVnd(totalThu)}</p>
@@ -233,6 +264,7 @@ export default async function CashbookPage({
           </span>
         </div>
 
+        <div data-tour="cashbook-table">
         {/* Desktop: Full table */}
         <div className="hidden lg:block table-container [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <table className="table">
@@ -326,6 +358,7 @@ export default async function CashbookPage({
               Chưa có phiếu thu/chi nào trong khoảng ngày đang xem.
             </div>
           )}
+        </div>
         </div>
 
         {/* Pagination */}

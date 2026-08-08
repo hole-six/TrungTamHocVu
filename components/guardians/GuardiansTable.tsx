@@ -239,6 +239,7 @@ export default function GuardiansTable({
 
   return (
     <>
+      <div data-tour="guardians-table">
       <DataTableResponsive
         data={visibleData}
         columns={columns}
@@ -275,6 +276,7 @@ export default function GuardiansTable({
         primaryColumn="fullName"
         secondaryColumns={["phone"]}
       />
+      </div>
       <GuardianDrawer isOpen={showCreateDrawer} onClose={() => setShowCreateDrawer(false)} />
     </>
   );

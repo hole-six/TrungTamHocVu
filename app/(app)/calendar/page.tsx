@@ -6,6 +6,22 @@ import { getUserRole } from "@/lib/permissions";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import CalendarFilters from "@/components/calendar/CalendarFilters";
 import PageGuide from "@/components/ui/PageGuide";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+
+const CALENDAR_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="calendar-filters"]',
+    title: "Chọn tuần trước, lọc sau",
+    description: "Bộ lọc lớp/phòng/giáo viên chỉ áp dụng trong tuần đang chọn — đổi tuần sẽ giữ nguyên bộ lọc đang dùng.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="calendar-week"]',
+    title: "Mỗi thẻ buổi học mở thẳng vào trang buổi đó",
+    description: "Nhãn \"Thiếu phân công\" ở đầu mỗi ngày cảnh báo buổi chưa gán giáo viên/trợ giảng — bấm vào thẻ buổi để phân công ngay.",
+    placement: "top",
+  },
+];
 
 const ICON_CALENDAR = (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -195,26 +211,32 @@ export default async function CalendarPage({
         sections={CALENDAR_PAGE_GUIDE_SECTIONS}
         buttonLabel="Guide"
       />
-      <div className="flex items-center gap-3 sm:gap-4">
-        <div className="grid h-10 w-10 sm:h-12 sm:w-12 place-items-center rounded-xl sm:rounded-2xl bg-sky-50 text-sky-600">
-          {ICON_CALENDAR}
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="grid h-10 w-10 sm:h-12 sm:w-12 place-items-center rounded-xl sm:rounded-2xl bg-sky-50 text-sky-600">
+            {ICON_CALENDAR}
+          </div>
+          <div>
+            <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Lịch tổng lớp học</h1>
+            <p className="page-subtitle text-xs sm:text-sm">
+              <span className="hidden sm:inline">Xem nhanh lịch dạy trong tuần, trạng thái buổi học và phân công nhân sự.</span>
+              <span className="sm:hidden">Lịch dạy trong tuần</span>
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Lịch tổng lớp học</h1>
-          <p className="page-subtitle text-xs sm:text-sm">
-            <span className="hidden sm:inline">Xem nhanh lịch dạy trong tuần, trạng thái buổi học và phân công nhân sự.</span>
-            <span className="sm:hidden">Lịch dạy trong tuần</span>
-          </p>
-        </div>
+        <SpotlightTour steps={CALENDAR_TOUR_STEPS} />
       </div>
 
-      <CalendarFilters
-        key={`${anchor.toISOString().slice(0, 10)}|${q}|${timePreset}`}
-        initialWeek={anchor.toISOString().slice(0, 10)}
-        initialQuery={q}
-        initialTimePreset={timePreset}
-      />
+      <div data-tour="calendar-filters">
+        <CalendarFilters
+          key={`${anchor.toISOString().slice(0, 10)}|${q}|${timePreset}`}
+          initialWeek={anchor.toISOString().slice(0, 10)}
+          initialQuery={q}
+          initialTimePreset={timePreset}
+        />
+      </div>
 
+      <div data-tour="calendar-week">
       <div className="overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="grid min-w-[1460px] grid-cols-7 gap-3">
           {sessionsByDay.map((day) => {
@@ -474,6 +496,7 @@ export default async function CalendarPage({
         })}
       </div>
 
+      </div>
     </div>
   );
 }

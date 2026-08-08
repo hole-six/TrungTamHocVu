@@ -531,7 +531,7 @@ export default function LeadsTable({
   const totalActive = statusOptions.filter((o) => o.key !== "ENROLLED").reduce((s, o) => s + o.count, 0);
 
   const filterChips = (
-    <div className="flex w-full flex-col gap-3">
+    <div className="flex w-full flex-col gap-3" data-tour="leads-filters">
       {/* Row 1: Status filters */}
       {statusOptions.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
@@ -642,6 +642,7 @@ export default function LeadsTable({
   );
 
   return (
+    <div data-tour="leads-table">
     <DataTableResponsive
       data={data}
       columns={columns}
@@ -676,5 +677,6 @@ export default function LeadsTable({
       primaryColumn="fullName"
       secondaryColumns={["leadCode", "status", "latestTest"]}
     />
+    </div>
   );
 }

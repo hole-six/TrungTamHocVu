@@ -16,6 +16,40 @@ import VoidMaintenanceControl from "@/components/assets/VoidMaintenanceControl";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate, canDelete } from "@/lib/server/role-matrix";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+
+const ASSET_DETAIL_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="asset-header"]',
+    title: "Trạng thái và số lượng tổng quan",
+    description: "Số lượng, tổng giá trị và tiền bảo dưỡng cộng dồn từ toàn bộ lịch sử giao dịch bên dưới — không phải số nhập tay cố định.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="asset-kpi"]',
+    title: "Giá trị gốc và lịch bảo dưỡng",
+    description: "\"Giá trị gốc\" = Số lượng × Giá trị/đơn vị. \"Lịch bảo dưỡng\" tự tính hạn kế tiếp dựa trên chu kỳ đã đặt và lần bảo dưỡng gần nhất — Quá hạn/Sắp đến hạn là cảnh báo cần xử lý.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="asset-transactions"]',
+    title: "Lịch sử giao dịch — nguồn dữ liệu duy nhất",
+    description: "Mọi thay đổi số lượng/giá trị/bảo dưỡng đều đi qua đây. Giao dịch đã hủy vẫn hiển thị (gạch ngang) để giữ dấu vết, không bị xoá khỏi lịch sử.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="asset-add-txn"]',
+    title: "Ghi nhận giao dịch mới",
+    description: "Dùng để nhập thêm số lượng, chuyển phòng, ghi nhận bảo dưỡng hoặc thanh lý — mỗi giao dịch tự cộng dồn vào các số tổng quan phía trên.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="asset-edit"]',
+    title: "Sửa thông tin & chu kỳ bảo dưỡng",
+    description: "Đổi chu kỳ bảo dưỡng ở đây sẽ tính lại ngay hạn kế tiếp theo lần bảo dưỡng gần nhất đã ghi nhận.",
+    placement: "left",
+  },
+];
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
@@ -61,7 +95,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
         <Link href="/assets" className="text-sm text-primary">
           ← Quay lại Tài sản & Trang thiết bị
         </Link>
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between" data-tour="asset-header">
           <div className="space-y-2">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">{asset.name}</h1>
@@ -90,6 +124,12 @@ export default async function AssetDetailPage({ params }: { params: { id: string
           </div>
 
           <div className="flex items-center gap-2">
+            <SpotlightTour
+              steps={ASSET_DETAIL_TOUR_STEPS.filter((step) => {
+                if (!canManageAsset && (step.target.includes("asset-add-txn") || step.target.includes("asset-edit"))) return false;
+                return true;
+              })}
+            />
             <Link href="/assets" className="btn-ghost">
               Danh sách TS
             </Link>
@@ -98,7 +138,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" data-tour="asset-kpi">
         <div className="card">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Số lượng hiện có</p>
           <p className="mt-2 font-display text-2xl font-semibold tracking-tight">{quantity} {unitName}</p>
@@ -137,6 +177,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
+          <div data-tour="asset-transactions">
           {/* Desktop Table */}
           <div className="card hidden lg:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <div className="flex items-center justify-between gap-3">
@@ -278,11 +319,17 @@ export default async function AssetDetailPage({ params }: { params: { id: string
               )}
             </div>
           </div>
+          </div>
 
-          {canManageAsset && <AssetTransactionForm assetId={asset.id} assetName={asset.name} />}
+          {canManageAsset && (
+            <div data-tour="asset-add-txn">
+              <AssetTransactionForm assetId={asset.id} assetName={asset.name} />
+            </div>
+          )}
         </div>
 
         {canManageAsset && (
+          <div data-tour="asset-edit">
           <AssetEditForm
             assetId={asset.id}
             initial={{
@@ -296,6 +343,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
               notes: asset.notes ?? "",
             }}
           />
+          </div>
         )}
       </div>
     </div>

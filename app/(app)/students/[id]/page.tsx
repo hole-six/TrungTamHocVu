@@ -12,6 +12,7 @@ import SchoolExamScoreForm from "@/components/students/SchoolExamScoreForm";
 import GuardianAccountPanel from "@/components/guardians/GuardianAccountPanel";
 import DetailTabs from "@/components/ui/DetailTabs";
 import PageGuide from "@/components/ui/PageGuide";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { computeOutstandingBalance } from "@/lib/server/balance";
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import { computeEnrollmentSessionProgress } from "@/lib/server/class-generation";
@@ -99,6 +100,64 @@ const STUDENT_DETAIL_GUIDE_SECTIONS = [
       "Buổi bổ trợ hoặc rút lớp có thể ảnh hưởng cả lớp học lẫn tài chính.",
     ],
     tone: "warning" as const,
+  },
+];
+
+const STUDENT_DETAIL_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="student-header"]',
+    title: "Trạng thái, mã học viên và lớp hiện tại",
+    description:
+      "Badge \"ĐANG HỌC/ĐÃ NGHỈ\" lấy theo Student.status (tổng thể), khác với trạng thái từng ghi danh (ACTIVE/WITHDRAWN/COMPLETED) — 1 học viên có thể còn \"ĐANG HỌC\" dù vừa rút 1 lớp cụ thể, miễn còn ít nhất 1 ghi danh khác đang hoạt động. Badge cam \"Nợ\" chỉ hiện khi công nợ THẬT (tính động, không cộng trùng nợ cũ) lớn hơn 0.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="student-actions"]',
+    title: "Gán lớp và thu tiền nhanh ngay tại đây",
+    description:
+      "\"Gán lớp\" tạo ghi danh mới — chọn đúng kiểu thu học phí (trọn khóa/theo tháng/trả góp) ngay lúc này vì đổi sau sẽ phức tạp hơn khi đã phát sinh hóa đơn. Nút thu tiền nhanh gợi ý sẵn đúng số công nợ hiện tại, phân bổ tự động vào kỳ cũ nhất trước (không cần chọn thủ công kỳ nào).",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="student-kpi-due"]',
+    title: "\"Cần thu\" khác với tổng công nợ",
+    description:
+      "Đây CHỈ tính các kỳ ĐÃ ĐẾN HẠN (ngày bắt đầu kỳ ≤ hôm nay) — kỳ trả góp tương lai chưa tới hạn không bị gộp vào đây dù đã có hóa đơn, để không làm học viên trông như đang nợ quá hạn oan. Muốn xem TOÀN BỘ công nợ (kể cả chưa đến hạn) thì xem badge \"Nợ\" ở phần đầu trang.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="student-kpi-paid"]',
+    title: "\"Đã lập\" và \"Đã thu\" — 2 số khác nhau",
+    description:
+      "\"Đã lập\" = tổng tiền trên các hóa đơn đã sinh ra (kể cả chưa thu). \"Đã thu\" = tiền thật đã vào sổ. Chênh lệch giữa 2 số này chính là phần còn nợ. Dòng nhỏ bên dưới tách riêng phần học phí đã thu (không gồm tiền giáo trình) theo đúng tỉ lệ của từng hóa đơn.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="student-kpi-attendance"]',
+    title: "Có mặt / Vắng / Bù — đếm theo điểm danh thật",
+    description:
+      "3 số này đếm trực tiếp từ bảng điểm danh của học viên, không phải từ lịch học lý thuyết. Vắng nhiều có thể tự động sinh buổi bổ trợ tùy theo tình huống — xem chi tiết ở tab Buổi học.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="student-kpi-portal"]',
+    title: "Cổng phụ huynh — cấp quyền xem học phí/điểm danh online",
+    description:
+      "Hiện email đăng nhập cổng phụ huynh của người giám hộ chính (không phải của học viên). \"Chưa cấp\" nghĩa là phụ huynh chưa có tài khoản portal — cấp ở tab Phụ huynh phía dưới.",
+    placement: "left",
+  },
+  {
+    target: '[data-tour="student-kpi-books"]',
+    title: "Công nợ sách giáo trình — tách riêng khỏi học phí",
+    description: "Tổng tiền sách đã phát nhưng chưa thanh toán — đây là khoản riêng, không cộng vào công nợ học phí ở các thẻ bên trái.",
+    placement: "left",
+  },
+  {
+    target: '[data-tour="student-tabs"]',
+    title: "4 tab: Tổng quan, Học phí, Buổi học, Phụ huynh",
+    description:
+      "Xử lý rút lớp, học bổng/điều chỉnh, hoàn tiền, buổi bổ trợ đều nằm trong đúng tab liên quan — không có 1 chỗ chung cho tất cả. Nếu vừa bấm nút thu tiền, trang tự mở sẵn tab Học phí.",
+    placement: "top",
   },
 ];
 
@@ -366,7 +425,7 @@ export default async function StudentDetailPage({
           <span className="sm:hidden">Học viên</span>
         </Link>
         <div className="mt-4 sm:mt-6 flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-start gap-3 sm:gap-4">
+          <div className="flex items-start gap-3 sm:gap-4" data-tour="student-header">
             <div className="flex h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#f97316] to-[#ea580c] shadow-lg text-lg sm:text-xl md:text-2xl font-black text-white">
               {student.fullName.charAt(0).toUpperCase()}
             </div>
@@ -389,7 +448,13 @@ export default async function StudentDetailPage({
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3" data-tour="student-actions">
+            <SpotlightTour
+              steps={STUDENT_DETAIL_TOUR_STEPS.filter((step) => {
+                if (!canSeeFinance && ["student-kpi-due", "student-kpi-paid", "student-kpi-books"].some((key) => step.target.includes(key))) return false;
+                return true;
+              })}
+            />
             {canEditStudent && (
               <AssignEnrollmentForm
                 student={{
@@ -441,7 +506,7 @@ export default async function StudentDetailPage({
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
         {canSeeFinance ? (
           <>
-        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all" data-tour="student-kpi-due">
           <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           </div>
@@ -457,7 +522,7 @@ export default async function StudentDetailPage({
           <p className="text-lg sm:text-xl md:text-2xl font-black text-[#0f1729] mb-0.5 sm:mb-1">{formatVnd(totalCharged)}</p>
           <p className="text-[10px] sm:text-xs font-semibold text-[#64748b]">{student.charges.length} kỳ</p>
         </div>
-        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all" data-tour="student-kpi-paid">
           <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
@@ -467,7 +532,7 @@ export default async function StudentDetailPage({
         </div>
           </>
         ) : null}
-        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all" data-tour="student-kpi-attendance">
           <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fb923c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           </div>
@@ -475,7 +540,7 @@ export default async function StudentDetailPage({
           <p className="text-lg sm:text-xl md:text-2xl font-black text-[#0f1729] mb-0.5 sm:mb-1">{attendanceStats.present}</p>
           <p className="text-[10px] sm:text-xs font-semibold text-[#64748b]">Vắng {attendanceStats.absent} · Bù {attendanceStats.makeup}</p>
         </div>
-        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all" data-tour="student-kpi-portal">
           <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           </div>
@@ -483,7 +548,7 @@ export default async function StudentDetailPage({
           <p className="text-base sm:text-lg font-black text-[#0f1729] mb-0.5 sm:mb-1 truncate">{primaryGuardian?.user?.email ? primaryGuardian.user.email.split('@')[0] : "Chưa cấp"}</p>
           <p className="text-[10px] sm:text-xs font-semibold text-[#64748b] truncate">{primaryGuardian?.user ? (primaryGuardian.user.isActive ? "Hoạt động" : "Thu hồi") : "Chưa có"}</p>
         </div>
-        {canSeeFinance ? <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+        {canSeeFinance ? <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all" data-tour="student-kpi-books">
           <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
           </div>
@@ -494,6 +559,7 @@ export default async function StudentDetailPage({
       </div>
 
       {/* ── TABS ── */}
+      <div data-tour="student-tabs">
       <DetailTabs
         defaultTabKey={autoOpenTuition && canSeeFinance ? "hocphi" : "tongquan"}
         tabs={[
@@ -987,6 +1053,7 @@ export default async function StudentDetailPage({
           },
         ]}
       />
+      </div>
     </div>
   );
 }

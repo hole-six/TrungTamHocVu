@@ -7,6 +7,40 @@ import { getReportsDashboardData } from "@/lib/server/reporting";
 import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import QuickActions from "@/components/dashboard/QuickActions";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+
+const DASHBOARD_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="dashboard-hero"]',
+    title: "Trang tổng quan — điểm khởi đầu mỗi ngày",
+    description: "Nội dung trang đổi theo vai trò đăng nhập: giáo viên/trợ giảng chỉ thấy buổi dạy của mình, không thấy khối CRM/công nợ toàn trung tâm.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="dashboard-kpi"]',
+    title: "5 số quan trọng nhất — bấm để đi thẳng vào trang liên quan",
+    description: "\"Công nợ học phí\" là tổng còn nợ TOÀN trung tâm (hoặc theo cơ sở đang chọn), tính động theo từng khoản — không phải số cố định lưu sẵn.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="dashboard-revenue-pipeline"]',
+    title: "Doanh thu theo kỳ & Phễu tuyển sinh",
+    description: "% đã thu tính trên từng kỳ học phí. Phễu tuyển sinh đếm lead theo trạng thái hiện tại, không phải lịch sử — một lead ENROLLED sẽ rời khỏi phễu.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="dashboard-alerts"]',
+    title: "Cảnh báo vận hành & Dòng tiền",
+    description: "Đây là các con số cần xử lý sớm: học viên chưa có portal phụ huynh, lead đạt nhưng chưa xếp lớp, và dòng tiền thu/chi thực tế từ Sổ quỹ.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="dashboard-quick-actions"]',
+    title: "Lối tắt theo đúng vai trò của bạn",
+    description: "Danh sách này không cố định — chỉ hiện các tác vụ vai trò của bạn được phép làm, kèm số lượng việc đang chờ (nếu có) trên mỗi ô.",
+    placement: "top",
+  },
+];
 
 function startOfDay(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0); }
 function endOfDay(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999); }
@@ -189,7 +223,7 @@ export default async function DashboardPage() {
     <div className="space-y-6 pb-16">
 
       {/* ── Hero header ─────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border border-[#fed7aa] bg-gradient-to-br from-[#fff7ed] via-[#ffedd5] to-[#fed7aa] p-5 shadow-lg sm:rounded-3xl sm:p-6 md:p-8">
+      <div className="relative overflow-hidden rounded-2xl border border-[#fed7aa] bg-gradient-to-br from-[#fff7ed] via-[#ffedd5] to-[#fed7aa] p-5 shadow-lg sm:rounded-3xl sm:p-6 md:p-8" data-tour="dashboard-hero">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNiIgc3Ryb2tlPSIjZjk3MzE2IiBzdHJva2Utd2lkdGg9IjEiIG9wYWNpdHk9Ii4xIi8+PC9nPjwvc3ZnPg==')] opacity-30" />
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex-1 min-w-0">
@@ -198,6 +232,12 @@ export default async function DashboardPage() {
             <p className="mt-2 text-sm font-medium text-[#9a3412] leading-relaxed sm:mt-3 sm:text-base sm:max-w-xl">{shell.dashboardSubtitle}</p>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-3">
+            <SpotlightTour
+              steps={DASHBOARD_TOUR_STEPS.filter((step) => {
+                if (!operational && (step.target.includes("dashboard-revenue-pipeline") || step.target.includes("dashboard-alerts"))) return false;
+                return true;
+              })}
+            />
             <Link href="/reports" className="inline-flex items-center gap-1.5 rounded-lg bg-white border-2 border-[#f97316] px-3 py-2 text-xs font-bold text-[#f97316] hover:bg-[#f97316] hover:text-white shadow-md hover:shadow-xl transition-all sm:rounded-xl sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm md:px-5 md:py-3">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sm:h-[18px] sm:w-[18px]"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
               <span className="hidden sm:inline">Báo cáo</span>
@@ -215,7 +255,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── 5 KPI Cards ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5" data-tour="dashboard-kpi">
         <KpiCard label="Học viên đang học" value={String(stats.activeStudents)} sub={`/ ${stats.totalStudents} tổng`}
           color="#f97316" href="/students"
           icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>} />
@@ -235,7 +275,7 @@ export default async function DashboardPage() {
 
       {/* ── Revenue + Pipeline (2 cols) ──────────────────────────── */}
       {operational && leadPipeline && (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2" data-tour="dashboard-revenue-pipeline">
 
           {/* Revenue last 6 periods */}
           <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
@@ -291,7 +331,7 @@ export default async function DashboardPage() {
 
       {/* ── Test overview + Operational alerts + Cash flow ───────── */}
       {operational && testOverview && (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3" data-tour="dashboard-alerts">
 
           {/* Test schedule alerts */}
           <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
@@ -562,7 +602,7 @@ export default async function DashboardPage() {
 
       {/* ── Quick actions + Focus items ──────────────────────────── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">
-        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm" data-tour="dashboard-quick-actions">
           <div className="flex items-center justify-between gap-3 mb-5">
             <div>
               <h2 className="text-lg font-black tracking-tight text-[#0f1729]">{shell.quickActionsTitle}</h2>

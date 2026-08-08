@@ -24,6 +24,7 @@ import ClassEditForm from "@/components/classes/ClassEditForm";
 import RescheduleSessionButton from "@/components/classes/RescheduleSessionButton";
 import ClassDefaultAssignmentManager from "@/components/classes/ClassDefaultAssignmentManager";
 import PageGuide from "@/components/ui/PageGuide";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { isTaskDueOn, computeTaskLogStatus } from "@/lib/server/class-task-rules";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
@@ -99,6 +100,49 @@ const ATTENTION_STYLE = {
   ok: { dot: "bg-emerald-500", text: "text-emerald-800", bg: "bg-emerald-50", border: "border-emerald-200" },
 };
 type AttentionSeverity = keyof typeof ATTENTION_STYLE;
+
+const CLASS_DETAIL_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="class-header"]',
+    title: "Mã lớp, khóa gốc và các cảnh báo quan trọng",
+    description:
+      "Badge \"Bổ trợ\" nghĩa là lớp isRemedial — không tự tính học phí, chỉ dùng để học viên tiêu buổi bổ trợ. Badge cam \"Nợ\" là tổng công nợ thật của TẤT CẢ học viên trong lớp cộng lại (tính động, không cộng trùng nợ cũ giữa các kỳ).",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="class-actions"]',
+    title: "Sinh buổi học — chỉ tạo đúng theo lịch cố định, không tự do",
+    description:
+      "\"Sinh buổi học\" chạy đúng cơ chế mà hệ thống tự làm mỗi ngày lúc 2h sáng — sinh theo đúng thứ/giờ đã khai báo, tự né ngày lễ, dừng lại đúng lúc đủ tổng số buổi cam kết. Muốn thêm 1 buổi lệch khỏi lịch chuẩn (bù riêng) thì dùng nút \"Đổi buổi\" ở từng dòng buổi học bên dưới, không phải nút này.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="class-kpi-completed"]',
+    title: "\"Đã học\" đếm buổi COMPLETED thật, không phải buổi đã lên lịch",
+    description:
+      "Số này chỉ tăng khi buổi đó đã được điểm danh xong (chuyển trạng thái COMPLETED) — 1 lớp có thể đã lên lịch đủ 20 buổi nhưng số này vẫn là 0 nếu chưa ai điểm danh. Đây cũng chính là cơ sở duy nhất để tính học phí theo tháng, không dùng số buổi đã lên lịch.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="class-kpi-debt"]',
+    title: "Công nợ toàn lớp — cộng dồn đúng, không trùng",
+    description: "Tổng công nợ thật của mọi học viên trong lớp. Muốn xử lý thu tiền từng người thì vào đúng hồ sơ học viên đó, không thu gộp ở đây.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="class-kpi-time"]',
+    title: "Ngày kết thúc dự kiến — con số tự động điều chỉnh",
+    description:
+      "Đây chỉ là DỰ TRÙ để theo dõi tiến độ, không phải mốc cố định — mỗi khi có buổi bị đổi lịch, huỷ, hoặc sinh muộn hơn kế hoạch (nghỉ lễ, gián đoạn...), hệ thống tự động đẩy ngày này ra cho khớp thực tế, không cần sửa tay.",
+    placement: "left",
+  },
+  {
+    target: '[data-tour="class-tabs"]',
+    title: "Lịch buổi học, học viên, roadmap và checklist — tách theo tab",
+    description: "Đổi buổi, điểm danh, ghi danh học viên mới, phân công giáo viên mặc định đều nằm đúng trong từng tab liên quan, không có 1 chỗ chung cho tất cả.",
+    placement: "top",
+  },
+];
 
 const CLASS_DETAIL_GUIDE_SECTIONS = [
   {
@@ -307,7 +351,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
           <span className="sm:hidden">Lớp</span>
         </Link>
         <div className="mt-4 sm:mt-6 flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-start gap-3 sm:gap-4">
+          <div className="flex items-start gap-3 sm:gap-4" data-tour="class-header">
             <div className="flex h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#f97316] to-[#ea580c] shadow-lg">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-7 sm:h-7 md:w-8 md:h-8">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
@@ -336,7 +380,8 @@ export default async function ClassDetailPage({ params }: { params: { id: string
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3" data-tour="class-actions">
+            <SpotlightTour steps={CLASS_DETAIL_TOUR_STEPS} />
             {latestSession && (
               <Link href={`/classes/${cls.id}/sessions/${latestSession.id}`} className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl bg-gradient-to-r from-[#f97316] to-[#ea580c] px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm font-bold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sm:w-[18px] sm:h-[18px]"><circle cx="12" cy="12" r="10"/><polyline points="10 8 16 12 10 16"/></svg>
@@ -390,7 +435,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
           <p className="text-lg sm:text-xl md:text-2xl font-black text-[#0f1729] mb-0.5 sm:mb-1">{activeEnrollments.length}</p>
           <p className="text-[10px] sm:text-xs font-semibold text-[#64748b]">học sinh</p>
         </div>
-        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all" data-tour="class-kpi-completed">
           <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
@@ -398,7 +443,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
           <p className="text-lg sm:text-xl md:text-2xl font-black text-[#0f1729] mb-0.5 sm:mb-1">{completedSessions}{cls.totalSessions ? <span className="text-sm sm:text-base md:text-lg text-[#64748b]"> / {cls.totalSessions}</span> : ""}</p>
           <p className="text-[10px] sm:text-xs font-semibold text-[#64748b] truncate">buổi hoàn thành</p>
         </div>
-        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all" data-tour="class-kpi-debt">
           <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           </div>
@@ -414,7 +459,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
           <p className="text-lg sm:text-xl md:text-2xl font-black text-[#0f1729] mb-0.5 sm:mb-1">{latestAttendanceStats.present}</p>
           <p className="text-[10px] sm:text-xs font-semibold text-[#64748b]">mặt / {latestAttendanceStats.absent} vắng</p>
         </div>
-        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all" data-tour="class-kpi-time">
           <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           </div>
@@ -425,6 +470,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
       </div>
 
       {/* ── TABS ── */}
+      <div data-tour="class-tabs">
       <DetailTabs
         defaultTabKey="tongquan"
         tabs={[
@@ -1111,6 +1157,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
             : []),
         ]}
       />
+      </div>
     </div>
   );
 }
