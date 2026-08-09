@@ -148,10 +148,17 @@ export default async function AssetDetailPage({ params }: { params: { id: string
                     </td>
                     <td className="py-2 font-medium">
                       {t.type === "MAINTENANCE" ? (
-                        <div>
-                          <p className="font-semibold text-amber-700">{formatVnd(t.amount)}</p>
-                          <p className="text-xs text-ink-muted48">Tiền bảo dưỡng</p>
-                        </div>
+                        t.amount > 0 ? (
+                          <div>
+                            <p className="font-semibold text-amber-700">{formatVnd(t.amount)}</p>
+                            <p className="text-xs text-ink-muted48">Tiền bảo dưỡng</p>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="font-semibold text-emerald-700">Tự bảo dưỡng</p>
+                            <p className="text-xs text-ink-muted48">Không mất chi phí</p>
+                          </div>
+                        )
                       ) : (
                         <div>
                           <p className="font-semibold text-ink">{t.quantity > 0 ? `+${t.quantity}` : t.quantity}</p>

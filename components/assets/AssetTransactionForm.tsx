@@ -57,6 +57,7 @@ export default function AssetTransactionForm({
   const [quantity, setQuantity] = useState("1");
   const [toRoom, setToRoom] = useState("");
   const [amount, setAmount] = useState("");
+  const [selfMaintenance, setSelfMaintenance] = useState(false);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +72,13 @@ export default function AssetTransactionForm({
     const res = await fetch(`/api/assets/${assetId}/transactions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type, quantity: Number(quantity), toRoom, amount: Number(amount), notes }),
+      body: JSON.stringify({
+        type,
+        quantity: Number(quantity),
+        toRoom,
+        amount: type === "MAINTENANCE" && selfMaintenance ? 0 : Number(amount),
+        notes,
+      }),
     });
     const data = await res.json().catch(() => ({}));
     setLoading(false);
@@ -84,6 +91,7 @@ export default function AssetTransactionForm({
     setQuantity("1");
     setToRoom("");
     setAmount("");
+    setSelfMaintenance(false);
     setNotes("");
     setSaved(true);
     router.refresh();
@@ -136,11 +144,44 @@ export default function AssetTransactionForm({
       <form onSubmit={submit} className="mt-4 space-y-4">
         {type === "MAINTENANCE" ? (
           <div className="rounded-[22px] border border-amber-200 bg-amber-50/60 p-4">
+            <label className="mb-4 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-emerald-300 text-emerald-600"
+                checked={selfMaintenance}
+                onChange={(e) => {
+                  setSelfMaintenance(e.target.checked);
+                  if (e.target.checked) setAmount("");
+                }}
+              />
+              <span>
+                <span className="block text-sm font-semibold text-emerald-800">Tự bảo dưỡng (không mất chi phí)</span>
+                <span className="mt-0.5 block text-xs leading-5 text-emerald-700">
+                  Dùng khi tự làm (vd: tự vệ sinh lưới lọc điều hòa), không phát sinh chi phí thật. Vẫn lưu lại lịch sử bảo dưỡng nhưng không sinh phiếu chi ở sổ quỹ.
+                </span>
+              </span>
+            </label>
+
             <div className="grid gap-4 md:grid-cols-2">
               <label className="form-group">
                 <span className="label">Số tiền bảo dưỡng</span>
-                <input required type="number" min="1" className="input" placeholder="VD: 350000" value={amount} onChange={(e) => setAmount(e.target.value)} />
-                <p className="form-hint">{amount ? `Sẽ ghi nhận ${formatVnd(Number(amount) || 0)} vào chi phí bảo dưỡng.` : "Nhập đúng số tiền thực tế đã chi."}</p>
+                <input
+                  required={!selfMaintenance}
+                  disabled={selfMaintenance}
+                  type="number"
+                  min="1"
+                  className="input disabled:cursor-not-allowed disabled:bg-[#f3f6fb] disabled:text-ink-muted48"
+                  placeholder="VD: 350000"
+                  value={selfMaintenance ? "0" : amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+                <p className="form-hint">
+                  {selfMaintenance
+                    ? "Tự bảo dưỡng: không mất chi phí, số tiền ghi nhận là 0."
+                    : amount
+                      ? `Sẽ ghi nhận ${formatVnd(Number(amount) || 0)} vào chi phí bảo dưỡng.`
+                      : "Nhập đúng số tiền thực tế đã chi."}
+                </p>
               </label>
 
               <label className="form-group">
@@ -150,12 +191,24 @@ export default function AssetTransactionForm({
             </div>
 
             <div className="mt-3 rounded-2xl border border-white bg-white px-4 py-3 text-xs text-amber-800">
-              Khoản này sẽ:
-              <div className="mt-2 space-y-1">
-                <p>- cộng vào tiền bảo dưỡng của tài sản</p>
-                <p>- cộng vào tổng giá trị hiện tại</p>
-                <p>- tự sinh 1 phiếu chi trong sổ quỹ</p>
-              </div>
+              {selfMaintenance ? (
+                <>
+                  Khoản này sẽ:
+                  <div className="mt-2 space-y-1">
+                    <p>- lưu vào lịch sử bảo dưỡng của tài sản (0đ)</p>
+                    <p>- không cộng chi phí, không sinh phiếu chi trong sổ quỹ</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  Khoản này sẽ:
+                  <div className="mt-2 space-y-1">
+                    <p>- cộng vào tiền bảo dưỡng của tài sản</p>
+                    <p>- cộng vào tổng giá trị hiện tại</p>
+                    <p>- tự sinh 1 phiếu chi trong sổ quỹ</p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ) : null}

@@ -39,8 +39,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (!body.toRoom) return NextResponse.json({ error: "Thiếu phòng/vị trí mới" }, { status: 400 });
   } else if (type === "MAINTENANCE") {
     quantity = 0;
-    amount = Math.abs(Number(body.amount ?? 0));
-    if (amount <= 0) return NextResponse.json({ error: "Số tiền bảo dưỡng phải lớn hơn 0" }, { status: 400 });
+    // Tự bảo dưỡng (vd: tự vệ sinh lưới lọc điều hòa) không phát sinh chi phí thật,
+    // nên cho phép amount = 0 — chỉ chặn số âm/không hợp lệ.
+    amount = Number(body.amount ?? 0);
+    if (!Number.isFinite(amount) || amount < 0) {
+      return NextResponse.json({ error: "Số tiền bảo dưỡng không hợp lệ" }, { status: 400 });
+    }
   }
 
   const txnDate = body.txnDate ? new Date(body.txnDate) : new Date();
@@ -70,7 +74,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     // Tiền bảo dưỡng là tiền thật đã chi ra — tự sinh 1 phiếu CHI trong Sổ quỹ luôn,
     // không bắt nhập tay 2 nơi (cùng nguyên tắc với nhập kho giáo trình).
-    if (type === "MAINTENANCE") {
+    // Tự bảo dưỡng (amount = 0) không mất chi phí nên không sinh phiếu CHI, chỉ lưu lịch sử.
+    if (type === "MAINTENANCE" && amount > 0) {
       const cashTxn = await tx.cashTransaction.create({
         data: {
           branchId: asset.branchId,

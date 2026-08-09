@@ -49,6 +49,7 @@ export default function QuickMaintenanceButton({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
+  const [selfMaintenance, setSelfMaintenance] = useState(false);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +64,7 @@ export default function QuickMaintenanceButton({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         type: "MAINTENANCE",
-        amount,
+        amount: selfMaintenance ? 0 : amount,
         notes,
       }),
     });
@@ -77,6 +78,7 @@ export default function QuickMaintenanceButton({
     }
 
     setAmount("");
+    setSelfMaintenance(false);
     setNotes("");
     setOpen(false);
     router.refresh();
@@ -110,10 +112,43 @@ export default function QuickMaintenanceButton({
             <p className="mt-2 text-lg font-semibold text-ink">{assetName}</p>
           </div>
 
+          <label className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-emerald-300 text-emerald-600"
+              checked={selfMaintenance}
+              onChange={(event) => {
+                setSelfMaintenance(event.target.checked);
+                if (event.target.checked) setAmount("");
+              }}
+            />
+            <span>
+              <span className="block text-sm font-semibold text-emerald-800">Tự bảo dưỡng (không mất chi phí)</span>
+              <span className="mt-0.5 block text-xs leading-5 text-emerald-700">
+                Dùng khi tự làm (vd: tự vệ sinh lưới lọc điều hòa), không phát sinh chi phí thật. Vẫn lưu lại lịch sử bảo dưỡng nhưng không sinh phiếu chi ở sổ quỹ.
+              </span>
+            </span>
+          </label>
+
           <label className="form-group">
             <span className="label">Số tiền bảo dưỡng</span>
-            <input required type="number" min={1} className="input" placeholder="Ví dụ: 250000" value={amount} onChange={(event) => setAmount(event.target.value)} />
-            <p className="form-hint">{amount ? `Sẽ ghi nhận ${formatVnd(Number(amount) || 0)} vào chi phí bảo dưỡng.` : "Nhập đúng số tiền thực tế đã chi."}</p>
+            <input
+              required={!selfMaintenance}
+              disabled={selfMaintenance}
+              type="number"
+              min={1}
+              className="input disabled:cursor-not-allowed disabled:bg-[#f3f6fb] disabled:text-ink-muted48"
+              placeholder="Ví dụ: 250000"
+              value={selfMaintenance ? "0" : amount}
+              onChange={(event) => setAmount(event.target.value)}
+            />
+            <p className="form-hint">
+              {selfMaintenance
+                ? "Tự bảo dưỡng: không mất chi phí, số tiền ghi nhận là 0."
+                : amount
+                  ? `Sẽ ghi nhận ${formatVnd(Number(amount) || 0)} vào chi phí bảo dưỡng.`
+                  : "Nhập đúng số tiền thực tế đã chi."}
+            </p>
           </label>
 
           <label className="form-group">
