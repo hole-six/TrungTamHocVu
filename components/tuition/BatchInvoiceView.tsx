@@ -6,6 +6,8 @@ import { useMemo, useState } from "react";
 import InvoiceDocument, { type InvoiceChargeData, type PaymentProfileData } from "@/components/tuition/InvoiceDocument";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import DetailTabs from "@/components/ui/DetailTabs";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 
 type BatchCharge = InvoiceChargeData & {
   enrollmentId: string | null;
@@ -100,7 +102,7 @@ export default function BatchInvoiceView({
         charges
           .filter((charge) => {
             const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
-            return !hasBillingMismatch(charge) && charge.totalAmount - paid > 0;
+            return !hasBillingMismatch(charge) && chargeOwnDueAmount(charge) - paid > 0;
           })
           .map((charge) => charge.id),
       ),
@@ -121,6 +123,7 @@ export default function BatchInvoiceView({
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
   const [switchingKey, setSwitchingKey] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [pendingSwitch, setPendingSwitch] = useState<{ charge: BatchCharge; nextBillingModel: "PERIOD" | "COURSE" } | null>(null);
   const [exporting, setExporting] = useState(false);
 
   const visibleCharges = useMemo(() => {
@@ -128,7 +131,7 @@ export default function BatchInvoiceView({
     return charges.filter((charge) => {
       const effectiveBillingModel = getEffectiveBillingModel(charge);
       const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
-      const remaining = Math.max(charge.totalAmount - paid, 0);
+      const remaining = Math.max(chargeOwnDueAmount(charge) - paid, 0);
 
       if (onlyEndedCourses && charge.billingModel === "COURSE" && !charge.classEndedThisPeriod) return false;
       if (billingModelFilter !== "ALL" && effectiveBillingModel !== billingModelFilter) return false;
@@ -151,7 +154,7 @@ export default function BatchInvoiceView({
   const stats = useMemo(() => {
     const totalAmount = visibleCharges.reduce((sum, charge) => sum + charge.totalAmount, 0);
     const totalSelectedAmount = selectedCharges.reduce((sum, charge) => sum + charge.totalAmount, 0);
-    const unpaidCount = visibleCharges.filter((charge) => charge.totalAmount - charge.allocations.reduce((s, item) => s + item.amount, 0) > 0).length;
+    const unpaidCount = visibleCharges.filter((charge) => chargeOwnDueAmount(charge) - charge.allocations.reduce((s, item) => s + item.amount, 0) > 0).length;
     const mismatchCount = visibleCharges.filter((charge) => hasBillingMismatch(charge)).length;
     return {
       visibleCount: visibleCharges.length,
@@ -188,7 +191,7 @@ export default function BatchInvoiceView({
       const next = new Set(current);
       visibleCharges.forEach((charge) => {
         const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
-        if (charge.totalAmount - paid > 0) next.add(charge.id);
+        if (chargeOwnDueAmount(charge) - paid > 0) next.add(charge.id);
         else next.delete(charge.id);
       });
       return next;
@@ -229,18 +232,15 @@ export default function BatchInvoiceView({
     setProfileMessage(response.ok ? "Đã lưu cấu hình thanh toán cho toàn bộ phiếu." : data.error ?? "Không thể lưu cấu hình thanh toán.");
   }
 
-  async function switchBillingModel(charge: BatchCharge, nextBillingModel: "PERIOD" | "COURSE") {
+  function requestSwitchBillingModel(charge: BatchCharge, nextBillingModel: "PERIOD" | "COURSE") {
     if (!charge.enrollmentId) {
       setActionMessage("Không tìm thấy ghi danh đang hoạt động để đổi kiểu thu.");
       return;
     }
+    setPendingSwitch({ charge, nextBillingModel });
+  }
 
-    const nextLabel = nextBillingModel === "COURSE" ? "thu trọn khóa" : "thu theo tháng";
-    const confirmed = window.confirm(
-      `Xác nhận chuyển học viên ${charge.student.fullName} sang ${nextLabel}?\n\nPhiếu hiện tại chỉ được thay thế khi chưa thu tiền. Nếu phiếu này đã phát sinh thu thực tế, hệ thống sẽ tự chặn để tránh lệch công nợ.`,
-    );
-    if (!confirmed) return;
-
+  async function switchBillingModel(charge: BatchCharge, nextBillingModel: "PERIOD" | "COURSE") {
     setSwitchingKey(`${charge.id}:${nextBillingModel}`);
     setActionMessage(null);
 
@@ -255,10 +255,12 @@ export default function BatchInvoiceView({
 
     if (!response.ok) {
       setActionMessage(data.error ?? "Không thể đổi kiểu thu.");
+      setPendingSwitch(null);
       return;
     }
 
     setActionMessage(nextBillingModel === "COURSE" ? "Đã chuyển sang thu trọn khóa và sinh lại phiếu phù hợp." : "Đã chuyển sang thu theo tháng và làm mới charge của kỳ này.");
+    setPendingSwitch(null);
     router.refresh();
   }
 
@@ -326,7 +328,7 @@ export default function BatchInvoiceView({
               </p>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2" data-tour="tuition-summary">
               <div className="rounded-2xl border border-[#dfe8f2] bg-[#f8fbff] p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Kỳ đang xuất</p>
                 <p className="mt-2 text-lg font-semibold text-ink">{periodName}</p>
@@ -349,7 +351,7 @@ export default function BatchInvoiceView({
               </div>
             </div>
 
-            <div className="mt-4">
+            <div className="mt-4" data-tour="tuition-tabs">
               <DetailTabs
                 tabs={[
                   {
@@ -514,8 +516,8 @@ export default function BatchInvoiceView({
             ) : null}
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-2xl border border-hairline">
-            <div className="max-h-[70vh] overflow-auto">
+          <div className="mt-4 overflow-hidden rounded-2xl border border-hairline" data-tour="tuition-table">
+            <div className="max-h-[70vh] overflow-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 z-10 border-b border-hairline bg-white">
                   <tr className="text-xs uppercase tracking-wide text-ink-muted48">
@@ -524,15 +526,15 @@ export default function BatchInvoiceView({
                     </th>
                     <th className="px-4 py-3 font-medium">Học viên</th>
                     <th className="px-4 py-3 font-medium">Lớp / kỳ</th>
-                    <th className="px-4 py-3 font-medium">Kiểu thu</th>
+                    <th className="px-4 py-3 font-medium" data-tour="tuition-billing-col">Kiểu thu</th>
                     <th className="px-4 py-3 font-medium">Số tiền</th>
-                    <th className="px-4 py-3 font-medium">Thao tác</th>
+                    <th className="px-4 py-3 font-medium" data-tour="tuition-actions-col">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
                   {visibleCharges.map((charge) => {
                     const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
-                    const meta = getChargeCollectionMeta(charge.totalAmount, paid);
+                    const meta = getChargeCollectionMeta(chargeOwnDueAmount(charge), paid);
                     const remaining = meta.remainingAmount;
                     const billingMismatch = hasBillingMismatch(charge);
                     const effectiveBillingModel = getEffectiveBillingModel(charge);
@@ -600,7 +602,7 @@ export default function BatchInvoiceView({
                               {charge.currentEnrollmentBillingModel !== "PERIOD" ? (
                                 <button
                                   type="button"
-                                  onClick={() => switchBillingModel(charge, "PERIOD")}
+                                  onClick={() => requestSwitchBillingModel(charge, "PERIOD")}
                                   disabled={switchingKey === `${charge.id}:PERIOD`}
                                   className="rounded-full border border-[#b7dff8] bg-[#f6fcff] px-3 py-1 text-xs font-semibold text-[#077dc8] transition hover:border-[#8fcdf3] hover:bg-[#eaf7ff] disabled:cursor-not-allowed disabled:opacity-60"
                                 >
@@ -610,7 +612,7 @@ export default function BatchInvoiceView({
                               {charge.currentEnrollmentBillingModel !== "COURSE" ? (
                                 <button
                                   type="button"
-                                  onClick={() => switchBillingModel(charge, "COURSE")}
+                                  onClick={() => requestSwitchBillingModel(charge, "COURSE")}
                                   disabled={switchingKey === `${charge.id}:COURSE`}
                                   className="rounded-full border border-[#d8ccff] bg-[#f3efff] px-3 py-1 text-xs font-semibold text-[#7b4df5] transition hover:border-[#c3aeff] hover:bg-[#ebe3ff] disabled:cursor-not-allowed disabled:opacity-60"
                                 >
@@ -645,6 +647,22 @@ export default function BatchInvoiceView({
           </div>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={!!pendingSwitch}
+        title="Xác nhận đổi kiểu thu học phí?"
+        description={
+          pendingSwitch
+            ? `Chuyển học viên ${pendingSwitch.charge.student.fullName} sang ${pendingSwitch.nextBillingModel === "COURSE" ? "thu trọn khóa" : "thu theo tháng"}. Phiếu hiện tại chỉ được thay thế khi chưa thu tiền — nếu đã phát sinh thu thực tế, hệ thống sẽ tự chặn để tránh lệch công nợ.`
+            : undefined
+        }
+        confirmLabel="Xác nhận đổi"
+        loading={!!pendingSwitch && switchingKey === `${pendingSwitch.charge.id}:${pendingSwitch.nextBillingModel}`}
+        onConfirm={() => {
+          if (pendingSwitch) void switchBillingModel(pendingSwitch.charge, pendingSwitch.nextBillingModel);
+        }}
+        onClose={() => setPendingSwitch(null)}
+      />
     </div>
   );
 }

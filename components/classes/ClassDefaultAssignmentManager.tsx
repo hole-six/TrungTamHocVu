@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 
 type Employee = {
   id: string;
@@ -238,7 +238,7 @@ export default function ClassDefaultAssignmentManager({
         </div>
       </div>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={open}
         onClose={() => setOpen(false)}
         title="Nhân sự mặc định của lớp"
@@ -315,7 +315,7 @@ export default function ClassDefaultAssignmentManager({
             </button>
           </div>
         </div>
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

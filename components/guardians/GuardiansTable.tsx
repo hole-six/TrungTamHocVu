@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DataTable } from "@/components/ui/DataTable";
+import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
 import type { Column, BulkAction } from "@/components/ui/DataTable";
 import { isFrontDeskRole, isTeachingStaffRole } from "@/lib/client-roles";
 import { exportToExcel } from "@/lib/export-utils";
@@ -239,7 +239,8 @@ export default function GuardiansTable({
 
   return (
     <>
-      <DataTable
+      <div data-tour="guardians-table">
+      <DataTableResponsive
         data={visibleData}
         columns={columns}
         actions={[]}
@@ -272,7 +273,10 @@ export default function GuardiansTable({
         stickyHeader
         rowKey="id"
         onRowClick={(row) => router.push(`/guardians/${row.id}`)}
+        primaryColumn="fullName"
+        secondaryColumns={["phone"]}
       />
+      </div>
       <GuardianDrawer isOpen={showCreateDrawer} onClose={() => setShowCreateDrawer(false)} />
     </>
   );

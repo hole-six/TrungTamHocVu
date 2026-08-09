@@ -149,6 +149,54 @@
   }
 }
 
+/* ─── Responsive Drawer & SlideOver ─────────────────── */
+@layer components {
+  .slideover-root {
+    @apply fixed inset-0 z-40 flex justify-end;
+    animation: fadeIn 0.2s ease;
+  }
+  
+  .slideover-backdrop {
+    @apply absolute inset-0 bg-black/40 backdrop-blur-sm;
+    animation: fadeIn 0.2s ease;
+  }
+  
+  .slideover-panel {
+    @apply relative z-50 flex h-full flex-col bg-white shadow-2xl;
+    /* Mobile: full width, Desktop: max-width */
+    animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .slideover-header {
+    @apply flex items-start justify-between gap-4 border-b border-hairline px-4 py-4 sm:px-6 sm:py-5;
+    @apply bg-canvas-parchment/50;
+  }
+  
+  .slideover-body {
+    @apply flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8;
+    /* Custom scrollbar for better UX */
+    scrollbar-width: thin;
+    scrollbar-color: #e0e0e0 transparent;
+  }
+  
+  .slideover-body::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .slideover-body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .slideover-body::-webkit-scrollbar-thumb {
+    background-color: #e0e0e0;
+    border-radius: 3px;
+  }
+  
+  .slideover-body::-webkit-scrollbar-thumb:hover {
+    background-color: #cbd5e1;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════
    PREMIUM BUTTONS - Bright & Modern
 ═══════════════════════════════════════════════════════ */
@@ -467,18 +515,35 @@
   .tab-bar {
     @apply flex gap-2 rounded-2xl p-2 text-sm;
     background: var(--bg-muted);
+    /* Mobile: scroll ngang nếu quá nhiều tabs */
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .tab-bar::-webkit-scrollbar {
+    display: none;
   }
   .tab-item {
-    @apply flex-1 rounded-xl px-4 py-3 text-center text-sm font-bold
-           transition-all duration-300 cursor-pointer;
+    @apply rounded-xl px-4 py-3 text-center text-sm font-bold
+           transition-all duration-300 cursor-pointer whitespace-nowrap shrink-0;
+    /* Mobile: min-width để tabs không quá nhỏ */
+    min-width: 100px;
     color: var(--text-muted);
+  }
+  /* Larger touch target on mobile */
+  @media (max-width: 767px) {
+    .tab-item {
+      @apply px-5 py-3.5;
+      min-width: 120px;
+    }
   }
   .tab-item:hover {
     color: var(--text-secondary);
     background: var(--bg-accent);
   }
   .tab-item-active {
-    @apply flex-1 rounded-xl px-4 py-3 text-center text-sm font-bold cursor-pointer;
+    @apply rounded-xl px-4 py-3 text-center text-sm font-bold cursor-pointer whitespace-nowrap shrink-0;
+    min-width: 100px;
     background: white;
     color: var(--text-primary);
     box-shadow: var(--shadow-md);
@@ -505,11 +570,16 @@
   }
 
   /* ─── Premium Tables ────────────────────────────────── */
-  .table-container { 
+  .table-container {
     @apply overflow-x-auto rounded-3xl border;
     background: var(--bg-card);
     border-color: var(--border-primary);
     box-shadow: var(--shadow-md);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .table-container::-webkit-scrollbar {
+    display: none;
   }
   .table { @apply w-full text-left text-sm; }
   .table thead { 

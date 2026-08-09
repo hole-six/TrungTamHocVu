@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { WEEKDAY_LABEL } from "@/lib/server/class-rules";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 type Rule = { id: string; weekday: number; startTime: string; endTime: string; room: string | null };
 
@@ -45,9 +46,16 @@ export default function ScheduleRuleManager({ classId, rules }: { classId: strin
             <span>
               {WEEKDAY_LABEL[r.weekday]} · {r.startTime}–{r.endTime} {r.room && `· ${r.room}`}
             </span>
-            <button onClick={() => removeRule(r.id)} className="text-xs text-red-600">
+            <ConfirmActionButton
+              title="Xác nhận xóa quy tắc lịch?"
+              description={`Xóa quy tắc ${WEEKDAY_LABEL[r.weekday]} ${r.startTime}–${r.endTime}${r.room ? ` · ${r.room}` : ""}. Các buổi học đã sinh trước đó không bị ảnh hưởng, nhưng lịch chuẩn của lớp sẽ không còn buổi này khi sinh buổi mới.`}
+              confirmLabel="Xóa quy tắc"
+              tone="danger"
+              className="text-xs text-red-600"
+              onConfirm={() => removeRule(r.id)}
+            >
               Xóa
-            </button>
+            </ConfirmActionButton>
           </div>
         ))}
         {rules.length === 0 && <p className="text-sm text-ink-muted48">Chưa có quy tắc lịch.</p>}

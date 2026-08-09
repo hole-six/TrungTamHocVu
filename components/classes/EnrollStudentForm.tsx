@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
 import { formatVnd } from "@/lib/export-utils";
 
@@ -118,7 +118,7 @@ export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { 
         + Ghi danh học viên
       </button>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={open}
         onClose={() => setOpen(false)}
         title="Ghi danh học viên vào lớp"
@@ -220,7 +220,7 @@ export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { 
             </button>
           </div>
         </div>
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

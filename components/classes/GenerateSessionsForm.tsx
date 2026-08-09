@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
 
 const GENERATE_SESSIONS_GUIDE_SECTIONS = [
@@ -73,7 +73,7 @@ export default function GenerateSessionsForm({ classId }: { classId: string }) {
         Sinh buổi học
       </button>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={open}
         onClose={() => setOpen(false)}
         title="Sinh buổi học theo lịch chuẩn"
@@ -105,7 +105,7 @@ export default function GenerateSessionsForm({ classId }: { classId: string }) {
             </button>
           </div>
         </form>
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

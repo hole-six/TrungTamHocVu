@@ -47,6 +47,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Số lượng ban đầu không hợp lệ" }, { status: 400 });
   }
 
+  let maintenanceIntervalMonths: number | null = null;
+  if (body.maintenanceIntervalMonths !== undefined && body.maintenanceIntervalMonths !== null && body.maintenanceIntervalMonths !== "") {
+    maintenanceIntervalMonths = Number(body.maintenanceIntervalMonths);
+    if (!Number.isInteger(maintenanceIntervalMonths) || maintenanceIntervalMonths <= 0) {
+      return NextResponse.json({ error: "Chu kỳ bảo dưỡng phải là số tháng nguyên dương" }, { status: 400 });
+    }
+  }
+
   const asset = await prisma.$transaction(async (tx) => {
     const created = await tx.asset.create({
       data: {
@@ -57,6 +65,7 @@ export async function POST(req: NextRequest) {
         room: body.room || null,
         unitName: body.unitName || null,
         unitValue: body.unitValue ? Number(body.unitValue) : null,
+        maintenanceIntervalMonths,
         notes: body.notes || null,
       },
     });

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
 import { formatVnd } from "@/lib/export-utils";
 
@@ -49,6 +49,7 @@ export default function AssetEditForm({
     room: string;
     unitName: string;
     unitValue: string;
+    maintenanceIntervalMonths: string;
     notes: string;
   };
   compact?: boolean;
@@ -95,7 +96,7 @@ export default function AssetEditForm({
         Sửa{!compact ? " thông tin tài sản" : ""}
       </button>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={open}
         onClose={() => setOpen(false)}
         title="Sửa tài sản"
@@ -130,6 +131,20 @@ export default function AssetEditForm({
               <p className="form-hint">{form.unitValue ? formatVnd(Number(form.unitValue) || 0) : "Giá gốc của 1 đơn vị tài sản."}</p>
             </label>
 
+            <label className="form-group">
+              <span className="label">Chu kỳ bảo dưỡng (tháng)</span>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                className="input"
+                placeholder="VD: 3, 6, 12"
+                value={form.maintenanceIntervalMonths}
+                onChange={(event) => setForm((current) => ({ ...current, maintenanceIntervalMonths: event.target.value }))}
+              />
+              <p className="form-hint">Để trống nếu tài sản này không cần lịch bảo dưỡng định kỳ.</p>
+            </label>
+
             <label className="form-group md:col-span-2">
               <span className="label">Trạng thái</span>
               <select className="input" value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}>
@@ -157,7 +172,7 @@ export default function AssetEditForm({
             </button>
           </div>
         </form>
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

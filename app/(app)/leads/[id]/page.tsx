@@ -11,6 +11,40 @@ import { canUpdate, canView } from "@/lib/server/role-matrix";
 import { canAccessBranch } from "@/lib/branch-filter";
 import { computeOutstandingBalance } from "@/lib/server/balance";
 import PageGuide from "@/components/ui/PageGuide";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+
+const LEAD_DETAIL_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="lead-header"]',
+    title: "Trạng thái pipeline của lead này",
+    description: "Đổi trạng thái ở khối \"Trạng thái\" bên phải — mỗi lần đổi nên gắn với một hành động thực tế đã xảy ra, không đổi để làm đẹp dashboard.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="lead-kpi"]',
+    title: "4 số tổng quan hành trình lead",
+    description: "\"Công nợ hiện tại\" chỉ có khi lead đã chuyển thành học viên — trước đó luôn hiện 0đ vì chưa phát sinh học phí.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="lead-profile"]',
+    title: "Thông tin hồ sơ — liên hệ, nguồn, ghi chú CRM",
+    description: "Bấm \"Sửa thông tin\" ở góc trên để chỉnh sửa các trường này.",
+    placement: "right",
+  },
+  {
+    target: '[data-tour="lead-links"]',
+    title: "Liên kết vận hành — theo dõi sau khi chuyển đổi",
+    description: "Sau khi lead chuyển thành học viên, các đường link này dẫn thẳng sang hồ sơ phụ huynh/học viên thật — tránh phải tìm lại thủ công.",
+    placement: "right",
+  },
+  {
+    target: '[data-tour="lead-status"]',
+    title: "Đổi trạng thái và ghi hoạt động mới",
+    description: "Đây là nơi duy nhất thao tác thay đổi được: đổi trạng thái pipeline, thêm lịch hẹn/tương tác/test — mọi thứ khác trên trang chỉ là hiển thị.",
+    placement: "left",
+  },
+];
 
 const INTERACTION_LABEL: Record<string, string> = {
   CALL: "Gọi điện",
@@ -135,7 +169,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         sections={LEAD_DETAIL_GUIDE_SECTIONS}
         buttonLabel="Guide lead"
       />
-      <section className="rounded-[24px] sm:rounded-[32px] border border-[#dbe7ff] bg-white px-4 py-4 sm:px-6 sm:py-6 md:px-8 shadow-[0_18px_42px_rgba(15,23,42,0.05)] sm:shadow-[0_24px_60px_rgba(15,23,42,0.06)]">
+      <section className="rounded-[24px] sm:rounded-[32px] border border-[#dbe7ff] bg-white px-4 py-4 sm:px-6 sm:py-6 md:px-8 shadow-[0_18px_42px_rgba(15,23,42,0.05)] sm:shadow-[0_24px_60px_rgba(15,23,42,0.06)]" data-tour="lead-header">
         <div className="flex flex-col gap-4 sm:gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-2 sm:space-y-3">
             <Link href="/leads" className="inline-flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-[#3b82f6] hover:underline">
@@ -169,6 +203,12 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
           </div>
 
           <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+            <SpotlightTour
+              steps={LEAD_DETAIL_TOUR_STEPS.filter((step) => {
+                if (!editable && step.target.includes("lead-status")) return false;
+                return true;
+              })}
+            />
             <span className="rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-[#12304a]">
               {LEAD_STATUS_LABEL[lead.status as keyof typeof LEAD_STATUS_LABEL] ?? lead.status}
             </span>
@@ -182,7 +222,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         </div>
       </section>
 
-      <section className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4" data-tour="lead-kpi">
         <div className="rounded-[20px] sm:rounded-[24px] border border-[#d8e7fb] bg-white px-3 py-3 sm:px-5 sm:py-4 shadow-sm">
           <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.24em] sm:tracking-[0.26em] text-[#8aa0ba]">Lịch hẹn</p>
           <p className="mt-1.5 sm:mt-2 text-2xl sm:text-3xl font-black text-[#12304a]">{lead.appointments.length}</p>
@@ -207,7 +247,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
 
       <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.75fr)_360px]">
         <div className="space-y-4 sm:space-y-6">
-          <section className="rounded-[22px] sm:rounded-[28px] border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
+          <section className="rounded-[22px] sm:rounded-[28px] border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]" data-tour="lead-profile">
             <div className="flex flex-col gap-2 sm:gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <h2 className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-[#12304a]">Thông tin hồ sơ</h2>
@@ -248,7 +288,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             ) : null}
           </section>
 
-          <section className="rounded-[22px] sm:rounded-[28px] border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
+          <section className="rounded-[22px] sm:rounded-[28px] border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]" data-tour="lead-links">
             <h2 className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-[#12304a]">Liên kết vận hành</h2>
             <p className="mt-1 text-xs sm:text-sm text-[#6b7a8c]">
               <span className="hidden sm:inline">Phụ huynh, portal, học viên và lớp hiện tại nếu lead đã chuyển đổi.</span>
@@ -403,10 +443,10 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
           </section>
 
           {editable ? (
-            <>
+            <div data-tour="lead-status" className="space-y-4 sm:space-y-6">
               <LeadStatusPanel leadId={lead.id} status={lead.status} hasStudent={!!lead.student} />
               <LeadActivityForms leadId={lead.id} />
-            </>
+            </div>
           ) : (
             <section className="rounded-[22px] sm:rounded-[28px] border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-[0_18px_42px_rgba(15,23,42,0.05)]">
               <p className="text-xs sm:text-sm leading-5 sm:leading-6 text-[#6b7a8c]">

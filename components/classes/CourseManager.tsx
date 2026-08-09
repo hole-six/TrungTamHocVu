@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 type BookOption = {
@@ -459,7 +459,7 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-6" data-tour="classes-course-manager">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight text-ink">Khóa học chuẩn</h2>
@@ -503,7 +503,7 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
           </div>
 
           <div className="overflow-hidden rounded-[30px] border border-[#dce6f5] bg-white shadow-[0_30px_80px_-52px_rgba(15,23,42,0.45)]">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <table className="w-full">
                 <thead className="border-b border-[#e8edf5] bg-[linear-gradient(180deg,#fbfdff_0%,#f3f8ff_100%)]">
                   <tr>
@@ -613,23 +613,23 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
         </div>
       </div>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={openCreate}
         onClose={() => setOpenCreate(false)}
         title="Thêm khóa học chuẩn"
         description="Khai báo học phí và bộ sách chuẩn đi kèm khóa học."
       >
         <CourseForm mode="create" books={books} onClose={() => setOpenCreate(false)} />
-      </SlideOver>
+      </ResponsiveDrawer>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={Boolean(editingCourse)}
         onClose={() => setEditingCourse(null)}
         title="Sửa khóa học"
         description="Cập nhật học phí, lịch chuẩn và bộ sách chuẩn của khóa học."
       >
         {editingCourse ? <CourseForm mode="edit" course={editingCourse} books={books} onClose={() => setEditingCourse(null)} /> : null}
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

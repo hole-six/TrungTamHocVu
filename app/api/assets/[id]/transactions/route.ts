@@ -22,32 +22,52 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const type = String(body.type ?? "");
   if (!VALID_TYPES.includes(type)) return NextResponse.json({ error: "Loại giao dịch không hợp lệ" }, { status: 400 });
 
+  // Number(...) trên input rác (chữ, rỗng sau khi trim, ký hiệu lạ) trả về NaN — so sánh
+  // kiểu "NaN <= 0" luôn là false nên lọt qua các check phía dưới nếu chỉ dùng <=/=== 0.
+  // Chặn thẳng NaN/số không nguyên ở đây vì amount/quantity đều là cột Int, một dòng NaN
+  // lọt vào sẽ làm NaN lan ra mọi tổng cộng dồn (.reduce) ở học phí/sổ quỹ/tài sản.
   let quantity = 0;
   let amount = 0;
   if (type === "RECEIPT") {
     quantity = Math.abs(Number(body.quantity ?? 0));
-    if (quantity <= 0) return NextResponse.json({ error: "Số lượng nhập phải lớn hơn 0" }, { status: 400 });
+    if (!Number.isInteger(quantity) || quantity <= 0) return NextResponse.json({ error: "Số lượng nhập phải là số nguyên lớn hơn 0" }, { status: 400 });
   } else if (type === "DISPOSAL") {
+    const rawQuantity = Number(body.quantity);
+    if (body.quantity !== undefined && (!Number.isInteger(rawQuantity) || rawQuantity < 0)) {
+      return NextResponse.json({ error: "Số lượng thanh lý phải là số nguyên không âm" }, { status: 400 });
+    }
     const current = await computeAssetQuantity(asset.id);
-    quantity = -Math.min(Math.abs(Number(body.quantity ?? current)), current);
+    quantity = -Math.min(Math.abs(Number.isInteger(rawQuantity) ? rawQuantity : current), current);
     if (quantity === 0) return NextResponse.json({ error: "Không có số lượng để thanh lý" }, { status: 400 });
   } else if (type === "ADJUSTMENT") {
     quantity = Number(body.quantity ?? 0);
-    if (quantity === 0) return NextResponse.json({ error: "Số lượng điều chỉnh không được bằng 0" }, { status: 400 });
+    if (!Number.isInteger(quantity) || quantity === 0) return NextResponse.json({ error: "Số lượng điều chỉnh phải là số nguyên khác 0" }, { status: 400 });
   } else if (type === "TRANSFER") {
     quantity = 0;
     if (!body.toRoom) return NextResponse.json({ error: "Thiếu phòng/vị trí mới" }, { status: 400 });
   } else if (type === "MAINTENANCE") {
     quantity = 0;
     // Tự bảo dưỡng (vd: tự vệ sinh lưới lọc điều hòa) không phát sinh chi phí thật,
-    // nên cho phép amount = 0 — chỉ chặn số âm/không hợp lệ.
+    // nên cho phép amount = 0 — chỉ chặn số âm/không nguyên/không hợp lệ.
     amount = Number(body.amount ?? 0);
-    if (!Number.isFinite(amount) || amount < 0) {
-      return NextResponse.json({ error: "Số tiền bảo dưỡng không hợp lệ" }, { status: 400 });
+    if (!Number.isInteger(amount) || amount < 0) {
+      return NextResponse.json({ error: "Số tiền bảo dưỡng phải là số nguyên không âm" }, { status: 400 });
     }
   }
 
-  const txnDate = body.txnDate ? new Date(body.txnDate) : new Date();
+  let txnDate = new Date();
+  if (body.txnDate) {
+    const parsed = new Date(body.txnDate);
+    if (Number.isNaN(parsed.getTime())) return NextResponse.json({ error: "Ngày giao dịch không hợp lệ" }, { status: 400 });
+    // Cho phép nhập lùi ngày (vd ghi nhận bảo dưỡng trễ so với ngày sửa thật), nhưng không
+    // cho nhập ngày trong tương lai — chưa xảy ra thì chưa có gì để ghi nhận.
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    if (parsed.getTime() > endOfToday.getTime()) {
+      return NextResponse.json({ error: "Ngày giao dịch không được ở tương lai" }, { status: 400 });
+    }
+    txnDate = parsed;
+  }
 
   const txn = await prisma.$transaction(async (tx) => {
     const created = await tx.assetTransaction.create({

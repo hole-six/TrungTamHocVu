@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CategorySelect from "./CategorySelect";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
 import { formatVnd } from "@/lib/export-utils";
 
@@ -74,7 +74,7 @@ export default function NewBookForm({ categoryOptions }: { categoryOptions: stri
         + Thêm sách/giáo trình
       </button>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={open}
         onClose={() => setOpen(false)}
         title="Thêm sách / giáo trình mới"
@@ -124,7 +124,7 @@ export default function NewBookForm({ categoryOptions }: { categoryOptions: stri
             </button>
           </div>
         </form>
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

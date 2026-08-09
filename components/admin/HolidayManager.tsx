@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
@@ -17,14 +18,32 @@ function formatDate(d: string | Date) {
   return new Date(d).toLocaleDateString("vi-VN");
 }
 
+function buildHref(searchParams: Record<string, string | undefined>, page: number) {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(searchParams)) {
+    if (v) params.set(k, v);
+  }
+  if (page > 1) params.set("page", String(page));
+  const qs = params.toString();
+  return `/admin/holidays${qs ? `?${qs}` : ""}`;
+}
+
 export default function HolidayManager({
   holidays,
   branches,
   defaultBranchId,
+  total,
+  page,
+  pageCount,
+  searchParams,
 }: {
   holidays: Holiday[];
   branches: BranchOption[];
   defaultBranchId: string;
+  total: number;
+  page: number;
+  pageCount: number;
+  searchParams: Record<string, string | undefined>;
 }) {
   const router = useRouter();
   const [branchId, setBranchId] = useState(defaultBranchId);
@@ -97,7 +116,7 @@ export default function HolidayManager({
         {error ? <p className="w-full text-xs text-red-600">{error}</p> : null}
       </form>
 
-      <div className="card overflow-x-auto p-0">
+      <div className="card overflow-x-auto p-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-hairline bg-canvas-parchment/60 text-xs uppercase tracking-wide text-ink-muted48">
             <tr>
@@ -137,6 +156,27 @@ export default function HolidayManager({
             ) : null}
           </tbody>
         </table>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-ink-muted48">{total} ngày nghỉ lễ</p>
+        {pageCount > 1 ? (
+          <div className="flex items-center gap-2">
+            {page > 1 ? (
+              <Link href={buildHref(searchParams, page - 1)} className="btn-ghost">
+                Trước
+              </Link>
+            ) : null}
+            <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-1.5 text-xs font-semibold text-ink">
+              Trang {page}/{pageCount}
+            </span>
+            {page < pageCount ? (
+              <Link href={buildHref(searchParams, page + 1)} className="btn-ghost">
+                Sau
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );

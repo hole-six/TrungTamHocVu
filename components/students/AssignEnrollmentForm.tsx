@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
 
 type AssignEnrollmentFormProps = {
@@ -154,7 +154,7 @@ export default function AssignEnrollmentForm({
         </button>
       ) : null}
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={open}
         onClose={() => setOpen(false)}
         widthClassName="max-w-3xl"
@@ -265,7 +265,7 @@ export default function AssignEnrollmentForm({
             </button>
           </div>
         </div>
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

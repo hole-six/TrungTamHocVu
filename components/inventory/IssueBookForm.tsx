@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
 
 type StudentHit = { id: string; fullName: string; studentCode: string };
@@ -91,7 +91,7 @@ export default function IssueBookForm({ bookId }: { bookId: string }) {
         Xuất cho học viên
       </button>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={open}
         onClose={() => setOpen(false)}
         title="Xuất giáo trình"
@@ -133,7 +133,7 @@ export default function IssueBookForm({ bookId }: { bookId: string }) {
           {warning ? <p className="text-sm text-amber-600">{warning}</p> : null}
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
         </div>
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

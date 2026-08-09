@@ -6,6 +6,22 @@ import { getUserRole } from "@/lib/permissions";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import CalendarFilters from "@/components/calendar/CalendarFilters";
 import PageGuide from "@/components/ui/PageGuide";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+
+const CALENDAR_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="calendar-filters"]',
+    title: "Chọn tuần trước, lọc sau",
+    description: "Bộ lọc lớp/phòng/giáo viên chỉ áp dụng trong tuần đang chọn — đổi tuần sẽ giữ nguyên bộ lọc đang dùng.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="calendar-week"]',
+    title: "Mỗi thẻ buổi học mở thẳng vào trang buổi đó",
+    description: "Nhãn \"Thiếu phân công\" ở đầu mỗi ngày cảnh báo buổi chưa gán giáo viên/trợ giảng — bấm vào thẻ buổi để phân công ngay.",
+    placement: "top",
+  },
+];
 
 const ICON_CALENDAR = (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -195,27 +211,33 @@ export default async function CalendarPage({
         sections={CALENDAR_PAGE_GUIDE_SECTIONS}
         buttonLabel="Guide"
       />
-      <div className="flex items-center gap-3 sm:gap-4">
-        <div className="grid h-10 w-10 sm:h-12 sm:w-12 place-items-center rounded-xl sm:rounded-2xl bg-sky-50 text-sky-600">
-          {ICON_CALENDAR}
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="grid h-10 w-10 sm:h-12 sm:w-12 place-items-center rounded-xl sm:rounded-2xl bg-sky-50 text-sky-600">
+            {ICON_CALENDAR}
+          </div>
+          <div>
+            <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Lịch tổng lớp học</h1>
+            <p className="page-subtitle text-xs sm:text-sm">
+              <span className="hidden sm:inline">Xem nhanh lịch dạy trong tuần, trạng thái buổi học và phân công nhân sự.</span>
+              <span className="sm:hidden">Lịch dạy trong tuần</span>
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Lịch tổng lớp học</h1>
-          <p className="page-subtitle text-xs sm:text-sm">
-            <span className="hidden sm:inline">Xem nhanh lịch dạy trong tuần, trạng thái buổi học và phân công nhân sự.</span>
-            <span className="sm:hidden">Lịch dạy trong tuần</span>
-          </p>
-        </div>
+        <SpotlightTour steps={CALENDAR_TOUR_STEPS} />
       </div>
 
-      <CalendarFilters
-        key={`${anchor.toISOString().slice(0, 10)}|${q}|${timePreset}`}
-        initialWeek={anchor.toISOString().slice(0, 10)}
-        initialQuery={q}
-        initialTimePreset={timePreset}
-      />
+      <div data-tour="calendar-filters">
+        <CalendarFilters
+          key={`${anchor.toISOString().slice(0, 10)}|${q}|${timePreset}`}
+          initialWeek={anchor.toISOString().slice(0, 10)}
+          initialQuery={q}
+          initialTimePreset={timePreset}
+        />
+      </div>
 
-      <div className="overflow-x-auto pb-2">
+      <div data-tour="calendar-week">
+      <div className="overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="grid min-w-[1460px] grid-cols-7 gap-3">
           {sessionsByDay.map((day) => {
             const iso = day.date.toISOString().slice(0, 10);
@@ -338,6 +360,143 @@ export default async function CalendarPage({
         </div>
       </div>
 
+      {/* Mobile: Single-day vertical view with day selector */}
+      <div className="md:hidden space-y-4">
+        {/* Day selector */}
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          {sessionsByDay.map((day) => {
+            const iso = day.date.toISOString().slice(0, 10);
+            const isToday = iso === TODAY_YMD;
+            const isFocus = iso === focusDayKey;
+            
+            return (
+              <a
+                key={iso}
+                href={`/calendar?week=${iso}&q=${encodeURIComponent(q)}&timePreset=${timePreset}`}
+                className={`shrink-0 rounded-2xl border px-4 py-3 min-w-[80px] text-center transition ${
+                  isFocus
+                    ? "border-primary bg-primary text-white shadow-md"
+                    : isToday
+                      ? "border-sky-300 bg-sky-50 text-sky-700"
+                      : "border-hairline bg-white text-ink hover:border-primary/30"
+                }`}
+              >
+                <p className="text-xs font-semibold uppercase tracking-wider">{WEEKDAY_SHORT[day.date.getUTCDay()]}</p>
+                <p className="mt-1 text-lg font-bold">{day.date.getUTCDate()}</p>
+                <p className="mt-1 text-[10px] opacity-75">{day.sessions.length} buổi</p>
+              </a>
+            );
+          })}
+        </div>
+
+        {/* Focused day content */}
+        {sessionsByDay.filter(day => day.date.toISOString().slice(0, 10) === focusDayKey).map((day) => {
+          const iso = day.date.toISOString().slice(0, 10);
+          const isToday = iso === TODAY_YMD;
+
+          return (
+            <div key={iso} className="space-y-4">
+              {/* Day header */}
+              <div className={`rounded-2xl border p-4 ${isToday ? "border-sky-200 bg-sky-50" : "border-hairline bg-white"}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted48">
+                      {WEEKDAY_SHORT[day.date.getUTCDay()]} · {formatCompactDate(day.date)}
+                    </p>
+                    <p className="mt-1 text-lg font-bold text-ink">{day.sessions.length} buổi học</p>
+                  </div>
+                  {isToday && <span className="rounded-full bg-sky-600 px-3 py-1 text-xs font-bold text-white">Hôm nay</span>}
+                </div>
+                
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-xl bg-white px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted48">Đã xong</p>
+                    <p className="mt-1 text-base font-bold text-emerald-600">{day.completed}</p>
+                  </div>
+                  <div className="rounded-xl bg-white px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted48">Thiếu phân công</p>
+                    <p className="mt-1 text-base font-bold text-amber-600">{day.missingAssignments}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sessions list */}
+              <div className="space-y-3">
+                {day.sessions.map((session) => {
+                  const teacherNames = session.assignments
+                    .filter((assignment) => assignment.role === "TEACHER")
+                    .map((assignment) => assignment.employee.shortName || assignment.employee.fullName);
+                  const assistantNames = session.assignments
+                    .filter((assignment) => assignment.role !== "TEACHER")
+                    .map((assignment) => assignment.employee.shortName || assignment.employee.fullName);
+
+                  return (
+                    <Link
+                      key={session.id}
+                      href={`/classes/${session.classId}/sessions/${session.id}`}
+                      className="block rounded-2xl border border-hairline bg-white p-4 transition active:scale-[0.98] active:bg-canvas-parchment"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex-1">
+                          <p className="text-base font-semibold leading-tight text-ink">{session.class.className}</p>
+                          <p className="mt-1 text-xs text-ink-muted48">
+                            {session.class.classCode}
+                            {session.class.course?.name ? ` · ${session.class.course.name}` : ""}
+                          </p>
+                        </div>
+                        <span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-bold ${statusBadge(session.status)}`}>
+                          {SESSION_STATUS_LABEL[session.status] ?? session.status}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-ink-muted48">🕐</span>
+                          <span className="font-semibold text-ink">{session.startTime ?? "Chưa rõ"} - {session.endTime ?? "Chưa rõ"}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-ink-muted48">📍</span>
+                          <span className={`font-semibold ${session.room ? "text-ink" : "text-amber-600"}`}>
+                            {session.room || "Chưa gán phòng"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-ink-muted48">👥</span>
+                          <span className="font-semibold text-ink">{session.class._count?.enrollments ?? 0} học viên</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 space-y-1 rounded-xl bg-canvas-parchment p-3 text-xs">
+                        <p className="text-ink-muted80">
+                          <span className="font-semibold text-ink">GV:</span> {teacherNames.length > 0 ? teacherNames.join(", ") : "Chưa có"}
+                        </p>
+                        <p className="text-ink-muted80">
+                          <span className="font-semibold text-ink">TG:</span> {assistantNames.length > 0 ? assistantNames.join(", ") : "Chưa có"}
+                        </p>
+                      </div>
+
+                      {session.notes && (
+                        <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-xs font-medium text-amber-800">
+                          {session.notes}
+                        </div>
+                      )}
+                    </Link>
+                  );
+                })}
+
+                {day.sessions.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-hairline bg-canvas-parchment px-6 py-12 text-center">
+                    <div className="text-3xl text-ink-muted48 mb-2">○</div>
+                    <p className="text-sm font-medium text-ink-muted80">Không có buổi học</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import NewUserForm from "@/components/admin/NewUserForm";
 import FormGuide from "@/components/ui/FormGuide";
 
@@ -59,7 +59,7 @@ export default function AdminCreateUserDrawer({
         Tạo người dùng
       </button>
 
-      <SlideOver
+      <ResponsiveDrawer
         open={open}
         onClose={() => setOpen(false)}
         title="Tạo người dùng mới"
@@ -68,7 +68,7 @@ export default function AdminCreateUserDrawer({
         guide={<FormGuide title="Hướng dẫn tạo người dùng mới" summary="Đây là form cấp tài khoản đăng nhập cho người sử dụng hệ thống. Khi tạo đúng vai trò và chi nhánh ngay từ đầu, việc vận hành và phân quyền sẽ gọn hơn rất nhiều." sections={GUIDE_SECTIONS} position="inline" />}
       >
         <NewUserForm branches={branches} roles={roles} compact onCancel={() => setOpen(false)} onSuccess={() => setOpen(false)} />
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

@@ -5,6 +5,7 @@ import {
   computeTotalAmount,
   canEditCharges,
   monthRange,
+  monthKey,
 } from "@/lib/server/tuition-rules";
 import { computeBalanceSnapshot, consumeCreditBalances } from "@/lib/server/balance";
 
@@ -135,6 +136,25 @@ export async function ensureBillingPeriod(branchId: string, periodName: string) 
   return prisma.billingPeriod.create({
     data: { branchId, periodName, startDate: start, endDate: end },
   });
+}
+
+// Huỷ 1 buổi đã hoàn thành, hoặc sửa lại điểm danh của 1 buổi đã hoàn thành, đều có
+// thể làm SAI LỆCH số buổi/số vắng của charge đã lập cho tháng đó — nếu kỳ thu tháng
+// đó đã CHỐT SỔ (POSTED/CLOSED, coi như đã duyệt/đã thu tiền xong), thay đổi buổi học
+// lúc này sẽ khiến hóa đơn đã in/đã chốt bị lệch số liệu mà không ai hay biết (không
+// có cảnh báo, không tự sinh lại). Trả về billing period đang khóa nếu có, để chặn
+// thao tác lại — nhân sự cần "Mở lại kỳ" (REOPENED) trước nếu thực sự cần sửa.
+export async function findLockedPeriodForSession(classId: string, sessionDate: Date) {
+  const cls = await prisma.class.findUnique({ where: { id: classId }, select: { branchId: true } });
+  if (!cls) return null;
+
+  const period = await prisma.billingPeriod.findUnique({
+    where: { branchId_periodName: { branchId: cls.branchId, periodName: monthKey(sessionDate) } },
+  });
+  if (!period || canEditCharges(period.status)) return null;
+
+  const hasCharge = await prisma.charge.findFirst({ where: { classId, billingPeriodId: period.id }, select: { id: true } });
+  return hasCharge ? period : null;
 }
 
 export async function generateChargesForPeriod(periodId: string) {
@@ -298,20 +318,21 @@ export async function generateChargesForPeriod(periodId: string) {
 
     const cls = enrollment.class;
     const basePrice = cls.tuitionPerSession ?? cls.course?.tuitionPerSession ?? 0;
-    const sessionRangeStart = enrollment.enrollDate > period.startDate ? enrollment.enrollDate : period.startDate;
+    // enrollDate mang cả giờ-phút-giây lúc ghi danh, còn sessionDate luôn chuẩn hóa về
+    // UTC-midnight (xem generateSessionDates) — so trực tiếp hai giá trị này làm buổi học
+    // CÙNG NGÀY ghi danh (nhưng ghi danh sau 00:00) bị loại nhầm khỏi kỳ thu, mất doanh thu
+    // âm thầm không báo lỗi. Phải quy enrollDate về đầu ngày UTC trước khi so.
+    const enrollDateStartOfDay = new Date(Date.UTC(enrollment.enrollDate.getUTCFullYear(), enrollment.enrollDate.getUTCMonth(), enrollment.enrollDate.getUTCDate()));
+    const sessionRangeStart = enrollDateStartOfDay > period.startDate ? enrollDateStartOfDay : period.startDate;
 
-    // isMakeup: false — buổi bù thêm (SessionCredit) đã "miễn phí" theo đúng ý nghĩa
-    // của buổi bổ trợ, không được tính vào sessionCount của CẢ LỚP kẻo những học viên
-    // không tham gia buổi bù đó bị charge nhầm thêm 1 buổi (xem comment isMakeup ở
-    // prisma/schema.prisma).
     const sessionCount = await prisma.classSession.count({
-      where: { classId, status: "COMPLETED", isMakeup: false, sessionDate: { gte: sessionRangeStart, lte: period.endDate } },
+      where: { classId, status: "COMPLETED", sessionDate: { gte: sessionRangeStart, lte: period.endDate } },
     });
     const absentCount = await prisma.studentAttendance.count({
       where: {
         studentId,
         status: "ABSENT",
-        session: { classId, status: "COMPLETED", isMakeup: false, sessionDate: { gte: sessionRangeStart, lte: period.endDate } },
+        session: { classId, status: "COMPLETED", sessionDate: { gte: sessionRangeStart, lte: period.endDate } },
       },
     });
 

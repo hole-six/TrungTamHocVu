@@ -1,3 +1,5 @@
+import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
+
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
 }
@@ -81,8 +83,8 @@ function GridValueRow({
 }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_220px] border-b border-black last:border-b-0">
-      <div className={`px-2 py-1.5 text-[13px] ${bold ? "font-semibold" : ""}`}>{label}</div>
-      <div className={`border-l border-black px-2 py-1.5 text-center text-[13px] ${bold ? "font-bold" : ""}`}>{value}</div>
+      <div className={`px-2 py-1.5 text-[13px] break-words ${bold ? "font-semibold" : ""}`}>{label}</div>
+      <div className={`border-l border-black px-2 py-1.5 text-center text-[13px] break-words ${bold ? "font-bold" : ""}`}>{value}</div>
     </div>
   );
 }
@@ -95,7 +97,10 @@ export default function InvoiceDocument({
   paymentProfile?: PaymentProfileData | null;
 }) {
   const paid = charge.allocations.reduce((sum, allocation) => sum + allocation.amount, 0);
-  const remaining = Math.max(charge.totalAmount - paid, 0);
+  // chargeOwnDueAmount (KHÔNG dùng totalAmount trực tiếp) — totalAmount cộng cả
+  // openingBalance (bản chụp nợ kỳ TRƯỚC), dùng thẳng sẽ đếm trùng khoản nợ cũ đó với
+  // chính hóa đơn kỳ trước, khiến "Còn cần nộp" hiện sai dù phụ huynh đã đóng đủ.
+  const remaining = Math.max(chargeOwnDueAmount(charge) - paid, 0);
   const periodLabel = formatPeriodLabel(charge.billingPeriod.periodName);
   const serial = getInvoiceSerial(charge.invoice?.invoiceNo);
   const branchName = charge.class.branch.name || "Trung tâm";
@@ -130,16 +135,16 @@ export default function InvoiceDocument({
         <div className="mt-2 border border-black">
           <div className="grid grid-cols-[92px_minmax(0,1fr)_76px_minmax(0,1fr)] border-b border-black">
             <div className="border-r border-black px-2 py-3 text-center text-[13px] font-semibold">Mã Học sinh</div>
-            <div className="border-r border-black px-2 py-3 text-center text-[15px] font-semibold">{charge.student.studentCode}</div>
+            <div className="border-r border-black px-2 py-3 text-center text-[15px] font-semibold break-words">{charge.student.studentCode}</div>
             <div className="border-r border-black px-2 py-3 text-center text-[13px] font-semibold">Cơ sở</div>
-            <div className="px-2 py-3 text-center text-[15px] font-semibold">{branchName}</div>
+            <div className="px-2 py-3 text-center text-[15px] font-semibold break-words">{branchName}</div>
           </div>
 
           <div className="grid grid-cols-[92px_minmax(0,1fr)_76px_minmax(0,1fr)]">
             <div className="border-r border-black px-2 py-3 text-center text-[13px] font-semibold">Họ tên</div>
-            <div className="border-r border-black px-2 py-3 text-center text-[15px] font-semibold">{charge.student.fullName}</div>
+            <div className="border-r border-black px-2 py-3 text-center text-[15px] font-semibold break-words">{charge.student.fullName}</div>
             <div className="border-r border-black px-2 py-3 text-center text-[13px] font-semibold">Lớp</div>
-            <div className="px-2 py-3 text-center text-[15px] font-semibold">{charge.class.className}</div>
+            <div className="px-2 py-3 text-center text-[15px] font-semibold break-words">{charge.class.className}</div>
           </div>
         </div>
 
@@ -197,29 +202,31 @@ export default function InvoiceDocument({
               </div>
             </div>
 
-            <div className="grid grid-cols-[160px_130px_minmax(0,1fr)]">
-              <div className="border-r border-black px-2 py-2 text-[12.5px] leading-5">
-                <p>Thanh toán chuyển khoản</p>
-                <p>
-                  <strong>NH:</strong> {paymentProfile?.bankName || "Chưa cấu hình"}
-                </p>
-                <p>
-                  <strong>STK:</strong> {paymentProfile?.accountNumber || "Chưa cấu hình"}
-                </p>
-                <p>{paymentProfile?.accountHolder || "Chưa cấu hình chủ tài khoản"}</p>
+            <div>
+              <div className="grid grid-cols-[minmax(0,1fr)_130px] border-b border-black">
+                <div className="border-r border-black px-2 py-2 text-[12.5px] leading-5 break-words">
+                  <p>Thanh toán chuyển khoản</p>
+                  <p>
+                    <strong>NH:</strong> {paymentProfile?.bankName || "Chưa cấu hình"}
+                  </p>
+                  <p>
+                    <strong>STK:</strong> {paymentProfile?.accountNumber || "Chưa cấu hình"}
+                  </p>
+                  <p>{paymentProfile?.accountHolder || "Chưa cấu hình chủ tài khoản"}</p>
+                </div>
+
+                <div className="flex items-center justify-center px-2 py-2">
+                  {paymentProfile?.qrImageData ? (
+                    <img src={paymentProfile.qrImageData} alt="QR thanh toán" className="h-[92px] w-[92px] object-contain" />
+                  ) : (
+                    <div className="flex h-[92px] w-[92px] items-center justify-center border border-dashed border-slate-400 p-2 text-center text-[10px] text-slate-500">
+                      Chưa có QR
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="flex items-center justify-center border-r border-black px-2 py-2">
-                {paymentProfile?.qrImageData ? (
-                  <img src={paymentProfile.qrImageData} alt="QR thanh toán" className="h-[92px] w-[92px] object-contain" />
-                ) : (
-                  <div className="flex h-[92px] w-[92px] items-center justify-center border border-dashed border-slate-400 p-2 text-center text-[10px] text-slate-500">
-                    Chưa có QR
-                  </div>
-                )}
-              </div>
-
-              <div className="px-2 py-2 text-[12.5px] leading-5">
+              <div className="px-2 py-2 text-[12.5px] leading-5 break-words">
                 <p>
                   <span className="italic">Nội dung:</span> <strong>{transferContent}</strong>
                 </p>

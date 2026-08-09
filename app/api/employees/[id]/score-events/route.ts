@@ -4,6 +4,26 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdateWithOverride } from "@/lib/server/role-matrix";
 
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const month = searchParams.get("month");
+
+  const items = await prisma.assistantScoreEvent.findMany({
+    where: { employeeId: params.id },
+    include: { branch: { select: { name: true } } },
+    orderBy: { eventDate: "desc" },
+  });
+
+  const filtered = month
+    ? items.filter((item) => `${item.eventDate.getUTCFullYear()}-${String(item.eventDate.getUTCMonth() + 1).padStart(2, "0")}` === month)
+    : items;
+
+  return NextResponse.json({ items: filtered });
+}
+
 // Dùng canUpdate("hr") để khớp với điều kiện hiện link "Đánh giá điểm trợ giảng" ở
 // app/(app)/payroll/page.tsx (canManagePayrollRuns = canUpdate("hr", role)).
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import FormGuide from "@/components/ui/FormGuide";
 import CategorySelect from "./CategorySelect";
@@ -110,7 +110,7 @@ function EditBookSlideOver({
   }
 
   return (
-    <SlideOver
+    <ResponsiveDrawer 
       open
       title="Sửa sách/giáo trình"
       description={book.name}
@@ -156,7 +156,7 @@ function EditBookSlideOver({
           </button>
         </div>
       </form>
-    </SlideOver>
+    </ResponsiveDrawer>
   );
 }
 
@@ -397,7 +397,8 @@ export default function BooksTable({
           title: "Chưa có đầu sách",
           description: "Bắt đầu bằng cách thêm đầu sách/giáo trình đầu tiên.",
         }}
-        mobileConfig={{ primaryColumn: "name", secondaryColumns: ["categoryLabel", "onHand"] }}
+        primaryColumn="name"
+        secondaryColumns={["categoryLabel", "onHand"]}
       />
 
       {editingBook ? (

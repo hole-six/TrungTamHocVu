@@ -235,7 +235,8 @@ export default async function AdminPage({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop Table */}
+        <div className="hidden lg:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <table className="w-full min-w-[1080px]">
             <thead className="border-b border-[#e8eef8] bg-[#f8fbff]">
               <tr>
@@ -328,6 +329,80 @@ export default async function AdminPage({
               ) : null}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="space-y-4 px-4 py-4 lg:hidden">
+          {users.map((u, idx) => (
+            <div key={u.id} className="rounded-2xl border border-[#e8eef8] bg-white p-4 shadow-sm">
+              <div className="flex items-start gap-3 mb-4">
+                <div className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${getAvatarGradient(idx)} text-sm font-black text-white shadow-md`}>
+                  {getUserInitials(u.fullName)}
+                  {u.isActive ? <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white bg-[#10b981]" /> : null}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <p className="font-semibold text-[#12304a] truncate">{u.fullName}</p>
+                    {u.id === currentUser?.id ? (
+                      <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-bold text-[#2563eb]">Bạn</span>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-[#7b8ea5] mb-1 truncate">{u.email}</p>
+                  <p className="text-[10px] text-[#7b8ea5]">
+                    {u.lastLoginAt ? `Đăng nhập: ${formatDateTime(u.lastLoginAt)}` : "Chưa đăng nhập"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2 border-t border-[#e8eef8] pt-3 mb-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-[#dbe7ff] bg-[#f7fbff] px-3 py-1 text-xs font-semibold text-[#235f9d]">
+                    {u.roleRef?.name ?? "Chưa gán vai trò"}
+                  </span>
+                  <span
+                    className={
+                      u.isActive
+                        ? "rounded-full border border-[#c7f2dd] bg-[#effcf4] px-3 py-1 text-xs font-semibold text-[#0f9f61]"
+                        : "rounded-full border border-[#ffd5dd] bg-[#fff5f7] px-3 py-1 text-xs font-semibold text-[#e11d48]"
+                    }
+                  >
+                    {u.isActive ? "Đang hoạt động" : "Đã khóa"}
+                  </span>
+                </div>
+                <p className="text-xs text-[#7b8ea5]">
+                  <span className="font-medium">Cơ sở:</span> {u.branch?.name ?? "Chưa gán cơ sở"}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2 border-t border-[#e8eef8] pt-3">
+                <Link
+                  href={`/admin/users/${u.id}`}
+                  className="flex-1 inline-flex items-center justify-center rounded-xl border border-[#dbe7ff] px-4 py-2 text-sm font-semibold text-[#235f9d] transition hover:bg-[#f7fbff]"
+                >
+                  Xem
+                </Link>
+                <UserAdminActions
+                  user={{
+                    id: u.id,
+                    email: u.email,
+                    fullName: u.fullName,
+                    roleId: u.roleId,
+                    branchId: u.branchId,
+                    isActive: u.isActive,
+                  }}
+                  branches={branches.map((branch) => ({ id: branch.id, name: branch.name }))}
+                  roles={roles}
+                  isSelf={u.id === currentUser?.id}
+                />
+              </div>
+            </div>
+          ))}
+
+          {users.length === 0 ? (
+            <div className="py-12 text-center text-sm font-medium text-[#7b8ea5]">
+              Không tìm thấy người dùng phù hợp.
+            </div>
+          ) : null}
         </div>
 
         {userPageCount > 1 ? (

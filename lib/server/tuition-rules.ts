@@ -34,6 +34,21 @@ export function computeTotalAmount(tuitionAmount: number, materialsAmount: numbe
   return tuitionAmount + materialsAmount + openingBalance;
 }
 
+// Phần công nợ THẬT SỰ mới phát sinh của riêng charge này (tiền học + tiền giáo trình
+// kỳ này) — KHÔNG gồm openingBalance. openingBalance chỉ là bản chụp lại (snapshot)
+// đúng khoản nợ của (các) charge kỳ TRƯỚC để hiển thị "tổng phải nộp" cho phụ huynh dễ
+// thấy, KHÔNG PHẢI một khoản nợ mới độc lập — khoản nợ đó đã được tính đủ ở chính
+// charge kỳ trước rồi (computeOutstandingBalance cộng tuitionAmount+materialsAmount
+// trên TOÀN BỘ charge, không cộng openingBalance, để tránh đúng lỗi đếm trùng này).
+// Dùng hàm này (KHÔNG dùng totalAmount) làm cơ sở cho: (1) vòng lặp phân bổ thanh toán
+// FIFO — nếu không, tiền trả đủ công nợ thật vẫn có thể để lại charge kỳ sau hiện "còn
+// nợ" dù đã trả hết; (2) trạng thái đã/chưa thu (chargePaymentStatus) và "còn cần nộp"
+// hiển thị của TỪNG charge riêng lẻ. totalAmount vẫn giữ nguyên để hiển thị dòng "Tổng
+// phải nộp" gồm cả nợ cũ trên hóa đơn — chỉ không dùng nó để tính đã-thu-đủ-chưa.
+export function chargeOwnDueAmount(charge: { tuitionAmount: number; materialsAmount: number }): number {
+  return charge.tuitionAmount + charge.materialsAmount;
+}
+
 export type PaymentStatus = "UNPAID" | "PARTIAL" | "PAID" | "OVERPAID";
 
 // FR-0099 (Tình trạng đóng học phí), áp dụng trên số tiền đã phân bổ thực tế cho

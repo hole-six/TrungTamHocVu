@@ -10,6 +10,34 @@ import NewCashTransactionForm from "@/components/cashbook/NewCashTransactionForm
 import CategoryManager from "@/components/cashbook/CategoryManager";
 import CashTransactionRow from "@/components/cashbook/CashTransactionRow";
 import PageGuide from "@/components/ui/PageGuide";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+
+const CASHBOOK_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="cashbook-header"]',
+    title: "Sổ quỹ — dòng tiền thực tế của cơ sở",
+    description: "Mặc định xem từ đầu tháng hiện tại đến hôm nay — đổi khoảng ngày ở bộ lọc bên dưới để xem kỳ khác.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="cashbook-filters"]',
+    title: "Lọc theo ngày, loại phiếu, danh mục",
+    description: "Luôn chọn đúng khoảng ngày trước khi xuất báo cáo — 3 số Tổng thu/Tổng chi/Số dư bên dưới tính trên TOÀN BỘ khoảng ngày đang lọc, không chỉ trang đang xem.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="cashbook-kpi"]',
+    title: "Tổng thu, Tổng chi, Số dư",
+    description: "Giao dịch đã hủy (VOIDED) không được cộng vào 3 số này, dù vẫn còn hiển thị trong bảng bên dưới để giữ dấu vết.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="cashbook-table"]',
+    title: "Nhãn \"Tự động\" — phiếu sinh từ nghiệp vụ khác",
+    description: "Phiếu thu học phí, hoàn tiền hoặc nhập kho tự sinh phiếu thu/chi ở đây và chỉ sửa được từ đúng nghiệp vụ gốc, không sửa trực tiếp tại Sổ quỹ.",
+    placement: "top",
+  },
+];
 
 const CASHBOOK_PAGE_GUIDE_SECTIONS = [
   {
@@ -93,7 +121,7 @@ export default async function CashbookPage({
     ];
   }
 
-  const [totalCount, transactions, categories] = await Promise.all([
+  const [totalCount, transactions, categories, transactionsForTotals] = await Promise.all([
     prisma.cashTransaction.count({ where }),
     prisma.cashTransaction.findMany({
       where,
@@ -103,6 +131,12 @@ export default async function CashbookPage({
       take: itemsPerPage,
     }),
     prisma.transactionCategory.findMany({ orderBy: [{ type: "asc" }, { name: "asc" }] }),
+    // Tổng thu/chi và số dư phải tính trên TOÀN BỘ khoảng ngày đã lọc, không chỉ
+    // trang hiện tại — dùng truy vấn riêng không phân trang cho việc này.
+    prisma.cashTransaction.findMany({
+      where,
+      select: { type: true, amount: true, status: true, category: { select: { name: true } } },
+    }),
   ]);
 
   const txnIds = transactions.map((item) => item.id);
@@ -125,12 +159,12 @@ export default async function CashbookPage({
   ]);
   const handlerNameById = new Map(handlers.map((item) => [item.id, item.fullName]));
 
-  const totalThu = transactions.filter((item) => item.type === "THU" && item.status !== "VOIDED").reduce((sum, item) => sum + item.amount, 0);
-  const totalChi = transactions.filter((item) => item.type === "CHI" && item.status !== "VOIDED").reduce((sum, item) => sum + item.amount, 0);
+  const totalThu = transactionsForTotals.filter((item) => item.type === "THU" && item.status !== "VOIDED").reduce((sum, item) => sum + item.amount, 0);
+  const totalChi = transactionsForTotals.filter((item) => item.type === "CHI" && item.status !== "VOIDED").reduce((sum, item) => sum + item.amount, 0);
   const balance = totalThu - totalChi;
 
   const byCategory = Object.values(
-    transactions.reduce((accumulator, transaction) => {
+    transactionsForTotals.reduce((accumulator, transaction) => {
       const key = transaction.category?.name ?? "Chưa phân loại";
       if (!accumulator[key]) accumulator[key] = { name: key, thu: 0, chi: 0 };
       if (transaction.status !== "VOIDED") {
@@ -170,13 +204,14 @@ export default async function CashbookPage({
         sections={CASHBOOK_PAGE_GUIDE_SECTIONS}
         buttonLabel="Guide sổ quỹ"
       />
-      <div className="flex flex-col gap-4 rounded-[28px] border border-hairline bg-white px-5 py-4 shadow-[0_18px_45px_rgba(15,23,41,0.06)] xl:flex-row xl:items-start xl:justify-between">
+      <div className="flex flex-col gap-4 rounded-[28px] border border-hairline bg-white px-5 py-4 shadow-[0_18px_45px_rgba(15,23,41,0.06)] xl:flex-row xl:items-start xl:justify-between" data-tour="cashbook-header">
         <div>
           <h1 className="page-title">Sổ quỹ</h1>
           <p className="page-subtitle">Thu vào, chi ra và số dư thực tế của cơ sở.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <SpotlightTour steps={CASHBOOK_TOUR_STEPS} />
           {canCreateCashbook ? <NewCashTransactionForm categories={categories} /> : null}
           <CashbookExportButton
             fromDate={fromDateStr}
@@ -189,17 +224,19 @@ export default async function CashbookPage({
         </div>
       </div>
 
-      <CashbookFilters
-        key={`${fromDateStr}|${toDateStr}|${typeFilter}|${searchQuery}|${categoryIdFilter}`}
-        initialFromDate={fromDateStr}
-        initialToDate={toDateStr}
-        initialType={typeFilter}
-        initialSearch={searchQuery}
-        initialCategoryId={categoryIdFilter}
-        categories={categories}
-      />
+      <div data-tour="cashbook-filters">
+        <CashbookFilters
+          key={`${fromDateStr}|${toDateStr}|${typeFilter}|${searchQuery}|${categoryIdFilter}`}
+          initialFromDate={fromDateStr}
+          initialToDate={toDateStr}
+          initialType={typeFilter}
+          initialSearch={searchQuery}
+          initialCategoryId={categoryIdFilter}
+          categories={categories}
+        />
+      </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3" data-tour="cashbook-kpi">
         <div className="rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Tổng thu vào</p>
           <p className="mt-2 font-display text-2xl font-semibold tracking-tight text-emerald-800">{formatVnd(totalThu)}</p>
@@ -227,7 +264,9 @@ export default async function CashbookPage({
           </span>
         </div>
 
-        <div className="table-container [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div data-tour="cashbook-table">
+        {/* Desktop: Full table */}
+        <div className="hidden lg:block table-container [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <table className="table">
             <thead>
               <tr>
@@ -257,6 +296,69 @@ export default async function CashbookPage({
               ) : null}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile/Tablet: Card view */}
+        <div className="lg:hidden space-y-3">
+          {normalizedTransactions.map((transaction) => (
+            <div key={transaction.id} className="rounded-xl border border-hairline bg-white p-4 hover:shadow-md transition-shadow">
+              {/* Header: Date & Type */}
+              <div className="flex items-start justify-between gap-2 mb-3 pb-3 border-b border-hairline">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-ink-muted48">{new Date(transaction.txnDate).toLocaleDateString("vi-VN")}</p>
+                  <p className="font-semibold text-ink text-sm mt-1">{transaction.description}</p>
+                  {transaction.detail && (
+                    <p className="text-xs text-ink-muted48 mt-1 line-clamp-2">{transaction.detail}</p>
+                  )}
+                </div>
+                <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold whitespace-nowrap ${transaction.type === "THU" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                  {transaction.type === "THU" ? "THU" : "CHI"}
+                </span>
+              </div>
+
+              {/* Category & Amount */}
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-ink-muted48">Danh mục</p>
+                  <p className="text-sm font-medium text-ink mt-0.5 truncate">
+                    {transaction.categoryName ?? "Chưa phân loại"}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-ink-muted48">{transaction.type === "THU" ? "Thu vào" : "Chi ra"}</p>
+                  <p className={`text-lg font-bold mt-0.5 ${transaction.type === "THU" ? "text-emerald-700" : "text-rose-700"}`}>
+                    {formatVnd(transaction.amount)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Status & Info */}
+              <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-hairline">
+                <span className={`inline-flex rounded-lg px-2 py-1 text-xs font-semibold ${transaction.status === "CONFIRMED" ? "bg-sky-100 text-sky-700" : transaction.status === "VOIDED" ? "bg-slate-100 text-slate-600" : "bg-amber-100 text-amber-700"}`}>
+                  {transaction.status === "CONFIRMED" ? "Đã xác nhận" : transaction.status === "VOIDED" ? "Đã hủy" : "Nháp"}
+                </span>
+                {transaction.isDerived && (
+                  <span className="inline-flex rounded-lg bg-violet-100 px-2 py-1 text-xs font-semibold text-violet-700">
+                    Tự động
+                  </span>
+                )}
+              </div>
+
+              {transaction.handledByName && (
+                <p className="text-xs text-ink-muted48 mt-2">Người xử lý: {transaction.handledByName}</p>
+              )}
+              {transaction.notes && (
+                <p className="text-xs text-ink-muted48 mt-2 italic">"{transaction.notes}"</p>
+              )}
+            </div>
+          ))}
+
+          {normalizedTransactions.length === 0 && (
+            <div className="py-12 text-center text-sm text-ink-muted48 bg-canvas-parchment/30 rounded-xl border border-dashed border-hairline">
+              Chưa có phiếu thu/chi nào trong khoảng ngày đang xem.
+            </div>
+          )}
+        </div>
         </div>
 
         {/* Pagination */}

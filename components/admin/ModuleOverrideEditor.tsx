@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AccessLevel, ModuleKey } from "@/lib/server/role-matrix";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 const OVERRIDE_LEVELS: AccessLevel[] = ["VIEW_LIMITED", "VIEW", "CREATE_VIEW", "UPDATE_VIEW", "APPROVE_VIEW", "FULL"];
 
@@ -27,6 +28,7 @@ export default function ModuleOverrideEditor({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const [pendingLevel, setPendingLevel] = useState<AccessLevel | null | undefined>(undefined);
 
   async function save(level: AccessLevel | null) {
     setLoading(true);
@@ -43,6 +45,12 @@ export default function ModuleOverrideEditor({
       return;
     }
     router.refresh();
+  }
+
+  async function confirmPendingLevel() {
+    if (pendingLevel === undefined) return;
+    await save(pendingLevel);
+    setPendingLevel(undefined);
   }
 
   return (
@@ -69,7 +77,7 @@ export default function ModuleOverrideEditor({
           className="rounded-md border-hairline text-xs"
           value={currentOverride ?? ""}
           disabled={loading}
-          onChange={(e) => save((e.target.value || null) as AccessLevel | null)}
+          onChange={(e) => setPendingLevel((e.target.value || null) as AccessLevel | null)}
         >
           <option value="">— Theo vai trò ({defaultLevelLabel}) —</option>
           {OVERRIDE_LEVELS.map((lvl) => (
@@ -83,6 +91,25 @@ export default function ModuleOverrideEditor({
         )}
       </div>
       {error && <p className="w-full text-xs text-red-600">{error}</p>}
+
+      <ConfirmDialog
+        open={pendingLevel !== undefined}
+        title="Xác nhận đổi quyền truy cập?"
+        description={
+          pendingLevel === null
+            ? `Bỏ quyền cấp thêm cho "${moduleLabel}", quay lại đúng theo vai trò mặc định (${defaultLevelLabel}).`
+            : pendingLevel
+              ? `Cấp quyền "${levelLabel[pendingLevel]}" cho module "${moduleLabel}" — vượt ngoài mức mặc định theo vai trò (${defaultLevelLabel}). Chỉ cấp khi thực sự cần thiết.`
+              : undefined
+        }
+        confirmLabel="Xác nhận"
+        tone="danger"
+        loading={loading}
+        onConfirm={confirmPendingLevel}
+        onClose={() => {
+          if (!loading) setPendingLevel(undefined);
+        }}
+      />
     </div>
   );
 }

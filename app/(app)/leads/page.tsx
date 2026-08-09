@@ -8,8 +8,30 @@ import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import LeadsTable from "@/components/leads/LeadsTable";
 import PageGuide from "@/components/ui/PageGuide";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 
 const PAGE_SIZE = 20;
+
+const LEADS_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="leads-header"]',
+    title: "CRM tuyển sinh — Lead khác Học viên",
+    description: "Lead ở đây là hồ sơ CHƯA chính thức ghi danh. Khi chuyển thành học viên (trạng thái Đạt → Chuyển thành HV), hồ sơ sẽ chuyển hẳn sang module Học viên, mặc định ẩn khỏi danh sách CRM này.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="leads-filters"]',
+    title: "Lọc theo trạng thái pipeline và lịch test",
+    description: "3 chip \"Chưa hẹn/Sắp tới/Quá hạn\" lọc riêng theo lịch test đầu vào — kết hợp được với chip trạng thái pipeline ở trên để khoanh đúng nhóm cần gọi lại hôm nay.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="leads-table"]',
+    title: "Đổi trạng thái ngay trên bảng, không cần mở chi tiết",
+    description: "Nhãn \"Trùng SĐT\" cảnh báo lead có thể đã tồn tại — kiểm tra kỹ trước khi tạo hồ sơ mới hoặc chuyển đổi thành học viên.",
+    placement: "top",
+  },
+];
 const LEADS_PAGE_GUIDE_SECTIONS = [
   {
     title: "Mục tiêu trang này",
@@ -221,35 +243,38 @@ export default async function LeadsPage({
         sections={LEADS_PAGE_GUIDE_SECTIONS}
         buttonLabel="Guide CRM"
       />
-      <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-start xl:justify-between">
+      <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-start xl:justify-between" data-tour="leads-header">
         <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-[#0f1729]">Quản lý CRM tuyển sinh</h1>
           <p className="mt-1 text-xs sm:text-sm text-[#64748b]">Theo dõi lead, lịch test và chuyển đổi {total} hồ sơ thành học viên</p>
         </div>
 
-        {canCreate("leads", userRole) ? (
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <Link href="/leads/intake" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-3.5 sm:h-3.5">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M19 8h4" />
-                <path d="M21 6v4" />
-              </svg>
-              <span className="hidden sm:inline">Đăng ký nhập học</span>
-              <span className="sm:hidden">Nhập học</span>
-            </Link>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <SpotlightTour steps={LEADS_TOUR_STEPS} />
+          {canCreate("leads", userRole) ? (
+            <>
+              <Link href="/leads/intake" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-3.5 sm:h-3.5">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M19 8h4" />
+                  <path d="M21 6v4" />
+                </svg>
+                <span className="hidden sm:inline">Đăng ký nhập học</span>
+                <span className="sm:hidden">Nhập học</span>
+              </Link>
 
-            <Link href="/leads/new" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-3.5 sm:h-3.5">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              <span className="hidden sm:inline">Thêm lead</span>
-              <span className="sm:hidden">Thêm</span>
-            </Link>
-          </div>
-        ) : null}
+              <Link href="/leads/new" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-3.5 sm:h-3.5">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                <span className="hidden sm:inline">Thêm lead</span>
+                <span className="sm:hidden">Thêm</span>
+              </Link>
+            </>
+          ) : null}
+        </div>
       </div>
 
       <LeadsTable

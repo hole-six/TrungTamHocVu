@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import DatePicker from "@/components/ui/DatePicker";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
@@ -898,7 +898,7 @@ export default function StudentFinanceDesk({
         </div>
       </section>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={bookPickerOpen}
         onClose={() => setBookPickerOpen(false)}
         widthClassName="max-w-3xl"
@@ -983,7 +983,7 @@ export default function StudentFinanceDesk({
             ) : null}
           </div>
         </div>
-      </SlideOver>
+      </ResponsiveDrawer>
 
       <ConfirmDialog
         open={Boolean(pendingBillingSwitch)}

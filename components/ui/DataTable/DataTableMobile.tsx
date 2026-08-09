@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Column, Action } from "./DataTable";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 type DataTableMobileProps<T> = {
   data: T[];
@@ -52,6 +53,27 @@ export default function DataTableMobile<T extends Record<string, any>>({
 }: DataTableMobileProps<T>) {
   const [searchQuery, setSearchQuery] = useState(defaultSearchValue);
   const [expandedRows, setExpandedRows] = useState<Set<any>>(new Set());
+  const [pendingAction, setPendingAction] = useState<{ row: T; action: Action<T> } | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
+  async function handleActionClick(row: T, action: Action<T>) {
+    if (action.confirmMessage) {
+      setPendingAction({ row, action });
+      return;
+    }
+    await action.onClick(row);
+  }
+
+  async function handleConfirm() {
+    if (!pendingAction) return;
+    setConfirmLoading(true);
+    try {
+      await pendingAction.action.onClick(pendingAction.row);
+      setPendingAction(null);
+    } finally {
+      setConfirmLoading(false);
+    }
+  }
 
   useEffect(() => {
     setSearchQuery(defaultSearchValue);
@@ -246,7 +268,7 @@ export default function DataTableMobile<T extends Record<string, any>>({
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            void action.onClick(row);
+                            void handleActionClick(row, action);
                           }}
                           className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all ${
                             action.variant === "danger"
@@ -297,6 +319,19 @@ export default function DataTableMobile<T extends Record<string, any>>({
           </div>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={!!pendingAction}
+        title={pendingAction?.action.confirmTitle || "Xác nhận thao tác"}
+        description={pendingAction?.action.confirmMessage}
+        confirmLabel={pendingAction?.action.label}
+        tone={pendingAction?.action.variant === "danger" ? "danger" : "default"}
+        loading={confirmLoading}
+        onConfirm={handleConfirm}
+        onClose={() => {
+          if (!confirmLoading) setPendingAction(null);
+        }}
+      />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import DatePicker from "@/components/ui/DatePicker";
 import FormGuide from "@/components/ui/FormGuide";
 
@@ -93,7 +93,7 @@ export default function RescheduleSessionButton({
         Dời lịch
       </button>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={open}
         onClose={() => setOpen(false)}
         title="Dời lịch buổi học"
@@ -131,7 +131,7 @@ export default function RescheduleSessionButton({
             </button>
           </div>
         </form>
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

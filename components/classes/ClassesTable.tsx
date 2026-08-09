@@ -311,11 +311,11 @@ export default function ClassesTable({
         </svg>
       ),
       onClick: async (row) => {
-        if (confirm(`Xóa lớp ${row.className}?`)) {
-          await fetch(`/api/classes/${row.id}`, { method: "DELETE" });
-          router.refresh();
-        }
+        await fetch(`/api/classes/${row.id}`, { method: "DELETE" });
+        router.refresh();
       },
+      confirmTitle: "Xác nhận xóa lớp?",
+      confirmMessage: "Lớp cùng lịch học, buổi học và ghi danh liên quan sẽ bị xóa. Thao tác này không thể hoàn tác.",
       variant: "danger",
       show: (row) => row.status !== "ACTIVE",
     });
@@ -493,10 +493,8 @@ export default function ClassesTable({
       stickyHeader
       rowKey="id"
       onRowClick={(row) => router.push(`/classes/${row.id}`)}
-      mobileConfig={{
-        primaryColumn: "className",
-        secondaryColumns: ["status"],
-      }}
+      primaryColumn="className"
+      secondaryColumns={["status"]}
     />
   );
 }

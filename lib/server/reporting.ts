@@ -1,5 +1,6 @@
 import { prisma } from "../prisma";
 import { LEAD_STATUSES } from "./lead-rules";
+import { chargeOwnDueAmount } from "./tuition-rules";
 
 export type BranchScope = string | null;
 
@@ -120,7 +121,7 @@ export async function getReportsDashboardData(branchId: BranchScope) {
   const charges = activeStudentIds.length
     ? await prisma.charge.findMany({
         where: { studentId: { in: activeStudentIds } },
-        select: { id: true, studentId: true, totalAmount: true },
+        select: { id: true, studentId: true, tuitionAmount: true, materialsAmount: true },
       })
     : [];
   const allocations = charges.length
@@ -134,9 +135,12 @@ export async function getReportsDashboardData(branchId: BranchScope) {
     : [];
 
   const chargeOwner = new Map(charges.map((charge) => [charge.id, charge.studentId]));
+  // chargeOwnDueAmount (không dùng totalAmount) — cộng dồn qua NHIỀU charge của cùng 1
+  // học viên, nếu dùng totalAmount trực tiếp sẽ đếm trùng nợ cũ (openingBalance) vốn đã
+  // được tính ở chính charge kỳ trước.
   const chargeByStudent = new Map<string, number>();
   for (const charge of charges) {
-    chargeByStudent.set(charge.studentId, (chargeByStudent.get(charge.studentId) ?? 0) + charge.totalAmount);
+    chargeByStudent.set(charge.studentId, (chargeByStudent.get(charge.studentId) ?? 0) + chargeOwnDueAmount(charge));
   }
   const paidByStudent = new Map<string, number>();
   for (const allocation of allocations) {
@@ -394,7 +398,9 @@ export async function getReportHpSummary(branchId: BranchScope) {
         accumulator[key].tuitionAmount += charge.tuitionAmount;
         accumulator[key].billedAmount += charge.totalAmount;
         accumulator[key].collectedAmount += collectedAmount;
-        accumulator[key].remainingAmount += charge.totalAmount - collectedAmount;
+        // chargeOwnDueAmount cho remainingAmount (billedAmount vẫn giữ totalAmount để
+        // hiển thị đúng số đã lập hóa đơn gồm cả nợ cũ mang sang).
+        accumulator[key].remainingAmount += Math.max(chargeOwnDueAmount(charge) - collectedAmount, 0);
         accumulator[key].studentCount += 1;
         return accumulator;
       },

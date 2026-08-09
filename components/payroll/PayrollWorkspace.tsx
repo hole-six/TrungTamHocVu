@@ -10,12 +10,46 @@ import PayrollRunActions from "@/components/payroll/PayrollRunActions";
 import AddPayrollLineForm from "@/components/payroll/AddPayrollLineForm";
 import PayrollRateCsvTools from "@/components/payroll/PayrollRateCsvTools";
 import PayrollEmployeeDrawer from "@/components/payroll/PayrollEmployeeDrawer";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { PAYROLL_RUN_STATUS_LABEL } from "@/lib/server/payroll-rules";
 import type { PayrollEmployeeRow } from "@/lib/server/payroll-row-builder";
 
 type FilterMode = "all" | "missing-bank" | "ready-bank" | "missing-rate";
 
 const PAGE_SIZE = 15;
+
+const PAYROLL_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="payroll-header"]',
+    title: "Bảng lương gộp mọi nguồn công",
+    description: "Mỗi dòng nhân sự tự cộng gộp: giờ/ca dạy (từ phân công lớp), giờ/ca trợ giảng, công hành chính (từ chấm công), thưởng/phạt — không cần nhập tay số buổi dạy.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="payroll-kpi"]',
+    title: "4 số tổng quan của cả tháng",
+    description: "\"Trạng thái dữ liệu\" báo lỗi nếu có nhân sự thiếu đơn giá hoặc hợp đồng cần chú ý — nên xử lý hết trước khi tạo/chốt kỳ lương.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="payroll-run"]',
+    title: "Kỳ lương — số xem trước khác số đã chốt",
+    description: "Chưa tạo kỳ lương thì bảng chỉ là số xem trước, tính trực tiếp theo dữ liệu buổi dạy/chấm công hiện tại. Tạo kỳ lương để chốt số liệu chính thức, qua các bước duyệt/khoá theo checklist.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="payroll-filters"]',
+    title: "Lọc nhanh nhân sự cần xử lý",
+    description: "Thiếu đơn giá hoặc thiếu thông tin chuyển khoản sẽ chặn không tính được lương đúng cho người đó — lọc ra để bổ sung trước khi chốt kỳ.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="payroll-table"]',
+    title: "Bấm \"Sửa\" để mở đầy đủ hồ sơ 1 người",
+    description: "Mở đúng 1 khung: thông tin cá nhân, đơn giá, chuyển khoản, và dòng lương tháng này (nếu kỳ lương đang cho sửa) — không cần chuyển qua nhiều trang.",
+    placement: "top",
+  },
+];
 
 type RunSummary = { id: string; periodName: string; status: string; lineCount: number } | null;
 
@@ -178,7 +212,7 @@ export default function PayrollWorkspace({
     <div className="min-h-screen space-y-4 pb-20 sm:space-y-6">
       <section className="rounded-2xl border-2 border-[#fed7aa] bg-gradient-to-r from-[#fff7ed] via-white to-[#fff7ed] px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-6 sm:py-6">
         <div className="space-y-4 sm:space-y-5">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between sm:gap-4">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between sm:gap-4" data-tour="payroll-header">
             <div className="space-y-2 sm:space-y-3">
               <div className="inline-flex items-center rounded-full border border-[#fdba74] bg-white px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#c2410c] sm:px-3 sm:py-1 sm:text-xs">
                 Payroll
@@ -193,6 +227,12 @@ export default function PayrollWorkspace({
             </div>
 
             <div className="flex flex-wrap items-start gap-2 sm:gap-3">
+              <SpotlightTour
+                steps={PAYROLL_TOUR_STEPS.filter((step) => {
+                  if (!run && step.target.includes("payroll-run")) return false;
+                  return true;
+                })}
+              />
               {!run && permissions.canManagePayrollRuns ? <NewPayrollRunForm defaultPeriod={period} /> : null}
               <PayrollExportButton period={period} rows={rows} runStatus={run?.status ?? null} totals={totals} />
               {permissions.canManageEmployees ? <NewEmployeeForm /> : null}
@@ -200,7 +240,7 @@ export default function PayrollWorkspace({
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 rounded-xl border border-[#fed7aa] bg-white/80 px-4 py-3 sm:gap-4 sm:rounded-2xl sm:px-5 sm:py-4">
+          <div className="flex flex-col gap-3 rounded-xl border border-[#fed7aa] bg-white/80 px-4 py-3 sm:gap-4 sm:rounded-2xl sm:px-5 sm:py-4" data-tour="payroll-kpi">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between sm:gap-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold text-[#111827] sm:text-sm">Tháng lương:</span>
@@ -274,7 +314,7 @@ export default function PayrollWorkspace({
       </section>
 
       {run ? (
-        <section className="rounded-2xl border-2 border-[#e5e7eb] bg-white px-6 py-5 shadow-sm">
+        <section className="rounded-2xl border-2 border-[#e5e7eb] bg-white px-6 py-5 shadow-sm" data-tour="payroll-run">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#9ca3af]">Kỳ lương {run.periodName}</p>
@@ -332,7 +372,7 @@ export default function PayrollWorkspace({
         </section>
       )}
 
-      <section className="flex flex-wrap gap-1.5 sm:gap-2">
+      <section className="flex flex-wrap gap-1.5 sm:gap-2" data-tour="payroll-filters">
         <Link
           href={pageHref({ filter: "all" })}
           className={`rounded-full border px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm ${initialFilter === "all" ? "border-[#fed7aa] bg-[#fff7ed] text-[#ea580c]" : "border-[#e5e7eb] bg-white text-[#6b7280]"}`}
@@ -363,7 +403,7 @@ export default function PayrollWorkspace({
         </Link>
       </section>
 
-      <section className="overflow-hidden rounded-xl border-2 border-[#e5e7eb] bg-white shadow-sm sm:rounded-2xl">
+      <section className="overflow-hidden rounded-xl border-2 border-[#e5e7eb] bg-white shadow-sm sm:rounded-2xl" data-tour="payroll-table">
         <div className="flex flex-col gap-2 border-b border-[#f3f4f6] px-4 py-4 sm:gap-3 sm:px-6 sm:py-5 lg:flex-row lg:items-center lg:justify-between">
           <h2 className="text-lg font-black text-[#111827] sm:text-xl">Bảng nhân sự payroll</h2>
           <div className="flex flex-wrap gap-1.5 sm:gap-2">
@@ -376,7 +416,7 @@ export default function PayrollWorkspace({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <table className="w-full min-w-[1700px]">
             <thead className="bg-[#fafafa]">
               <tr>

@@ -4,39 +4,52 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import CourseManager from "@/components/classes/CourseManager";
 import ClassesTable from "@/components/classes/ClassesTable";
-import PageGuide from "@/components/ui/PageGuide";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { canCreate } from "@/lib/server/role-matrix";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 
-const CLASSES_PAGE_GUIDE_SECTIONS = [
+const CLASSES_TOUR_STEPS: TourStep[] = [
   {
-    title: "Màn này để làm gì?",
-    items: [
-      "Đây là màn tổng vận hành lớp học: xem danh sách lớp, mở lớp mới và quản lý khóa chuẩn.",
-      "Từ đây bạn đi vào từng lớp để xử lý buổi học, học viên, lịch chuẩn và nhật ký lớp.",
-      "Nếu người mới chưa quen, hãy bắt đầu bằng xem trạng thái lớp rồi mới đi sâu vào chi tiết từng lớp.",
-    ],
-    tone: "info" as const,
+    target: '[data-tour="classes-new"]',
+    title: "Tạo lớp mới — chỉ khi đã rõ lịch chuẩn",
+    description:
+      "Bấm vào đây khi đã chốt được khóa học, lịch cố định (thứ mấy, giờ nào, phòng nào) và tổng số buổi của lớp. Sau khi tạo, hệ thống dùng đúng lịch chuẩn này để tự sinh buổi học hàng ngày (sweep tự động chạy 2h sáng mỗi ngày) — nếu lịch chuẩn nhập sai hoặc để trống, lớp sẽ không tự sinh được buổi nào và học phí cuối tháng cũng sẽ tính thiếu vì không có buổi COMPLETED nào để đếm.",
+    placement: "bottom",
   },
   {
-    title: "Thứ tự thao tác nên đi",
-    items: [
-      "Bước 1: lọc đúng lớp đang chạy hoặc lớp cần xử lý.",
-      "Bước 2: mở chi tiết lớp để xử lý học viên, buổi học hoặc lịch chuẩn.",
-      "Bước 3: chỉ tạo lớp mới khi đã rõ khóa học, lịch chuẩn, học phí và số buổi.",
-      "Bước 4: quản lý khóa chuẩn ở cuối màn để giữ dữ liệu đầu vào của lớp luôn gọn.",
-    ],
-    tone: "success" as const,
+    target: '[data-tour="classes-summary"]',
+    title: "4 số cần nhìn mỗi ngày, nhất là số đỏ cuối",
+    description:
+      "\"Sĩ số đang học\" đếm theo enrollment còn ACTIVE trên toàn hệ thống, không chỉ trang đang xem. \"Buổi trong 7 ngày tới\" giúp ước lượng khối lượng công việc tuần này. \"Sắp kết thúc (30 ngày)\" là các lớp ACTIVE có ngày kết thúc dự kiến rơi trong 30 ngày tới — cần chủ động lên kế hoạch gia hạn hoặc chuyển lớp cho học viên trước khi lớp đóng. Badge đỏ \"Chưa có lịch chuẩn\" là điểm CẦN XỬ LÝ NGAY: đây là những lớp đang ở trạng thái Đang chạy nhưng không có scheduleRule nào đang bật — nghĩa là hệ thống sẽ KHÔNG tự sinh buổi học nào cho lớp đó mỗi ngày, và học phí cuối kỳ của các học viên trong lớp này sẽ tính ra 0 đồng nếu không phát hiện sớm.",
+    placement: "bottom",
   },
   {
-    title: "Điểm cần tránh",
-    items: [
-      "Không mở lớp mới khi lịch chuẩn còn mơ hồ.",
-      "Không nhầm giữa chỉnh lớp và xử lý từng buổi học riêng lẻ.",
-      "Không bỏ qua trạng thái lớp vì nó quyết định ngữ cảnh vận hành phía sau.",
-    ],
-    tone: "warning" as const,
+    target: '[data-dt="search"]',
+    title: "Tìm theo tên hoặc mã lớp",
+    description: "Gõ tên lớp hoặc mã lớp rồi Enter — lọc chạy ở backend theo đúng nguyên tắc chung của hệ thống, không tải hết danh sách về máy rồi mới lọc.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-dt="chips"]',
+    title: "Lọc theo trạng thái lớp",
+    description:
+      "Tất cả / Đang chạy / Đã kết thúc / Đã hủy — con số trên mỗi nút là tổng thật của TOÀN BỘ danh sách đã lọc theo cơ sở, không chỉ trang đang xem. Nên lọc \"Đang chạy\" làm mặc định khi rà soát vận hành hàng ngày, tránh nhìn nhầm số liệu của các lớp đã đóng từ lâu.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-dt="table-shell"]',
+    title: "Thanh tiến độ và số tiền tạm tính — đọc đúng ý nghĩa",
+    description:
+      "Cột \"Lịch & tiến độ\" đếm buổi theo trạng thái COMPLETED thật (đã điểm danh xong), không phải buổi đã lên lịch — một lớp có thể có 20 buổi trong lịch nhưng thanh tiến độ chỉ nhích khi giáo viên thực sự điểm danh xong từng buổi. Cột \"Vận hành & học phí\" hiện \"Tạm tính toàn khóa\" = đơn giá × tổng số buổi — đây CHỈ là số ước lượng ban đầu, không phải học phí thật phải thu, vì số thật còn trừ buổi nghỉ, học bổng, điều chỉnh và chỉ được tính chính xác khi sinh học phí ở trang Học phí. Bấm vào tên lớp để mở chi tiết, xử lý buổi học, học viên và nhật ký lớp.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="classes-course-manager"]',
+    title: "Khóa học chuẩn — mẫu dùng chung, không phải lớp cụ thể",
+    description:
+      "Đây là danh mục KHÓA HỌC (mẫu), khác với LỚP HỌC (thực thể đang dạy thật ở bảng phía trên) — một khóa học chuẩn (vd \"Tiếng Anh giao tiếp cơ bản\") có thể được dùng làm gốc cho nhiều lớp khác nhau, mỗi lớp tự có lịch dạy và sĩ số riêng. Đơn giá và số buổi/tuần khai báo ở đây chỉ là GIÁ TRỊ MẶC ĐỊNH gợi ý khi tạo lớp mới từ khóa này — sau khi lớp đã tạo, sửa khóa học ở đây KHÔNG tự động cập nhật ngược lại các lớp đã tồn tại. Phần \"giáo trình bắt buộc\" gắn trực tiếp với Kho giáo trình (tồn kho hiển thị màu đỏ/vàng nếu sắp hết) — dùng để nhắc chuẩn bị đủ sách trước khi khai giảng lớp mới theo khóa này.",
+    placement: "top",
   },
 ];
 
@@ -167,12 +180,6 @@ export default async function ClassesPage({
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <PageGuide
-        title="Guide vận hành lớp học"
-        summary="Đây là màn trung tâm của khu lớp học. Người mới chỉ cần hiểu rõ: lớp nào đang chạy, khi nào tạo lớp mới, và khi nào phải đi vào chi tiết lớp để xử lý sâu hơn."
-        sections={CLASSES_PAGE_GUIDE_SECTIONS}
-        buttonLabel="Guide lớp học"
-      />
       <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-[#0f1729]">Quản lý lớp học</h1>
@@ -180,13 +187,21 @@ export default async function ClassesPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <SpotlightTour steps={CLASSES_TOUR_STEPS} />
           {canCreate("schedule", userRole) ? (
-            <Link href="/classes/new" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
+            <Link href="/classes/new" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5" data-tour="classes-new">
               <span className="hidden sm:inline">+ Thêm lớp học</span>
               <span className="sm:hidden">+ Lớp</span>
             </Link>
           ) : null}
         </div>
+      </div>
+
+      <div className="card flex flex-wrap items-center gap-3" data-tour="classes-summary">
+        <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-ink">Sĩ số đang học {activeEnrollments}</span>
+        <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-sky-700">Buổi trong 7 ngày tới {upcomingSessions}</span>
+        <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">Sắp kết thúc (30 ngày) {endingSoon}</span>
+        <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">Chưa có lịch chuẩn {unscheduledClasses}</span>
       </div>
 
       <ClassesTable

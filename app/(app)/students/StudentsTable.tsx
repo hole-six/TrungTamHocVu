@@ -336,11 +336,11 @@ export default function StudentsTable({
     actions.push({
       label: "Xóa",
       onClick: async (row) => {
-        if (confirm(`Xóa học viên ${row.fullName}?`)) {
-          await fetch(`/api/students/${row.id}`, { method: "DELETE" });
-          router.refresh();
-        }
+        await fetch(`/api/students/${row.id}`, { method: "DELETE" });
+        router.refresh();
       },
+      confirmTitle: "Xác nhận xóa học viên?",
+      confirmMessage: "Hồ sơ học viên cùng lịch sử ghi danh, điểm danh, học phí liên quan sẽ bị xóa. Thao tác này không thể hoàn tác.",
       variant: "danger",
       show: (row) => row.status !== "ACTIVE",
     });
@@ -438,10 +438,8 @@ export default function StudentsTable({
         rowKey="id"
         onRowClick={(row) => router.push(`/students/${row.id}`)}
         className="[&_table]:min-w-[1750px]"
-        mobileConfig={{
-          primaryColumn: "fullName",
-          secondaryColumns: ["studentCode", "status", "outstanding"],
-        }}
+        primaryColumn="fullName"
+        secondaryColumns={["studentCode", "status", "outstanding"]}
       />
 
       {assigningStudent ? (

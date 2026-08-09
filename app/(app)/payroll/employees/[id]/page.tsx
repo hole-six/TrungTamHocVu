@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { SESSION_ROLE_LABEL, computeContractStatus } from "@/lib/server/payroll-rules";
 import PayrollEmployeeEditPanels from "@/components/payroll/PayrollEmployeeEditPanels";
 import PageGuide from "@/components/ui/PageGuide";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canCreate, canUpdateWithOverride, canViewFullWithOverride } from "@/lib/server/role-matrix";
@@ -46,6 +47,33 @@ const EMPLOYEE_DETAIL_GUIDE_SECTIONS = [
   },
 ];
 
+const EMPLOYEE_DETAIL_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="employee-header"]',
+    title: "Hồ sơ nhân sự — nguồn công gốc cho lương",
+    description: "Cảnh báo hợp đồng ở đây chỉ là nhắc việc, không tự động ảnh hưởng đến việc tính công/lương của người này.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="employee-sessions"]',
+    title: "Buổi dạy/trợ giảng — tự sinh từ phân công lớp",
+    description: "Không nhập tay: mỗi khi được phân công dạy/trợ giảng một buổi, dòng này tự xuất hiện với số giờ và tiền tính theo đơn giá + payMode (theo ca hoặc theo giờ).",
+    placement: "right",
+  },
+  {
+    target: '[data-tour="employee-timesheet"]',
+    title: "Chấm công ngày — riêng cho công hành chính",
+    description: "Tách biệt hoàn toàn với buổi dạy — chỉ cộng thêm khi người này có làm việc hành chính ngoài giờ dạy.",
+    placement: "right",
+  },
+  {
+    target: '[data-tour="employee-summary"]',
+    title: "Đơn giá áp dụng cho người này",
+    description: "Đơn giá dạy/TG/công HC ở đây là nguồn tính tiền cho mọi buổi/công phía trên — đổi đơn giá không ảnh hưởng ngược lại các dòng đã tính trong kỳ lương đã chốt.",
+    placement: "left",
+  },
+];
+
 export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) notFound();
@@ -81,85 +109,153 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
         sections={EMPLOYEE_DETAIL_GUIDE_SECTIONS}
         buttonLabel="Guide nhân sự"
       />
-      <div>
-        <Link href="/payroll" className="text-sm text-primary">
-          ← Quay lại Nhân sự & Lương
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">{employee.fullName}</h1>
-        <p className="mt-1 text-sm text-ink-muted48">
-          Mã NV: {employee.employeeCode} · Tên ngắn: {employee.shortName} · {employee.position ?? "—"}
-        </p>
-        {contractStatus === "Đã hết hạn HĐ" && <span className="badge-red mt-2 inline-flex">Đã hết hạn HĐ</span>}
-        {contractStatus === "Sắp hết hạn HĐ" && <span className="badge-amber mt-2 inline-flex">Sắp hết hạn HĐ</span>}
+      <div className="flex items-start justify-between gap-3" data-tour="employee-header">
+        <div>
+          <Link href="/payroll" className="text-sm text-primary">
+            ← Quay lại Nhân sự & Lương
+          </Link>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight">{employee.fullName}</h1>
+          <p className="mt-1 text-sm text-ink-muted48">
+            Mã NV: {employee.employeeCode} · Tên ngắn: {employee.shortName} · {employee.position ?? "—"}
+          </p>
+          {contractStatus === "Đã hết hạn HĐ" && <span className="badge-red mt-2 inline-flex">Đã hết hạn HĐ</span>}
+          {contractStatus === "Sắp hết hạn HĐ" && <span className="badge-amber mt-2 inline-flex">Sắp hết hạn HĐ</span>}
+        </div>
+        <SpotlightTour steps={EMPLOYEE_DETAIL_TOUR_STEPS} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <div className="card overflow-x-auto">
-            <h2 className="font-display text-lg font-semibold tracking-tight">Tất cả buổi dạy/trợ giảng ({employee.sessionAssignments.length})</h2>
-            <table className="mt-3 w-full text-left text-sm">
-              <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
-                <tr>
-                  <th className="py-2 font-medium">Ngày</th>
-                  <th className="py-2 font-medium">Lớp</th>
-                  <th className="py-2 font-medium">Vai trò</th>
-                  <th className="py-2 font-medium">Giờ</th>
-                  <th className="py-2 font-medium">Tiền</th>
-                </tr>
-              </thead>
-              <tbody>
-                {employee.sessionAssignments.map((assignment) => (
-                  <tr key={assignment.id} className="border-b border-hairline last:border-0">
-                    <td className="py-2">{formatDate(assignment.session.sessionDate)}</td>
-                    <td className="py-2 text-ink-muted80">{assignment.session.class.className}</td>
-                    <td className="py-2 text-ink-muted80">{SESSION_ROLE_LABEL[assignment.role] ?? assignment.role}</td>
-                    <td className="py-2 text-ink-muted80">{assignment.hours}</td>
-                    <td className="py-2 font-medium">{formatVnd(assignment.amount ?? 0)}</td>
-                  </tr>
-                ))}
-                {employee.sessionAssignments.length === 0 && (
+          {/* Sessions Table - Desktop: Table, Mobile: Cards */}
+          <div className="card" data-tour="employee-sessions">
+            <h2 className="font-display text-lg font-semibold tracking-tight mb-3">Tất cả buổi dạy/trợ giảng ({employee.sessionAssignments.length})</h2>
+            
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-ink-muted48">
-                      Chưa được phân công buổi dạy nào.
-                    </td>
+                    <th className="py-2 font-medium">Ngày</th>
+                    <th className="py-2 font-medium">Lớp</th>
+                    <th className="py-2 font-medium">Vai trò</th>
+                    <th className="py-2 font-medium">Giờ</th>
+                    <th className="py-2 font-medium">Tiền</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {employee.sessionAssignments.map((assignment) => (
+                    <tr key={assignment.id} className="border-b border-hairline last:border-0">
+                      <td className="py-2">{formatDate(assignment.session.sessionDate)}</td>
+                      <td className="py-2 text-ink-muted80">{assignment.session.class.className}</td>
+                      <td className="py-2 text-ink-muted80">{SESSION_ROLE_LABEL[assignment.role] ?? assignment.role}</td>
+                      <td className="py-2 text-ink-muted80">{assignment.hours}</td>
+                      <td className="py-2 font-medium">{formatVnd(assignment.amount ?? 0)}</td>
+                    </tr>
+                  ))}
+                  {employee.sessionAssignments.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-ink-muted48">
+                        Chưa được phân công buổi dạy nào.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-3">
+              {employee.sessionAssignments.map((assignment) => (
+                <div key={assignment.id} className="rounded-xl border border-hairline bg-canvas-parchment/40 p-3">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-ink text-sm">{assignment.session.class.className}</p>
+                      <p className="text-xs text-ink-muted48 mt-0.5">{formatDate(assignment.session.sessionDate)}</p>
+                    </div>
+                    <span className="inline-flex rounded-lg bg-primary/10 px-2 py-1 text-xs font-bold text-primary whitespace-nowrap">
+                      {SESSION_ROLE_LABEL[assignment.role] ?? assignment.role}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-hairline">
+                    <div>
+                      <p className="text-xs text-ink-muted48">Số giờ</p>
+                      <p className="font-semibold text-ink text-sm">{assignment.hours} giờ</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-ink-muted48">Thù lao</p>
+                      <p className="font-bold text-primary text-sm">{formatVnd(assignment.amount ?? 0)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {employee.sessionAssignments.length === 0 && (
+                <div className="py-8 text-center text-sm text-ink-muted48 bg-canvas-parchment/30 rounded-xl border border-dashed border-hairline">
+                  Chưa được phân công buổi dạy nào.
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="card overflow-x-auto">
-            <h2 className="font-display text-lg font-semibold tracking-tight">Tất cả chấm công ngày ({employee.timesheetEntries.length})</h2>
-            <table className="mt-3 w-full text-left text-sm">
-              <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
-                <tr>
-                  <th className="py-2 font-medium">Ngày</th>
-                  <th className="py-2 font-medium">Giờ</th>
-                  <th className="py-2 font-medium">Công</th>
-                </tr>
-              </thead>
-              <tbody>
-                {employee.timesheetEntries.map((entry) => (
-                  <tr key={entry.id} className="border-b border-hairline last:border-0">
-                    <td className="py-2">{formatDate(entry.workDate)}</td>
-                    <td className="py-2 text-ink-muted80">{entry.hours}</td>
-                    <td className="py-2 font-medium">{entry.days}</td>
-                  </tr>
-                ))}
-                {employee.timesheetEntries.length === 0 && (
+          {/* Timesheet Table - Desktop: Table, Mobile: Cards */}
+          <div className="card" data-tour="employee-timesheet">
+            <h2 className="font-display text-lg font-semibold tracking-tight mb-3">Tất cả chấm công ngày ({employee.timesheetEntries.length})</h2>
+            
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
                   <tr>
-                    <td colSpan={3} className="py-6 text-center text-ink-muted48">
-                      Chưa có chấm công nào.
-                    </td>
+                    <th className="py-2 font-medium">Ngày</th>
+                    <th className="py-2 font-medium">Giờ</th>
+                    <th className="py-2 font-medium">Công</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {employee.timesheetEntries.map((entry) => (
+                    <tr key={entry.id} className="border-b border-hairline last:border-0">
+                      <td className="py-2">{formatDate(entry.workDate)}</td>
+                      <td className="py-2 text-ink-muted80">{entry.hours}</td>
+                      <td className="py-2 font-medium">{entry.days}</td>
+                    </tr>
+                  ))}
+                  {employee.timesheetEntries.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="py-6 text-center text-ink-muted48">
+                        Chưa có chấm công nào.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-2">
+              {employee.timesheetEntries.map((entry) => (
+                <div key={entry.id} className="rounded-xl border border-hairline bg-canvas-parchment/40 p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-ink text-sm">{formatDate(entry.workDate)}</p>
+                      <p className="text-xs text-ink-muted48 mt-0.5">{entry.hours} giờ</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-ink-muted48">Số công</p>
+                      <p className="font-bold text-primary text-lg">{entry.days}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {employee.timesheetEntries.length === 0 && (
+                <div className="py-8 text-center text-sm text-ink-muted48 bg-canvas-parchment/30 rounded-xl border border-dashed border-hairline">
+                  Chưa có chấm công nào.
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="space-y-6">
-          <div className="card">
+          <div className="card" data-tour="employee-summary">
             <h2 className="font-display text-lg font-semibold tracking-tight">Công việc & Lương</h2>
             <dl className="mt-3 space-y-2 text-sm">
               <div className="flex justify-between border-b border-hairline/60 py-1">

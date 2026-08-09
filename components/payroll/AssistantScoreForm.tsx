@@ -1,10 +1,96 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, TrendingDown, TrendingUp, DollarSign, Save } from "lucide-react";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 type Branch = { id: string; name: string };
+
+type ScoreEvent = {
+  id: string;
+  eventDate: string;
+  type: string;
+  points: number;
+  reason: string | null;
+  branch: { name: string };
+};
+
+function formatVnDate(value: string) {
+  return new Date(value).toLocaleDateString("vi-VN");
+}
+
+function ScoreEventsList({ employeeId, month, refreshKey }: { employeeId: string; month: string; refreshKey: number }) {
+  const router = useRouter();
+  const [events, setEvents] = useState<ScoreEvent[] | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/employees/${employeeId}/score-events?month=${month}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setEvents(data.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId, month, refreshKey]);
+
+  async function remove(eventId: string) {
+    setDeletingId(eventId);
+    setError(null);
+    const res = await fetch(`/api/employees/${employeeId}/score-events/${eventId}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    setDeletingId(null);
+    if (!res.ok) {
+      setError(data.error ?? "Không thể xóa điểm.");
+      return;
+    }
+    setEvents((current) => (current ? current.filter((item) => item.id !== eventId) : current));
+    router.refresh();
+  }
+
+  if (events === null) return null;
+  if (events.length === 0) return <p className="px-6 pb-4 text-sm text-[#9ca3af]">Chưa có điểm nào ghi nhận trong tháng {month}.</p>;
+
+  return (
+    <div className="space-y-2 px-6 pb-5">
+      {events.map((event) => (
+        <div key={event.id} className="flex items-center justify-between gap-3 rounded-lg border-2 border-[#f3f4f6] bg-white px-4 py-2.5">
+          <div className="flex items-center gap-3">
+            <span className={`text-sm font-bold ${event.type === "DEDUCT" ? "text-red-600" : "text-emerald-600"}`}>
+              {event.type === "DEDUCT" ? "−" : "+"}
+              {event.points}
+            </span>
+            <div>
+              <p className="text-sm font-medium text-[#111827]">
+                {formatVnDate(event.eventDate)} · {event.branch.name}
+              </p>
+              {event.reason ? <p className="text-xs text-[#6b7280]">{event.reason}</p> : null}
+            </div>
+          </div>
+          <ConfirmActionButton
+            title="Xác nhận xóa điểm?"
+            description={`Xóa ${event.type === "DEDUCT" ? "điểm trừ" : "điểm cộng"} ${event.points} ngày ${formatVnDate(event.eventDate)}${event.reason ? ` (${event.reason})` : ""}.`}
+            confirmLabel="Xóa"
+            tone="danger"
+            disabled={deletingId === event.id}
+            className="text-xs text-red-600"
+            onConfirm={() => remove(event.id)}
+          >
+            {deletingId === event.id ? "..." : "Xóa"}
+          </ConfirmActionButton>
+        </div>
+      ))}
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+    </div>
+  );
+}
 
 function BranchBonusRow({
   employeeId,
@@ -81,6 +167,7 @@ export default function AssistantScoreForm({
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [eventsRefreshKey, setEventsRefreshKey] = useState(0);
 
   async function addEvent(e: React.FormEvent) {
     e.preventDefault();
@@ -99,6 +186,7 @@ export default function AssistantScoreForm({
     }
     setEventDate("");
     setReason("");
+    setEventsRefreshKey((current) => current + 1);
     router.refresh();
   }
 
@@ -211,6 +299,11 @@ export default function AssistantScoreForm({
             {loading ? "Đang lưu..." : "Ghi nhận điểm"}
           </button>
         </form>
+
+        <div className="border-t-2 border-[#f3f4f6] px-6 pt-4">
+          <p className="pb-3 text-xs font-bold uppercase tracking-wider text-[#6b7280]">Điểm đã ghi nhận tháng {month}</p>
+        </div>
+        <ScoreEventsList employeeId={employeeId} month={month} refreshKey={eventsRefreshKey} />
       </div>
 
       {/* Form Mức thưởng */}

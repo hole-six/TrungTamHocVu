@@ -5,6 +5,8 @@ import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { computeSessionTiming, getVietnamToday } from "@/lib/server/class-rules";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
+import { findLockedPeriodForSession } from "@/lib/server/billing-generation";
+import { BILLING_PERIOD_STATUS_LABEL } from "@/lib/server/tuition-rules";
 
 // Điểm danh vẫn cho phép GV/TG (canUpdate("schedule") = false với 2 vai trò này) vì đây
 // là việc dạy học hàng ngày, khác với quản lý lịch/ghi danh — xem giải thích tương tự ở
@@ -48,10 +50,15 @@ const ABSENCE_STATUSES = new Set(["ABSENT"]);
 // thành (việc điểm danh tức là buổi học đã diễn ra), thay cho cột TTHoc (C/K) cấp
 // lớp trong ChiTietLopHoc gốc nhưng chuẩn hóa xuống cấp học viên.
 //
-// Với học viên đã thu học phí TRỌN KHÓA (Charge.billingModel="COURSE"): mỗi lần điểm
-// danh CHUYỂN sang Vắng (dù trước đó là gì) sinh 1 "buổi dư"
-// (SessionCredit) để đăng ký học bù — vắng buổi nào vẫn tính tiền buổi đó, không giảm
-// học phí, bù lại bằng buổi dư (xem lib/server/billing-generation.ts generateCourseCharge).
+// Buổi bổ trợ (SessionCredit) theo dõi NỘI DUNG/tiến độ khóa học đã bỏ lỡ, độc lập
+// với cách thu tiền — vắng buổi nào cũng sinh 1 buổi bổ trợ (AVAILABLE) cho buổi đó,
+// bất kể lớp đang thu trọn khóa (COURSE), theo tháng (PERIOD) hay trả góp
+// (INSTALLMENT): nội dung bị bỏ lỡ là như nhau dù thu tiền kiểu gì (COURSE/INSTALLMENT
+// vẫn tính tiền buổi vắng đó nên buổi bổ trợ là bù lại nội dung đã trả tiền; PERIOD
+// không tính tiền buổi vắng đó nhưng học viên vẫn thiếu đúng nội dung buổi học đó, nên
+// vẫn cần buổi bổ trợ để học bù — xem cùng logic ở app/api/enrollments/[id]/route.ts
+// lúc rút lớp). KHÔNG áp dụng cho lớp bổ trợ (isRemedial) — bản thân lớp đó đã là nơi
+// dùng buổi bổ trợ, vắng ở đây không tự sinh thêm buổi bổ trợ mới.
 // Nếu sau đó sửa lại thành có mặt mà buổi dư đó CHƯA dùng (AVAILABLE) thì hủy
 // (VOIDED) — nếu đã dùng để học bù (CONSUMED) thì để nguyên, không tự động hủy được.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -76,6 +83,26 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const existingAttendances = await prisma.studentAttendance.findMany({ where: { sessionId: session.id } });
   const oldStatusByStudent = new Map(existingAttendances.map((a) => [a.studentId, a.status]));
 
+  // Buổi đã COMPLETED trước đó rồi mà điểm danh lại bị SỬA THAY ĐỔI (không phải lần
+  // điểm danh đầu tiên, không phải bấm lưu lại y nguyên) — nếu kỳ thu tháng chứa buổi
+  // này đã chốt sổ (POSTED/CLOSED), sửa lúc này sẽ làm sai lệch số buổi/số vắng của
+  // charge đã lập mà không ai hay biết. Không chặn lần điểm danh ĐẦU TIÊN (session
+  // chưa COMPLETED khi vào đây) vì đó là luồng bình thường, luôn diễn ra TRƯỚC khi
+  // sinh học phí.
+  const isCorrection = session.status === "COMPLETED";
+  const hasChanges = records.some((r) => (oldStatusByStudent.get(r.studentId) ?? "PRESENT") !== r.status);
+  if (isCorrection && hasChanges) {
+    const lockedPeriod = await findLockedPeriodForSession(session.classId, session.sessionDate);
+    if (lockedPeriod) {
+      return NextResponse.json(
+        {
+          error: `Kỳ thu học phí tháng ${lockedPeriod.periodName} của lớp này đã ở trạng thái "${BILLING_PERIOD_STATUS_LABEL[lockedPeriod.status] ?? lockedPeriod.status}" — cần Mở lại kỳ thu trước khi sửa điểm danh buổi này, để tránh phiếu học phí đã chốt bị lệch số liệu.`,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   const newlyAbsentIds = records.filter((r) => !ABSENCE_STATUSES.has(oldStatusByStudent.get(r.studentId) ?? "") && ABSENCE_STATUSES.has(r.status)).map((r) => r.studentId);
   const newlyPresentIds = records.filter((r) => ABSENCE_STATUSES.has(oldStatusByStudent.get(r.studentId) ?? "") && !ABSENCE_STATUSES.has(r.status)).map((r) => r.studentId);
   const attendancePositiveStatuses = new Set(["PRESENT", "MAKEUP"]);
@@ -83,14 +110,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .filter((r) => !attendancePositiveStatuses.has(oldStatusByStudent.get(r.studentId) ?? "") && attendancePositiveStatuses.has(r.status))
     .map((r) => r.studentId);
 
-  const [courseEnrollments, existingCredits, remedialEnrollments, availableCreditsForRemedial, consumedCreditsForRemedial] = await Promise.all([
-    newlyAbsentIds.length > 0
+  const [absenceCreditEnrollments, existingCredits, remedialEnrollments, availableCreditsForRemedial, consumedCreditsForRemedial] = await Promise.all([
+    newlyAbsentIds.length > 0 && !session.class.isRemedial
       ? prisma.enrollment.findMany({
           where: {
             studentId: { in: newlyAbsentIds },
             classId: session.classId,
             status: "ACTIVE",
-            student: { charges: { some: { classId: session.classId, billingModel: "COURSE" } } },
           },
         })
       : Promise.resolve([]),
@@ -102,6 +128,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             studentId: { in: records.map((r) => r.studentId) },
             status: "ACTIVE",
           },
+          include: { student: { select: { fullName: true } } },
         })
       : Promise.resolve([]),
     session.class.isRemedial
@@ -150,6 +177,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
   }
 
+  const autoCompleted: { studentId: string; fullName: string }[] = [];
+
   await prisma.$transaction(async (tx) => {
     for (const r of records) {
       await tx.studentAttendance.upsert({
@@ -159,7 +188,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       });
     }
 
-    for (const enrollment of courseEnrollments) {
+    for (const enrollment of absenceCreditEnrollments) {
       const credit = existingCreditByStudent.get(enrollment.studentId);
       if (!credit) {
         await tx.sessionCredit.create({
@@ -232,6 +261,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           },
         });
         await syncStudentDerivedFields(enrollment.studentId, tx);
+        autoCompleted.push({ studentId: enrollment.studentId, fullName: enrollment.student.fullName });
       }
     }
 
@@ -241,5 +271,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     });
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, autoCompleted });
 }

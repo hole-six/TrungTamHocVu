@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import { exportSectionsToExcel, exportToCSV } from "@/lib/export-utils";
 import type { PayrollEmployeeRow } from "@/lib/server/payroll-row-builder";
 
@@ -264,8 +264,7 @@ export default function PayrollRateCsvTools({ items }: { items: PayrollEmployeeR
         Công cụ đơn giá hàng loạt (CSV)
       </button>
 
-      <SlideOver
-        open={open}
+      <ResponsiveDrawer         open={open}
         onClose={() => setOpen(false)}
         title="Công cụ đơn giá hàng loạt (CSV)"
         description="Xuất/nhập đơn giá nhiều người cùng lúc, và tính lại các kỳ lương đang mở sau khi đổi giá."
@@ -320,7 +319,7 @@ export default function PayrollRateCsvTools({ items }: { items: PayrollEmployeeR
           {message ? <p className="text-sm font-medium text-emerald-700">{message}</p> : null}
           {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
         </div>
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

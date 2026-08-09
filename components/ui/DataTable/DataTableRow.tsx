@@ -1,5 +1,7 @@
 "use client";
+import { useState } from "react";
 import type { Column, Action } from "./DataTable";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 type DataTableRowProps<T> = {
   row: T;
@@ -21,6 +23,31 @@ export default function DataTableRow<T extends Record<string, any>>({
   onClick,
 }: DataTableRowProps<T>) {
   const visibleActions = actions.filter((action) => !action.show || action.show(row));
+  const [pendingAction, setPendingAction] = useState<Action<T> | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
+  async function runAction(action: Action<T>) {
+    await action.onClick(row);
+  }
+
+  async function handleActionClick(action: Action<T>) {
+    if (action.confirmMessage) {
+      setPendingAction(action);
+      return;
+    }
+    await runAction(action);
+  }
+
+  async function handleConfirm() {
+    if (!pendingAction) return;
+    setConfirmLoading(true);
+    try {
+      await runAction(pendingAction);
+      setPendingAction(null);
+    } finally {
+      setConfirmLoading(false);
+    }
+  }
 
   return (
     <tr
@@ -79,7 +106,7 @@ export default function DataTableRow<T extends Record<string, any>>({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    void action.onClick(row);
+                    void handleActionClick(action);
                   }}
                   className={`inline-flex shrink-0 whitespace-nowrap items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${variantClasses[action.variant || "secondary"]}`}
                   title={action.label}
@@ -92,6 +119,19 @@ export default function DataTableRow<T extends Record<string, any>>({
           </div>
         </td>
       ) : null}
+
+      <ConfirmDialog
+        open={!!pendingAction}
+        title={pendingAction?.confirmTitle || "Xác nhận thao tác"}
+        description={pendingAction?.confirmMessage}
+        confirmLabel={pendingAction?.label}
+        tone={pendingAction?.variant === "danger" ? "danger" : "default"}
+        loading={confirmLoading}
+        onConfirm={handleConfirm}
+        onClose={() => {
+          if (!confirmLoading) setPendingAction(null);
+        }}
+      />
     </tr>
   );
 }

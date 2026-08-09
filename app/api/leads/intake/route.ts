@@ -7,6 +7,7 @@ import { getValidBranchIdForCreation } from "@/lib/branch-filter";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { provisionGuardianPortalAccount } from "@/lib/server/guardian-accounts";
 import { generateCourseCharge } from "@/lib/server/billing-generation";
+import { getVietnamToday } from "@/lib/server/class-rules";
 
 type IntakeMode = "WAITLIST" | "ENROLL_NOW";
 
@@ -147,10 +148,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const meetDate = normalizeDate(body.meetDate) ?? new Date("2026-07-31T00:00:00.000Z");
+  const meetDate = normalizeDate(body.meetDate) ?? getVietnamToday();
   const expectedStartDate = normalizeDate(body.expectedStartDate);
   const dob = normalizeDate(body.dob);
-  const enrollDate = normalizeDate(body.enrollDate) ?? new Date("2026-07-31T00:00:00.000Z");
+  const enrollDate = normalizeDate(body.enrollDate) ?? getVietnamToday();
   const notes = normalizeText(body.notes);
   const initialAssessment = normalizeText(body.initialAssessment);
   const source = normalizeText(body.source);

@@ -4,12 +4,48 @@ import AttendanceForm from "@/components/classes/AttendanceForm";
 import ClassJournalForm from "@/components/classes/ClassJournalForm";
 import SessionAssignmentForm from "@/components/classes/SessionAssignmentForm";
 import PageGuide from "@/components/ui/PageGuide";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { prisma } from "@/lib/prisma";
 import { getUserRole } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { computeCareAlerts } from "@/lib/server/journal-alerts";
 import { computeSessionTiming, getVietnamToday } from "@/lib/server/class-rules";
+
+const SESSION_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="session-hero"]',
+    title: "Sĩ số và Có mặt/Vắng — 2 con số khác nhau",
+    description:
+      "\"Sĩ số\" đếm theo ghi danh ACTIVE của lớp, không đổi theo buổi. \"Có mặt/Vắng\" chỉ tính khi điểm danh buổi NÀY đã được lưu — nếu chưa điểm danh, 2 số này bằng 0 dù sĩ số lớp vẫn hiện đủ.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="session-roadmap"]',
+    title: "Nội dung bài dạy lấy từ Roadmap của lớp",
+    description: "Mục tiêu/tài liệu/gợi ý cho GV lấy đúng theo số thứ tự buổi trong lộ trình — sửa nội dung roadmap ở trang chi tiết lớp, không sửa được trực tiếp ở đây.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="session-attendance"]',
+    title: "Điểm danh — gốc của mọi tính toán học phí và buổi bổ trợ",
+    description:
+      "Lưu điểm danh tức là buổi học chuyển COMPLETED — đây là điều kiện DUY NHẤT để buổi đó được tính vào học phí và tiến độ khóa. Đánh Vắng tự động cộng 1 buổi bổ trợ cho học viên, áp dụng cho mọi kiểu thu học phí.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="session-assignment"]',
+    title: "Phân công giáo viên/trợ giảng cho đúng buổi này",
+    description: "Giờ công tính theo payMode của từng người (theo ca = cố định 1 đơn vị dù dạy dài/ngắn hơn khung giờ chuẩn, theo giờ = tính đúng khung giờ buổi này) — đổi người dạy giữa chừng dùng chức năng thay giáo viên, không xóa rồi thêm lại.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="session-journal"]',
+    title: "Nhật ký lớp — ghi nhận cho từng học viên, in được cho phụ huynh",
+    description: "Có thể xuất link công khai gửi phụ huynh xem trực tiếp, không cần đăng nhập hệ thống.",
+    placement: "top",
+  },
+];
 
 const SESSION_PAGE_GUIDE_SECTIONS = [
   {
@@ -107,12 +143,29 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
       : null;
   const roadmapItem =
     sessionNumber != null ? session.class.roadmapItems.find((item) => item.sessionNumber === sessionNumber) ?? null : null;
+
+  // Lớp bổ trợ: mỗi lần điểm danh "Có mặt" trừ 1 buổi bổ trợ (xem attendance/route.ts)
+  // — giáo viên cần thấy số buổi bổ trợ còn lại của từng học viên NGAY trên form điểm
+  // danh để biết ai sắp/đã hết, không phải chờ lưu xong mới biết qua lỗi 409.
+  const availableCreditsByStudent = session.class.isRemedial
+    ? Object.fromEntries(
+        (
+          await prisma.sessionCredit.groupBy({
+            by: ["studentId"],
+            where: { studentId: { in: activeEnrollments.map((e) => e.studentId) }, status: "AVAILABLE" },
+            _count: { _all: true },
+          })
+        ).map((row) => [row.studentId, row._count._all]),
+      )
+    : null;
+
   const roster = activeEnrollments.map((enrollment) => ({
     enrollmentId: enrollment.id,
     studentId: enrollment.studentId,
     fullName: enrollment.student.fullName,
     studentCode: enrollment.student.studentCode,
     status: attendanceByStudent[enrollment.studentId] ?? "PRESENT",
+    availableCredits: availableCreditsByStudent ? availableCreditsByStudent[enrollment.studentId] ?? 0 : null,
   }));
 
   const careAlertStudentIds = await computeCareAlerts(
@@ -150,7 +203,18 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
           Quay lại {session.class.className}
         </Link>
 
-        <div className="overflow-hidden rounded-[32px] border border-[#dbe7ff] bg-[linear-gradient(135deg,#f8fcff_0%,#eef7ff_48%,#ffffff_100%)] p-6 shadow-[0_24px_70px_-42px_rgba(14,116,144,0.35)]">
+        <div className="flex justify-end">
+          <SpotlightTour
+            steps={SESSION_TOUR_STEPS.filter((step) => {
+              if (!canTeachSession && step.target.includes("session-attendance")) return false;
+              if (!canManageClass && step.target.includes("session-assignment")) return false;
+              if (!canTeachSession && step.target.includes("session-journal")) return false;
+              return true;
+            })}
+          />
+        </div>
+
+        <div className="overflow-hidden rounded-[32px] border border-[#dbe7ff] bg-[linear-gradient(135deg,#f8fcff_0%,#eef7ff_48%,#ffffff_100%)] p-6 shadow-[0_24px_70px_-42px_rgba(14,116,144,0.35)]" data-tour="session-hero">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div className="space-y-3">
               <span className="inline-flex w-fit rounded-full border border-sky-200 bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
@@ -209,7 +273,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
                 {roadmapItem?.title?.trim() || "Chưa đặt tên bài cho buổi này."}
               </p>
             </div>
-            <div className="rounded-[24px] border border-[#d7ecff] bg-white/90 px-4 py-4">
+            <div className="rounded-[24px] border border-[#d7ecff] bg-white/90 px-4 py-4" data-tour="session-roadmap">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Hôm nay dạy gì</p>
               <div className="mt-2 grid gap-3 md:grid-cols-3">
                 <div>
@@ -262,7 +326,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
       <div className={`grid gap-6 ${canManageClass ? "xl:grid-cols-[minmax(0,1.6fr)_minmax(380px,0.9fr)]" : ""}`}>
         {canTeachSession ? (
           sessionHappened ? (
-            <div className="card space-y-4">
+            <div className="card space-y-4" data-tour="session-attendance">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Bước 1</p>
@@ -275,7 +339,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
                 </div>
               </div>
 
-              <AttendanceForm sessionId={session.id} initialRoster={roster} />
+              <AttendanceForm sessionId={session.id} initialRoster={roster} isRemedial={session.class.isRemedial} />
             </div>
           ) : (
             <div className="card">
@@ -307,16 +371,19 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
         )}
 
         {canManageClass ? (
-          <SessionAssignmentForm
-            sessionId={session.id}
-            employees={employees}
-            assignments={session.assignments}
-            currentEmployeeId={currentUser?.employeeId ?? null}
-          />
+          <div data-tour="session-assignment">
+            <SessionAssignmentForm
+              sessionId={session.id}
+              employees={employees}
+              assignments={session.assignments}
+              currentEmployeeId={currentUser?.employeeId ?? null}
+            />
+          </div>
         ) : null}
       </div>
 
       {canTeachSession ? (
+        <div data-tour="session-journal">
         <ClassJournalForm
           sessionId={session.id}
           roster={activeEnrollments.map((enrollment) => enrollment.student)}
@@ -344,6 +411,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
               : null
           }
         />
+        </div>
       ) : null}
     </div>
   );

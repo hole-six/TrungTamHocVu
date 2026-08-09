@@ -6,8 +6,18 @@ import { getCurrentBranchId } from "@/lib/branch-filter";
 import GuardiansTable from "@/components/guardians/GuardiansTable";
 import NewGuardianButton from "@/components/guardians/NewGuardianButton";
 import PageGuide from "@/components/ui/PageGuide";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 
 const PAGE_SIZE = 20;
+
+const GUARDIANS_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="guardians-table"]',
+    title: "Công nợ tính gộp từ các con đang liên kết",
+    description: "Chip \"Có công nợ\" và cột công nợ trong bảng đều cộng dồn từ TẤT CẢ học viên đang gắn với phụ huynh đó — không phải một khoản riêng của phụ huynh.",
+    placement: "top",
+  },
+];
 const GUARDIANS_PAGE_GUIDE_SECTIONS = [
   {
     title: "Mục tiêu trang này",
@@ -214,6 +224,7 @@ export default async function GuardiansPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <SpotlightTour steps={GUARDIANS_TOUR_STEPS} />
           <Link href="/leads" className="btn-ghost">
             CRM
           </Link>

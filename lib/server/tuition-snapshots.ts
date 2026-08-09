@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { StandardReportFilters } from "@/lib/reporting-filters";
 import { serializeFilterHashInput } from "@/lib/reporting-filters";
 import { getReportHpSummary } from "@/lib/server/reporting";
+import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 
 const REPORT_CODE = "TUITION_OVERVIEW";
 const PERIOD_TYPE = "MONTH";
@@ -49,12 +50,15 @@ async function buildOutstandingMaps(studentIds: string[]) {
 
   const charges = await prisma.charge.findMany({
     where: { studentId: { in: studentIds } },
-    select: { id: true, studentId: true, totalAmount: true },
+    select: { id: true, studentId: true, tuitionAmount: true, materialsAmount: true },
   });
 
+  // chargeOwnDueAmount (KHÔNG dùng totalAmount) — cộng totalAmount của NHIỀU charge lại
+  // với nhau cho cùng 1 học viên sẽ đếm trùng công nợ cũ, vì mỗi charge sau đều "chụp
+  // lại" đúng khoản nợ của charge trước qua openingBalance.
   const chargeByStudent = new Map<string, number>();
   for (const charge of charges) {
-    chargeByStudent.set(charge.studentId, (chargeByStudent.get(charge.studentId) ?? 0) + charge.totalAmount);
+    chargeByStudent.set(charge.studentId, (chargeByStudent.get(charge.studentId) ?? 0) + chargeOwnDueAmount(charge));
   }
 
   const allocations = charges.length
@@ -125,7 +129,9 @@ export async function buildTuitionOverviewLivePayload(branchId: string | null, f
   const studentIds = selectedPeriod ? [...new Set(selectedPeriod.charges.map((charge) => charge.studentId))] : [];
   const { chargeByStudent, paidByStudent } = await buildOutstandingMaps(studentIds);
 
-  const totalBilled = periods.reduce((sum, period) => sum + period.charges.reduce((chargeSum, charge) => chargeSum + charge.totalAmount, 0), 0);
+  // chargeOwnDueAmount — cộng dồn QUA NHIỀU KỲ nên phải tránh đếm trùng công nợ cũ
+  // giống hệt lý do ở buildOutstandingMaps phía trên.
+  const totalBilled = periods.reduce((sum, period) => sum + period.charges.reduce((chargeSum, charge) => chargeSum + chargeOwnDueAmount(charge), 0), 0);
   const totalPaid = periods.reduce(
     (sum, period) =>
       sum + period.charges.reduce((chargeSum, charge) => chargeSum + charge.allocations.reduce((allocationSum, allocation) => allocationSum + allocation.amount, 0), 0),
@@ -136,6 +142,13 @@ export async function buildTuitionOverviewLivePayload(branchId: string | null, f
     periods: periods.map((period) => {
       const total = period.charges.reduce((sum, charge) => sum + charge.totalAmount, 0);
       const paid = period.charges.reduce((sum, charge) => sum + charge.allocations.reduce((allocationSum, allocation) => allocationSum + allocation.amount, 0), 0);
+      // debt dùng chargeOwnDueAmount (không phải total ở trên) — total vẫn giữ nguyên để
+      // hiển thị "tổng đã lập hóa đơn" gồm cả nợ cũ, nhưng debt phải tính đúng phần MỚI
+      // của kỳ này để không cộng trùng nợ cũ đã tính ở kỳ trước.
+      const debt = period.charges.reduce((sum, charge) => {
+        const chargePaid = charge.allocations.reduce((allocationSum, allocation) => allocationSum + allocation.amount, 0);
+        return sum + Math.max(chargeOwnDueAmount(charge) - chargePaid, 0);
+      }, 0);
       return {
         id: period.id,
         periodName: period.periodName,
@@ -143,7 +156,7 @@ export async function buildTuitionOverviewLivePayload(branchId: string | null, f
         chargeCount: period.charges.length,
         total,
         paid,
-        debt: total - paid,
+        debt,
       };
     }),
     totals: {
@@ -159,7 +172,7 @@ export async function buildTuitionOverviewLivePayload(branchId: string | null, f
           debtors: selectedPeriod.charges
             .map((charge) => {
               const paid = charge.allocations.reduce((sum, allocation) => sum + allocation.amount, 0);
-              const remaining = charge.totalAmount - paid;
+              const remaining = chargeOwnDueAmount(charge) - paid;
               const primaryGuardian =
                 charge.student.guardians.find((item) => item.isPrimary)?.guardian ?? charge.student.guardians[0]?.guardian ?? null;
               const activeEnrollment = charge.student.enrollments[0] ?? null;

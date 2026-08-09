@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import FormGuide from "@/components/ui/FormGuide";
+import DatePicker from "@/components/ui/DatePicker";
 import { formatVnd } from "@/lib/export-utils";
+
+function todayYmd() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 const ACTION_OPTIONS = [
   { value: "MAINTENANCE", label: "Bảo dưỡng" },
@@ -58,6 +64,7 @@ export default function AssetTransactionForm({
   const [toRoom, setToRoom] = useState("");
   const [amount, setAmount] = useState("");
   const [selfMaintenance, setSelfMaintenance] = useState(false);
+  const [txnDate, setTxnDate] = useState(todayYmd);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +84,7 @@ export default function AssetTransactionForm({
         quantity: Number(quantity),
         toRoom,
         amount: type === "MAINTENANCE" && selfMaintenance ? 0 : Number(amount),
+        txnDate,
         notes,
       }),
     });
@@ -92,6 +100,7 @@ export default function AssetTransactionForm({
     setToRoom("");
     setAmount("");
     setSelfMaintenance(false);
+    setTxnDate(todayYmd());
     setNotes("");
     setSaved(true);
     router.refresh();
@@ -187,6 +196,12 @@ export default function AssetTransactionForm({
               <label className="form-group">
                 <span className="label">Ghi chú bảo dưỡng</span>
                 <input className="input" placeholder="VD: thay linh kiện, vệ sinh máy..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </label>
+
+              <label className="form-group">
+                <span className="label">Ngày bảo dưỡng thực tế</span>
+                <DatePicker value={txnDate} onChange={setTxnDate} />
+                <p className="form-hint">Nhập trễ thì chọn đúng ngày đã sửa để lịch bảo dưỡng tính đúng hạn kế tiếp.</p>
               </label>
             </div>
 

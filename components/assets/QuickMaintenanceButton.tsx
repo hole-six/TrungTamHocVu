@@ -2,9 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
+import DatePicker from "@/components/ui/DatePicker";
 import { formatVnd } from "@/lib/export-utils";
+
+function todayYmd() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 const GUIDE_SECTIONS = [
   {
@@ -50,6 +56,7 @@ export default function QuickMaintenanceButton({
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [selfMaintenance, setSelfMaintenance] = useState(false);
+  const [txnDate, setTxnDate] = useState(todayYmd);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +72,7 @@ export default function QuickMaintenanceButton({
       body: JSON.stringify({
         type: "MAINTENANCE",
         amount: selfMaintenance ? 0 : amount,
+        txnDate,
         notes,
       }),
     });
@@ -79,6 +87,7 @@ export default function QuickMaintenanceButton({
 
     setAmount("");
     setSelfMaintenance(false);
+    setTxnDate(todayYmd());
     setNotes("");
     setOpen(false);
     router.refresh();
@@ -98,7 +107,7 @@ export default function QuickMaintenanceButton({
         Bảo dưỡng
       </button>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={open}
         onClose={() => setOpen(false)}
         title="Ghi nhận bảo dưỡng"
@@ -152,6 +161,12 @@ export default function QuickMaintenanceButton({
           </label>
 
           <label className="form-group">
+            <span className="label">Ngày bảo dưỡng thực tế</span>
+            <DatePicker value={txnDate} onChange={setTxnDate} />
+            <p className="form-hint">Nếu nhập trễ so với ngày sửa thật, hãy chọn đúng ngày đã sửa để lịch bảo dưỡng tính đúng hạn kế tiếp.</p>
+          </label>
+
+          <label className="form-group">
             <span className="label">Ghi chú</span>
             <textarea rows={4} className="input resize-none" placeholder="Ví dụ: thay bánh xe, sửa chân bàn, vệ sinh máy lạnh..." value={notes} onChange={(event) => setNotes(event.target.value)} />
           </label>
@@ -167,7 +182,7 @@ export default function QuickMaintenanceButton({
             </button>
           </div>
         </form>
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }

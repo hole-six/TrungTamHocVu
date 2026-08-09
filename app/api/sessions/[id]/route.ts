@@ -4,6 +4,8 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { SESSION_STATUSES } from "@/lib/server/class-rules";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
+import { findLockedPeriodForSession } from "@/lib/server/billing-generation";
+import { BILLING_PERIOD_STATUS_LABEL } from "@/lib/server/tuition-rules";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -20,6 +22,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const existing = await prisma.classSession.findUnique({ where: { id: params.id } });
   if (!existing) return NextResponse.json({ error: "Không tìm thấy buổi học" }, { status: 404 });
+
+  if (existing.status === "COMPLETED" && body.status === "CANCELLED") {
+    const lockedPeriod = await findLockedPeriodForSession(existing.classId, existing.sessionDate);
+    if (lockedPeriod) {
+      return NextResponse.json(
+        {
+          error: `Kỳ thu học phí tháng ${lockedPeriod.periodName} của lớp này đã ở trạng thái "${BILLING_PERIOD_STATUS_LABEL[lockedPeriod.status] ?? lockedPeriod.status}" — cần Mở lại kỳ thu trước khi huỷ buổi này, để tránh phiếu học phí đã chốt bị lệch số liệu.`,
+        },
+        { status: 409 },
+      );
+    }
+  }
 
   // Hủy 1 buổi đã hoàn thành coi như buổi đó chưa từng diễn ra: xóa điểm danh (để
   // absentCount không còn tính nhầm buổi này khi sinh học phí — xem generateChargesForPeriod)

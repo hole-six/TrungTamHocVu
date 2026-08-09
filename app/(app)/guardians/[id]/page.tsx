@@ -9,6 +9,28 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canDelete, canUpdate } from "@/lib/server/role-matrix";
 import { computeOutstandingBalance } from "@/lib/server/balance";
+import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+
+const GUARDIAN_DETAIL_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="guardian-header"]',
+    title: "Công nợ gộp từ mọi học viên liên kết",
+    description: "Không phải khoản nợ riêng của phụ huynh — cộng dồn từ tất cả học viên đang gắn với người này.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="guardian-students"]',
+    title: "Lối tắt sang đúng hồ sơ học viên/lớp",
+    description: "Một phụ huynh có thể gắn nhiều học viên — kiểm tra đúng tên trước khi mở hồ sơ để tránh nhầm giữa các con.",
+    placement: "right",
+  },
+  {
+    target: '[data-tour="guardian-account"]',
+    title: "Portal — tài khoản đăng nhập của phụ huynh",
+    description: "Thu hồi tài khoản portal ở đây trước khi được phép xóa hồ sơ phụ huynh này.",
+    placement: "left",
+  },
+];
 
 function formatVnd(value: number) {
   return `${value.toLocaleString("vi-VN")}đ`;
@@ -55,7 +77,7 @@ export default async function GuardianDetailPage({ params }: { params: { id: str
         <Link href="/guardians" className="text-xs sm:text-sm text-primary">
           ← Quay lại Phụ huynh
         </Link>
-        <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-start xl:justify-between" data-tour="guardian-header">
           <div className="space-y-2 sm:space-y-3">
             <div>
               <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight">{guardian.fullName}</h1>
@@ -94,6 +116,7 @@ export default async function GuardianDetailPage({ params }: { params: { id: str
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <SpotlightTour steps={GUARDIAN_DETAIL_TOUR_STEPS} />
             <Link href="/guardians" className="btn-ghost text-xs sm:text-sm px-3 sm:px-4 py-2">
               <span className="sm:hidden">PH</span>
               <span className="hidden sm:inline">Danh sách PH</span>
@@ -112,7 +135,7 @@ export default async function GuardianDetailPage({ params }: { params: { id: str
 
       <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.5fr)_380px]">
         <div className="space-y-4 sm:space-y-6">
-          <div className="card">
+          <div className="card" data-tour="guardian-students">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="font-display text-base sm:text-lg md:text-xl font-semibold tracking-tight">Học viên liên kết</h2>
@@ -208,7 +231,7 @@ export default async function GuardianDetailPage({ params }: { params: { id: str
           </div>
         </div>
 
-        <div className="space-y-4 sm:space-y-6">
+        <div className="space-y-4 sm:space-y-6" data-tour="guardian-account">
           <div className="card">
             <h2 className="font-display text-base sm:text-lg md:text-xl font-semibold tracking-tight">Thông tin liên hệ</h2>
             <dl className="mt-3 sm:mt-4 space-y-2.5 sm:space-y-3 text-xs sm:text-sm">

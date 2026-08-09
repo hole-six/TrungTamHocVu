@@ -16,10 +16,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (!(await hasPermission(user, "cashbook", "approve"))) {
       return NextResponse.json({ error: "Bạn không có quyền hủy phiếu thu/chi" }, { status: 403 });
     }
-    const [paymentPosting, refundPosting, stockPosting] = await Promise.all([
+    const [paymentPosting, refundPosting, stockPosting, assetPosting] = await Promise.all([
       prisma.paymentCashPosting.findUnique({ where: { cashTransactionId: params.id } }),
       prisma.refundCashPosting.findUnique({ where: { cashTransactionId: params.id } }),
       prisma.stockCashPosting.findUnique({ where: { cashTransactionId: params.id } }),
+      prisma.assetCashPosting.findUnique({ where: { cashTransactionId: params.id } }),
     ]);
     if (paymentPosting) {
       return NextResponse.json({ error: "Phiếu này được sinh từ thu học phí. Hãy hoàn tiền hoặc hủy nghiệp vụ gốc thay vì hủy trực tiếp." }, { status: 409 });
@@ -29,6 +30,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
     if (stockPosting) {
       return NextResponse.json({ error: "Phiếu này được sinh từ nhập/trả kho. Hãy xử lý ở nghiệp vụ kho gốc." }, { status: 409 });
+    }
+    if (assetPosting) {
+      return NextResponse.json({ error: "Phiếu này được sinh từ bảo dưỡng tài sản. Hãy hủy ở lịch sử bảo dưỡng của tài sản đó thay vì hủy trực tiếp." }, { status: 409 });
     }
     const updated = await prisma.cashTransaction.update({ where: { id: params.id }, data: { status: "VOIDED" } });
     return NextResponse.json({ item: updated });
@@ -46,12 +50,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (existing.status === "VOIDED") {
     return NextResponse.json({ error: "Phiếu đã bị hủy, không thể sửa" }, { status: 409 });
   }
-  const [paymentPosting, refundPosting, stockPosting] = await Promise.all([
+  const [paymentPosting, refundPosting, stockPosting, assetPosting] = await Promise.all([
     prisma.paymentCashPosting.findUnique({ where: { cashTransactionId: params.id } }),
     prisma.refundCashPosting.findUnique({ where: { cashTransactionId: params.id } }),
     prisma.stockCashPosting.findUnique({ where: { cashTransactionId: params.id } }),
+    prisma.assetCashPosting.findUnique({ where: { cashTransactionId: params.id } }),
   ]);
-  if (paymentPosting || refundPosting || stockPosting) {
+  if (paymentPosting || refundPosting || stockPosting || assetPosting) {
     return NextResponse.json({ error: "Phiếu này sinh từ nghiệp vụ khác, hãy sửa ở nghiệp vụ gốc." }, { status: 409 });
   }
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import SlideOver from "@/components/ui/SlideOver";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
 import { formatVnd } from "@/lib/export-utils";
 
@@ -14,6 +14,7 @@ const INITIAL_FORM = {
   unitName: "cái",
   quantity: "1",
   unitValue: "",
+  maintenanceIntervalMonths: "",
   notes: "",
 };
 
@@ -96,7 +97,7 @@ export default function NewAssetForm() {
         + Thêm tài sản
       </button>
 
-      <SlideOver
+      <ResponsiveDrawer 
         open={open}
         onClose={() => setOpen(false)}
         title="Thêm tài sản / thiết bị"
@@ -140,6 +141,20 @@ export default function NewAssetForm() {
               <input type="number" min={0} step={1000} className="input" placeholder="1500000" value={form.unitValue} onChange={(event) => setForm((current) => ({ ...current, unitValue: event.target.value }))} />
               <p className="form-hint">{form.unitValue ? formatVnd(Number(form.unitValue) || 0) : "Ví dụ 1 bộ bàn ghế trị giá 1.500.000đ thì nhập đúng giá của 1 bộ."}</p>
             </label>
+
+            <label className="form-group">
+              <span className="label">Chu kỳ bảo dưỡng (tháng)</span>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                className="input"
+                placeholder="VD: 3, 6, 12 — để trống nếu không cần"
+                value={form.maintenanceIntervalMonths}
+                onChange={(event) => setForm((current) => ({ ...current, maintenanceIntervalMonths: event.target.value }))}
+              />
+              <p className="form-hint">Chỉ đặt cho thiết bị cần bảo dưỡng định kỳ (điều hòa, máy chiếu, máy in...). Để trống nếu tài sản không cần lịch.</p>
+            </label>
           </div>
 
           <label className="form-group">
@@ -158,7 +173,7 @@ export default function NewAssetForm() {
             </button>
           </div>
         </form>
-      </SlideOver>
+      </ResponsiveDrawer>
     </>
   );
 }
