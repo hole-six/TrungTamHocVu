@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { Column, Action } from "./DataTable";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
@@ -11,6 +11,7 @@ type DataTableRowProps<T> = {
   selected: boolean;
   onSelect: (checked: boolean) => void;
   onClick?: () => void;
+  renderExpanded?: (row: T) => ReactNode;
 };
 
 export default function DataTableRow<T extends Record<string, any>>({
@@ -21,10 +22,13 @@ export default function DataTableRow<T extends Record<string, any>>({
   selected,
   onSelect,
   onClick,
+  renderExpanded,
 }: DataTableRowProps<T>) {
   const visibleActions = actions.filter((action) => !action.show || action.show(row));
   const [pendingAction, setPendingAction] = useState<Action<T> | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const totalColumnCount = columns.length + (selectable ? 1 : 0) + (visibleActions.length > 0 || renderExpanded ? 1 : 0);
 
   async function runAction(action: Action<T>) {
     await action.onClick(row);
@@ -50,6 +54,7 @@ export default function DataTableRow<T extends Record<string, any>>({
   }
 
   return (
+    <>
     <tr
       data-dt="row"
       className={`group transition-colors ${onClick ? "cursor-pointer hover:bg-primary/5" : ""} ${selected ? "bg-primary/10" : ""}`}
@@ -89,9 +94,21 @@ export default function DataTableRow<T extends Record<string, any>>({
         );
       })}
 
-      {actions.length > 0 ? (
+      {visibleActions.length > 0 || renderExpanded ? (
         <td data-dt="actions-cell" className="px-4 py-3 text-right align-middle">
           <div className="flex flex-nowrap items-center justify-end gap-2">
+            {renderExpanded ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded((current) => !current);
+                }}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[#d9e3f7] bg-white px-3 py-2 text-xs font-semibold text-ink-muted64 transition-all hover:bg-[#f8fbff]"
+              >
+                {expanded ? "Thu gọn" : "Xem thêm"}
+              </button>
+            ) : null}
             {visibleActions.map((action, idx) => {
               const variantClasses = {
                 primary: "border-primary/15 bg-primary/5 text-primary hover:bg-primary/10",
@@ -133,5 +150,13 @@ export default function DataTableRow<T extends Record<string, any>>({
         }}
       />
     </tr>
+    {expanded && renderExpanded ? (
+      <tr data-dt="row-expanded">
+        <td colSpan={totalColumnCount} className="bg-[#f9fbff] px-5 py-4">
+          {renderExpanded(row)}
+        </td>
+      </tr>
+    ) : null}
+    </>
   );
 }

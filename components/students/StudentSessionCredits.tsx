@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 type Credit = {
   id: string;
   status: string;
+  origin?: string;
+  paidAmount?: number;
   // null khi credit không gắn 1 buổi cụ thể (vd cấp lúc rút lớp mà không còn buổi
   // tương lai để gán) — lúc đó dùng `className` (từ enrollment) để biết thuộc khóa nào.
   sourceSession: { sessionDate: string | Date; class: { className: string } } | null;
@@ -23,6 +25,14 @@ type SessionOption = {
 
 function formatDate(d: string | Date) {
   return new Date(d).toLocaleDateString("vi-VN");
+}
+
+function originLabel(origin?: string) {
+  if (origin === "PAID_CATCHUP") return "Bổ trợ đầu khóa có phí";
+  if (origin === "TRANSFER_REMAINING") return "Chuyển lớp";
+  if (origin === "WITHDRAWAL_REMAINING") return "Rút lớp";
+  if (origin === "MANUAL") return "Chỉnh tay";
+  return "Bổ trợ vắng";
 }
 
 function RedeemForm({ credit, sessionOptions, onDone }: { credit: Credit; sessionOptions: SessionOption[]; onDone: () => void }) {
@@ -116,7 +126,10 @@ export default function StudentSessionCredits({
                     ? `Vắng buổi ${formatDate(credit.sourceSession.sessionDate)} · ${credit.sourceSession.class.className}`
                     : `Buổi bổ trợ từ khóa ${credit.className}`}
                 </p>
-                <p className="text-xs text-ink-muted48">Buổi bổ trợ khả dụng — chưa dùng</p>
+                <p className="text-xs text-ink-muted48">
+                  {originLabel(credit.origin)}
+                  {credit.paidAmount && credit.paidAmount > 0 ? ` · đã thu ${credit.paidAmount.toLocaleString("vi-VN")}đ` : ""} — chưa dùng
+                </p>
               </div>
               {canManage ? (
                 <button type="button" onClick={() => setRedeemingId(redeemingId === credit.id ? null : credit.id)} className="btn-ghost-sm">
@@ -146,7 +159,7 @@ export default function StudentSessionCredits({
                   ? `đã dùng ở buổi ${formatDate(credit.consumedSession.sessionDate)} (${credit.consumedSession.class.className})`
                   : credit.status === "VOIDED"
                     ? "đã hủy (điểm danh sửa lại có mặt)"
-                    : credit.status}
+                    : "trạng thái khác"}
               </p>
             ))}
           </div>

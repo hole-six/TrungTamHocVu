@@ -40,6 +40,13 @@ type Student = {
   scholarshipCount?: number;
   adjustmentCount?: number;
   sessionCreditCount?: number;
+  learningRemainingSessions?: number | null;
+  learningPurchasedSessions?: number | null;
+  learningCompletedSessions?: number | null;
+  expectedStudentEndDate?: string | Date | null;
+  continuationStatus?: string | null;
+  shortageAfterCurrentClass?: number;
+  nextClassName?: string | null;
   primaryGuardian?: {
     id: string;
     fullName: string;
@@ -66,6 +73,8 @@ type StudentsTableProps = {
     left: number;
     portal: number;
     debt: number;
+    needTransfer: number;
+    endingSoon: number;
   };
 };
 
@@ -274,6 +283,46 @@ export default function StudentsTable({
         ),
     },
     {
+      key: "continuationStatus",
+      label: "Hành trình",
+      width: "230px",
+      render: (_value, row) => {
+        const remaining = row.learningRemainingSessions ?? null;
+        const completed = row.learningCompletedSessions ?? null;
+        const purchased = row.learningPurchasedSessions ?? null;
+        const needTransfer = row.continuationStatus === "NEED_TRANSFER";
+        const endingSoon = !needTransfer && remaining !== null && remaining > 0 && remaining <= 3;
+        const completedCourse = row.continuationStatus === "COMPLETED";
+        const badge = needTransfer
+          ? { label: "Cần chuyển lớp", className: "border-amber-200 bg-amber-50 text-amber-800" }
+          : endingSoon
+            ? { label: "Sắp hết khóa", className: "border-sky-200 bg-sky-50 text-sky-800" }
+            : completedCourse
+              ? { label: "Đã học đủ", className: "border-emerald-200 bg-emerald-50 text-emerald-800" }
+              : { label: "Đang ổn", className: "border-slate-200 bg-slate-50 text-slate-700" };
+
+        return (
+          <div className="space-y-1.5">
+            <span className={`inline-flex rounded-lg border px-2.5 py-1 text-xs font-bold ${badge.className}`}>{badge.label}</span>
+            {completed !== null && purchased !== null ? (
+              <p className="text-xs font-semibold text-[#0f1729]">
+                Đã học {completed}/{purchased} · còn {remaining ?? 0} buổi
+              </p>
+            ) : (
+              <p className="text-xs text-[#94a3b8]">Chưa có tiến độ enrollment</p>
+            )}
+            {needTransfer ? (
+              <p className="text-xs text-amber-700">
+                {row.nextClassName ? `Đẩy sang ${row.nextClassName}` : "Thiếu lớp tiếp theo"} · thiếu {row.shortageAfterCurrentClass ?? 0} buổi
+              </p>
+            ) : (
+              <p className="text-xs text-[#64748b]">Dự kiến {formatDate(row.expectedStudentEndDate)}</p>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       key: "sessionCreditCount",
       label: "Buổi bổ trợ",
       sortable: true,
@@ -374,6 +423,8 @@ export default function StudentsTable({
         { label: "Tất cả", value: stats.total, href: "/students", active: !status, activeClass: "bg-primary text-white", idleValueClass: "text-primary" },
         { label: "Đang học", value: stats.active, href: "/students?status=ACTIVE", active: status === "ACTIVE", activeClass: "bg-emerald-500 text-white", idleValueClass: "text-emerald-700" },
         { label: "Đã nghỉ", value: stats.left, href: "/students?status=LEFT", active: status === "LEFT", activeClass: "bg-rose-500 text-white", idleValueClass: "text-rose-700" },
+        { label: "Cần chuyển", value: stats.needTransfer, href: null, active: false, activeClass: "", idleValueClass: "text-amber-700" },
+        { label: "Sắp hết", value: stats.endingSoon, href: null, active: false, activeClass: "", idleValueClass: "text-sky-700" },
         { label: "Portal", value: stats.portal, href: null, active: false, activeClass: "", idleValueClass: "text-sky-700" },
         ...(canViewFinance
           ? [{ label: "Công nợ", value: stats.debt, href: null, active: false, activeClass: "", idleValueClass: "text-amber-700" }]

@@ -473,6 +473,7 @@ model Class {
   // định. Buổi thuộc lớp này được ưu tiên hiện lên đầu khi học sinh chọn buổi để dùng
   // "buổi dư" (SessionCredit), xem app/(app)/students/[id]/page.tsx makeupSessionOptions.
   isRemedial        Boolean   @default(false) @map("is_remedial")
+  nextClassId       String?   @map("next_class_id")
   notes             String?
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
@@ -490,8 +491,11 @@ model Class {
   classTasks    ClassTask[]
   roadmapItems  ClassRoadmapItem[]
   defaultAssignments ClassDefaultAssignment[]
+  nextClass     Class?  @relation("ClassContinuation", fields: [nextClassId], references: [id])
+  previousClasses Class[] @relation("ClassContinuation")
 
   @@index([status])
+  @@index([nextClassId])
   @@map("classes")
 }
 
@@ -632,6 +636,19 @@ model Enrollment {
   billingModel String  @default("COURSE") @map("billing_model") // COURSE | PERIOD
   enrollDate DateTime  @map("enroll_date")
   endDate    DateTime? @map("end_date")
+  purchasedMainSessionCount Int? @map("purchased_main_session_count")
+  manualExtraSessionCount   Int  @default(0) @map("manual_extra_session_count")
+  tuitionUnitPriceSnapshot  Int? @map("tuition_unit_price_snapshot")
+  paidCatchupSessionCount   Int  @default(0) @map("paid_catchup_session_count")
+  paidCatchupUnitPrice      Int? @map("paid_catchup_unit_price")
+  learningStartDate         DateTime? @map("learning_start_date")
+  expectedStudentEndDate    DateTime? @map("expected_student_end_date")
+  continuationStatus        String @default("ON_TRACK") @map("continuation_status") // ON_TRACK | NEED_TRANSFER | TRANSFERRED | COMPLETED
+  pricingBasis              String @default("FULL_COURSE") @map("pricing_basis") // FULL_COURSE | MID_CLASS_FULL_COURSE | CONTINUATION_TRANSFER | UPGRADE_TRANSFER | MANUAL
+  transferredFromEnrollmentId String? @map("transferred_from_enrollment_id")
+  transferredValueAmount      Int @default(0) @map("transferred_value_amount")
+  transferredConvertedSessionCount Int @default(0) @map("transferred_converted_session_count")
+  transferredRemainingCashAmount Int @default(0) @map("transferred_remaining_cash_amount")
   notes      String?
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
@@ -645,8 +662,11 @@ model Enrollment {
   installments  EnrollmentInstallment[]
   bookRequirements StudentBookRequirement[]
   charges       Charge[]
+  transferredFrom Enrollment? @relation("EnrollmentTransfer", fields: [transferredFromEnrollmentId], references: [id])
+  transferredTo   Enrollment[] @relation("EnrollmentTransfer")
 
   @@index([status])
+  @@index([transferredFromEnrollmentId])
   @@map("enrollments")
 }
 
@@ -667,6 +687,9 @@ model SessionCredit {
   // lúc đó dùng enrollmentId → enrollment.class để biết credit thuộc khóa nào.
   sourceSessionId   String?   @map("source_session_id")
   status            String    @default("AVAILABLE") // AVAILABLE | CONSUMED | VOIDED
+  origin            String    @default("ABSENCE") // ABSENCE | PAID_CATCHUP | TRANSFER_REMAINING | WITHDRAWAL_REMAINING | MANUAL
+  unitPriceSnapshot Int?      @map("unit_price_snapshot")
+  paidAmount        Int       @default(0) @map("paid_amount")
   consumedSessionId String?   @map("consumed_session_id") // buổi học bù đã dùng credit này
   consumedAt        DateTime? @map("consumed_at")
   notes             String?
@@ -844,6 +867,10 @@ model Charge {
   absentCount     Int      @default(0) @map("absent_count") // Buoi nghi
   deductedCount   Int      @default(0) @map("deducted_count") // Buoi tru
   unitPrice       Int      @map("unit_price") // ĐG (đã áp học bổng/điều chỉnh)
+  mainTuitionAmount Int    @default(0) @map("main_tuition_amount")
+  paidCatchupAmount Int    @default(0) @map("paid_catchup_amount")
+  transferCreditAmount Int @default(0) @map("transfer_credit_amount")
+  transferRemainderAmount Int @default(0) @map("transfer_remainder_amount")
   tuitionAmount   Int      @map("tuition_amount") // HP thang hien tai
   materialsAmount Int      @default(0) @map("materials_amount") // TienGiaoTrinh
   openingBalance  Int      @default(0) @map("opening_balance") // HP dau ky

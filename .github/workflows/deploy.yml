@@ -1,0 +1,58 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+
+      # Chỉ sinh Prisma Client (đọc schema.prisma) để có type cho tsc — không cần
+      # kết nối SQLite thật nên không cần DATABASE_URL/secret nào ở bước này.
+      - run: npx prisma generate
+
+      - run: npx tsc --noEmit
+
+  deploy:
+    name: Deploy qua SSH
+    needs: verify
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: SSH vào VPS và deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          # Nếu VPS dùng cổng SSH khác 22, tạo thêm secret VPS_PORT rồi bỏ comment dòng dưới.
+          # port: ${{ secrets.VPS_PORT }}
+          script_stop: true
+          script: |
+            cd /var/www/mshangedu
+            git fetch origin master
+            git pull origin master
+            source ~/.nvm/nvm.sh
+            npm ci
+            npx prisma migrate deploy
+            npx prisma generate
+            npm run build
+            pm2 restart mshangedu
+            sleep 2
+            curl -sf -o /dev/null -w 'health check: HTTP %{http_code}\n' http://127.0.0.1:5050/dashboard || true

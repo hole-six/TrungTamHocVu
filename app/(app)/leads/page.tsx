@@ -4,13 +4,27 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate, canView } from "@/lib/server/role-matrix";
-import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
+import { LEAD_STATUSES } from "@/lib/server/lead-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import LeadsTable from "@/components/leads/LeadsTable";
 import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 
 const PAGE_SIZE = 20;
+
+const LEAD_STATUS_FILTER_GROUPS = [
+  { key: "UNCONTACTED", label: "Chưa liên hệ", statuses: ["NEW", "CONTACTING"] },
+  { key: "APPOINTED", label: "Đã hẹn lịch", statuses: ["APPOINTED"] },
+  { key: "QUALIFIED", label: "Đạt chờ xếp lớp", statuses: ["QUALIFIED", "TESTED"] },
+  { key: "CLOSED", label: "Chưa đạt / không có nhu cầu", statuses: ["UNQUALIFIED", "LOST"] },
+] as const;
+
+function resolveLeadStatusFilter(status: string) {
+  const group = LEAD_STATUS_FILTER_GROUPS.find((item) => item.key === status);
+  if (group) return { status: { in: [...group.statuses] } };
+  if ((LEAD_STATUSES as readonly string[]).includes(status)) return { status };
+  return { status: { not: "ENROLLED" } };
+}
 
 const LEADS_TOUR_STEPS: TourStep[] = [
   {
@@ -91,7 +105,7 @@ export default async function LeadsPage({
     // về module Học viên chứ không còn là việc CRM tuyển sinh nữa — mặc định ẩn khỏi
     // danh sách chính để ưu tiên các lead còn cần xử lý, vẫn xem được khi bấm rõ
     // ràng vào chip "Đã ghi danh" (status=ENROLLED).
-    ...(status ? { status } : { status: { not: "ENROLLED" } }),
+    ...resolveLeadStatusFilter(status),
     ...(testStatus === "NONE" ? { placementTests: { none: {} } } : testStatus ? { placementTests: { some: { status: testStatus } } } : {}),
     ...(urgent === "overdue"
       ? { placementTests: { some: { status: "SCHEDULED", scheduledDate: { lt: today } } } }
@@ -139,10 +153,10 @@ export default async function LeadsPage({
 
   const statusCounts = Object.fromEntries(LEAD_STATUSES.map((item) => [item, 0])) as Record<string, number>;
   for (const row of byStatus) statusCounts[row.status] = row._count._all;
-  const statusOptions = LEAD_STATUSES.map((key) => ({
-    key,
-    label: LEAD_STATUS_LABEL[key],
-    count: statusCounts[key] ?? 0,
+  const statusOptions = LEAD_STATUS_FILTER_GROUPS.map((group) => ({
+    key: group.key,
+    label: group.label,
+    count: group.statuses.reduce((sum, key) => sum + (statusCounts[key] ?? 0), 0),
   }));
 
   const branchLeadFilter = activeBranchId ? { branchId: activeBranchId } : {};

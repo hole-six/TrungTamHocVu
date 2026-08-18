@@ -8,6 +8,7 @@ import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import DetailTabs from "@/components/ui/DetailTabs";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
+import { formatVnd } from "@/lib/export-utils";
 
 type BatchCharge = InvoiceChargeData & {
   enrollmentId: string | null;
@@ -19,10 +20,6 @@ const BILLING_MODEL_LABEL: Record<string, string> = {
   PERIOD: "Theo tháng",
   COURSE: "Trọn khóa",
 };
-
-function formatVnd(value: number) {
-  return `${value.toLocaleString("vi-VN")}đ`;
-}
 
 function getEffectiveBillingModel(charge: BatchCharge) {
   return charge.currentEnrollmentBillingModel || charge.billingModel;
@@ -38,6 +35,17 @@ function getDownloadFileName(disposition: string | null, fallback: string) {
 
 function hasBillingMismatch(charge: BatchCharge) {
   return Boolean(charge.currentEnrollmentBillingModel) && charge.currentEnrollmentBillingModel !== charge.billingModel;
+}
+
+// Tính toàn bộ giá trị dẫn xuất của 1 charge (đã thu, còn nợ, kiểu thu hiệu lực,
+// lệch kiểu thu) MỘT LẦN duy nhất — dùng chung cho cả bản desktop và bản mobile
+// bên dưới, để 2 layout không bao giờ tính lệch nhau do sửa 1 nơi quên sửa nơi kia.
+function deriveChargeView(charge: BatchCharge) {
+  const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
+  const meta = getChargeCollectionMeta(chargeOwnDueAmount(charge), paid);
+  const billingMismatch = hasBillingMismatch(charge);
+  const effectiveBillingModel = getEffectiveBillingModel(charge);
+  return { paid, meta, remaining: meta.remainingAmount, billingMismatch, effectiveBillingModel };
 }
 
 function getChargeCollectionMeta(totalAmount: number, paidAmount: number) {
@@ -76,6 +84,93 @@ function getChargeCollectionMeta(totalAmount: number, paidAmount: number) {
     regenHint: "Phiếu này đã thu xong nên không được sinh lại.",
     rowClassName: "bg-[#e8f8f1] hover:bg-[#ecfaf4]",
   };
+}
+
+// Khối nút thao tác của 1 dòng charge — dùng chung cho cả bản bảng desktop và bản
+// card mobile bên dưới, tránh copy tay 2 lần cùng 1 logic quan trọng (đổi kiểu thu,
+// tải phiếu, thu nhanh).
+function ChargeActions({
+  charge,
+  meta,
+  remaining,
+  billingMismatch,
+  paid,
+  canManageTuition,
+  switchingKey,
+  onRequestSwitch,
+}: {
+  charge: BatchCharge;
+  meta: ReturnType<typeof getChargeCollectionMeta>;
+  remaining: number;
+  billingMismatch: boolean;
+  paid: number;
+  canManageTuition: boolean;
+  switchingKey: string | null;
+  onRequestSwitch: (charge: BatchCharge, nextBillingModel: "PERIOD" | "COURSE") => void;
+}) {
+  return (
+    <>
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href={`/students/${charge.student.id}?tab=hocphi`}
+          className="inline-flex h-10 items-center justify-center rounded-full border border-[#b7dff8] bg-[#f6fcff] px-4 text-sm font-semibold text-[#077dc8] transition hover:border-[#8fcdf3] hover:bg-[#eaf7ff]"
+        >
+          Học phí HV
+        </Link>
+        {remaining > 0 ? (
+          <a
+            href={`/api/invoices/${charge.id}/pdf`}
+            className="inline-flex h-10 items-center justify-center rounded-full border border-[#dfe8f2] bg-white px-4 text-sm font-semibold text-[#6f7f94] transition hover:border-[#cad8e8] hover:text-primary"
+          >
+            Tải phiếu
+          </a>
+        ) : null}
+        {canManageTuition && remaining > 0 ? <QuickPaymentButton studentId={charge.student.id ?? ""} suggestedAmount={remaining} /> : null}
+      </div>
+      {billingMismatch && paid <= 0 ? (
+        <p className="mt-2 max-w-[240px] text-xs leading-5 text-amber-800">
+          Phiếu hiện tại đang là {BILLING_MODEL_LABEL[charge.billingModel] ?? charge.billingModel}, cần làm mới trước khi in.
+        </p>
+      ) : null}
+      {canManageTuition && paid <= 0 && charge.enrollmentId ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {charge.currentEnrollmentBillingModel !== "PERIOD" ? (
+            <button
+              type="button"
+              onClick={() => onRequestSwitch(charge, "PERIOD")}
+              disabled={switchingKey === `${charge.id}:PERIOD`}
+              className="rounded-full border border-[#b7dff8] bg-[#f6fcff] px-3 py-1 text-xs font-semibold text-[#077dc8] transition hover:border-[#8fcdf3] hover:bg-[#eaf7ff] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {switchingKey === `${charge.id}:PERIOD` ? "Đang chuyển..." : "Chuyển thu tháng"}
+            </button>
+          ) : null}
+          {charge.currentEnrollmentBillingModel !== "COURSE" ? (
+            <button
+              type="button"
+              onClick={() => onRequestSwitch(charge, "COURSE")}
+              disabled={switchingKey === `${charge.id}:COURSE`}
+              className="rounded-full border border-[#d8ccff] bg-[#f3efff] px-3 py-1 text-xs font-semibold text-[#7b4df5] transition hover:border-[#c3aeff] hover:bg-[#ebe3ff] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {switchingKey === `${charge.id}:COURSE` ? "Đang chuyển..." : "Chuyển thu khóa"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+// Badge kiểu thu + trạng thái thu — dùng chung cho cả bảng desktop và card mobile.
+function ChargeStatusBadges({ effectiveBillingModel, meta, billingMismatch }: { effectiveBillingModel: string; meta: ReturnType<typeof getChargeCollectionMeta>; billingMismatch: boolean }) {
+  return (
+    <div className="space-y-2">
+      <span className={`badge ${effectiveBillingModel === "COURSE" ? "bg-[#f3efff] text-[#7b4df5]" : "bg-[#e5f4ff] text-[#0a80c8]"}`}>
+        {BILLING_MODEL_LABEL[effectiveBillingModel] ?? effectiveBillingModel}
+      </span>
+      <span className={`badge ${meta.paymentClassName}`}>{meta.paymentLabel}</span>
+      {billingMismatch ? <span className="badge bg-[#fff8e8] text-[#c76700]">Phiếu lệch kiểu thu</span> : null}
+    </div>
+  );
 }
 
 export default function BatchInvoiceView({
@@ -516,7 +611,7 @@ export default function BatchInvoiceView({
             ) : null}
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-2xl border border-hairline" data-tour="tuition-table">
+          <div className="mt-4 hidden overflow-hidden rounded-2xl border border-hairline lg:block" data-tour="tuition-table">
             <div className="max-h-[70vh] overflow-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 z-10 border-b border-hairline bg-white">
@@ -533,11 +628,7 @@ export default function BatchInvoiceView({
                 </thead>
                 <tbody>
                   {visibleCharges.map((charge) => {
-                    const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
-                    const meta = getChargeCollectionMeta(chargeOwnDueAmount(charge), paid);
-                    const remaining = meta.remainingAmount;
-                    const billingMismatch = hasBillingMismatch(charge);
-                    const effectiveBillingModel = getEffectiveBillingModel(charge);
+                    const { paid, meta, remaining, billingMismatch, effectiveBillingModel } = deriveChargeView(charge);
 
                     return (
                       <tr key={charge.id} className={`border-b border-hairline last:border-0 ${meta.rowClassName}`}>
@@ -557,15 +648,7 @@ export default function BatchInvoiceView({
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="space-y-2">
-                            <span className={`badge ${effectiveBillingModel === "COURSE" ? "bg-[#f3efff] text-[#7b4df5]" : "bg-[#e5f4ff] text-[#0a80c8]"}`}>
-                              {BILLING_MODEL_LABEL[effectiveBillingModel] ?? effectiveBillingModel}
-                            </span>
-                            <span className={`badge ${meta.paymentClassName}`}>{meta.paymentLabel}</span>
-                            {billingMismatch ? (
-                              <span className="badge bg-[#fff8e8] text-[#c76700]">Phiếu lệch kiểu thu</span>
-                            ) : null}
-                          </div>
+                          <ChargeStatusBadges effectiveBillingModel={effectiveBillingModel} meta={meta} billingMismatch={billingMismatch} />
                         </td>
                         <td className="px-4 py-3">
                           <div className="space-y-1 text-sm">
@@ -575,52 +658,16 @@ export default function BatchInvoiceView({
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-2">
-                            <Link
-                              href={`/students/${charge.student.id}?tab=hocphi`}
-                              className="inline-flex h-10 items-center justify-center rounded-full border border-[#b7dff8] bg-[#f6fcff] px-4 text-sm font-semibold text-[#077dc8] transition hover:border-[#8fcdf3] hover:bg-[#eaf7ff]"
-                            >
-                              Học phí HV
-                            </Link>
-                            {remaining > 0 ? (
-                              <a
-                                href={`/api/invoices/${charge.id}/pdf`}
-                                className="inline-flex h-10 items-center justify-center rounded-full border border-[#dfe8f2] bg-white px-4 text-sm font-semibold text-[#6f7f94] transition hover:border-[#cad8e8] hover:text-primary"
-                              >
-                                Tải phiếu
-                              </a>
-                            ) : null}
-                            {canManageTuition && remaining > 0 ? <QuickPaymentButton studentId={charge.student.id ?? ""} suggestedAmount={remaining} /> : null}
-                          </div>
-                          {billingMismatch && paid <= 0 ? (
-                            <p className="mt-2 max-w-[240px] text-xs leading-5 text-amber-800">
-                              Phiếu hiện tại đang là {BILLING_MODEL_LABEL[charge.billingModel] ?? charge.billingModel}, cần làm mới trước khi in.
-                            </p>
-                          ) : null}
-                          {canManageTuition && paid <= 0 && charge.enrollmentId ? (
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {charge.currentEnrollmentBillingModel !== "PERIOD" ? (
-                                <button
-                                  type="button"
-                                  onClick={() => requestSwitchBillingModel(charge, "PERIOD")}
-                                  disabled={switchingKey === `${charge.id}:PERIOD`}
-                                  className="rounded-full border border-[#b7dff8] bg-[#f6fcff] px-3 py-1 text-xs font-semibold text-[#077dc8] transition hover:border-[#8fcdf3] hover:bg-[#eaf7ff] disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {switchingKey === `${charge.id}:PERIOD` ? "Đang chuyển..." : "Chuyển thu tháng"}
-                                </button>
-                              ) : null}
-                              {charge.currentEnrollmentBillingModel !== "COURSE" ? (
-                                <button
-                                  type="button"
-                                  onClick={() => requestSwitchBillingModel(charge, "COURSE")}
-                                  disabled={switchingKey === `${charge.id}:COURSE`}
-                                  className="rounded-full border border-[#d8ccff] bg-[#f3efff] px-3 py-1 text-xs font-semibold text-[#7b4df5] transition hover:border-[#c3aeff] hover:bg-[#ebe3ff] disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {switchingKey === `${charge.id}:COURSE` ? "Đang chuyển..." : "Chuyển thu khóa"}
-                                </button>
-                              ) : null}
-                            </div>
-                          ) : null}
+                          <ChargeActions
+                            charge={charge}
+                            meta={meta}
+                            remaining={remaining}
+                            billingMismatch={billingMismatch}
+                            paid={paid}
+                            canManageTuition={canManageTuition}
+                            switchingKey={switchingKey}
+                            onRequestSwitch={requestSwitchBillingModel}
+                          />
                         </td>
                       </tr>
                     );
@@ -636,6 +683,62 @@ export default function BatchInvoiceView({
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Mobile: card list — dùng chung deriveChargeView/ChargeStatusBadges/ChargeActions
+              với bản bảng desktop ở trên, chỉ khác cách xếp layout. */}
+          <div className="mt-4 space-y-3 lg:hidden">
+            <label className="flex items-center gap-2 rounded-xl border border-hairline bg-white px-4 py-3 text-sm font-medium text-ink-muted80">
+              <input type="checkbox" checked={allVisibleSelected} onChange={(event) => toggleAll(event.target.checked)} />
+              Chọn tất cả đang hiển thị
+            </label>
+            {visibleCharges.map((charge) => {
+              const { paid, meta, remaining, billingMismatch, effectiveBillingModel } = deriveChargeView(charge);
+              return (
+                <div key={charge.id} className={`rounded-xl border border-hairline p-4 ${meta.rowClassName}`}>
+                  <div className="flex items-start gap-3">
+                    <input type="checkbox" checked={selected.has(charge.id)} onChange={() => toggle(charge.id)} className="mt-1" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-ink">{charge.student.fullName}</p>
+                      <p className="text-xs text-ink-muted48">{charge.student.studentCode}</p>
+                      <p className="mt-1 text-sm text-ink-muted80">{charge.class.className}</p>
+                      <div className="mt-1 flex flex-wrap gap-2 text-xs text-ink-muted48">
+                        <span>Kỳ {charge.billingPeriod.periodName}</span>
+                        <span>•</span>
+                        <span>{charge.invoice?.invoiceNo ?? "Chưa có số"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-hairline/70 pt-3">
+                    <ChargeStatusBadges effectiveBillingModel={effectiveBillingModel} meta={meta} billingMismatch={billingMismatch} />
+                    <div className="text-right text-sm">
+                      <div className="font-semibold text-ink">{formatVnd(charge.totalAmount)}</div>
+                      <div className="text-red-600">Còn {formatVnd(remaining)}</div>
+                      {paid > 0 ? <div className="text-emerald-600">Đã thu {formatVnd(paid)}</div> : null}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 border-t border-hairline/70 pt-3">
+                    <ChargeActions
+                      charge={charge}
+                      meta={meta}
+                      remaining={remaining}
+                      billingMismatch={billingMismatch}
+                      paid={paid}
+                      canManageTuition={canManageTuition}
+                      switchingKey={switchingKey}
+                      onRequestSwitch={requestSwitchBillingModel}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+            {visibleCharges.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-hairline bg-white p-8 text-center text-sm text-ink-muted48">
+                Không có học viên nào khớp bộ lọc hiện tại.
+              </div>
+            ) : null}
           </div>
         </section>
       </div>

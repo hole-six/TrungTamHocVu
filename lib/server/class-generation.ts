@@ -26,25 +26,20 @@ export async function createSessionsInRange(classId: string, fromDate: Date, toD
   const holidayDates = await getHolidayDateSet(cls.branchId);
   const candidates = generateSessionDates(cls.scheduleRules, effectiveFromDate, toDate, holidayDates);
 
-  const [existing, totalExistingCount] = await Promise.all([
+  const [existing] = await Promise.all([
     prisma.classSession.findMany({
       where: { classId, sessionDate: { gte: effectiveFromDate, lte: toDate } },
       select: { sessionDate: true, startTime: true, endTime: true },
     }),
-    prisma.classSession.count({ where: { classId, status: { notIn: ["CANCELLED", "RESCHEDULED"] } } }),
   ]);
   const sessionKey = (session: { sessionDate: Date; startTime: string | null; endTime: string | null }) =>
     `${session.sessionDate.toISOString().slice(0, 10)}|${session.startTime ?? ""}|${session.endTime ?? ""}`;
   const existingSessions = new Set(existing.map(sessionKey));
   let toCreate = candidates.filter((candidate) => !existingSessions.has(sessionKey(candidate)));
 
-  // Lớp có totalSessions cố định thì không sinh vượt quá cam kết — cắt bớt phần dư
-  // nếu cửa sổ ngày (rolling window) dài hơn cần thiết. Lớp không đặt totalSessions
-  // (vd khóa bổ trợ) thì sinh tự do theo lịch, không giới hạn.
-  if (cls.totalSessions != null) {
-    const remainingSlots = Math.max(0, cls.totalSessions - totalExistingCount);
-    toCreate = toCreate.slice(0, remainingSlots);
-  }
+  // totalSessions là cam kết học phí/lộ trình gốc, không còn là trần cứng của lịch lớp.
+  // Vận hành thực tế có thể kéo lớp 50 buổi thành 60 buổi để dạy cho đủ mà không tự
+  // tăng học phí; tiền đã được khóa theo từng enrollment.
 
   if (toCreate.length > 0) {
     await prisma.$transaction(

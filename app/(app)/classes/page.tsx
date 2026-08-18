@@ -8,6 +8,7 @@ import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/Spotlig
 import { canCreate } from "@/lib/server/role-matrix";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
+import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 
 const CLASSES_TOUR_STEPS: TourStep[] = [
   {
@@ -101,6 +102,7 @@ export default async function ClassesPage({
       take: pageSize,
       include: {
         course: { select: { code: true, name: true } },
+        nextClass: { select: { id: true, className: true, classCode: true } },
         scheduleRules: {
           where: { isActive: true },
           orderBy: [{ weekday: "asc" }, { startTime: "asc" }],
@@ -171,6 +173,41 @@ export default async function ClassesPage({
   ]);
 
   const classStats = Object.fromEntries(grouped.map((row) => [row.status, row._count._all])) as Record<string, number>;
+  const pageClassIds = classes.map((item) => item.id);
+  const pageEnrollments = pageClassIds.length
+    ? await prisma.enrollment.findMany({
+        where: { classId: { in: pageClassIds }, status: "ACTIVE" },
+        include: { class: { include: { course: true, nextClass: true } } },
+      })
+    : [];
+  const learningSnapshots = await Promise.all(
+    pageEnrollments.map(async (enrollment) => ({
+      classId: enrollment.classId,
+      nextClassName: enrollment.class.nextClass?.className ?? null,
+      snapshot: await getEnrollmentLearningSnapshot(prisma, enrollment),
+    })),
+  );
+  const transferNeedByClass = new Map<string, { count: number; missingNextCount: number }>();
+  for (const item of learningSnapshots) {
+    if (item.snapshot.continuationStatus !== "NEED_TRANSFER") continue;
+    const current = transferNeedByClass.get(item.classId) ?? { count: 0, missingNextCount: 0 };
+    current.count++;
+    if (!item.nextClassName) current.missingNextCount++;
+    transferNeedByClass.set(item.classId, current);
+  }
+  const pipelineRows = classes
+    .filter((item) => item.status === "ACTIVE")
+    .map((item) => ({
+      id: item.id,
+      classCode: item.classCode,
+      className: item.className,
+      nextClassName: item.nextClass?.className ?? null,
+      activeCount: item._count.enrollments,
+      transferNeed: transferNeedByClass.get(item.id)?.count ?? 0,
+      missingNextCount: transferNeedByClass.get(item.id)?.missingNextCount ?? 0,
+    }))
+    .filter((item) => item.nextClassName || item.transferNeed > 0 || item.activeCount > 0)
+    .slice(0, 8);
   const statusPills = [
     { key: "", label: "Tất cả", count: grouped.reduce((sum, row) => sum + row._count._all, 0) },
     { key: "ACTIVE", label: "Đang chạy", count: classStats.ACTIVE ?? 0 },
@@ -203,6 +240,46 @@ export default async function ClassesPage({
         <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">Sắp kết thúc (30 ngày) {endingSoon}</span>
         <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">Chưa có lịch chuẩn {unscheduledClasses}</span>
       </div>
+
+      <section className="rounded-2xl border border-[#dbe7ff] bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Pipeline lớp học</p>
+            <h2 className="mt-1 text-lg font-black text-[#0f1729]">Ngăn xếp chuyển tiếp</h2>
+          </div>
+          <p className="text-sm text-[#64748b]">Mỗi lớp nên có lớp tiếp theo để học viên vào giữa/cuối khóa không bị rơi hành trình.</p>
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          {pipelineRows.map((row) => (
+            <div key={row.id} className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Link href={`/classes/${row.id}`} className="font-bold text-[#0f1729] hover:text-[#2563eb]">
+                  {row.className}
+                </Link>
+                {row.transferNeed > 0 ? (
+                  <span className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800">
+                    {row.transferNeed} cần chuyển
+                  </span>
+                ) : (
+                  <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800">Ổn</span>
+                )}
+              </div>
+              <p className="mt-2 text-sm font-semibold text-[#64748b]">
+                {row.classCode} → {row.nextClassName ?? "Chưa cấu hình lớp tiếp theo"}
+              </p>
+              <p className="mt-1 text-xs text-[#64748b]">
+                Sĩ số {row.activeCount}
+                {row.missingNextCount > 0 ? ` · ${row.missingNextCount} học viên cần chuyển nhưng lớp chưa có nextClass` : ""}
+              </p>
+            </div>
+          ))}
+          {pipelineRows.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-[#dbe7ff] bg-[#f8faff] p-5 text-sm text-[#64748b]">
+              Chưa có lớp ACTIVE nào trong trang hiện tại để hiển thị pipeline.
+            </div>
+          ) : null}
+        </div>
+      </section>
 
       <ClassesTable
         initialData={classes}

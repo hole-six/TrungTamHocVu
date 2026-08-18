@@ -38,6 +38,7 @@ type DataTableResponsiveProps<T> = {
   headerActions?: ReactNode;
   filterChips?: ReactNode;
   defaultSearchValue?: string;
+  renderExpanded?: (row: T) => ReactNode;
   // Mobile-specific props
   primaryColumn: string;
   secondaryColumns?: string[];

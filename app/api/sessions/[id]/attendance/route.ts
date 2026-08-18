@@ -192,7 +192,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       const credit = existingCreditByStudent.get(enrollment.studentId);
       if (!credit) {
         await tx.sessionCredit.create({
-          data: { studentId: enrollment.studentId, enrollmentId: enrollment.id, sourceSessionId: session.id, status: "AVAILABLE" },
+          data: { studentId: enrollment.studentId, enrollmentId: enrollment.id, sourceSessionId: session.id, status: "AVAILABLE", origin: "ABSENCE" },
         });
       } else if (credit.status === "VOIDED") {
         await tx.sessionCredit.update({ where: { id: credit.id }, data: { status: "AVAILABLE" } });

@@ -12,23 +12,18 @@ import SchoolExamScoreForm from "@/components/students/SchoolExamScoreForm";
 import GuardianAccountPanel from "@/components/guardians/GuardianAccountPanel";
 import DetailTabs from "@/components/ui/DetailTabs";
 import PageGuide from "@/components/ui/PageGuide";
+import PageHero from "@/components/ui/PageHero/PageHero";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { computeOutstandingBalance } from "@/lib/server/balance";
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import { computeEnrollmentSessionProgress } from "@/lib/server/class-generation";
+import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import EditableDateField from "@/components/ui/EditableDateField";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canCreate, canUpdate, canView, canViewFullWithOverride, canViewWithOverride } from "@/lib/server/role-matrix";
-
-function formatVnd(n: number) {
-  return n.toLocaleString("vi-VN") + "đ";
-}
-
-function formatDate(d: Date | null) {
-  return d ? new Date(d).toLocaleDateString("vi-VN") : "—";
-}
+import { formatVnd, formatDate } from "@/lib/export-utils";
 
 function badgeClass(status: string) {
   if (status === "ACTIVE" || status === "PAID" || status === "CONFIRMED" || status === "COMPLETED") {
@@ -201,7 +196,11 @@ export default async function StudentDetailPage({
         orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
       },
       enrollments: {
-        include: { class: { include: { course: true, scheduleRules: { where: { isActive: true }, orderBy: { weekday: "asc" } } } } },
+        include: {
+          class: { include: { course: true, nextClass: true, scheduleRules: { where: { isActive: true }, orderBy: { weekday: "asc" } } } },
+          transferredFrom: { include: { class: true } },
+          transferredTo: { include: { class: true }, orderBy: { enrollDate: "asc" } },
+        },
         orderBy: [{ enrollDate: "desc" }, { createdAt: "desc" }],
       },
       charges: {
@@ -249,7 +248,7 @@ export default async function StudentDetailPage({
           },
         },
         orderBy: { session: { sessionDate: "desc" } },
-        take: 8,
+        take: 20,
       },
       journalEntries: {
         include: {
@@ -308,6 +307,14 @@ export default async function StudentDetailPage({
   const outstanding = canSeeFinance ? await computeOutstandingBalance(student.id) : 0;
   const activeEnrollments = student.enrollments.filter((e) => e.status === "ACTIVE");
   const currentEnrollment = activeEnrollments[0] ?? student.enrollments[0] ?? null;
+  const learningSnapshots = await Promise.all(
+    student.enrollments.map(async (enrollment) => ({
+      enrollmentId: enrollment.id,
+      snapshot: await getEnrollmentLearningSnapshot(prisma, enrollment),
+    })),
+  );
+  const learningSnapshotByEnrollment = new Map(learningSnapshots.map((item) => [item.enrollmentId, item.snapshot]));
+  const currentLearningSnapshot = currentEnrollment ? learningSnapshotByEnrollment.get(currentEnrollment.id) ?? null : null;
   const courseProgress = currentEnrollment?.classId
     ? await computeEnrollmentSessionProgress(currentEnrollment.classId, currentEnrollment.enrollDate)
     : null;
@@ -328,6 +335,35 @@ export default async function StudentDetailPage({
     { present: 0, absent: 0, makeup: 0 }
   );
 
+  const recentAttendanceClassIds = [...new Set(student.attendances.map((attendance) => attendance.session.classId))];
+  const classLearningPlans =
+    recentAttendanceClassIds.length > 0
+      ? await prisma.class.findMany({
+          where: { id: { in: recentAttendanceClassIds } },
+          select: {
+            id: true,
+            sessions: {
+              where: { status: { not: "CANCELLED" } },
+              orderBy: [{ sessionDate: "asc" }, { startTime: "asc" }],
+              select: { id: true },
+            },
+            roadmapItems: {
+              orderBy: { sessionNumber: "asc" },
+              select: { sessionNumber: true, title: true, objective: true },
+            },
+          },
+        })
+      : [];
+  const classLearningPlanMap = new Map(
+    classLearningPlans.map((classPlan) => [
+      classPlan.id,
+      {
+        sessionNumberById: new Map(classPlan.sessions.map((session, index) => [session.id, index + 1])),
+        roadmapBySessionNumber: new Map(classPlan.roadmapItems.map((item) => [item.sessionNumber, item])),
+      },
+    ]),
+  );
+
   const recentSessions = student.attendances.map((attendance) => {
     const teachers = attendance.session.assignments
       .filter((assignment) => assignment.role === "TEACHER")
@@ -337,11 +373,16 @@ export default async function StudentDetailPage({
       .filter((assignment) => assignment.role !== "TEACHER")
       .map((assignment) => assignment.employee.shortName || assignment.employee.fullName)
       .join(", ");
+    const learningPlan = classLearningPlanMap.get(attendance.session.classId);
+    const sessionNumber = learningPlan?.sessionNumberById.get(attendance.session.id) ?? null;
+    const roadmapItem = sessionNumber ? learningPlan?.roadmapBySessionNumber.get(sessionNumber) ?? null : null;
 
     return {
       attendance,
       teachers,
       assistants,
+      sessionNumber,
+      roadmapItem,
     };
   });
 
@@ -408,6 +449,74 @@ export default async function StudentDetailPage({
     { tuitionPaid: 0, materialsPaid: 0 }
   );
 
+  // Tài chính riêng của enrollment hiện tại (khác 6 KPI card ở trên vốn tổng cả lịch
+  // sử học viên) — lọc charge theo đúng enrollmentId để CSO thấy được học phí chính/
+  // bổ trợ đầu khóa/bù trừ chuyển lớp của RIÊNG lần ghi danh đang học.
+  const enrollmentCharges = currentEnrollment ? student.charges.filter((c) => c.enrollmentId === currentEnrollment.id) : [];
+  const enrollmentFinance = enrollmentCharges.reduce(
+    (acc, c) => {
+      acc.mainTuition += c.mainTuitionAmount || c.tuitionAmount || 0;
+      acc.paidCatchup += c.paidCatchupAmount || 0;
+      acc.materials += c.materialsAmount || 0;
+      acc.transferCredit += c.transferCreditAmount || 0;
+      acc.total += c.totalAmount || 0;
+      acc.paid += c.allocations.reduce((s, a) => s + a.amount, 0);
+      return acc;
+    },
+    { mainTuition: 0, paidCatchup: 0, materials: 0, transferCredit: 0, total: 0, paid: 0 }
+  );
+  const enrollmentOutstanding = Math.max(0, enrollmentFinance.total - enrollmentFinance.paid);
+
+  // Lịch sử chuyển/nâng lớp — chỉ hiện khi enrollment hiện tại thực sự có liên quan
+  // tới 1 lần chuyển lớp (đến từ lớp cũ hoặc đã từng chuyển tiếp sang lớp khác).
+  const transferHistory = currentEnrollment
+    ? [
+        ...(currentEnrollment.transferredFrom
+          ? [{ direction: "from" as const, other: currentEnrollment.transferredFrom, self: currentEnrollment }]
+          : []),
+        ...currentEnrollment.transferredTo.map((next) => ({ direction: "to" as const, other: next, self: currentEnrollment })),
+      ]
+    : [];
+
+  // Cảnh báo vận hành gộp — chỉ hiện dòng nào thực sự đúng điều kiện, CSO mở trang là
+  // thấy ngay việc cần làm thay vì phải tự lượm lặt từng tín hiệu rải rác trên trang.
+  const operationalWarnings: { text: string; severity: "warning" | "critical" }[] = [];
+  if (currentLearningSnapshot?.continuationStatus === "NEED_TRANSFER") {
+    operationalWarnings.push({
+      text: currentEnrollment?.class.nextClass
+        ? `Cần chuyển sang lớp ${currentEnrollment.class.nextClass.className} — còn thiếu ${currentLearningSnapshot.shortageAfterCurrentClass} buổi sau khi lớp hiện tại kết thúc.`
+        : `Lớp hiện tại chưa cấu hình lớp tiếp theo — còn thiếu ${currentLearningSnapshot.shortageAfterCurrentClass} buổi sau khi lớp kết thúc.`,
+      severity: "warning",
+    });
+  }
+  if (availableCredits.length > 0) {
+    operationalWarnings.push({ text: `Còn ${availableCredits.length} buổi bổ trợ chưa dùng.`, severity: "warning" });
+  }
+  if (currentLearningSnapshot && currentLearningSnapshot.remainingMainSessions > 0 && currentLearningSnapshot.remainingMainSessions <= 3) {
+    operationalWarnings.push({ text: `Sắp học xong khóa chính — còn ${currentLearningSnapshot.remainingMainSessions} buổi.`, severity: "warning" });
+  }
+  if (canSeeFinance && outstanding > 0) {
+    operationalWarnings.push({ text: `Còn nợ học phí ${formatVnd(outstanding)}.`, severity: "critical" });
+  }
+  const primaryOperation =
+    !currentEnrollment
+      ? { label: "Cần gán lớp", detail: "Học viên chưa có enrollment đang theo dõi.", tone: "critical" as const }
+      : canSeeFinance && outstanding > 0
+        ? { label: "Ưu tiên thu học phí", detail: `Còn nợ ${formatVnd(outstanding)}.`, tone: "critical" as const }
+        : currentLearningSnapshot?.continuationStatus === "NEED_TRANSFER"
+          ? { label: "Cần chuyển lớp", detail: currentEnrollment.class.nextClass ? `Đề xuất: ${currentEnrollment.class.nextClass.className}` : "Chưa cấu hình lớp tiếp theo.", tone: "warning" as const }
+          : availableCredits.length > 0
+            ? { label: "Cần xếp bổ trợ", detail: `${availableCredits.length} buổi bổ trợ còn khả dụng.`, tone: "warning" as const }
+            : currentLearningSnapshot?.continuationStatus === "COMPLETED"
+              ? { label: "Đã học đủ", detail: "Có thể kiểm tra chuyển lớp/nâng lớp nếu phụ huynh học tiếp.", tone: "success" as const }
+              : { label: "Đang ổn", detail: "Không có việc khẩn cần xử lý ngay.", tone: "success" as const };
+  const operationToneClass =
+    primaryOperation.tone === "critical"
+      ? "border-red-200 bg-red-50 text-red-800"
+      : primaryOperation.tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : "border-emerald-200 bg-emerald-50 text-emerald-800";
+
   return (
     <div className="space-y-3 sm:space-y-5 pb-16 sm:pb-20">
       <PageGuide
@@ -418,36 +527,39 @@ export default async function StudentDetailPage({
       />
 
       {/* ── HEADER ── */}
-      <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-gradient-to-b from-white to-[#f8faff] p-4 sm:p-6 md:p-8 shadow-sm">
-        <Link href="/students" className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-semibold text-[#f97316] hover:bg-[#f97316]/10 transition-colors">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sm:w-4 sm:h-4"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-          <span className="hidden sm:inline">Quay lại danh sách học viên</span>
-          <span className="sm:hidden">Học viên</span>
-        </Link>
-        <div className="mt-4 sm:mt-6 flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-start gap-3 sm:gap-4" data-tour="student-header">
-            <div className="flex h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#f97316] to-[#ea580c] shadow-lg text-lg sm:text-xl md:text-2xl font-black text-white">
-              {student.fullName.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className={`inline-flex items-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wide mb-1.5 sm:mb-2 ${student.status === "ACTIVE" ? "bg-[#10b981] text-white" : "bg-[#64748b] text-white"}`}>
-                <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-white" />
-                <span className="hidden sm:inline">{student.status === "ACTIVE" ? "ĐANG HỌC" : "ĐÃ NGHỈ"}</span>
-                <span className="sm:hidden">{student.status === "ACTIVE" ? "HỌC" : "NGHỈ"}</span>
-              </span>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-[#0f1729] mb-2 sm:mb-3">{student.fullName}</h1>
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                <span className="inline-flex items-center rounded-lg bg-[#f97316] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white">{student.studentCode}</span>
-                {currentEnrollment?.class?.className && <span className="inline-flex items-center rounded-lg bg-[#fb923c] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white truncate max-w-[150px] sm:max-w-none">{currentEnrollment.class.className}</span>}
-                {outstanding > 0 && <span className="inline-flex items-center rounded-lg bg-[#f59e0b] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap">Nợ {formatVnd(outstanding)}</span>}
-              </div>
-              <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-[#64748b] truncate">
-                {student.lead?.leadCode ? `${student.lead.leadCode} · ` : ""}
-                {primaryGuardian?.fullName ?? "Chưa gắn phụ huynh"}
-                {primaryGuardian?.phone ? ` · ${primaryGuardian.phone}` : ""}
-              </p>
-            </div>
-          </div>
+      <PageHero
+        backHref="/students"
+        identityDataTour="student-header"
+        backLabel={
+          <>
+            <span className="hidden sm:inline">Quay lại danh sách học viên</span>
+            <span className="sm:hidden">Học viên</span>
+          </>
+        }
+        avatarLabel={student.fullName.charAt(0).toUpperCase()}
+        statusPill={
+          <span className={`inline-flex items-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wide ${student.status === "ACTIVE" ? "bg-[#10b981] text-white" : "bg-[#64748b] text-white"}`}>
+            <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-white" />
+            <span className="hidden sm:inline">{student.status === "ACTIVE" ? "ĐANG HỌC" : "ĐÃ NGHỈ"}</span>
+            <span className="sm:hidden">{student.status === "ACTIVE" ? "HỌC" : "NGHỈ"}</span>
+          </span>
+        }
+        title={student.fullName}
+        badges={
+          <>
+            <span className="inline-flex items-center rounded-lg bg-[#f97316] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white">{student.studentCode}</span>
+            {currentEnrollment?.class?.className && <span className="inline-flex items-center rounded-lg bg-[#fb923c] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white truncate max-w-[150px] sm:max-w-none">{currentEnrollment.class.className}</span>}
+            {outstanding > 0 && <span className="inline-flex items-center rounded-lg bg-[#f59e0b] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap">Nợ {formatVnd(outstanding)}</span>}
+          </>
+        }
+        meta={
+          <>
+            {student.lead?.leadCode ? `${student.lead.leadCode} · ` : ""}
+            {primaryGuardian?.fullName ?? "Chưa gắn phụ huynh"}
+            {primaryGuardian?.phone ? ` · ${primaryGuardian.phone}` : ""}
+          </>
+        }
+        actions={
           <div className="flex flex-wrap items-center gap-2 sm:gap-3" data-tour="student-actions">
             <SpotlightTour
               steps={STUDENT_DETAIL_TOUR_STEPS.filter((step) => {
@@ -476,8 +588,8 @@ export default async function StudentDetailPage({
               </Link>
             )}
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {showIntakeBanner && (
         <div className="rounded-xl sm:rounded-2xl border border-[#10b981] bg-[#ecfdf5] px-4 sm:px-6 py-4 sm:py-5">
@@ -501,6 +613,174 @@ export default async function StudentDetailPage({
           </div>
         </div>
       )}
+
+      <section className="rounded-xl sm:rounded-2xl border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-sm">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className={`rounded-xl border px-4 py-3 ${operationToneClass}`}>
+            <p className="text-xs font-black uppercase tracking-[0.16em]">Việc cần làm</p>
+            <p className="mt-1 text-lg font-black">{primaryOperation.label}</p>
+            <p className="mt-0.5 text-sm font-semibold opacity-90">{primaryOperation.detail}</p>
+          </div>
+
+          <div className="grid flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-[#64748b]">Tiến độ</p>
+              <p className="mt-1 text-base font-black text-[#0f1729]">
+                {currentLearningSnapshot ? `${currentLearningSnapshot.completedMainSessions}/${currentLearningSnapshot.entitledMainSessions}` : "Chưa có lớp"}
+              </p>
+              <p className="text-xs text-[#64748b]">{currentLearningSnapshot ? `Còn ${currentLearningSnapshot.remainingMainSessions} buổi` : "Cần gán lớp trước"}</p>
+            </div>
+            <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-[#64748b]">Tiền</p>
+              <p className={`mt-1 text-base font-black ${outstanding > 0 ? "text-red-600" : "text-emerald-700"}`}>{canSeeFinance ? formatVnd(outstanding) : "Ẩn"}</p>
+              <p className="text-xs text-[#64748b]">Công nợ hiện tại</p>
+            </div>
+            <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-[#64748b]">Bổ trợ</p>
+              <p className={`mt-1 text-base font-black ${availableCredits.length > 0 ? "text-amber-700" : "text-emerald-700"}`}>{availableCredits.length}</p>
+              <p className="text-xs text-[#64748b]">Buổi còn khả dụng</p>
+            </div>
+            <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-[#64748b]">Kết thúc riêng</p>
+              <p className="mt-1 text-base font-black text-[#0f1729]">{formatDate(currentLearningSnapshot?.expectedStudentEndDate ?? null)}</p>
+              <p className="text-xs text-[#64748b]">
+                {currentLearningSnapshot?.continuationStatus === "NEED_TRANSFER" ? "Không đủ buổi ở lớp này" : "Theo enrollment hiện tại"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {operationalWarnings.length > 0 ? (
+        <div className="rounded-xl sm:rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
+          <p className="text-xs font-bold uppercase tracking-wide text-amber-800">Cảnh báo vận hành</p>
+          <ul className="mt-2 space-y-1.5">
+            {operationalWarnings.map((warning, index) => (
+              <li key={index} className="flex items-start gap-2 text-sm font-medium text-amber-900">
+                <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${warning.severity === "critical" ? "bg-red-600" : "bg-amber-600"}`} />
+                {warning.text}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {currentEnrollment && currentLearningSnapshot ? (
+        <div className="rounded-xl sm:rounded-2xl border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-[#2563eb]">Hành trình học riêng của học viên</p>
+              <h2 className="mt-1 text-lg font-black text-[#0f1729]">{currentEnrollment.class.className}</h2>
+              <p className="mt-1 text-sm text-[#64748b]">
+                Bắt đầu {formatDate(currentEnrollment.learningStartDate ?? currentEnrollment.enrollDate)} · dự kiến kết thúc {formatDate(currentLearningSnapshot.expectedStudentEndDate)}
+              </p>
+            </div>
+            <span className={`inline-flex w-fit rounded-lg px-3 py-1 text-xs font-bold ${currentLearningSnapshot.continuationStatus === "NEED_TRANSFER" ? "bg-amber-100 text-amber-800" : currentLearningSnapshot.continuationStatus === "COMPLETED" ? "bg-emerald-100 text-emerald-800" : "bg-sky-100 text-sky-800"}`}>
+              {currentLearningSnapshot.continuationStatus === "NEED_TRANSFER" ? "Cần chuyển lớp" : currentLearningSnapshot.continuationStatus === "COMPLETED" ? "Đã học đủ" : "Đang theo lớp"}
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
+              <p className="text-xs font-bold text-[#64748b]">Tiến độ khóa chính</p>
+              <p className="mt-1 text-xl font-black text-[#0f1729]">
+                {currentLearningSnapshot.completedMainSessions}/{currentLearningSnapshot.entitledMainSessions}
+              </p>
+              <p className="text-xs text-[#64748b]">Còn {currentLearningSnapshot.remainingMainSessions} buổi</p>
+              {currentLearningSnapshot.manualExtraSessions > 0 ? (
+                <p className="text-xs font-semibold text-emerald-700">
+                  Gồm {currentLearningSnapshot.manualExtraSessions} buổi cộng linh động
+                </p>
+              ) : null}
+            </div>
+            <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
+              <p className="text-xs font-bold text-[#64748b]">Tiền còn lại</p>
+              <p className="mt-1 text-xl font-black text-[#0f1729]">{formatVnd(currentLearningSnapshot.remainingValue)}</p>
+              <p className="text-xs text-[#64748b]">{formatVnd(currentLearningSnapshot.unitPrice)} / buổi</p>
+            </div>
+            <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
+              <p className="text-xs font-bold text-[#64748b]">Bổ trợ đầu khóa</p>
+              <p className="mt-1 text-xl font-black text-[#0f1729]">{currentEnrollment.paidCatchupSessionCount} buổi</p>
+              <p className="text-xs text-[#64748b]">{formatVnd(currentLearningSnapshot.paidCatchupAmount)}</p>
+            </div>
+            <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
+              <p className="text-xs font-bold text-[#64748b]">Chuyển tiếp</p>
+              <p className="mt-1 text-sm font-bold text-[#0f1729]">{currentEnrollment.class.nextClass?.className ?? "Chưa cấu hình"}</p>
+              {currentLearningSnapshot.continuationStatus === "NEED_TRANSFER" ? (
+                <p className="text-xs text-amber-700">Thiếu sau lớp hiện tại: {currentLearningSnapshot.shortageAfterCurrentClass} buổi</p>
+              ) : (
+                <p className="text-xs text-[#64748b]">Lớp hiện tại đủ đáp ứng số buổi còn lại</p>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {canSeeFinance && currentEnrollment && enrollmentCharges.length > 0 ? (
+        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-4 sm:p-5 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Tài chính của lần ghi danh hiện tại</p>
+          <p className="mt-1 text-xs text-[#64748b]">Riêng cho enrollment đang học ở {currentEnrollment.class.className} — khác 6 số tổng bên dưới vốn cộng dồn toàn bộ lịch sử học viên.</p>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <div>
+              <p className="text-[10px] font-bold uppercase text-[#64748b]">Học phí chính</p>
+              <p className="mt-0.5 text-sm font-bold text-[#0f1729]">{formatVnd(enrollmentFinance.mainTuition)}</p>
+            </div>
+            {enrollmentFinance.paidCatchup > 0 ? (
+              <div>
+                <p className="text-[10px] font-bold uppercase text-[#64748b]">Bổ trợ đầu khóa</p>
+                <p className="mt-0.5 text-sm font-bold text-[#0f1729]">{formatVnd(enrollmentFinance.paidCatchup)}</p>
+              </div>
+            ) : null}
+            {enrollmentFinance.materials > 0 ? (
+              <div>
+                <p className="text-[10px] font-bold uppercase text-[#64748b]">Sách/tài liệu</p>
+                <p className="mt-0.5 text-sm font-bold text-[#0f1729]">{formatVnd(enrollmentFinance.materials)}</p>
+              </div>
+            ) : null}
+            {enrollmentFinance.transferCredit > 0 ? (
+              <div>
+                <p className="text-[10px] font-bold uppercase text-[#64748b]">Bù trừ từ lớp cũ</p>
+                <p className="mt-0.5 text-sm font-bold text-[#0f1729]">-{formatVnd(enrollmentFinance.transferCredit)}</p>
+              </div>
+            ) : null}
+            <div>
+              <p className="text-[10px] font-bold uppercase text-[#64748b]">Đã thu</p>
+              <p className="mt-0.5 text-sm font-bold text-emerald-700">{formatVnd(enrollmentFinance.paid)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase text-[#64748b]">Còn nợ</p>
+              <p className={`mt-0.5 text-sm font-bold ${enrollmentOutstanding > 0 ? "text-red-600" : "text-emerald-700"}`}>{formatVnd(enrollmentOutstanding)}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {transferHistory.length > 0 ? (
+        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-4 sm:p-5 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Lịch sử chuyển/nâng lớp</p>
+          <div className="mt-3 space-y-2">
+            {transferHistory.map((item, index) => (
+              <div key={index} className="rounded-lg border border-[#e5eaf7] bg-[#f8faff] px-3 py-2 text-sm">
+                {item.direction === "from" ? (
+                  <p className="font-medium text-[#0f1729]">
+                    Chuyển từ <strong>{item.other.class.className}</strong> sang <strong>{item.self.class.className}</strong> · {formatDate(item.self.enrollDate)}
+                  </p>
+                ) : (
+                  <p className="font-medium text-[#0f1729]">
+                    Chuyển từ <strong>{item.self.class.className}</strong> sang <strong>{item.other.class.className}</strong> · {formatDate(item.other.enrollDate)}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-[#64748b]">
+                  Tiền còn lại lúc chuyển {formatVnd(item.direction === "from" ? item.self.transferredValueAmount : item.other.transferredValueAmount)} · quy đổi{" "}
+                  {item.direction === "from" ? item.self.transferredConvertedSessionCount : item.other.transferredConvertedSessionCount} buổi
+                  {(item.direction === "from" ? item.self.transferredRemainingCashAmount : item.other.transferredRemainingCashAmount) > 0
+                    ? ` · dư ${formatVnd(item.direction === "from" ? item.self.transferredRemainingCashAmount : item.other.transferredRemainingCashAmount)}`
+                    : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* ── KPI 6 CARDS ── */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
@@ -881,6 +1161,8 @@ export default async function StudentDetailPage({
                   credits={student.sessionCredits.map((c) => ({
                     id: c.id,
                     status: c.status,
+                    origin: c.origin,
+                    paidAmount: c.paidAmount,
                     sourceSession: c.sourceSession ? { sessionDate: c.sourceSession.sessionDate, class: c.sourceSession.class } : null,
                     consumedSession: c.consumedSession ? { sessionDate: c.consumedSession.sessionDate, class: c.consumedSession.class } : null,
                     className: c.sourceSession?.class.className ?? c.consumedSession?.class.className ?? currentEnrollment?.class?.className ?? "Chưa rõ lớp",
@@ -902,21 +1184,55 @@ export default async function StudentDetailPage({
                       <p className="mt-1 text-sm text-[#64748b]">Xem nhanh tình trạng học ở các buổi gần nhất.</p>
                     </div>
                     <div className="space-y-3">
-                      {recentSessions.map(({ attendance, teachers, assistants }) => (
-                        <div key={attendance.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1">
-                              <p className="font-bold text-[#0f1729]">{attendance.session.class.className} · {formatDate(attendance.session.sessionDate)}</p>
-                              <p className="mt-1 text-xs text-[#64748b]">
-                                GV: {teachers || "Chưa phân công"} · TG: {assistants || "—"} · Nhật ký: {attendance.session.journal?.publishedAt ? "Đã gửi PH" : attendance.session.journal ? "Đang lưu nháp" : "Chưa có"}
-                              </p>
+                      {recentSessions.map(({ attendance, teachers, assistants, sessionNumber, roadmapItem }) => {
+                        const sessionHref = `/classes/${attendance.session.classId}/sessions/${attendance.session.id}`;
+                        const classHref = `/classes/${attendance.session.classId}`;
+                        const journalLesson = attendance.session.journal?.unitLesson?.trim();
+                        const lessonTitle = roadmapItem?.title?.trim() || journalLesson || null;
+                        const lessonDetail = roadmapItem?.objective?.trim() || attendance.session.journal?.teacherNote?.trim() || null;
+
+                        return (
+                          <div key={attendance.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] p-4 transition-colors hover:border-[#3b82f6]">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                  <Link href={sessionHref} className="font-bold text-[#0f1729] hover:text-[#2563eb]">
+                                    {formatDate(attendance.session.sessionDate)}
+                                    {sessionNumber ? ` · Buổi ${sessionNumber}` : ""}
+                                  </Link>
+                                  <span className="text-xs font-semibold text-[#94a3b8]">trong</span>
+                                  <Link href={classHref} className="text-sm font-bold text-[#f97316] hover:text-[#ea580c]">
+                                    {attendance.session.class.className}
+                                  </Link>
+                                </div>
+
+                                <div className="mt-2 rounded-lg border border-[#e5eaf7] bg-white px-3 py-2">
+                                  <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Bài đã học</p>
+                                  <p className="mt-1 text-sm font-bold text-[#0f1729]">
+                                    {lessonTitle ?? "Chưa gắn bài/roadmap cho buổi này"}
+                                  </p>
+                                  {lessonDetail ? <p className="mt-1 text-xs leading-5 text-[#64748b]">{lessonDetail}</p> : null}
+                                </div>
+
+                                <p className="mt-2 text-xs text-[#64748b]">
+                                  GV: {teachers || "Chưa phân công"} · TG: {assistants || "—"} · Nhật ký: {attendance.session.journal?.publishedAt ? "Đã gửi PH" : attendance.session.journal ? "Đang lưu nháp" : "Chưa có"}
+                                </p>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <Link href={sessionHref} className="inline-flex items-center rounded-lg bg-[#dbeafe] px-2.5 py-1 text-xs font-bold text-[#1d4ed8] hover:bg-[#bfdbfe]">
+                                    Mở buổi học →
+                                  </Link>
+                                  <Link href={classHref} className="inline-flex items-center rounded-lg bg-white border border-[#e5eaf7] px-2.5 py-1 text-xs font-bold text-[#64748b] hover:border-[#f97316] hover:text-[#f97316]">
+                                    Mở lớp →
+                                  </Link>
+                                </div>
+                              </div>
+                              <span className={`inline-flex shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold whitespace-nowrap ${attendance.status === "ABSENT" ? "bg-[#fee2e2] text-[#991b1b]" : attendance.status === "MAKEUP" ? "bg-[#e0f2fe] text-[#075985]" : "bg-[#dcfce7] text-[#166534]"}`}>
+                                {attendanceLabel(attendance.status)}
+                              </span>
                             </div>
-                            <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold whitespace-nowrap ${attendance.status === "ABSENT" ? "bg-[#fee2e2] text-[#991b1b]" : attendance.status === "MAKEUP" ? "bg-[#e0f2fe] text-[#075985]" : "bg-[#dcfce7] text-[#166534]"}`}>
-                              {attendanceLabel(attendance.status)}
-                            </span>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {recentSessions.length === 0 && <p className="text-sm text-[#64748b] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">Chưa có buổi học nào để đối chiếu.</p>}
                     </div>
                   </div>
@@ -929,7 +1245,16 @@ export default async function StudentDetailPage({
                     <div className="space-y-3">
                       {student.journalEntries.slice(0, 3).map((entry) => (
                         <div key={entry.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] p-4">
-                          <p className="font-bold text-[#0f1729]">{entry.journal.session.class.className} · {formatDate(entry.journal.session.sessionDate)}</p>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <Link href={`/classes/${entry.journal.session.classId}/sessions/${entry.journal.sessionId}`} className="font-bold text-[#0f1729] hover:text-[#2563eb]">
+                              {formatDate(entry.journal.session.sessionDate)}
+                            </Link>
+                            <span className="text-xs font-semibold text-[#94a3b8]">·</span>
+                            <Link href={`/classes/${entry.journal.session.classId}`} className="text-sm font-bold text-[#f97316] hover:text-[#ea580c]">
+                              {entry.journal.session.class.className}
+                            </Link>
+                          </div>
+                          {entry.journal.unitLesson ? <p className="mt-1 text-xs font-bold text-[#64748b]">{entry.journal.unitLesson}</p> : null}
                           <p className="mt-1 text-sm text-[#64748b]">{entry.comment ?? "Chưa có nhận xét riêng."}</p>
                         </div>
                       ))}

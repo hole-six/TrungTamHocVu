@@ -8,9 +8,10 @@ import CashbookFilters from "@/components/cashbook/CashbookFilters";
 import CashbookExportButton from "@/components/cashbook/CashbookExportButton";
 import NewCashTransactionForm from "@/components/cashbook/NewCashTransactionForm";
 import CategoryManager from "@/components/cashbook/CategoryManager";
-import CashTransactionRow from "@/components/cashbook/CashTransactionRow";
+import CashbookTable from "@/components/cashbook/CashbookTable";
 import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+import { formatVnd } from "@/lib/export-utils";
 
 const CASHBOOK_TOUR_STEPS: TourStep[] = [
   {
@@ -68,10 +69,6 @@ const CASHBOOK_PAGE_GUIDE_SECTIONS = [
     tone: "warning" as const,
   },
 ];
-
-function formatVnd(amount: number) {
-  return `${amount.toLocaleString("vi-VN")}đ`;
-}
 
 function toYmd(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -180,6 +177,8 @@ export default async function CashbookPage({
     txnDate: transaction.txnDate.toISOString(),
     type: transaction.type as "THU" | "CHI",
     amount: transaction.amount,
+    thuAmount: transaction.type === "THU" ? transaction.amount : null,
+    chiAmount: transaction.type === "CHI" ? transaction.amount : null,
     description: transaction.description,
     detail: transaction.detail,
     notes: transaction.notes,
@@ -194,7 +193,6 @@ export default async function CashbookPage({
   const amountByCategory = Object.fromEntries(byCategory.map((item) => [item.name, item.thu + item.chi]));
   const fromDateStr = toYmd(rangeStart);
   const toDateStr = toYmd(rangeEnd);
-  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   return (
     <div className="space-y-6">
@@ -265,143 +263,15 @@ export default async function CashbookPage({
         </div>
 
         <div data-tour="cashbook-table">
-        {/* Desktop: Full table */}
-        <div className="hidden lg:block table-container [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Ngày</th>
-                <th>Loại phiếu</th>
-                <th>Danh mục</th>
-                <th>Nội dung thu chi</th>
-                <th className="text-right">Thu vào</th>
-                <th className="text-right">Chi ra</th>
-                <th>Trạng thái</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {normalizedTransactions.map((transaction) => (
-                <CashTransactionRow
-                  key={transaction.id}
-                  transaction={transaction}
-                  categories={categories}
-                  canManageCashbook={canManageCashbook}
-                />
-              ))}
-              {normalizedTransactions.length === 0 ? (
-                <tr className="table-empty">
-                  <td colSpan={8}>Chưa có phiếu thu/chi nào trong khoảng ngày đang xem.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+          <CashbookTable
+            transactions={normalizedTransactions}
+            categories={categories}
+            canManageCashbook={canManageCashbook}
+            currentPage={currentPage}
+            totalCount={totalCount}
+            itemsPerPage={itemsPerPage}
+          />
         </div>
-
-        {/* Mobile/Tablet: Card view */}
-        <div className="lg:hidden space-y-3">
-          {normalizedTransactions.map((transaction) => (
-            <div key={transaction.id} className="rounded-xl border border-hairline bg-white p-4 hover:shadow-md transition-shadow">
-              {/* Header: Date & Type */}
-              <div className="flex items-start justify-between gap-2 mb-3 pb-3 border-b border-hairline">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-ink-muted48">{new Date(transaction.txnDate).toLocaleDateString("vi-VN")}</p>
-                  <p className="font-semibold text-ink text-sm mt-1">{transaction.description}</p>
-                  {transaction.detail && (
-                    <p className="text-xs text-ink-muted48 mt-1 line-clamp-2">{transaction.detail}</p>
-                  )}
-                </div>
-                <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold whitespace-nowrap ${transaction.type === "THU" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
-                  {transaction.type === "THU" ? "THU" : "CHI"}
-                </span>
-              </div>
-
-              {/* Category & Amount */}
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-ink-muted48">Danh mục</p>
-                  <p className="text-sm font-medium text-ink mt-0.5 truncate">
-                    {transaction.categoryName ?? "Chưa phân loại"}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-ink-muted48">{transaction.type === "THU" ? "Thu vào" : "Chi ra"}</p>
-                  <p className={`text-lg font-bold mt-0.5 ${transaction.type === "THU" ? "text-emerald-700" : "text-rose-700"}`}>
-                    {formatVnd(transaction.amount)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Status & Info */}
-              <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-hairline">
-                <span className={`inline-flex rounded-lg px-2 py-1 text-xs font-semibold ${transaction.status === "CONFIRMED" ? "bg-sky-100 text-sky-700" : transaction.status === "VOIDED" ? "bg-slate-100 text-slate-600" : "bg-amber-100 text-amber-700"}`}>
-                  {transaction.status === "CONFIRMED" ? "Đã xác nhận" : transaction.status === "VOIDED" ? "Đã hủy" : "Nháp"}
-                </span>
-                {transaction.isDerived && (
-                  <span className="inline-flex rounded-lg bg-violet-100 px-2 py-1 text-xs font-semibold text-violet-700">
-                    Tự động
-                  </span>
-                )}
-              </div>
-
-              {transaction.handledByName && (
-                <p className="text-xs text-ink-muted48 mt-2">Người xử lý: {transaction.handledByName}</p>
-              )}
-              {transaction.notes && (
-                <p className="text-xs text-ink-muted48 mt-2 italic">"{transaction.notes}"</p>
-              )}
-            </div>
-          ))}
-
-          {normalizedTransactions.length === 0 && (
-            <div className="py-12 text-center text-sm text-ink-muted48 bg-canvas-parchment/30 rounded-xl border border-dashed border-hairline">
-              Chưa có phiếu thu/chi nào trong khoảng ngày đang xem.
-            </div>
-          )}
-        </div>
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-hairline pt-4">
-            <p className="text-sm text-ink-muted48">
-              Trang {currentPage} / {totalPages} • Tổng {totalCount} giao dịch
-            </p>
-            <div className="flex gap-2">
-              <form action={`/cashbook`} method="get">
-                <input type="hidden" name="fromDate" value={fromDateStr} />
-                <input type="hidden" name="toDate" value={toDateStr} />
-                {typeFilter && <input type="hidden" name="type" value={typeFilter} />}
-                {searchQuery && <input type="hidden" name="search" value={searchQuery} />}
-                {categoryIdFilter && <input type="hidden" name="categoryId" value={categoryIdFilter} />}
-                <input type="hidden" name="page" value={String(currentPage - 1)} />
-                <button
-                  type="submit"
-                  disabled={currentPage === 1}
-                  className="rounded-lg border border-hairline bg-white px-4 py-2 text-sm font-medium text-ink transition-all hover:border-[#f97316] hover:bg-orange-50 hover:text-[#f97316] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-hairline disabled:hover:bg-white disabled:hover:text-ink"
-                >
-                  ← Trước
-                </button>
-              </form>
-
-              <form action={`/cashbook`} method="get">
-                <input type="hidden" name="fromDate" value={fromDateStr} />
-                <input type="hidden" name="toDate" value={toDateStr} />
-                {typeFilter && <input type="hidden" name="type" value={typeFilter} />}
-                {searchQuery && <input type="hidden" name="search" value={searchQuery} />}
-                {categoryIdFilter && <input type="hidden" name="categoryId" value={categoryIdFilter} />}
-                <input type="hidden" name="page" value={String(currentPage + 1)} />
-                <button
-                  type="submit"
-                  disabled={currentPage === totalPages}
-                  className="rounded-lg border border-hairline bg-white px-4 py-2 text-sm font-medium text-ink transition-all hover:border-[#f97316] hover:bg-orange-50 hover:text-[#f97316] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-hairline disabled:hover:bg-white disabled:hover:text-ink"
-                >
-                  Tiếp →
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

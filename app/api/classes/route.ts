@@ -112,6 +112,13 @@ export async function POST(req: NextRequest) {
   }
 
   const isRemedial = Boolean(body.isRemedial);
+  const nextClassId = !isRemedial && body.nextClassId ? String(body.nextClassId).trim() : null;
+  if (nextClassId) {
+    const nextClass = await prisma.class.findUnique({ where: { id: nextClassId }, select: { branchId: true, isRemedial: true, status: true } });
+    if (!nextClass || nextClass.branchId !== branchId || nextClass.isRemedial || nextClass.status !== "ACTIVE") {
+      return NextResponse.json({ error: "Lop tiep theo khong hop le hoac khong cung co so." }, { status: 400 });
+    }
+  }
   const normalizedStartDate = body.startDate ? new Date(body.startDate) : null;
   const normalizedTotalSessions = body.totalSessions ? Number(body.totalSessions) : null;
   const normalizedRules = scheduleRules.map((rule: { weekday: number; startTime: string; endTime: string; room?: string | null }) => ({
@@ -143,6 +150,7 @@ export async function POST(req: NextRequest) {
       classGroup: body.classGroup || null,
       className,
       isRemedial,
+      nextClassId,
       totalSessions: normalizedTotalSessions,
       startDate: normalizedStartDate,
       expectedEndDate,

@@ -73,6 +73,12 @@ type DataTableProps<T> = {
   headerActions?: ReactNode;
   filterChips?: ReactNode;
   defaultSearchValue?: string;
+  /**
+   * Nếu có, mỗi dòng có nút "Xem thêm" mở ra 1 dòng phụ bên dưới chứa nội dung này
+   * (dùng cho các bảng cần hiện chi tiết/sửa-tại-chỗ mà không hợp để tách thành cột,
+   * vd sổ quỹ — sửa thông tin phiếu, hủy phiếu ngay trong dòng thay vì phải mở trang khác).
+   */
+  renderExpanded?: (row: T) => ReactNode;
 };
 
 export default function DataTable<T extends Record<string, any>>({
@@ -96,6 +102,7 @@ export default function DataTable<T extends Record<string, any>>({
   headerActions,
   filterChips,
   defaultSearchValue = "",
+  renderExpanded,
 }: DataTableProps<T>) {
   const [selectedRows, setSelectedRows] = useState<Set<any>>(new Set());
   const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -146,18 +153,25 @@ export default function DataTable<T extends Record<string, any>>({
   const isAllSelected = data.length > 0 && selectedRows.size === data.length;
   const isSomeSelected = selectedRows.size > 0 && selectedRows.size < data.length;
 
+  // Không render cả khối header nếu không có gì để hiện trong đó — tránh 1 thanh
+  // trống vô nghĩa khi trang đã có sẵn ô tìm kiếm/bộ lọc riêng bên ngoài bảng
+  // (searchable=false + showCountBadge=false + không headerActions/filterChips).
+  const showHeaderShell = searchable || showCountBadge || !!filterChips || !!headerActions;
+
   return (
     <div data-dt="root" className={`space-y-4 ${className}`}>
-      <DataTableHeader
-        searchable={searchable}
-        searchPlaceholder={searchPlaceholder}
-        onSearch={onSearch}
-        totalCount={pagination?.total || data.length}
-        showCountBadge={showCountBadge}
-        actions={headerActions}
-        filterChips={filterChips}
-        defaultSearchValue={defaultSearchValue}
-      />
+      {showHeaderShell ? (
+        <DataTableHeader
+          searchable={searchable}
+          searchPlaceholder={searchPlaceholder}
+          onSearch={onSearch}
+          totalCount={pagination?.total || data.length}
+          showCountBadge={showCountBadge}
+          actions={headerActions}
+          filterChips={filterChips}
+          defaultSearchValue={defaultSearchValue}
+        />
+      ) : null}
 
       {selectable && selectedRows.size > 0 && bulkActions.length > 0 ? (
         <DataTableBulk
@@ -225,7 +239,7 @@ export default function DataTable<T extends Record<string, any>>({
                   </th>
                 ))}
 
-                {actions.length > 0 ? (
+                {actions.length > 0 || renderExpanded ? (
                   <th className="w-[220px] px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-ink-muted48">
                     Actions
                   </th>
@@ -237,7 +251,7 @@ export default function DataTable<T extends Record<string, any>>({
               {loading ? (
                 <tr>
                   <td
-                    colSpan={columns.length + (selectable ? 1 : 0) + (actions.length > 0 ? 1 : 0)}
+                    colSpan={columns.length + (selectable ? 1 : 0) + (actions.length > 0 || renderExpanded ? 1 : 0)}
                     className="px-4 py-12 text-center"
                   >
                     <div className="flex items-center justify-center gap-2">
@@ -251,7 +265,7 @@ export default function DataTable<T extends Record<string, any>>({
                 </tr>
               ) : sortedData.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length + (selectable ? 1 : 0) + (actions.length > 0 ? 1 : 0)}>
+                  <td colSpan={columns.length + (selectable ? 1 : 0) + (actions.length > 0 || renderExpanded ? 1 : 0)}>
                     <DataTableEmpty {...emptyState} />
                   </td>
                 </tr>
@@ -266,6 +280,7 @@ export default function DataTable<T extends Record<string, any>>({
                     selected={selectedRows.has(row[rowKey])}
                     onSelect={(checked) => handleSelectRow(row[rowKey], checked)}
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    renderExpanded={renderExpanded}
                   />
                 ))
               )}

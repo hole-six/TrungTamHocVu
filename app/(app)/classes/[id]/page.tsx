@@ -18,12 +18,16 @@ import ScheduleRuleManager from "@/components/classes/ScheduleRuleManager";
 import GenerateSessionsForm from "@/components/classes/GenerateSessionsForm";
 import EnrollStudentForm from "@/components/classes/EnrollStudentForm";
 import EnrollmentRowActions from "@/components/classes/EnrollmentRowActions";
+import TransferEnrollmentButton from "@/components/classes/TransferEnrollmentButton";
+import AddEnrollmentSessionsButton from "@/components/classes/AddEnrollmentSessionsButton";
+import CompleteClassButton from "@/components/classes/CompleteClassButton";
 import ClassTaskManager from "@/components/classes/ClassTaskManager";
 import ClassRecurringTaskManager from "@/components/classes/ClassRecurringTaskManager";
 import ClassEditForm from "@/components/classes/ClassEditForm";
 import RescheduleSessionButton from "@/components/classes/RescheduleSessionButton";
 import ClassDefaultAssignmentManager from "@/components/classes/ClassDefaultAssignmentManager";
 import PageGuide from "@/components/ui/PageGuide";
+import PageHero from "@/components/ui/PageHero/PageHero";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { isTaskDueOn, computeTaskLogStatus } from "@/lib/server/class-task-rules";
 import { getCurrentUser } from "@/lib/server/current-user";
@@ -31,13 +35,9 @@ import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { ensureClassRoadmapItems } from "@/lib/server/class-roadmap";
 import { getClassAssignmentRoleType } from "@/lib/server/class-default-assignments";
+import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
+import { formatVnd, formatDate } from "@/lib/export-utils";
 
-function formatDate(d: Date | null) {
-  return d ? new Date(d).toLocaleDateString("vi-VN") : "—";
-}
-function formatVnd(n: number) {
-  return n.toLocaleString("vi-VN") + "đ";
-}
 function weekdayLabel(weekday: number) {
   return ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][weekday] ?? String(weekday);
 }
@@ -179,6 +179,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
     where: { id: params.id },
     include: {
       course: true,
+      nextClass: { include: { course: true } },
       scheduleRules: { orderBy: { weekday: "asc" } },
       roadmapItems: { orderBy: { sessionNumber: "asc" } },
       defaultAssignments: { where: { isActive: true }, include: { employee: true }, orderBy: { role: "asc" } },
@@ -212,7 +213,6 @@ export default async function ClassDetailPage({ params }: { params: { id: string
               attendances: {
                 where: { session: { classId: params.id } },
                 orderBy: { session: { sessionDate: "desc" } },
-                take: 4,
                 include: { session: true },
               },
               bookIssues: {
@@ -234,6 +234,14 @@ export default async function ClassDetailPage({ params }: { params: { id: string
   const role = currentUser ? await getUserRole(currentUser.id) : null;
   const canManageClass = canUpdate("schedule", role);
   const roadmapItems = await ensureClassRoadmapItems(cls.id, cls.totalSessions);
+  const continuationClassOptions = canManageClass
+    ? await prisma.class.findMany({
+        where: { branchId: cls.branchId, id: { not: cls.id }, status: "ACTIVE", isRemedial: false },
+        include: { course: true },
+        orderBy: [{ className: "asc" }, { classCode: "asc" }],
+        take: 80,
+      })
+    : [];
 
   const tasks = await prisma.task.findMany({
     where: { relatedType: "Class", relatedId: cls.id },
@@ -334,6 +342,36 @@ export default async function ClassDetailPage({ params }: { params: { id: string
   const defaultTeacherNames = cls.defaultAssignments.filter((i) => getClassAssignmentRoleType(i.role) === "TEACHER").map((i) => i.employee.fullName).join(", ");
   const defaultAssistantNames = cls.defaultAssignments.filter((i) => getClassAssignmentRoleType(i.role) === "ASSISTANT").map((i) => i.employee.shortName || i.employee.fullName).join(", ");
 
+  // Nguồn duy nhất cho "đã học/còn lại/tiền còn lại" của từng enrollment — trước đây
+  // trang này tự tính lại bằng enrollment.student.attendances (TOÀN BỘ lịch sử điểm danh
+  // của học viên qua mọi lớp, không lọc theo lớp này), ra số khác với trang học viên vốn
+  // đã dùng đúng getEnrollmentLearningSnapshot. Dùng chung 1 hàm để 2 trang luôn khớp số.
+  const learningSnapshotByEnrollment = new Map(
+    await Promise.all(
+      cls.enrollments.map(async (enrollment) => [
+        enrollment.id,
+        await getEnrollmentLearningSnapshot(prisma, {
+          ...enrollment,
+          class: { totalSessions: cls.totalSessions, tuitionPerSession: cls.tuitionPerSession, nextClassId: cls.nextClassId, course: cls.course },
+        }),
+      ] as const)
+    )
+  );
+  const activeLearningSnapshots = activeEnrollments.map((enrollment) => ({
+    enrollment,
+    snapshot: learningSnapshotByEnrollment.get(enrollment.id)!,
+  }));
+  const completionReadyCount = activeLearningSnapshots.filter((item) => item.snapshot.remainingMainSessions <= 0).length;
+  const completionNeedTransferCount = activeLearningSnapshots.filter((item) => item.snapshot.remainingMainSessions > 0).length;
+  const completionTransferValueAmount = activeLearningSnapshots.reduce(
+    (sum, item) => sum + (item.snapshot.remainingMainSessions > 0 ? item.snapshot.remainingValue : 0),
+    0,
+  );
+  const completionFreeExtraSessions = activeLearningSnapshots.reduce(
+    (sum, item) => sum + (item.snapshot.remainingMainSessions > 0 ? item.snapshot.manualExtraRemainingSessions : 0),
+    0,
+  );
+
   return (
     <div className="space-y-3 sm:space-y-5 pb-16 sm:pb-20">
       <PageGuide
@@ -344,42 +382,45 @@ export default async function ClassDetailPage({ params }: { params: { id: string
       />
 
       {/* ── HEADER ── */}
-      <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-gradient-to-b from-white to-[#f8faff] p-4 sm:p-6 md:p-8 shadow-sm">
-        <Link href="/classes" className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-semibold text-[#f97316] hover:bg-[#f97316]/10 transition-colors">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sm:w-4 sm:h-4"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-          <span className="hidden sm:inline">Quay lại Lớp &amp; Lịch</span>
-          <span className="sm:hidden">Lớp</span>
-        </Link>
-        <div className="mt-4 sm:mt-6 flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-start gap-3 sm:gap-4" data-tour="class-header">
-            <div className="flex h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#f97316] to-[#ea580c] shadow-lg">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-7 sm:h-7 md:w-8 md:h-8">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-              </svg>
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className={`inline-flex items-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wide mb-1.5 sm:mb-2 ${cls.status === "ACTIVE" ? "bg-[#10b981] text-white" : "bg-[#64748b] text-white"}`}>
-                <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-white" />
-                <span className="hidden sm:inline">{cls.status === "ACTIVE" ? "ĐANG HOẠT ĐỘNG" : cls.status}</span>
-                <span className="sm:hidden">{cls.status === "ACTIVE" ? "HOẠT ĐỘNG" : cls.status}</span>
+      <PageHero
+        backHref="/classes"
+        identityDataTour="class-header"
+        backLabel={
+          <>
+            <span className="hidden sm:inline">Quay lại Lớp &amp; Lịch</span>
+            <span className="sm:hidden">Lớp</span>
+          </>
+        }
+        avatarIcon={
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-7 sm:h-7 md:w-8 md:h-8">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        }
+        statusPill={
+          <span className={`inline-flex items-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wide ${cls.status === "ACTIVE" ? "bg-[#10b981] text-white" : "bg-[#64748b] text-white"}`}>
+            <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-white" />
+            <span className="hidden sm:inline">{cls.status === "ACTIVE" ? "ĐANG HOẠT ĐỘNG" : cls.status}</span>
+            <span className="sm:hidden">{cls.status === "ACTIVE" ? "HOẠT ĐỘNG" : cls.status}</span>
+          </span>
+        }
+        title={cls.className}
+        badges={
+          <>
+            <span className="inline-flex items-center rounded-lg bg-[#f97316] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white">{cls.classCode}</span>
+            {cls.course && <span className="inline-flex items-center rounded-lg bg-[#ea580c] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white truncate max-w-[120px] sm:max-w-none">{cls.course.name}</span>}
+            {cls.isRemedial && <span className="inline-flex items-center rounded-lg bg-[#f97316] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap">Bổ trợ</span>}
+            {totalOutstanding > 0 && <span className="inline-flex items-center rounded-lg bg-[#f59e0b] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap">Nợ {formatVnd(totalOutstanding)}</span>}
+            {nextSession && (
+              <span className="inline-flex items-center gap-1 sm:gap-1.5 rounded-lg bg-[#f97316] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sm:w-3 sm:h-3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span className="hidden sm:inline">Buổi tới {formatDate(nextSession.sessionDate)}</span>
+                <span className="sm:hidden">{formatDate(nextSession.sessionDate)}</span>
               </span>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-[#0f1729] mb-2 sm:mb-3 truncate">{cls.className}</h1>
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                <span className="inline-flex items-center rounded-lg bg-[#f97316] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white">{cls.classCode}</span>
-                {cls.course && <span className="inline-flex items-center rounded-lg bg-[#ea580c] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white truncate max-w-[120px] sm:max-w-none">{cls.course.name}</span>}
-                {cls.isRemedial && <span className="inline-flex items-center rounded-lg bg-[#f97316] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap">Bổ trợ</span>}
-                {totalOutstanding > 0 && <span className="inline-flex items-center rounded-lg bg-[#f59e0b] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap">Nợ {formatVnd(totalOutstanding)}</span>}
-                {nextSession && (
-                  <span className="inline-flex items-center gap-1 sm:gap-1.5 rounded-lg bg-[#f97316] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sm:w-3 sm:h-3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    <span className="hidden sm:inline">Buổi tới {formatDate(nextSession.sessionDate)}</span>
-                    <span className="sm:hidden">{formatDate(nextSession.sessionDate)}</span>
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
+            )}
+          </>
+        }
+        actions={
           <div className="flex flex-wrap items-center gap-2 sm:gap-3" data-tour="class-actions">
             <SpotlightTour steps={CLASS_DETAIL_TOUR_STEPS} />
             {latestSession && (
@@ -389,7 +430,20 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                 <span className="sm:hidden">Buổi học</span>
               </Link>
             )}
-            {canManageClass && <GenerateSessionsForm classId={cls.id} />}
+            {canManageClass && (
+              <GenerateSessionsForm classId={cls.id} totalSessions={cls.totalSessions} existingSessionCount={cls.sessions.length} />
+            )}
+            {canManageClass && cls.status === "ACTIVE" && activeEnrollments.length > 0 ? (
+              <CompleteClassButton
+                classId={cls.id}
+                className={cls.className}
+                nextClassName={cls.nextClass?.className ?? null}
+                needTransferCount={completionNeedTransferCount}
+                completedCount={completionReadyCount}
+                transferValueAmount={completionTransferValueAmount}
+                freeExtraSessions={completionFreeExtraSessions}
+              />
+            ) : null}
             <ClassEditForm
               cls={{
                 id: cls.id,
@@ -402,6 +456,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                 totalSessions: cls.totalSessions,
                 startDate: cls.startDate ? cls.startDate.toISOString() : null,
                 expectedEndDate: cls.expectedEndDate ? cls.expectedEndDate.toISOString() : null,
+                nextClassId: cls.nextClassId,
                 notes: cls.notes,
                 roadmapItems: roadmapItems.map((item) => ({
                   sessionNumber: item.sessionNumber,
@@ -413,17 +468,14 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                 })),
               }}
               courses={courses}
+              classOptions={continuationClassOptions}
               renderSummary={false}
               triggerLabel="Sửa"
               triggerClassName="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] hover:-translate-y-0.5 transition-all"
             />
-            <Link href={`/classes/${cls.id}/edit`} className="hidden">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              Chỉnh sửa
-            </Link>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* ── KPI 5 CARDS ── */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
@@ -680,7 +732,9 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                 <div>
                                   <p className="font-bold text-[#0f1729] mb-2">Chưa có buổi học thực tế nào</p>
                                   <p className="text-sm text-[#64748b] mb-4">Bấm <strong>Sinh buổi học</strong> để tạo buổi từ lịch chuẩn</p>
-                                  {canManageClass && <GenerateSessionsForm classId={cls.id} />}
+                                  {canManageClass && (
+                    <GenerateSessionsForm classId={cls.id} totalSessions={cls.totalSessions} existingSessionCount={cls.sessions.length} />
+                  )}
                                 </div>
                               </div>
                             </td>
@@ -841,7 +895,9 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                         <div>
                           <p className="font-bold text-[#0f1729] mb-2">Chưa có buổi học thực tế nào</p>
                           <p className="text-sm text-[#64748b] mb-4">Bấm <strong>Sinh buổi học</strong> để tạo buổi từ lịch chuẩn</p>
-                          {canManageClass && <GenerateSessionsForm classId={cls.id} />}
+                          {canManageClass && (
+                    <GenerateSessionsForm classId={cls.id} totalSessions={cls.totalSessions} existingSessionCount={cls.sessions.length} />
+                  )}
                         </div>
                       </div>
                     </div>
@@ -863,7 +919,14 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                     title="Học viên trong lớp"
                     description="Theo dõi nhanh trạng thái học, phí đang treo và xử lý rút lớp ngay tại đây."
                   />
-                  {canManageClass && <EnrollStudentForm classId={cls.id} courseTotalAmount={(cls.tuitionPerSession ?? 0) * (cls.totalSessions ?? 0)} />}
+                  {canManageClass && (
+                    <EnrollStudentForm
+                      classId={cls.id}
+                      courseTotalAmount={(cls.tuitionPerSession ?? 0) * (cls.totalSessions ?? 0)}
+                      defaultMainSessionCount={cls.totalSessions ?? 0}
+                      defaultUnitPrice={cls.tuitionPerSession ?? cls.course?.tuitionPerSession ?? 0}
+                    />
+                  )}
                 </div>
                 {/* Desktop: Full 5-column table */}
                 <div className="hidden lg:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -887,6 +950,12 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                         const activeScholarship = enrollment.scholarships.find((sc) => sc.effectiveFrom <= now && (!sc.effectiveTo || sc.effectiveTo >= now));
                         const latestAttendance = enrollment.student.attendances[0] ?? null;
                         const latestBookIssue = enrollment.student.bookIssues[0] ?? null;
+                        const snapshot = learningSnapshotByEnrollment.get(enrollment.id)!;
+                        const purchasedMainSessions = snapshot.entitledMainSessions;
+                        const unitPrice = snapshot.unitPrice;
+                        const attendedMainSessions = snapshot.completedMainSessions;
+                        const remainingMainSessions = snapshot.remainingMainSessions;
+                        const remainingMainValue = snapshot.remainingValue;
                         return (
                           <tr key={enrollment.id} className="border-b border-[#f0f4f8] align-top hover:bg-[#f8faff] last:border-0 transition-colors">
                             <td className="py-4 px-5">
@@ -906,6 +975,14 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                     </span>
                                   </div>
                                   <p className="mt-1 text-xs text-[#64748b]">Vào lớp từ {formatDate(enrollment.enrollDate)}</p>
+                                  <p className="mt-1 text-xs font-semibold text-[#2563eb]">
+                                    Đã học {attendedMainSessions}/{purchasedMainSessions} · còn {remainingMainSessions} buổi · {formatVnd(remainingMainValue)}
+                                  </p>
+                                  {snapshot.manualExtraSessions > 0 ? (
+                                    <p className="mt-1 text-xs font-semibold text-emerald-700">
+                                      Có {snapshot.manualExtraSessions} buổi cộng linh động
+                                    </p>
+                                  ) : null}
                                 </div>
                               </div>
                             </td>
@@ -949,6 +1026,21 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                     Mở hồ sơ
                                   </Link>
                                   {canManageClass ? <EnrollmentRowActions enrollmentId={enrollment.id} status={enrollment.status} /> : null}
+                                  {canManageClass && enrollment.status === "ACTIVE" ? (
+                                    <AddEnrollmentSessionsButton enrollmentId={enrollment.id} studentName={enrollment.student.fullName} />
+                                  ) : null}
+                                  {canManageClass && enrollment.status === "ACTIVE" && remainingMainSessions > 0 ? (
+                                    <TransferEnrollmentButton
+                                      enrollmentId={enrollment.id}
+                                      currentClassName={cls.className}
+                                      remainingSessions={remainingMainSessions}
+                                      paidRemainingSessions={snapshot.paidRemainingSessions}
+                                      manualExtraRemainingSessions={snapshot.manualExtraRemainingSessions}
+                                      oldUnitPrice={unitPrice}
+                                      defaultTargetClassId={cls.nextClassId}
+                                      classOptions={continuationClassOptions}
+                                    />
+                                  ) : null}
                                 </div>
                               </div>
                             </td>
@@ -980,6 +1072,12 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                     const activeScholarship = enrollment.scholarships.find((sc) => sc.effectiveFrom <= now && (!sc.effectiveTo || sc.effectiveTo >= now));
                     const latestAttendance = enrollment.student.attendances[0] ?? null;
                     const latestBookIssue = enrollment.student.bookIssues[0] ?? null;
+                    const snapshot = learningSnapshotByEnrollment.get(enrollment.id)!;
+                    const purchasedMainSessions = snapshot.entitledMainSessions;
+                    const unitPrice = snapshot.unitPrice;
+                    const attendedMainSessions = snapshot.completedMainSessions;
+                    const remainingMainSessions = snapshot.remainingMainSessions;
+                    const remainingMainValue = snapshot.remainingValue;
 
                     return (
                       <div key={enrollment.id} className="rounded-2xl border border-[#e5eaf7] bg-white p-4 shadow-sm">
@@ -1004,6 +1102,14 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                               </span>
                             </div>
                             <p className="mt-1.5 text-xs text-[#64748b]">Vào lớp từ {formatDate(enrollment.enrollDate)}</p>
+                            <p className="mt-1 text-xs font-semibold text-[#2563eb]">
+                              Đã học {attendedMainSessions}/{purchasedMainSessions} · còn {remainingMainSessions} buổi · {formatVnd(remainingMainValue)}
+                            </p>
+                            {snapshot.manualExtraSessions > 0 ? (
+                              <p className="mt-1 text-xs font-semibold text-emerald-700">
+                                Có {snapshot.manualExtraSessions} buổi cộng linh động
+                              </p>
+                            ) : null}
                           </div>
                         </div>
 
@@ -1068,6 +1174,21 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                             Mở hồ sơ học viên
                           </Link>
                           {canManageClass && <EnrollmentRowActions enrollmentId={enrollment.id} status={enrollment.status} />}
+                          {canManageClass && enrollment.status === "ACTIVE" ? (
+                            <AddEnrollmentSessionsButton enrollmentId={enrollment.id} studentName={enrollment.student.fullName} />
+                          ) : null}
+                          {canManageClass && enrollment.status === "ACTIVE" && remainingMainSessions > 0 ? (
+                            <TransferEnrollmentButton
+                              enrollmentId={enrollment.id}
+                              currentClassName={cls.className}
+                              remainingSessions={remainingMainSessions}
+                              paidRemainingSessions={snapshot.paidRemainingSessions}
+                              manualExtraRemainingSessions={snapshot.manualExtraRemainingSessions}
+                              oldUnitPrice={unitPrice}
+                              defaultTargetClassId={cls.nextClassId}
+                              classOptions={continuationClassOptions}
+                            />
+                          ) : null}
                         </div>
                       </div>
                     );
@@ -1135,6 +1256,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                             totalSessions: cls.totalSessions,
                             startDate: cls.startDate ? cls.startDate.toISOString() : null,
                             expectedEndDate: cls.expectedEndDate ? cls.expectedEndDate.toISOString() : null,
+                            nextClassId: cls.nextClassId,
                             notes: cls.notes,
                             roadmapItems: roadmapItems.map((item) => ({
                               sessionNumber: item.sessionNumber,
@@ -1146,6 +1268,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                             })),
                           }}
                           courses={courses}
+                          classOptions={continuationClassOptions}
                           renderSummary={false}
                           triggerClassName="hidden"
                         />

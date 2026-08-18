@@ -23,9 +23,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Thiếu kỳ thu hoặc danh sách phiếu cần tải." }, { status: 400 });
   }
 
-  const result = await buildBatchInvoiceArtifact(periodId, chargeIds, mode);
+  let result;
+  try {
+    result = await buildBatchInvoiceArtifact(periodId, chargeIds, mode);
+  } catch (error) {
+    console.error("Batch invoice export failed", error);
+    return NextResponse.json({ error: "Không tạo được file xuất phiếu. Vui lòng kiểm tra lại dữ liệu phiếu học phí." }, { status: 500 });
+  }
+
   if (!result) {
-    return NextResponse.json({ error: "Không tạo được file xuất phiếu." }, { status: 404 });
+    return NextResponse.json({ error: "Không tìm thấy phiếu phù hợp để xuất." }, { status: 404 });
   }
 
   return new NextResponse(result.artifact, {

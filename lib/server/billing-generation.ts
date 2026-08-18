@@ -8,6 +8,7 @@ import {
   monthKey,
 } from "@/lib/server/tuition-rules";
 import { computeBalanceSnapshot, consumeCreditBalances } from "@/lib/server/balance";
+import { resolvePurchasedMainSessions } from "@/lib/server/enrollment-learning";
 
 type GenerationException = {
   studentId: string;
@@ -30,6 +31,8 @@ type PendingChargeDraft =
         absentCount: number;
         deductedCount: number;
         unitPrice: number;
+        mainTuitionAmount?: number;
+        paidCatchupAmount?: number;
         tuitionAmount: number;
         materialsAmount: number;
         billingModel: "INSTALLMENT";
@@ -52,6 +55,8 @@ type PendingChargeDraft =
         absentCount: number;
         deductedCount: number;
         unitPrice: number;
+        mainTuitionAmount?: number;
+        paidCatchupAmount?: number;
         tuitionAmount: number;
         materialsAmount: number;
         billingModel: "PERIOD";
@@ -395,7 +400,7 @@ export async function generateChargesForPeriod(periodId: string) {
     const adjustmentPct = adjustments.reduce((sum, item) => sum + item.percentage, 0);
     const unitPrice = computeEffectiveUnitPrice(basePrice, scholarshipPct, adjustmentPct);
     const deductedCount = chargeToUpdate?.deductedCount ?? 0;
-    const tuitionAmount = computeTuitionAmount(sessionCount, absentCount, deductedCount, unitPrice);
+    const tuitionAmount = computeTuitionAmount(sessionCount, 0, deductedCount, unitPrice);
     const materialsAmount = materials._sum.amount ?? 0;
 
     pendingDrafts.push({
@@ -413,6 +418,8 @@ export async function generateChargesForPeriod(periodId: string) {
         absentCount,
         deductedCount,
         unitPrice,
+        mainTuitionAmount: tuitionAmount,
+        paidCatchupAmount: 0,
         tuitionAmount,
         materialsAmount,
         billingModel: "PERIOD",
@@ -538,7 +545,7 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
   }
 
   const cls = enrollment.class;
-  const totalSessions = cls.totalSessions;
+  const totalSessions = resolvePurchasedMainSessions(enrollment);
   if (!totalSessions || totalSessions <= 0) {
     return { error: `Lớp "${cls.className}" chưa cấu hình tổng số buổi (totalSessions), không thể tính học phí trọn khóa.` as const };
   }
@@ -577,7 +584,7 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
     }
   }
 
-  const basePrice = cls.tuitionPerSession ?? cls.course?.tuitionPerSession ?? 0;
+  const basePrice = enrollment.tuitionUnitPriceSnapshot ?? cls.tuitionPerSession ?? cls.course?.tuitionPerSession ?? 0;
   const period = options?.billingPeriodId
     ? await prisma.billingPeriod.findUnique({ where: { id: options.billingPeriodId } })
     : await ensureBillingPeriod(cls.branchId, periodNameFromDate(enrollment.enrollDate));
@@ -617,10 +624,15 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
     }),
   ]);
 
-  const scholarshipPct = scholarships.reduce((sum, item) => sum + item.percentage, 0);
-  const adjustmentPct = adjustments.reduce((sum, item) => sum + item.percentage, 0);
-  const unitPrice = computeEffectiveUnitPrice(basePrice, scholarshipPct, adjustmentPct);
-  const tuitionAmount = totalSessions * unitPrice;
+  const scholarshipPct = enrollment.tuitionUnitPriceSnapshot ? 0 : scholarships.reduce((sum, item) => sum + item.percentage, 0);
+  const adjustmentPct = enrollment.tuitionUnitPriceSnapshot ? 0 : adjustments.reduce((sum, item) => sum + item.percentage, 0);
+  const unitPrice = enrollment.tuitionUnitPriceSnapshot ?? computeEffectiveUnitPrice(basePrice, scholarshipPct, adjustmentPct);
+  const paidCatchupUnitPrice = enrollment.paidCatchupUnitPrice ?? unitPrice;
+  const mainTuitionAmount = totalSessions * unitPrice;
+  const paidCatchupAmount = enrollment.paidCatchupSessionCount * paidCatchupUnitPrice;
+  const transferCreditAmount = Math.min(enrollment.transferredValueAmount, mainTuitionAmount + paidCatchupAmount);
+  const transferRemainderAmount = Math.max(0, enrollment.transferredValueAmount - (mainTuitionAmount + paidCatchupAmount));
+  const tuitionAmount = mainTuitionAmount + paidCatchupAmount - transferCreditAmount;
   const materialsAmount = detachedBookIssues.reduce((sum, item) => sum + item.amount, 0);
 
   const charge = await prisma.$transaction(async (tx) => {
@@ -649,12 +661,23 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
         absentCount: 0,
         deductedCount: 0,
         unitPrice,
+        mainTuitionAmount,
+        paidCatchupAmount,
+        transferCreditAmount,
+        transferRemainderAmount,
         tuitionAmount,
         materialsAmount,
         openingBalance,
         totalAmount,
         billingModel: "COURSE",
-        notes: `Học phí trọn khóa ${cls.className} (${totalSessions} buổi)`,
+        notes: [
+          `Hoc phi khoa chinh ${cls.className}: ${totalSessions} buoi x ${unitPrice.toLocaleString("vi-VN")}d`,
+          enrollment.paidCatchupSessionCount > 0
+            ? `Bo tro dau khoa: ${enrollment.paidCatchupSessionCount} buoi x ${paidCatchupUnitPrice.toLocaleString("vi-VN")}d`
+            : null,
+          transferCreditAmount > 0 ? `Bu tru chuyen lop: ${transferCreditAmount.toLocaleString("vi-VN")}d` : null,
+          transferRemainderAmount > 0 ? `Tien du sau quy doi: ${transferRemainderAmount.toLocaleString("vi-VN")}d` : null,
+        ].filter(Boolean).join(" · "),
         enrollmentId: enrollment.id,
       },
     });

@@ -183,17 +183,17 @@ const ROLE_ROUTES: Record<string, string[]> = {
   BRANCH_MANAGER: ["*"], // Toàn quyền trong phạm vi cơ sở (lọc theo branch ở tầng dữ liệu)
 
   // Giáo vụ / Học vụ — vận hành lớp học, học viên, không đụng tài chính/lương
-  REGISTRAR: ["/dashboard", "/leads", "/students", "/guardians", "/classes", "/calendar", "/timesheets", "/reports"],
+  REGISTRAR: ["/dashboard", "/leads", "/students", "/session-credits", "/guardians", "/classes", "/calendar", "/timesheets", "/reports"],
 
   // Tư vấn tuyển sinh — CRM là chính
-  ADMISSIONS: ["/dashboard", "/leads", "/guardians", "/calendar"],
+  ADMISSIONS: ["/dashboard", "/leads", "/students", "/session-credits", "/guardians", "/calendar"],
 
   // Lễ tân — CRM + hỗ trợ học vụ + thu học phí cơ bản (không truy cập lương/thu-chi)
-  RECEPTIONIST: ["/dashboard", "/leads", "/students", "/guardians", "/classes", "/calendar", "/tuition", "/inventory"],
+  RECEPTIONIST: ["/dashboard", "/leads", "/students", "/session-credits", "/guardians", "/classes", "/calendar", "/tuition", "/inventory"],
 
   // Kế toán / Thu ngân — tài chính là chính, thêm lịch để xem lịch tổng (đã có quyền
   // xem "schedule" ở role-matrix từ trước nhưng bị chặn nhầm ở đây, không vào được trang)
-  ACCOUNTANT: ["/dashboard", "/students", "/tuition", "/inventory", "/assets", "/cashbook", "/payroll", "/reports", "/calendar"],
+  ACCOUNTANT: ["/dashboard", "/students", "/session-credits", "/tuition", "/inventory", "/assets", "/cashbook", "/payroll", "/reports", "/calendar"],
 
   // Nhân sự / HR — chấm công, lương, hợp đồng, thêm lịch để xem lịch tổng (lý do như trên)
   HR: ["/dashboard", "/timesheets", "/payroll", "/assets", "/reports", "/calendar"],

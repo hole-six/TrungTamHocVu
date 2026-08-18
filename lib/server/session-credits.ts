@@ -16,7 +16,8 @@ export async function grantRemainingSessionCredits(
   tx: Prisma.TransactionClient,
   enrollment: { id: string; studentId: string; classId: string },
   remaining: number,
-  reason: string
+  reason: string,
+  origin = "WITHDRAWAL_REMAINING",
 ): Promise<{ granted: number }> {
   if (remaining <= 0) return { granted: 0 };
 
@@ -44,6 +45,7 @@ export async function grantRemainingSessionCredits(
         enrollmentId: enrollment.id,
         sourceSessionId: session.id,
         status: "AVAILABLE",
+        origin,
         notes: reason,
       },
     });
@@ -57,6 +59,7 @@ export async function grantRemainingSessionCredits(
         enrollmentId: enrollment.id,
         sourceSessionId: null,
         status: "AVAILABLE",
+        origin,
         notes: reason,
       },
     });

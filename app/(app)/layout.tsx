@@ -25,7 +25,7 @@ async function getNavBadges(
   const todayStart = startOfDay(today);
   const todayEnd = endOfDay(today);
 
-  const [openLeads, activeStudents, branchSessionsToday, mySessionsToday, openBillingPeriods, openPayrollRuns] = await Promise.all([
+  const [openLeads, activeStudents, openSessionCredits, branchSessionsToday, mySessionsToday, openBillingPeriods, openPayrollRuns] = await Promise.all([
     prisma.lead.count({ where: { ...branchWhere, status: { notIn: ["ENROLLED", "LOST"] } } }),
     role !== "TEACHER" && role !== "TEACHING_ASSISTANT"
       ? prisma.student.findMany({
@@ -44,6 +44,13 @@ async function getNavBadges(
           },
         })
       : Promise.resolve([]),
+    prisma.sessionCredit.count({
+      where: {
+        status: "AVAILABLE",
+        origin: { in: ["ABSENCE", "PAID_CATCHUP"] },
+        student: activeBranchId ? { branchId: activeBranchId } : {},
+      },
+    }),
     prisma.classSession.count({
       where: activeBranchId
         ? { class: { branchId: activeBranchId }, sessionDate: { gte: todayStart, lte: todayEnd } }
@@ -76,6 +83,7 @@ async function getNavBadges(
   return {
     "/leads": openLeads,
     "/students": studentsWithoutPortal,
+    "/session-credits": openSessionCredits,
     "/guardians": convertedStudentsWithoutPortal,
     "/classes": branchSessionsToday,
     "/calendar": role === "TEACHER" || role === "TEACHING_ASSISTANT" ? mySessionsToday : branchSessionsToday,

@@ -12,7 +12,14 @@ export async function GET(_req: Request, { params }: { params: { chargeId: strin
     return NextResponse.json({ error: "Bạn không có quyền tải phiếu học phí." }, { status: 403 });
   }
 
-  const result = await buildSingleInvoicePdf(params.chargeId);
+  let result;
+  try {
+    result = await buildSingleInvoicePdf(params.chargeId);
+  } catch (error) {
+    console.error("Single invoice export failed", error);
+    return NextResponse.json({ error: "Không tạo được file phiếu học phí. Vui lòng kiểm tra lại dữ liệu phiếu học phí." }, { status: 500 });
+  }
+
   if (!result) {
     return NextResponse.json({ error: "Không tìm thấy phiếu học phí." }, { status: 404 });
   }

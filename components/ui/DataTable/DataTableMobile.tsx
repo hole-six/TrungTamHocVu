@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Column, Action } from "./DataTable";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
@@ -32,6 +32,8 @@ type DataTableMobileProps<T> = {
   secondaryColumns?: string[];
   className?: string;
   defaultSearchValue?: string;
+  /** Xem mô tả ở DataTable.tsx — cùng 1 nội dung được dùng cho cả bản desktop lẫn mobile. */
+  renderExpanded?: (row: T) => ReactNode;
 };
 
 export default function DataTableMobile<T extends Record<string, any>>({
@@ -50,6 +52,7 @@ export default function DataTableMobile<T extends Record<string, any>>({
   secondaryColumns = [],
   className = "",
   defaultSearchValue = "",
+  renderExpanded,
 }: DataTableMobileProps<T>) {
   const [searchQuery, setSearchQuery] = useState(defaultSearchValue);
   const [expandedRows, setExpandedRows] = useState<Set<any>>(new Set());
@@ -176,7 +179,7 @@ export default function DataTableMobile<T extends Record<string, any>>({
             const primary = getPrimaryColumn();
             const secondary = getSecondaryColumns();
             const other = getOtherColumns();
-            const hasMore = other.length > 0;
+            const hasMore = other.length > 0 || !!renderExpanded;
 
             return (
               <div
@@ -240,7 +243,11 @@ export default function DataTableMobile<T extends Record<string, any>>({
                   ) : null}
                 </div>
 
-                {isExpanded && hasMore ? (
+                {isExpanded && renderExpanded ? (
+                  <div className="border-t px-4 py-3" style={{ borderColor: "var(--border-primary)" }}>
+                    {renderExpanded(row)}
+                  </div>
+                ) : isExpanded && hasMore ? (
                   <div className="space-y-2 border-t px-4 py-3" style={{ borderColor: "var(--border-primary)" }}>
                     {other.map((column) => (
                       <div key={column.key} className="flex items-start justify-between gap-3">

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
 import { getCreateSnapshotButtonLabel, getLiveFallbackLabel, getReportEffectiveBadge, getReportModeLabel, getSnapshotTimestampLabel } from "@/lib/reporting-ui";
-import { exportSectionsToExcel } from "@/lib/export-utils";
+import { exportSectionsToExcel, formatVnd } from "@/lib/export-utils";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 
 const REPORTS_TOUR_STEPS: TourStep[] = [
@@ -52,7 +52,6 @@ type ReportsResponse = {
   reportHp: null | { periodName: string|null; totals: { sessionCount: number; materialsAmount: number; openingBalance: number; tuitionAmount: number; billedAmount: number; collectedAmount: number; remainingAmount: number }; classes: Array<{ classCode: string; className: string; sessionCount: number; materialsAmount: number; openingBalance: number; tuitionAmount: number; billedAmount: number; collectedAmount: number; remainingAmount: number; studentCount: number }> };
 };
 
-function fvnd(n: number) { return `${n.toLocaleString("vi-VN")}đ`; }
 function pct(a: number, b: number) { return b > 0 ? Math.round((a / b) * 100) : 0; }
 function getDefaultPeriodKey() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`; }
 
@@ -135,15 +134,15 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
           { metric: "Học viên đang học", value: data.dashboard.studentActive },
           { metric: "Tổng lead", value: data.dashboard.totalLeads },
           { metric: "Tỉ lệ chuyển đổi", value: `${data.dashboard.conversionRate}%` },
-          { metric: "Tổng thu", value: fvnd(data.dashboard.totalThu) },
-          { metric: "Tổng chi", value: fvnd(data.dashboard.totalChi) },
+          { metric: "Tổng thu", value: formatVnd(data.dashboard.totalThu) },
+          { metric: "Tổng chi", value: formatVnd(data.dashboard.totalChi) },
         ] },
       { title: "Pipeline lead", columns: [{ key: "status", label: "Trạng thái" }, { key: "count", label: "Số lượng" }],
         rows: Object.entries(data.dashboard.leadPipeline).map(([s, c]) => ({ status: LEAD_STATUS_LABEL[s as keyof typeof LEAD_STATUS_LABEL] ?? s, count: c })) },
       { title: "Công nợ", columns: [{ key: "student", label: "Học viên" }, { key: "class", label: "Lớp" }, { key: "guardian", label: "PH" }, { key: "portal", label: "Portal" }, { key: "debt", label: "Nợ" }],
-        rows: data.dashboard.debtors.map((d) => ({ student: `${d.fullName} (${d.studentCode})`, class: d.className ?? "", guardian: d.guardianName ?? "", portal: d.guardianPortalEmail ?? "", debt: fvnd(d.outstanding) })) },
+        rows: data.dashboard.debtors.map((d) => ({ student: `${d.fullName} (${d.studentCode})`, class: d.className ?? "", guardian: d.guardianName ?? "", portal: d.guardianPortalEmail ?? "", debt: formatVnd(d.outstanding) })) },
       { title: "Học phí theo lớp", columns: [{ key: "className", label: "Lớp" }, { key: "sessionCount", label: "Buổi" }, { key: "billed", label: "Phải thu" }, { key: "collected", label: "Đã thu" }],
-        rows: data.dashboard.tuitionByClass.map((r) => ({ ...r, billed: fvnd(r.billed), collected: fvnd(r.collected) })) },
+        rows: data.dashboard.tuitionByClass.map((r) => ({ ...r, billed: formatVnd(r.billed), collected: formatVnd(r.collected) })) },
     ], `bao-cao_${data.meta.periodKey ?? periodKey}`, "BaoCao");
   };
 
@@ -155,7 +154,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
     <div className="space-y-6 pb-16">
 
       {/* ── Header + filters ─────────────────────────── */}
-      <div className="rounded-2xl border border-[#e5eaf7] bg-gradient-to-b from-white to-[#f8faff] p-6 shadow-sm" data-tour="reports-header">
+      <div className="rounded-2xl border border-hairline bg-gradient-to-b from-white to-canvas-pearl p-6 shadow-sm" data-tour="reports-header">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-[#0f1729]">Báo cáo tổng hợp</h1>
@@ -231,8 +230,8 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
             <KpiTile label="Tổng lead" value={String(data.dashboard.totalLeads)} color="#ea580c" />
             <KpiTile label="Tỉ lệ CĐ" value={`${data.dashboard.conversionRate}%`} sub="lead → HV" color="#10b981" />
             <KpiTile label="Cần cấp portal" value={String(data.dashboard.studentsWithoutPortal)} color="#f59e0b" />
-            <KpiTile label="Tổng thu" value={fvnd(data.dashboard.totalThu)} color="#10b981" />
-            <KpiTile label="Dư / Thâm" value={fvnd(data.dashboard.totalThu - data.dashboard.totalChi)} color={data.dashboard.totalThu - data.dashboard.totalChi >= 0 ? "#10b981" : "#ef4444"} />
+            <KpiTile label="Tổng thu" value={formatVnd(data.dashboard.totalThu)} color="#10b981" />
+            <KpiTile label="Dư / Thâm" value={formatVnd(data.dashboard.totalThu - data.dashboard.totalChi)} color={data.dashboard.totalThu - data.dashboard.totalChi >= 0 ? "#10b981" : "#ef4444"} />
           </div>
 
           {/* ── Row 2: Pipeline + Revenue ─────────────── */}
@@ -280,8 +279,8 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
                         <div className={`h-full rounded-full ${p >= 90 ? "bg-[#10b981]" : p >= 60 ? "bg-[#f59e0b]" : "bg-[#ef4444]"}`} style={{ width: `${p}%` }} />
                       </div>
                       <div className="flex justify-between text-xs text-[#64748b]">
-                        <span>Phải thu {fvnd(row.billed)}</span>
-                        <span className="font-semibold text-[#0f1729]">Đã thu {fvnd(row.collected)}</span>
+                        <span>Phải thu {formatVnd(row.billed)}</span>
+                        <span className="font-semibold text-[#0f1729]">Đã thu {formatVnd(row.collected)}</span>
                       </div>
                     </div>
                   );
@@ -299,7 +298,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
                   <div key={d.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <Link href={`/students/${d.id}`} className="font-bold text-[#f97316] hover:text-[#ea580c] truncate">{d.fullName}</Link>
-                      <span className="text-sm font-black text-[#ef4444] whitespace-nowrap">{fvnd(d.outstanding)}</span>
+                      <span className="text-sm font-black text-[#ef4444] whitespace-nowrap">{formatVnd(d.outstanding)}</span>
                     </div>
                     <p className="mt-1 text-xs text-[#64748b]">
                       {d.className ?? "Chưa có lớp"} · {d.guardianName ?? "Chưa có PH"} ·{" "}
@@ -335,16 +334,16 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div>
                     <p className="text-xs text-[#64748b]">Tổng thu</p>
-                    <p className="text-lg font-black text-[#10b981]">{fvnd(data.dashboard.totalThu)}</p>
+                    <p className="text-lg font-black text-[#10b981]">{formatVnd(data.dashboard.totalThu)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-[#64748b]">Tổng chi</p>
-                    <p className="text-lg font-black text-[#ef4444]">{fvnd(data.dashboard.totalChi)}</p>
+                    <p className="text-lg font-black text-[#ef4444]">{formatVnd(data.dashboard.totalChi)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-[#64748b]">Số dư</p>
                     <p className={`text-lg font-black ${data.dashboard.totalThu - data.dashboard.totalChi >= 0 ? "text-[#f97316]" : "text-[#f59e0b]"}`}>
-                      {fvnd(data.dashboard.totalThu - data.dashboard.totalChi)}
+                      {formatVnd(data.dashboard.totalThu - data.dashboard.totalChi)}
                     </p>
                   </div>
                 </div>
@@ -371,11 +370,11 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
                         <tr key={row.className} className="border-b border-[#f0f4f8] last:border-0 hover:bg-[#f8faff] transition">
                           <td className="px-4 py-3 font-bold text-[#0f1729]">{row.className}</td>
                           <td className="px-4 py-3 text-[#64748b]">{row.sessionCount}</td>
-                          <td className="px-4 py-3 text-[#475569]">{fvnd(row.tuitionTotal)}</td>
-                          <td className="px-4 py-3 text-[#475569]">{fvnd(row.materialsTotal)}</td>
-                          <td className="px-4 py-3 font-semibold text-[#0f1729]">{fvnd(row.billed)}</td>
-                          <td className="px-4 py-3 font-semibold text-[#10b981]">{fvnd(row.collected)}</td>
-                          <td className={`px-4 py-3 font-bold ${remaining > 0 ? "text-[#ef4444]" : "text-[#10b981]"}`}>{fvnd(remaining)}</td>
+                          <td className="px-4 py-3 text-[#475569]">{formatVnd(row.tuitionTotal)}</td>
+                          <td className="px-4 py-3 text-[#475569]">{formatVnd(row.materialsTotal)}</td>
+                          <td className="px-4 py-3 font-semibold text-[#0f1729]">{formatVnd(row.billed)}</td>
+                          <td className="px-4 py-3 font-semibold text-[#10b981]">{formatVnd(row.collected)}</td>
+                          <td className={`px-4 py-3 font-bold ${remaining > 0 ? "text-[#ef4444]" : "text-[#10b981]"}`}>{formatVnd(remaining)}</td>
                         </tr>
                       );
                     })}
@@ -385,11 +384,11 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
                       <tr>
                         <td className="px-4 py-3 rounded-l-xl text-[#0f1729]">Tổng cộng</td>
                         <td className="px-4 py-3 text-[#0f1729]">{data.reportHp.totals.sessionCount}</td>
-                        <td className="px-4 py-3 text-[#0f1729]">{fvnd(data.reportHp.totals.tuitionAmount)}</td>
-                        <td className="px-4 py-3 text-[#0f1729]">{fvnd(data.reportHp.totals.materialsAmount)}</td>
-                        <td className="px-4 py-3 text-[#0f1729]">{fvnd(data.reportHp.totals.billedAmount)}</td>
-                        <td className="px-4 py-3 text-[#10b981]">{fvnd(data.reportHp.totals.collectedAmount)}</td>
-                        <td className="px-4 py-3 rounded-r-xl text-[#ef4444]">{fvnd(data.reportHp.totals.remainingAmount)}</td>
+                        <td className="px-4 py-3 text-[#0f1729]">{formatVnd(data.reportHp.totals.tuitionAmount)}</td>
+                        <td className="px-4 py-3 text-[#0f1729]">{formatVnd(data.reportHp.totals.materialsAmount)}</td>
+                        <td className="px-4 py-3 text-[#0f1729]">{formatVnd(data.reportHp.totals.billedAmount)}</td>
+                        <td className="px-4 py-3 text-[#10b981]">{formatVnd(data.reportHp.totals.collectedAmount)}</td>
+                        <td className="px-4 py-3 rounded-r-xl text-[#ef4444]">{formatVnd(data.reportHp.totals.remainingAmount)}</td>
                       </tr>
                     </tfoot>
                   )}
@@ -453,7 +452,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
                           {g.items.map((l) => (
                             <div key={l.name} className="rounded-lg bg-[#f8faff] border border-[#e5eaf7] px-3 py-2">
                               <p className="text-xs font-bold text-[#0f1729] truncate">{l.name}</p>
-                              <p className="text-[10px] text-[#64748b]">{l.hours}h · {fvnd(l.amount)}</p>
+                              <p className="text-[10px] text-[#64748b]">{l.hours}h · {formatVnd(l.amount)}</p>
                             </div>
                           ))}
                           {g.items.length === 0 && <p className="text-xs text-[#94a3b8]">Chưa có dữ liệu.</p>}
@@ -470,15 +469,15 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
               <SectionCard title="Giáo trình & sách">
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   <div className="rounded-xl bg-[#fff7ed] border border-[#fed7aa] p-3 text-center">
-                    <p className="text-lg font-black text-[#c2410c]">{fvnd(data.dashboard.materialsTotal)}</p>
+                    <p className="text-lg font-black text-[#c2410c]">{formatVnd(data.dashboard.materialsTotal)}</p>
                     <p className="text-xs text-[#f97316]">Doanh thu sách</p>
                   </div>
                   <div className="rounded-xl bg-[#fef2f2] border border-[#fecaca] p-3 text-center">
-                    <p className="text-lg font-black text-[#b91c1c]">{fvnd(data.dashboard.materialsCost)}</p>
+                    <p className="text-lg font-black text-[#b91c1c]">{formatVnd(data.dashboard.materialsCost)}</p>
                     <p className="text-xs text-[#ef4444]">Giá nhập</p>
                   </div>
                   <div className={`rounded-xl border p-3 text-center ${data.dashboard.materialsProfit >= 0 ? "bg-[#ecfdf5] border-[#a7f3d0]" : "bg-[#fef9c3] border-[#fde047]"}`}>
-                    <p className={`text-lg font-black ${data.dashboard.materialsProfit >= 0 ? "text-[#065f46]" : "text-[#854d0e]"}`}>{fvnd(data.dashboard.materialsProfit)}</p>
+                    <p className={`text-lg font-black ${data.dashboard.materialsProfit >= 0 ? "text-[#065f46]" : "text-[#854d0e]"}`}>{formatVnd(data.dashboard.materialsProfit)}</p>
                     <p className="text-xs text-[#64748b]">Lợi nhuận</p>
                   </div>
                 </div>
@@ -487,7 +486,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
                     <div key={book.name} className="flex items-center gap-3 rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-3 py-2">
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#f97316] text-[10px] font-black text-white">{i + 1}</span>
                       <span className="flex-1 text-sm font-semibold text-[#0f1729] truncate">{book.name}</span>
-                      <span className="text-xs font-bold text-[#64748b]">{fvnd(book.total)}</span>
+                      <span className="text-xs font-bold text-[#64748b]">{formatVnd(book.total)}</span>
                     </div>
                   ))}
                 </div>

@@ -71,6 +71,8 @@ type LeadsTableProps = {
 };
 
 const LEAD_STATUS_CONFIG: Record<string, { label: string; color: string; activeColor: string; dot: string }> = {
+  UNCONTACTED: { label: "Chưa liên hệ", color: "border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]", activeColor: "border-[#1d4ed8] bg-[#1d4ed8] text-white", dot: "bg-[#3b82f6]" },
+  CLOSED:      { label: "Chưa đạt / không có nhu cầu", color: "border-[#fecaca] bg-[#fef2f2] text-[#b91c1c]", activeColor: "border-[#b91c1c] bg-[#b91c1c] text-white", dot: "bg-[#ef4444]" },
   NEW:         { label: LEAD_STATUS_LABEL.NEW,         color: "border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]",   activeColor: "border-[#1d4ed8] bg-[#1d4ed8] text-white",   dot: "bg-[#3b82f6]" },
   CONTACTING:  { label: LEAD_STATUS_LABEL.CONTACTING,  color: "border-[#a5f3fc] bg-[#ecfeff] text-[#0e7490]",   activeColor: "border-[#0e7490] bg-[#0e7490] text-white",   dot: "bg-[#06b6d4]" },
   APPOINTED:   { label: LEAD_STATUS_LABEL.APPOINTED,   color: "border-[#c4b5fd] bg-[#f5f3ff] text-[#6d28d9]",   activeColor: "border-[#6d28d9] bg-[#6d28d9] text-white",   dot: "bg-[#8b5cf6]" },
@@ -326,6 +328,7 @@ export default function LeadsTable({
       label: "Trạng thái",
       align: "center",
       render: (value, row) => {
+        const isConverted = Boolean(row.hasStudent || row.convertedStudentCode || value === "ENROLLED");
         const options = value === "ENROLLED" ? [value] : LEAD_STATUSES.filter((s) => s !== "ENROLLED");
         const cfg = LEAD_STATUS_CONFIG[value] || LEAD_STATUS_CONFIG.NEW;
         return (
@@ -335,7 +338,7 @@ export default function LeadsTable({
                 <span className={`ml-2 h-1.5 w-1.5 shrink-0 rounded-full ${cfg.dot}`} />
                 <select
                   value={value}
-                  disabled={statusSavingId === row.id}
+                  disabled={statusSavingId === row.id || isConverted}
                   onChange={(e) => {
                     e.stopPropagation();
                     if (e.target.value !== value) void changeLeadStatus(row.id, e.target.value);
@@ -358,7 +361,7 @@ export default function LeadsTable({
               </span>
             )}
 
-            {value === "QUALIFIED" && !row.hasStudent && canUpdate("leads", userRole) && (
+            {value === "QUALIFIED" && !isConverted && canUpdate("leads", userRole) && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); void convertToStudent(row.id); }}
@@ -516,8 +519,8 @@ export default function LeadsTable({
   // ENROLLED đã có học viên thật, việc theo dõi tiếp thuộc module Học viên — không
   // còn cần chip lọc riêng ở CRM này nữa (đã loại khỏi danh sách mặc định rồi).
   // LOST vẫn giữ vì còn có thể quay lại liên hệ, chỉ tách/làm mờ khỏi pipeline chính.
-  const activeStatusOptions = statusOptions.filter((option) => option.key !== "ENROLLED" && option.key !== "LOST");
-  const closedStatusOptions = statusOptions.filter((option) => option.key === "LOST");
+  const activeStatusOptions = statusOptions;
+  const closedStatusOptions: { key: string; label: string; count: number }[] = [];
 
   function statusChipClass(key: string, isActive: boolean, count: number) {
     const cfg = LEAD_STATUS_CONFIG[key];
@@ -528,7 +531,7 @@ export default function LeadsTable({
     return `${base} ${cfg.color} hover:shadow-sm hover:scale-[1.01]`;
   }
 
-  const totalActive = statusOptions.filter((o) => o.key !== "ENROLLED").reduce((s, o) => s + o.count, 0);
+  const totalActive = statusOptions.reduce((s, o) => s + o.count, 0);
 
   const filterChips = (
     <div className="flex w-full flex-col gap-3" data-tour="leads-filters">

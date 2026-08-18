@@ -31,6 +31,13 @@ export const NAV_ITEMS: NavItem[] = [
     sections: ["Danh sách học viên", "Ghi danh", "Lịch sử trạng thái", "Công nợ", "Thanh toán", "Giáo trình"],
   },
   {
+    href: "/session-credits",
+    label: "Bổ trợ",
+    status: "live",
+    description: "Bảng xử lý bổ trợ vắng cần bài và bổ trợ đầu khóa theo từng học viên.",
+    sections: ["Bổ trợ vắng", "Bổ trợ đầu khóa", "Lịch sử đã bổ trợ"],
+  },
+  {
     href: "/guardians",
     label: "Phụ huynh",
     status: "live",

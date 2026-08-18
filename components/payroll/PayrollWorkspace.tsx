@@ -11,6 +11,8 @@ import AddPayrollLineForm from "@/components/payroll/AddPayrollLineForm";
 import PayrollRateCsvTools from "@/components/payroll/PayrollRateCsvTools";
 import PayrollEmployeeDrawer from "@/components/payroll/PayrollEmployeeDrawer";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
+import type { Column, Action } from "@/components/ui/DataTable/DataTable";
 import { PAYROLL_RUN_STATUS_LABEL } from "@/lib/server/payroll-rules";
 import type { PayrollEmployeeRow } from "@/lib/server/payroll-row-builder";
 
@@ -207,6 +209,174 @@ export default function PayrollWorkspace({
 
   const selectedRow = selectedEmployeeId ? rows.find((row) => row.id === selectedEmployeeId) ?? null : null;
   const canEditPayrollLine = Boolean(run && permissions.canManagePayrollRuns && ["DRAFT", "CALCULATED", "REVIEWED"].includes(run.status));
+
+  const columns: Column<PayrollEmployeeRow>[] = [
+    {
+      key: "fullName",
+      label: "Nhân sự",
+      render: (_value, row) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#f97316] to-[#ea580c] text-sm font-black text-white">
+            {row.fullName.charAt(0)}
+          </div>
+          <div>
+            <button type="button" onClick={() => openEmployee(row.id)} className="text-left font-bold text-[#111827] transition hover:text-[#ea580c]">
+              {row.fullName}
+            </button>
+            <p className="mt-0.5 text-xs text-[#6b7280]">
+              {row.employeeCode} · {row.position ?? "Chưa cấu hình vị trí"}
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "workStatus",
+      label: "Trạng thái",
+      render: (_value, row) => (
+        <div className="flex flex-col items-start gap-1.5">
+          <span className={`rounded-full border px-3 py-1 text-xs font-bold ${row.workStatus === "ACTIVE" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+            {row.workStatus === "ACTIVE" ? "Đang làm" : "Đã nghỉ"}
+          </span>
+          <span className={`rounded-full border px-3 py-1 text-xs font-bold ${getContractTone(row.contractStatus)}`}>{row.contractStatus || "HĐ ổn"}</span>
+          <span className={`rounded-full border px-3 py-1 text-xs font-bold ${row.lineId ? "border-sky-200 bg-sky-50 text-sky-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+            {row.lineId ? "Đã tính lương" : "Xem trước"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "teachingHours",
+      label: "Dạy",
+      align: "center",
+      render: (_value, row) => (
+        <div>
+          <div className="text-sm font-bold text-[#111827]">{formatNumber(row.teachingHours)}</div>
+          <div className="mt-1 text-xs text-[#6b7280]">{formatVnd(row.teachingAmount)}</div>
+        </div>
+      ),
+    },
+    {
+      key: "assistantHours",
+      label: "Trợ giảng",
+      align: "center",
+      render: (_value, row) => (
+        <div>
+          <div className="text-sm font-bold text-[#111827]">{formatNumber(row.assistantHours)}</div>
+          <div className="mt-1 text-xs text-[#6b7280]">{formatVnd(row.assistantAmount)}</div>
+        </div>
+      ),
+    },
+    {
+      key: "staffDays",
+      label: "Hành chính",
+      align: "center",
+      render: (_value, row) => (
+        <div>
+          <div className="text-sm font-bold text-[#111827]">{formatNumber(row.staffDays)} công</div>
+          <div className="mt-1 text-xs text-[#6b7280]">{formatVnd(row.baseSalaryAmount)} · {formatNumber(row.staffHours)} giờ</div>
+        </div>
+      ),
+    },
+    {
+      key: "bonus",
+      label: "Thưởng / Phạt",
+      align: "center",
+      render: (_value, row) => (
+        <div className="text-xs">
+          <div className="font-bold text-emerald-700">+ {formatVnd(row.bonus)}</div>
+          <div className="font-bold text-rose-700">- {formatVnd(row.penalty)}</div>
+        </div>
+      ),
+    },
+    {
+      key: "assistantBonusByBranch",
+      label: "% Thưởng TG",
+      align: "center",
+      render: (_value, row) =>
+        row.assistantHours > 0 && Object.keys(row.assistantBonusByBranch).length > 0 ? (
+          <div className="space-y-1">
+            {Object.entries(row.assistantBonusByBranch).map(([branchId, percent]) => (
+              <div key={branchId} className="text-xs font-semibold text-[#111827]">
+                {percent != null ? `${(percent * 100).toFixed(0)}%` : "Chưa nhập"}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <span className="text-xs text-[#9ca3af]">—</span>
+        ),
+    },
+    {
+      key: "totalAmount",
+      label: "Tổng lương",
+      align: "right",
+      render: (_value, row) => (
+        <div>
+          <div className="text-lg font-black text-[#ea580c]">{formatVnd(row.totalAmount)}</div>
+          <div className="mt-1 text-xs text-[#6b7280]">{formatNumber(row.sessionCount)} buổi</div>
+        </div>
+      ),
+    },
+    {
+      key: "teachingHourlyRate",
+      label: "Đơn giá",
+      render: (_value, row) => (
+        <div className="space-y-1.5 text-xs">
+          {row.teachingHours > 0 ? (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 font-semibold text-blue-700">
+              Dạy: {row.teachingHourlyRate != null ? `${formatVnd(row.teachingHourlyRate)}/${row.payMode === "SESSION" ? "ca" : "giờ"}` : "Thiếu"}
+            </div>
+          ) : null}
+          {row.assistantHours > 0 ? (
+            <div className="rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 font-semibold text-violet-700">
+              TG: {row.assistantHourlyRate != null ? `${formatVnd(row.assistantHourlyRate)}/${row.payMode === "SESSION" ? "ca" : "giờ"}` : "Thiếu"}
+            </div>
+          ) : null}
+          {row.staffDays > 0 ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 font-semibold text-emerald-700">
+              HC: {row.staffDailyRate != null ? `${formatVnd(row.staffDailyRate)}/công` : "Thiếu"}
+            </div>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      key: "bankName",
+      label: "Chuyển khoản",
+      render: (_value, row) => (
+        <div className="space-y-1 text-xs">
+          <div className="font-semibold text-[#111827]">{row.bankName ?? "Chưa có ngân hàng"}</div>
+          <div className="text-[#6b7280]">{row.bankAccountNumber ?? "Chưa có số tài khoản"}</div>
+          <div className="text-[#6b7280]">{row.bankAccountHolder ?? "Chưa có chủ tài khoản"}</div>
+        </div>
+      ),
+    },
+    {
+      key: "hasRateIssue",
+      label: "Cảnh báo",
+      render: (_value, row) => (
+        <div className="flex flex-col items-start gap-1.5">
+          {row.hasRateIssue ? <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700">Thiếu đơn giá</span> : null}
+          {!row.hasBankInfo ? <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Thiếu CK</span> : null}
+          {row.lineId && row.hasMismatch ? <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Lệch dữ liệu</span> : null}
+          {!row.hasRateIssue && row.hasBankInfo && !(row.lineId && row.hasMismatch) ? <span className="text-xs text-[#9ca3af]">—</span> : null}
+        </div>
+      ),
+    },
+    {
+      key: "notes",
+      label: "Ghi chú",
+      render: (value) => (
+        <p className="max-w-[160px] truncate text-xs text-[#6b7280]" title={value ?? ""}>
+          {value || "—"}
+        </p>
+      ),
+    },
+  ];
+
+  const actions: Action<PayrollEmployeeRow>[] = [
+    { label: "Sửa", onClick: (row) => openEmployee(row.id), variant: "primary" },
+  ];
 
   return (
     <div className="min-h-screen space-y-4 pb-20 sm:space-y-6">
@@ -416,194 +586,25 @@ export default function PayrollWorkspace({
           </div>
         </div>
 
-        <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <table className="w-full min-w-[1700px]">
-            <thead className="bg-[#fafafa]">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-black uppercase tracking-[0.18em] text-[#6b7280]">Nhân sự</th>
-                <th className="px-4 py-4 text-left text-xs font-black uppercase tracking-[0.18em] text-[#6b7280]">Trạng thái</th>
-                <th className="px-4 py-4 text-center text-xs font-black uppercase tracking-[0.18em] text-[#6b7280]">Dạy</th>
-                <th className="px-4 py-4 text-center text-xs font-black uppercase tracking-[0.18em] text-[#6b7280]">Trợ giảng</th>
-                <th className="px-4 py-4 text-center text-xs font-black uppercase tracking-[0.18em] text-[#6b7280]">Hành chính</th>
-                <th className="px-4 py-4 text-center text-xs font-black uppercase tracking-[0.18em] text-[#6b7280]">Thưởng / Phạt</th>
-                <th className="px-4 py-4 text-center text-xs font-black uppercase tracking-[0.18em] text-[#6b7280]">% Thưởng TG</th>
-                <th className="px-4 py-4 text-right text-xs font-black uppercase tracking-[0.18em] text-[#6b7280]">Tổng lương</th>
-                <th className="px-4 py-4 text-left text-xs font-black uppercase tracking-[0.18em] text-[#6b7280]">Đơn giá</th>
-                <th className="px-4 py-4 text-left text-xs font-black uppercase tracking-[0.18em] text-[#6b7280]">Chuyển khoản</th>
-                <th className="px-4 py-4 text-left text-xs font-black uppercase tracking-[0.18em] text-[#6b7280]">Cảnh báo</th>
-                <th className="px-4 py-4 text-left text-xs font-black uppercase tracking-[0.18em] text-[#6b7280]">Ghi chú</th>
-                <th className="px-6 py-4 text-left text-xs font-black uppercase tracking-[0.18em] text-[#6b7280]">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#f3f4f6]">
-              {pagedRows.map((row) => {
-                const isSelected = row.id === selectedEmployeeId;
-                return (
-                  <tr
-                    key={row.id}
-                    className={`transition ${isSelected ? "bg-orange-50/70" : row.hasRateIssue ? "bg-red-50/40 hover:bg-red-50/70" : "hover:bg-[#fafafa]"}`}
-                  >
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#f97316] to-[#ea580c] text-sm font-black text-white">
-                          {row.fullName.charAt(0)}
-                        </div>
-                        <div>
-                          <button type="button" onClick={() => openEmployee(row.id)} className="text-left font-bold text-[#111827] transition hover:text-[#ea580c]">
-                            {row.fullName}
-                          </button>
-                          <p className="mt-0.5 text-xs text-[#6b7280]">
-                            {row.employeeCode} · {row.position ?? "Chưa cấu hình vị trí"}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-5">
-                      <div className="flex flex-col items-start gap-1.5">
-                        <span
-                          className={`rounded-full border px-3 py-1 text-xs font-bold ${
-                            row.workStatus === "ACTIVE" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-700"
-                          }`}
-                        >
-                          {row.workStatus === "ACTIVE" ? "Đang làm" : "Đã nghỉ"}
-                        </span>
-                        <span className={`rounded-full border px-3 py-1 text-xs font-bold ${getContractTone(row.contractStatus)}`}>
-                          {row.contractStatus || "HĐ ổn"}
-                        </span>
-                        <span
-                          className={`rounded-full border px-3 py-1 text-xs font-bold ${
-                            row.lineId ? "border-sky-200 bg-sky-50 text-sky-700" : "border-slate-200 bg-slate-50 text-slate-600"
-                          }`}
-                        >
-                          {row.lineId ? "Đã tính lương" : "Xem trước"}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-5 text-center">
-                      <div className="text-sm font-bold text-[#111827]">{formatNumber(row.teachingHours)}</div>
-                      <div className="mt-1 text-xs text-[#6b7280]">{formatVnd(row.teachingAmount)}</div>
-                    </td>
-                    <td className="px-4 py-5 text-center">
-                      <div className="text-sm font-bold text-[#111827]">{formatNumber(row.assistantHours)}</div>
-                      <div className="mt-1 text-xs text-[#6b7280]">{formatVnd(row.assistantAmount)}</div>
-                    </td>
-                    <td className="px-4 py-5 text-center">
-                      <div className="text-sm font-bold text-[#111827]">{formatNumber(row.staffDays)} công</div>
-                      <div className="mt-1 text-xs text-[#6b7280]">
-                        {formatVnd(row.baseSalaryAmount)} · {formatNumber(row.staffHours)} giờ
-                      </div>
-                    </td>
-                    <td className="px-4 py-5 text-center text-xs">
-                      <div className="font-bold text-emerald-700">+ {formatVnd(row.bonus)}</div>
-                      <div className="font-bold text-rose-700">- {formatVnd(row.penalty)}</div>
-                    </td>
-                    <td className="px-4 py-5 text-center">
-                      {row.assistantHours > 0 && Object.keys(row.assistantBonusByBranch).length > 0 ? (
-                        <div className="space-y-1">
-                          {Object.entries(row.assistantBonusByBranch).map(([branchId, percent]) => (
-                            <div key={branchId} className="text-xs font-semibold text-[#111827]">
-                              {percent != null ? `${(percent * 100).toFixed(0)}%` : "Chưa nhập"}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-[#9ca3af]">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-5 text-right">
-                      <div className="text-lg font-black text-[#ea580c]">{formatVnd(row.totalAmount)}</div>
-                      <div className="mt-1 text-xs text-[#6b7280]">{formatNumber(row.sessionCount)} buổi</div>
-                    </td>
-                    <td className="px-4 py-5">
-                      <div className="space-y-1.5 text-xs">
-                        {row.teachingHours > 0 ? (
-                          <div className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 font-semibold text-blue-700">
-                            Dạy: {row.teachingHourlyRate != null ? `${formatVnd(row.teachingHourlyRate)}/${row.payMode === "SESSION" ? "ca" : "giờ"}` : "Thiếu"}
-                          </div>
-                        ) : null}
-                        {row.assistantHours > 0 ? (
-                          <div className="rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 font-semibold text-violet-700">
-                            TG: {row.assistantHourlyRate != null ? `${formatVnd(row.assistantHourlyRate)}/${row.payMode === "SESSION" ? "ca" : "giờ"}` : "Thiếu"}
-                          </div>
-                        ) : null}
-                        {row.staffDays > 0 ? (
-                          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 font-semibold text-emerald-700">
-                            HC: {row.staffDailyRate != null ? `${formatVnd(row.staffDailyRate)}/công` : "Thiếu"}
-                          </div>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-4 py-5">
-                      <div className="space-y-1 text-xs">
-                        <div className="font-semibold text-[#111827]">{row.bankName ?? "Chưa có ngân hàng"}</div>
-                        <div className="text-[#6b7280]">{row.bankAccountNumber ?? "Chưa có số tài khoản"}</div>
-                        <div className="text-[#6b7280]">{row.bankAccountHolder ?? "Chưa có chủ tài khoản"}</div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-5">
-                      <div className="flex flex-col items-start gap-1.5">
-                        {row.hasRateIssue ? <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700">Thiếu đơn giá</span> : null}
-                        {!row.hasBankInfo ? <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Thiếu CK</span> : null}
-                        {row.lineId && row.hasMismatch ? (
-                          <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Lệch dữ liệu</span>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="max-w-[160px] px-4 py-5 text-xs text-[#6b7280]">
-                      <p className="truncate" title={row.notes ?? ""}>
-                        {row.notes || "—"}
-                      </p>
-                    </td>
-                    <td className="px-6 py-5">
-                      <button
-                        type="button"
-                        onClick={() => openEmployee(row.id)}
-                        className="inline-flex items-center justify-center rounded-xl bg-[#ea580c] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#c2410c]"
-                      >
-                        Sửa
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {filteredRows.length === 0 ? (
-                <tr>
-                  <td colSpan={13} className="px-6 py-16 text-center text-sm font-medium text-[#6b7280]">
-                    Không có nhân sự nào khớp bộ lọc trong tháng {period}.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredRows.length > 0 ? (
-          <div className="flex flex-col gap-3 border-t border-[#f3f4f6] px-6 py-4 md:flex-row md:items-center md:justify-between">
-            <p className="text-sm text-[#6b7280]">
-              Trang {currentPage}/{totalPages} · Hiển thị {pagedRows.length} trên tổng {formatNumber(filteredRows.length)} nhân sự
-            </p>
-            <div className="pagination">
-              <button
-                type="button"
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-                disabled={currentPage <= 1}
-                className="pagination-item disabled:pointer-events-none disabled:opacity-50"
-              >
-                Trước
-              </button>
-              <span className="pagination-item-active">{currentPage}</span>
-              <button
-                type="button"
-                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                disabled={currentPage >= totalPages}
-                className="pagination-item disabled:pointer-events-none disabled:opacity-50"
-              >
-                Sau
-              </button>
-            </div>
-          </div>
-        ) : null}
+        <DataTableResponsive
+          data={pagedRows}
+          columns={columns}
+          actions={actions}
+          rowKey="id"
+          searchable={false}
+          selectable={false}
+          showCountBadge={false}
+          primaryColumn="fullName"
+          secondaryColumns={["workStatus", "totalAmount", "hasRateIssue"]}
+          emptyState={{ title: "Không có nhân sự nào", description: `Không có nhân sự nào khớp bộ lọc trong tháng ${period}.` }}
+          pagination={{
+            total: filteredRows.length,
+            page: currentPage,
+            pageSize: PAGE_SIZE,
+            onPageChange: (nextPage) => setPage(nextPage),
+            onPageSizeChange: () => {},
+          }}
+        />
       </section>
 
       {selectedRow ? (

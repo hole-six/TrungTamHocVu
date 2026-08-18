@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
-import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
+import type { Column } from "@/components/ui/DataTable/DataTable";
+import TimesheetEntryForm from "@/components/timesheets/TimesheetEntryForm";
 
 const TIMESHEET_TOUR_STEPS: TourStep[] = [
   {
@@ -15,13 +17,13 @@ const TIMESHEET_TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="timesheet-filters"]',
     title: "Đổi ngày trước, tìm/lọc sau",
-    description: "Bảng luôn hiển thị trạng thái chấm công của ĐÚNG ngày đang chọn ở góc trên — đổi ngày sẽ tự đóng dòng đang sửa dở.",
+    description: "Bảng luôn hiển thị trạng thái chấm công của ĐÚNG ngày đang chọn ở góc trên — mọi dòng đang mở sẵn sẽ tự cập nhật theo ngày mới.",
     placement: "bottom",
   },
   {
     target: '[data-tour="timesheet-table"]',
-    title: "Bấm \"Chấm công\" để mở đúng 1 dòng cần điền",
-    description: "Chỉ dòng đang mở mới hiện 4 ô giờ — thiết kế vậy để trang không bị nặng khi có hàng trăm nhân viên.",
+    title: "Bấm \"Xem thêm\" để mở form giờ của từng nhân viên",
+    description: "Chỉ dòng đang mở mới hiện 4 ô giờ — có thể mở nhiều dòng cùng lúc nếu cần đối chiếu vài người liền nhau.",
     placement: "top",
   },
   {
@@ -53,23 +55,10 @@ type EmployeeRow = {
   timesheetEntries: Entry[];
 };
 
-const DEFAULT_TIMES = { checkInAm: "08:00", checkOutAm: "12:00", checkInPm: "13:30", checkOutPm: "17:30" };
 const PAGE_SIZE = 15;
 
 function formatVnDate(value: string) {
   return new Date(value).toLocaleDateString("vi-VN");
-}
-
-function hoursFromRange(start: string, end: string) {
-  if (!start || !end) return 0;
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = end.split(":").map(Number);
-  if ([sh, sm, eh, em].some((item) => Number.isNaN(item))) return 0;
-  return Math.max(0, eh + em / 60 - (sh + sm / 60));
-}
-
-function computeHours(row: { checkInAm: string; checkOutAm: string; checkInPm: string; checkOutPm: string }) {
-  return hoursFromRange(row.checkInAm, row.checkOutAm) + hoursFromRange(row.checkInPm, row.checkOutPm);
 }
 
 export default function TimesheetsWorkspace({
@@ -86,20 +75,10 @@ export default function TimesheetsWorkspace({
   canDeleteTimesheet: boolean;
 }) {
   const [selectedDate, setSelectedDate] = useState(defaultDate);
-  const [savingId, setSavingId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [keyword, setKeyword] = useState("");
   const [positionFilter, setPositionFilter] = useState<string>("ALL");
   const [page, setPage] = useState(1);
-  // Chỉ nhân viên đang mở để chấm công mới có form giờ hiện ra — tránh render 4 ô giờ
-  // cho hàng trăm người cùng lúc, vốn là nguyên nhân chính khiến trang nặng/khó dùng.
-  const [openEmployeeId, setOpenEmployeeId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<{ checkInAm: string; checkOutAm: string; checkInPm: string; checkOutPm: string; notes: string }>({
-    ...DEFAULT_TIMES,
-    notes: "",
-  });
 
   const activeEmployees = useMemo(() => employees.filter((item) => item.workStatus === "ACTIVE"), [employees]);
 
@@ -143,73 +122,42 @@ export default function TimesheetsWorkspace({
 
   function loadDate(date: string) {
     setSelectedDate(date);
-    setOpenEmployeeId(null);
     setNotice(null);
-    setError(null);
   }
 
-  function openRow(employee: EmployeeRow) {
-    const existing = entryOnSelectedDate(employee);
-    setDraft({
-      checkInAm: existing?.checkInAm ?? DEFAULT_TIMES.checkInAm,
-      checkOutAm: existing?.checkOutAm ?? DEFAULT_TIMES.checkOutAm,
-      checkInPm: existing?.checkInPm ?? DEFAULT_TIMES.checkInPm,
-      checkOutPm: existing?.checkOutPm ?? DEFAULT_TIMES.checkOutPm,
-      notes: existing?.notes ?? "",
-    });
-    setOpenEmployeeId(employee.id);
-    setNotice(null);
-    setError(null);
-  }
-
-  function closeRow() {
-    setOpenEmployeeId(null);
-  }
-
-  async function saveEmployee(employeeId: string) {
-    setSavingId(employeeId);
-    setError(null);
-    setNotice(null);
-
-    const response = await fetch("/api/timesheet-entries", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId, workDate: selectedDate, ...draft }),
-    });
-    const result = await response.json().catch(() => ({}));
-
-    setSavingId(null);
-
-    if (!response.ok) {
-      setError(result.error ?? "Không lưu được chấm công.");
-      return;
-    }
-
-    setNotice("Đã lưu chấm công.");
-    setOpenEmployeeId(null);
-    // Next.js server component ở page.tsx cần refresh để entries mới nhất được nạp lại.
-    if (typeof window !== "undefined") window.location.reload();
-  }
-
-  async function deleteEntry(entryId: string) {
-    setDeletingId(entryId);
-    setError(null);
-    setNotice(null);
-
-    const response = await fetch(`/api/timesheet-entries/${entryId}`, { method: "DELETE" });
-    const result = await response.json().catch(() => ({}));
-
-    setDeletingId(null);
-
-    if (!response.ok) {
-      setError(result.error ?? "Không xóa được chấm công.");
-      return;
-    }
-
-    setNotice("Đã xóa chấm công.");
-    setOpenEmployeeId(null);
-    if (typeof window !== "undefined") window.location.reload();
-  }
+  const columns: Column<EmployeeRow>[] = [
+    {
+      key: "fullName",
+      label: "Nhân viên",
+      render: (value, row) => (
+        <div>
+          <p className="font-medium text-ink">{value}</p>
+          <p className="mt-0.5 text-xs text-ink-muted48">{row.employeeCode}</p>
+        </div>
+      ),
+    },
+    { key: "position", label: "Vị trí", render: (value) => value ?? "—" },
+    {
+      key: "id",
+      label: `Ngày ${formatVnDate(selectedDate)}`,
+      render: (_value, row) => {
+        const existing = entryOnSelectedDate(row);
+        return existing ? (
+          <span className="badge bg-emerald-100 text-emerald-700">Đã chấm · {existing.hours?.toFixed(2) ?? 0}h</span>
+        ) : (
+          <span className="badge bg-ink/5 text-ink-muted64">Chưa chấm</span>
+        );
+      },
+    },
+    {
+      key: "timesheetEntries",
+      label: "Công tháng",
+      render: (_value, row) => {
+        const monthDays = row.timesheetEntries.reduce((sum, entry) => sum + (entry.days ?? 0), 0);
+        return `${Math.round(monthDays * 100) / 100} công`;
+      },
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -269,157 +217,39 @@ export default function TimesheetsWorkspace({
             </select>
           </div>
 
-          {error ? <div className="alert-danger">{error}</div> : null}
           {notice ? <div className="alert-success">{notice}</div> : null}
 
-          <div className="overflow-hidden rounded-2xl border border-hairline" data-tour="timesheet-table">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-hairline bg-canvas-parchment/50 text-xs uppercase tracking-wide text-ink-muted48">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Nhân viên</th>
-                    <th className="px-4 py-3 font-medium">Vị trí</th>
-                    <th className="px-4 py-3 font-medium">Ngày {formatVnDate(selectedDate)}</th>
-                    <th className="px-4 py-3 font-medium">Công tháng</th>
-                    <th className="px-4 py-3 font-medium"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pagedEmployees.map((employee) => {
-                    const existing = entryOnSelectedDate(employee);
-                    const isOpen = openEmployeeId === employee.id;
-                    const monthDays = employee.timesheetEntries.reduce((sum, entry) => sum + (entry.days ?? 0), 0);
-                    const previewHours = isOpen ? computeHours(draft) : existing?.hours ?? 0;
-
-                    return (
-                      <Fragment key={employee.id}>
-                        <tr className="border-b border-hairline last:border-0 hover:bg-canvas-parchment/30">
-                          <td className="px-4 py-3">
-                            <p className="font-medium text-ink">{employee.fullName}</p>
-                            <p className="mt-0.5 text-xs text-ink-muted48">{employee.employeeCode}</p>
-                          </td>
-                          <td className="px-4 py-3 text-ink-muted80">{employee.position ?? "—"}</td>
-                          <td className="px-4 py-3">
-                            {existing ? (
-                              <span className="badge bg-emerald-100 text-emerald-700">Đã chấm · {existing.hours?.toFixed(2) ?? 0}h</span>
-                            ) : (
-                              <span className="badge bg-ink/5 text-ink-muted64">Chưa chấm</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-ink-muted80">{Math.round(monthDays * 100) / 100} công</td>
-                          <td className="px-4 py-3 text-right">
-                            {isOpen ? (
-                              <button type="button" onClick={closeRow} className="btn-ghost-sm">
-                                Đóng
-                              </button>
-                            ) : (
-                              <button type="button" onClick={() => openRow(employee)} className="btn-primary-sm">
-                                {existing ? "Sửa" : "Chấm công"}
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                        {isOpen ? (
-                          <tr className="border-b border-hairline bg-[#f8fbff] last:border-0">
-                            <td colSpan={5} className="px-4 py-4">
-                              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-                                <label className="space-y-1">
-                                  <span className="label text-xs">Đến sáng</span>
-                                  <input type="time" className="input" value={draft.checkInAm} onChange={(event) => setDraft((d) => ({ ...d, checkInAm: event.target.value }))} />
-                                </label>
-                                <label className="space-y-1">
-                                  <span className="label text-xs">Về sáng</span>
-                                  <input type="time" className="input" value={draft.checkOutAm} onChange={(event) => setDraft((d) => ({ ...d, checkOutAm: event.target.value }))} />
-                                </label>
-                                <label className="space-y-1">
-                                  <span className="label text-xs">Đến chiều</span>
-                                  <input type="time" className="input" value={draft.checkInPm} onChange={(event) => setDraft((d) => ({ ...d, checkInPm: event.target.value }))} />
-                                </label>
-                                <label className="space-y-1">
-                                  <span className="label text-xs">Về chiều</span>
-                                  <input type="time" className="input" value={draft.checkOutPm} onChange={(event) => setDraft((d) => ({ ...d, checkOutPm: event.target.value }))} />
-                                </label>
-                                <div className="space-y-1">
-                                  <span className="label text-xs">Giờ / công tính được</span>
-                                  <p className="input flex items-center bg-white font-semibold text-ink">
-                                    {previewHours.toFixed(2)} giờ · {(Math.round((previewHours / 8) * 100) / 100).toFixed(2)} công
-                                  </p>
-                                </div>
-                              </div>
-                              <label className="mt-3 block space-y-1">
-                                <span className="label text-xs">Ghi chú ngày công</span>
-                                <input
-                                  className="input"
-                                  value={draft.notes}
-                                  onChange={(event) => setDraft((d) => ({ ...d, notes: event.target.value }))}
-                                  placeholder="Ví dụ: đi muộn 15 phút, nghỉ phép buổi sáng, hỗ trợ sự kiện cuối giờ..."
-                                />
-                              </label>
-                              <div className="mt-3 flex items-center gap-2">
-                                <button type="button" onClick={() => saveEmployee(employee.id)} disabled={savingId === employee.id} className="btn-primary">
-                                  {savingId === employee.id ? "Đang lưu..." : "Lưu chấm công"}
-                                </button>
-                                <button type="button" onClick={closeRow} className="btn-ghost">
-                                  Huỷ
-                                </button>
-                                {existing && canDeleteTimesheet ? (
-                                  <ConfirmActionButton
-                                    title="Xác nhận xóa chấm công?"
-                                    description={`Xóa chấm công ngày ${formatVnDate(selectedDate)} của ${employee.fullName}. Thao tác này không thể hoàn tác.`}
-                                    confirmLabel="Xóa chấm công"
-                                    tone="danger"
-                                    disabled={deletingId === existing.id}
-                                    className="btn-ghost text-red-600"
-                                    onConfirm={() => deleteEntry(existing.id)}
-                                  >
-                                    {deletingId === existing.id ? "Đang xóa..." : "Xóa chấm công"}
-                                  </ConfirmActionButton>
-                                ) : null}
-                              </div>
-                            </td>
-                          </tr>
-                        ) : null}
-                      </Fragment>
-                    );
-                  })}
-
-                  {pagedEmployees.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-12 text-center text-ink-muted48">
-                        Không có nhân viên nào khớp bộ lọc hiện tại.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
+          <div data-tour="timesheet-table">
+            <DataTableResponsive
+              data={pagedEmployees}
+              columns={columns}
+              rowKey="id"
+              searchable={false}
+              selectable={false}
+              showCountBadge={false}
+              primaryColumn="fullName"
+              secondaryColumns={["position", "id", "timesheetEntries"]}
+              emptyState={{ title: "Không có nhân viên nào", description: "Không có nhân viên nào khớp bộ lọc hiện tại." }}
+              renderExpanded={(employee) => (
+                <TimesheetEntryForm
+                  employeeId={employee.id}
+                  employeeName={employee.fullName}
+                  selectedDate={selectedDate}
+                  selectedDateLabel={formatVnDate(selectedDate)}
+                  existing={entryOnSelectedDate(employee)}
+                  canDeleteTimesheet={canDeleteTimesheet}
+                  onSaved={() => setNotice("Đã lưu chấm công.")}
+                />
+              )}
+              pagination={{
+                total: filteredEmployees.length,
+                page: currentPage,
+                pageSize: PAGE_SIZE,
+                onPageChange: (nextPage) => setPage(nextPage),
+                onPageSizeChange: () => {},
+              }}
+            />
           </div>
-
-          {totalPages > 1 ? (
-            <div className="flex items-center justify-between gap-2 text-sm">
-              <p className="text-ink-muted48">
-                Trang {currentPage}/{totalPages} · {filteredEmployees.length} nhân viên
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPage((current) => Math.max(1, current - 1))}
-                  disabled={currentPage === 1}
-                  className="rounded-full border border-[#dbe7ff] bg-white px-3 py-1.5 text-xs font-semibold text-ink transition hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Trước
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                  disabled={currentPage === totalPages}
-                  className="rounded-full border border-[#dbe7ff] bg-white px-3 py-1.5 text-xs font-semibold text-ink transition hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Sau
-                </button>
-              </div>
-            </div>
-          ) : null}
         </div>
 
         <div className="space-y-6" data-tour="timesheet-summary">

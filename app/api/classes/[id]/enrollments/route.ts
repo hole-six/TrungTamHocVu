@@ -33,15 +33,30 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const studentId = String(body.studentId ?? "").trim();
   const requestedBillingModel = String(body.billingModel ?? "COURSE").toUpperCase();
   const billingModel = cls.isRemedial ? "COURSE" : requestedBillingModel;
+  const enrollDate = body.enrollDate ? new Date(body.enrollDate) : new Date();
+  const unitPriceSnapshot = Number(body.tuitionUnitPriceSnapshot ?? cls.tuitionPerSession ?? cls.course?.tuitionPerSession ?? 0);
+  const purchasedMainSessionCount = Number(body.purchasedMainSessionCount ?? cls.totalSessions ?? 0);
+  const paidCatchupSessionCount = Math.max(0, Number(body.paidCatchupSessionCount ?? 0));
+  const paidCatchupUnitPrice = Number(body.paidCatchupUnitPrice ?? unitPriceSnapshot);
   if (!studentId) return NextResponse.json({ error: "Thiếu học viên" }, { status: 400 });
   if (billingModel !== "COURSE" && billingModel !== "PERIOD" && billingModel !== "INSTALLMENT") {
     return NextResponse.json({ error: "Hình thức đóng học phí không hợp lệ" }, { status: 400 });
   }
 
+  if (!cls.isRemedial && (!Number.isInteger(purchasedMainSessionCount) || purchasedMainSessionCount <= 0)) {
+    return NextResponse.json({ error: "So buoi khoa chinh khong hop le." }, { status: 400 });
+  }
+  if (!cls.isRemedial && (!Number.isInteger(unitPriceSnapshot) || unitPriceSnapshot < 0)) {
+    return NextResponse.json({ error: "Don gia khoa chinh khong hop le." }, { status: 400 });
+  }
+  if (!Number.isInteger(paidCatchupSessionCount) || paidCatchupSessionCount < 0 || !Number.isInteger(paidCatchupUnitPrice) || paidCatchupUnitPrice < 0) {
+    return NextResponse.json({ error: "Thong tin bo tro dau khoa khong hop le." }, { status: 400 });
+  }
+
   const rawInstallments = Array.isArray(body.installments) ? body.installments : [];
   let installmentPlans: { billingPeriodId: string; sequence: number; label: string; amount: number; dueDate: Date }[] = [];
   if (billingModel === "INSTALLMENT") {
-    if (!cls.totalSessions || !cls.tuitionPerSession) {
+    if (!purchasedMainSessionCount || !unitPriceSnapshot) {
       return NextResponse.json({ error: "Lớp cần có tổng số buổi và học phí/buổi trước khi lập kế hoạch trả góp" }, { status: 400 });
     }
     if (rawInstallments.length < 2 || rawInstallments.length > 12) {
@@ -58,7 +73,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (normalized.some((item) => !item) || new Set(normalized.map((item) => item?.dueMonth)).size !== normalized.length) {
       return NextResponse.json({ error: "Mỗi đợt cần có tháng thu riêng và số tiền hợp lệ" }, { status: 400 });
     }
-    const expectedTotal = cls.totalSessions * cls.tuitionPerSession;
+    const expectedTotal = purchasedMainSessionCount * unitPriceSnapshot + paidCatchupSessionCount * paidCatchupUnitPrice;
     const plannedTotal = normalized.reduce((sum, item) => sum + (item?.amount ?? 0), 0);
     if (plannedTotal !== expectedTotal) {
       return NextResponse.json({ error: `Tổng trả góp phải bằng học phí khóa ${expectedTotal.toLocaleString("vi-VN")}đ` }, { status: 400 });
@@ -102,8 +117,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         classId: cls.id,
         status: "ACTIVE",
         billingModel,
-        enrollDate: body.enrollDate ? new Date(body.enrollDate) : new Date(),
+        enrollDate,
+        learningStartDate: enrollDate,
+        purchasedMainSessionCount: cls.isRemedial ? null : purchasedMainSessionCount,
+        tuitionUnitPriceSnapshot: cls.isRemedial ? null : unitPriceSnapshot,
+        paidCatchupSessionCount: cls.isRemedial ? 0 : paidCatchupSessionCount,
+        paidCatchupUnitPrice: cls.isRemedial ? null : paidCatchupUnitPrice,
+        pricingBasis: cls.isRemedial ? "MANUAL" : "MID_CLASS_FULL_COURSE",
         installments: installmentPlans.length ? { create: installmentPlans } : undefined,
+        sessionCredits:
+          !cls.isRemedial && paidCatchupSessionCount > 0
+            ? {
+                create: Array.from({ length: paidCatchupSessionCount }, (_, index) => ({
+                  studentId,
+                  sourceSessionId: null,
+                  status: "AVAILABLE",
+                  origin: "PAID_CATCHUP",
+                  unitPriceSnapshot: paidCatchupUnitPrice,
+                  paidAmount: paidCatchupUnitPrice,
+                  notes: `Bo tro dau khoa co phi ${index + 1}/${paidCatchupSessionCount}`,
+                })),
+              }
+            : undefined,
         bookRequirements:
           !cls.isRemedial && cls.course?.bookRequirements.length
             ? {

@@ -220,19 +220,20 @@ export function formatVnd(amount: number): string {
 }
 
 /**
- * Format date to Vietnamese format
+ * Format date to Vietnamese format. Trả về "—" khi không có ngày (null/undefined) —
+ * đây là quy ước hiển thị chung của toàn hệ thống cho 1 ô dữ liệu còn trống.
  */
-export function formatDate(date: Date | string): string {
-  if (!date) return "";
+export function formatDate(date: Date | string | null | undefined): string {
+  if (!date) return "—";
   const d = typeof date === "string" ? new Date(date) : date;
   return d.toLocaleDateString("vi-VN");
 }
 
 /**
- * Format datetime to Vietnamese format
+ * Format datetime to Vietnamese format. Trả về "—" khi không có ngày.
  */
-export function formatDateTime(date: Date | string): string {
-  if (!date) return "";
+export function formatDateTime(date: Date | string | null | undefined): string {
+  if (!date) return "—";
   const d = typeof date === "string" ? new Date(date) : date;
   return d.toLocaleString("vi-VN");
 }

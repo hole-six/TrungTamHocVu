@@ -7,6 +7,7 @@ import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canCreate, canView, canViewFullWithOverride, canViewWithOverride } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
+import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import StudentsTable from "./StudentsTable";
 import PageGuide from "@/components/ui/PageGuide";
 
@@ -110,7 +111,7 @@ export default async function StudentsPage({
           orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
         },
         enrollments: {
-          include: { class: true },
+          include: { class: { include: { nextClass: true } } },
           orderBy: [{ status: "asc" }, { enrollDate: "desc" }],
         },
       },
@@ -124,7 +125,10 @@ export default async function StudentsPage({
   ]);
 
   const studentIds = items.map((item) => item.id);
-  const [chargeRows, allocationTotals, bookIssueRows, studentMetaRows, availableSessionCreditRows] = await Promise.all([
+  const currentEnrollments = items
+    .map((item) => item.enrollments.find((enrollment) => enrollment.status === "ACTIVE") ?? item.enrollments[0] ?? null)
+    .filter((enrollment): enrollment is NonNullable<typeof enrollment> => Boolean(enrollment));
+  const [chargeRows, allocationTotals, bookIssueRows, studentMetaRows, availableSessionCreditRows, learningSnapshots] = await Promise.all([
     canViewFinance ? prisma.charge.findMany({
       where: { studentId: { in: studentIds } },
       select: {
@@ -182,6 +186,18 @@ export default async function StudentsPage({
       },
       _count: { _all: true },
     }),
+    Promise.all(
+      currentEnrollments.map(async (enrollment) => ({
+        enrollmentId: enrollment.id,
+        snapshot: await getEnrollmentLearningSnapshot(prisma, {
+          ...enrollment,
+          class: {
+            ...enrollment.class,
+            course: null,
+          },
+        }),
+      })),
+    ),
   ]);
 
   const chargeByStudent = new Map<string, number>();
@@ -240,11 +256,13 @@ export default async function StudentsPage({
   const availableSessionCreditByStudent = new Map(
     availableSessionCreditRows.map((row) => [row.studentId, row._count._all]),
   );
+  const learningSnapshotByEnrollment = new Map(learningSnapshots.map((row) => [row.enrollmentId, row.snapshot]));
 
   const normalizedItems = items.map((item) => {
     const primaryGuardian = item.guardians.find((guardianLink) => guardianLink.isPrimary)?.guardian ?? item.guardians[0]?.guardian ?? null;
     const currentEnrollment = item.enrollments.find((enrollment) => enrollment.status === "ACTIVE") ?? item.enrollments[0] ?? null;
     const counts = studentMetaById.get(item.id);
+    const learningSnapshot = currentEnrollment ? learningSnapshotByEnrollment.get(currentEnrollment.id) ?? null : null;
     return {
       ...item,
       primaryGuardian,
@@ -269,12 +287,25 @@ export default async function StudentsPage({
       adjustmentCount: counts?.adjustments ?? 0,
       sessionCreditCount: availableSessionCreditByStudent.get(item.id) ?? 0,
       enrollmentsCount: item.enrollments.length,
+      learningRemainingSessions: learningSnapshot?.remainingMainSessions ?? null,
+      learningPurchasedSessions: learningSnapshot?.entitledMainSessions ?? null,
+      learningCompletedSessions: learningSnapshot?.completedMainSessions ?? null,
+      expectedStudentEndDate: learningSnapshot?.expectedStudentEndDate ?? null,
+      continuationStatus: learningSnapshot?.continuationStatus ?? null,
+      shortageAfterCurrentClass: learningSnapshot?.shortageAfterCurrentClass ?? 0,
+      nextClassName: currentEnrollment?.class.nextClass?.className ?? null,
     };
   });
 
   const stats = Object.fromEntries(grouped.map((row) => [row.status, row._count._all])) as Record<string, number>;
   const portalCount = normalizedItems.filter((item) => item.primaryGuardian?.user?.isActive).length;
   const debtCount = normalizedItems.filter((item) => (item.outstanding ?? 0) > 0).length;
+  const needTransferCount = normalizedItems.filter((item) => item.continuationStatus === "NEED_TRANSFER").length;
+  const endingSoonCount = normalizedItems.filter((item) => {
+    if (item.continuationStatus === "NEED_TRANSFER") return false;
+    const remaining = item.learningRemainingSessions ?? 999;
+    return remaining > 0 && remaining <= 3;
+  }).length;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -328,6 +359,8 @@ export default async function StudentsPage({
           left: stats.LEFT ?? 0,
           portal: portalCount,
           debt: debtCount,
+          needTransfer: needTransferCount,
+          endingSoon: endingSoonCount,
         }}
       />
     </div>

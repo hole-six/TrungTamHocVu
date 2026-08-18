@@ -54,7 +54,17 @@ const GUIDE_SECTIONS = [
   },
 ];
 
-export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { classId: string; courseTotalAmount?: number }) {
+export default function EnrollStudentForm({
+  classId,
+  courseTotalAmount = 0,
+  defaultMainSessionCount = 0,
+  defaultUnitPrice = 0,
+}: {
+  classId: string;
+  courseTotalAmount?: number;
+  defaultMainSessionCount?: number;
+  defaultUnitPrice?: number;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -62,6 +72,10 @@ export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { 
   const [selected, setSelected] = useState<StudentHit | null>(null);
   const [billingModel, setBillingModel] = useState<"COURSE" | "PERIOD" | "INSTALLMENT">("COURSE");
   const [installments, setInstallments] = useState<InstallmentDraft[]>(() => splitInstallments(courseTotalAmount, 3));
+  const [mainSessionCount, setMainSessionCount] = useState(String(defaultMainSessionCount || ""));
+  const [unitPrice, setUnitPrice] = useState(String(defaultUnitPrice || ""));
+  const [paidCatchupSessionCount, setPaidCatchupSessionCount] = useState("0");
+  const [paidCatchupUnitPrice, setPaidCatchupUnitPrice] = useState(String(defaultUnitPrice || ""));
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +97,10 @@ export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { 
 
   async function enroll() {
     if (!selected) return;
+    if (installmentsMismatch) {
+      setError("Tổng các đợt trả góp chưa khớp với tổng học phí — kiểm tra lại trước khi ghi danh.");
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -94,6 +112,10 @@ export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { 
       body: JSON.stringify({
         studentId: selected.id,
         billingModel,
+        purchasedMainSessionCount: Number(mainSessionCount),
+        tuitionUnitPriceSnapshot: Number(unitPrice),
+        paidCatchupSessionCount: Number(paidCatchupSessionCount),
+        paidCatchupUnitPrice: Number(paidCatchupUnitPrice || unitPrice),
         installments: billingModel === "INSTALLMENT" ? installments.map((item) => ({ ...item, amount: Number(item.amount) })) : undefined,
       }),
     });
@@ -111,6 +133,13 @@ export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { 
     setQ("");
     router.refresh();
   }
+
+  const mainTuitionAmount = (Number(mainSessionCount) || 0) * (Number(unitPrice) || 0);
+  const catchupAmount = (Number(paidCatchupSessionCount) || 0) * (Number(paidCatchupUnitPrice || unitPrice) || 0);
+  const enrollmentTotalAmount = mainTuitionAmount + catchupAmount;
+  const installmentsSum = installments.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const installmentsDiff = enrollmentTotalAmount - installmentsSum;
+  const installmentsMismatch = billingModel === "INSTALLMENT" && installmentsDiff !== 0;
 
   return (
     <>
@@ -165,6 +194,34 @@ export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { 
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Sẵn sàng ghi danh</p>
               <p className="mt-2 text-base font-semibold text-emerald-950">{selected.fullName}</p>
               <p className="mt-1 text-sm text-emerald-800">{selected.studentCode}</p>
+              <div className="grid gap-3 border-t border-emerald-200 pt-4 md:grid-cols-2">
+                <label className="form-group">
+                  <span className="label-sm">Số buổi khóa chính</span>
+                  <input type="number" min={1} className="input" value={mainSessionCount} onChange={(event) => setMainSessionCount(event.target.value)} />
+                </label>
+                <label className="form-group">
+                  <span className="label-sm">Đơn giá khóa chính</span>
+                  <input type="number" min={0} className="input" value={unitPrice} onChange={(event) => setUnitPrice(event.target.value)} />
+                  <span className="text-[10px] leading-tight text-ink-muted48">{formatVnd(Number(unitPrice) || 0)}</span>
+                </label>
+                <label className="form-group">
+                  <span className="label-sm">Buổi học thêm đầu khóa (tính phí)</span>
+                  <input type="number" min={0} className="input" value={paidCatchupSessionCount} onChange={(event) => setPaidCatchupSessionCount(event.target.value)} />
+                  <span className="text-[10px] leading-tight text-ink-muted48">Khác với "bổ trợ vắng" (miễn phí, sinh ra khi vắng buổi chính) — đây là buổi mua thêm riêng, có tính phí.</span>
+                </label>
+                <label className="form-group">
+                  <span className="label-sm">Đơn giá buổi học thêm đầu khóa</span>
+                  <input type="number" min={0} className="input" value={paidCatchupUnitPrice} onChange={(event) => setPaidCatchupUnitPrice(event.target.value)} />
+                  <span className="text-[10px] leading-tight text-ink-muted48">{formatVnd(Number(paidCatchupUnitPrice || unitPrice) || 0)}</span>
+                </label>
+                <div className="rounded-xl border border-emerald-200 bg-white px-4 py-3 md:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Tạm tính</p>
+                  <p className="mt-1 text-sm text-emerald-900">
+                    Học phí khóa chính {formatVnd(mainTuitionAmount)} · buổi học thêm đầu khóa {formatVnd(catchupAmount)}
+                  </p>
+                  <p className="mt-1 text-lg font-bold text-emerald-950">Tổng {formatVnd(enrollmentTotalAmount)}</p>
+                </div>
+              </div>
               <div className="border-t border-emerald-200 pt-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Kế hoạch đóng học phí</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -185,7 +242,7 @@ export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { 
                   <div className="mt-3 rounded-xl border border-emerald-200 bg-white/80 p-3">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-semibold text-ink">Lịch trả góp</p>
-                      <p className="text-xs text-ink-muted48">Tổng phải bằng {courseTotalAmount.toLocaleString("vi-VN")}đ</p>
+                      <p className="text-xs text-ink-muted48">Tổng phải bằng {formatVnd(enrollmentTotalAmount)}</p>
                     </div>
                     <div className="mt-3 space-y-2">
                       {installments.map((item, index) => (
@@ -202,6 +259,10 @@ export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { 
                     <button type="button" disabled={installments.length >= 12} onClick={() => setInstallments((current) => [...current, { dueMonth: monthOffset(current.length), amount: "0" }])} className="mt-3 text-xs font-semibold text-primary">
                       + Thêm đợt
                     </button>
+                    <p className={`mt-3 text-xs font-semibold ${installmentsMismatch ? "text-red-600" : "text-emerald-700"}`}>
+                      Đã phân bổ: {formatVnd(installmentsSum)} / Cần: {formatVnd(enrollmentTotalAmount)}
+                      {installmentsMismatch ? ` — ${installmentsDiff > 0 ? "còn thiếu" : "đang thừa"} ${formatVnd(Math.abs(installmentsDiff))}` : " — đã khớp"}
+                    </p>
                   </div>
                 ) : null}
               </div>
@@ -212,7 +273,7 @@ export default function EnrollStudentForm({ classId, courseTotalAmount = 0 }: { 
           {success ? <div className="alert-success">{success}</div> : null}
 
           <div className="flex gap-3 border-t border-[#e6eefc] pt-4">
-            <button type="button" onClick={enroll} disabled={!selected || loading} className="btn-primary">
+            <button type="button" onClick={enroll} disabled={!selected || loading || installmentsMismatch} className="btn-primary">
               {loading ? "Đang ghi danh..." : "Xác nhận ghi danh"}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="btn-ghost">

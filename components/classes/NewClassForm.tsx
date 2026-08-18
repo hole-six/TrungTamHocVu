@@ -20,6 +20,12 @@ type Employee = {
   position: string | null;
 };
 
+type ClassOption = {
+  id: string;
+  classCode: string;
+  className: string;
+};
+
 type ScheduleRuleDraft = {
   weekday: string;
   startTime: string;
@@ -214,10 +220,12 @@ export default function NewClassForm({
   courses,
   employees,
   holidayDates = [],
+  classOptions = [],
 }: {
   courses: Course[];
   employees: Employee[];
   holidayDates?: string[];
+  classOptions?: ClassOption[];
 }) {
   const router = useRouter();
   const holidayDateSet = useMemo(() => new Set(holidayDates), [holidayDates]);
@@ -231,6 +239,7 @@ export default function NewClassForm({
     courseId: "",
     tuitionPerSession: "",
     totalSessions: "",
+    nextClassId: "",
     startDate: "",
     notes: "",
     isRemedial: false,
@@ -475,6 +484,7 @@ export default function NewClassForm({
         isRemedial: form.isRemedial,
         courseId: form.isRemedial ? null : form.courseId || null,
         totalSessions: form.totalSessions ? Number(form.totalSessions) : null,
+        nextClassId: form.isRemedial ? null : form.nextClassId || null,
         startDate: form.startDate || null,
         tuitionPerSession: form.isRemedial ? null : Number(form.tuitionPerSession),
         sessionsPerWeek,
@@ -651,9 +661,24 @@ export default function NewClassForm({
                   </label>
                 ) : null}
                 <label className="form-group">
-                  <span className="label">Tổng số buổi{form.isRemedial ? " (không bắt buộc)" : " *"}</span>
+                  <span className="label">Số buổi cam kết{form.isRemedial ? " (không bắt buộc)" : " *"}</span>
                   <input type="number" min={1} className="input" value={form.totalSessions} onChange={(event) => patchForm("totalSessions", event.target.value)} placeholder="50" />
+                  <p className="mt-2 text-xs text-ink-muted48">Dùng để khóa học phí/lộ trình cho từng học viên. Lịch thực tế có thể sinh dài hơn nếu lớp cần dạy tiếp.</p>
                 </label>
+                {!form.isRemedial ? (
+                  <label className="form-group">
+                    <span className="label">Lớp tiếp theo (không bắt buộc)</span>
+                    <select className="input" value={form.nextClassId} onChange={(event) => patchForm("nextClassId", event.target.value)}>
+                      <option value="">Chưa cấu hình</option>
+                      {classOptions.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.classCode} - {item.className}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs text-ink-muted48">Học viên học hết lớp này mà chưa đủ số buổi sẽ được đề xuất chuyển sang lớp đã chọn ở đây.</p>
+                  </label>
+                ) : null}
                 <div className="form-group">
                   <span className="label">Số buổi / tuần</span>
                   <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm font-medium text-ink">
@@ -926,7 +951,7 @@ export default function NewClassForm({
 
           <aside className="space-y-5">
             <div className="card">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Tóm tắt học phí</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Tóm tắt lịch & học phí</p>
               <div className="mt-4 space-y-3 text-sm">
                 <div className="detail-row">
                   <dt className="detail-label">Học phí / buổi</dt>
@@ -937,16 +962,8 @@ export default function NewClassForm({
                   <dd className="detail-value">{totalSessions ?? "—"}</dd>
                 </div>
                 <div className="detail-row">
-                  <dt className="detail-label">Số tuần dự kiến</dt>
-                  <dd className="detail-value">{estimatedWeeks ?? "—"}</dd>
-                </div>
-                <div className="detail-row">
                   <dt className="detail-label">Ngày kết thúc dự kiến</dt>
-                  <dd className="detail-value">{formatDateLabel(estimatedEndDate)}</dd>
-                </div>
-                <div className="detail-row">
-                  <dt className="detail-label">Độ dài lịch thực tế</dt>
-                  <dd className="detail-value">{estimatedSpanLabel}</dd>
+                  <dd className="detail-value">{formatDateLabel(estimatedEndDate)} · {estimatedWeeks ?? "—"} tuần</dd>
                 </div>
                 <div className="detail-row">
                   <dt className="detail-label">Tạm tính toàn khóa</dt>
@@ -954,16 +971,9 @@ export default function NewClassForm({
                 </div>
               </div>
               <p className="mt-4 text-xs leading-5 text-ink-muted48">
-                Công thức đang dùng ngay khi tạo lớp: <strong>học phí/buổi × tổng số buổi</strong>. Ví dụ 100.000đ × 50 buổi = 5.000.000đ.
+                Công thức đang dùng ngay khi tạo lớp: <strong>học phí/buổi × tổng số buổi</strong>. Ngày kết thúc tính theo đúng các buổi cố định bên dưới ({estimatedSpanLabel}).
               </p>
-              <p className="mt-2 text-xs leading-5 text-ink-muted48">
-                Ngày kết thúc được tính theo lịch học thực tế: ví dụ lớp học 3 buổi/tuần vào Thứ 2 - Thứ 4 - Thứ 6 thì buổi cuối sẽ rơi đúng vào một trong các ngày đó.
-              </p>
-            </div>
-
-            <div className="card">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Lịch sẽ sinh ra thế nào</p>
-              <div className="mt-3 space-y-2 text-sm text-ink-muted80">
+              <div className="mt-4 space-y-1.5 border-t border-hairline pt-3 text-sm text-ink-muted80">
                 {scheduleRules.map((rule, index) => (
                   <p key={`${index}-${rule.weekday}-${rule.startTime}`}>
                     • Buổi {index + 1}: {weekdayLabel(rule.weekday)} {rule.startTime || "--:--"} - {rule.endTime || "--:--"} {rule.room ? `· ${rule.room}` : ""}

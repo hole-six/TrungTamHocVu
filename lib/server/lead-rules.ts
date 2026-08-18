@@ -16,14 +16,14 @@ export const LEAD_STATUSES = [
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
 export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
-  NEW: "Mới",
+  NEW: "Chưa liên hệ",
   CONTACTING: "Đang liên hệ",
   APPOINTED: "Đã hẹn lịch",
   TESTED: "Đã test",
-  QUALIFIED: "Đạt, chờ xếp lớp",
+  QUALIFIED: "Đạt chờ xếp lớp",
   UNQUALIFIED: "Chưa đạt",
   ENROLLED: "Đã ghi danh",
-  LOST: "Đã mất lead",
+  LOST: "Không có nhu cầu",
 };
 
 // State machine theo Master Spec §9. LOST/UNQUALIFIED có thể mở lại về CONTACTING

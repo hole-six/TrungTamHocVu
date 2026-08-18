@@ -1,12 +1,5 @@
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
-
-function formatVnd(n: number) {
-  return n.toLocaleString("vi-VN") + "đ";
-}
-
-function formatDate(d: Date | string) {
-  return new Date(d).toLocaleDateString("vi-VN");
-}
+import { formatVnd, formatDate } from "@/lib/export-utils";
 
 function formatPeriodLabel(periodName: string) {
   const [year, month] = periodName.split("-");
@@ -48,6 +41,10 @@ export type InvoiceChargeData = {
   absentCount: number;
   deductedCount: number;
   unitPrice: number;
+  mainTuitionAmount: number;
+  paidCatchupAmount: number;
+  transferCreditAmount: number;
+  transferRemainderAmount: number;
   tuitionAmount: number;
   materialsAmount: number;
   openingBalance: number;
@@ -109,6 +106,10 @@ export default function InvoiceDocument({
   const dueDateLabel = getDueDateLabel(charge.billingPeriod.periodName);
   const monthNumber = getMonthNumber(charge.billingPeriod.periodName);
   const isCourseBilling = charge.billingModel === "COURSE";
+  const mainTuitionAmount = charge.mainTuitionAmount || charge.tuitionAmount;
+  const paidCatchupAmount = charge.paidCatchupAmount || 0;
+  const transferCreditAmount = charge.transferCreditAmount || 0;
+  const transferRemainderAmount = charge.transferRemainderAmount || 0;
 
   return (
     <div className="mx-auto w-full max-w-[210mm] bg-white p-[8mm] text-black print:min-h-[297mm] print:p-[8mm]">
@@ -161,6 +162,16 @@ export default function InvoiceDocument({
         <div className="border border-black">
           {isCourseBilling ? (
             <>
+              <GridValueRow label="Học phí khóa chính" value={formatVnd(mainTuitionAmount)} />
+              {paidCatchupAmount > 0 ? (
+                <GridValueRow label="Buổi học thêm đầu khóa (tính phí)" value={formatVnd(paidCatchupAmount)} />
+              ) : null}
+              {transferCreditAmount > 0 ? (
+                <GridValueRow label="Bù trừ tiền còn lại từ lớp cũ" value={`-${formatVnd(transferCreditAmount)}`} />
+              ) : null}
+              {transferRemainderAmount > 0 ? (
+                <GridValueRow label="Tiền dư sau quy đổi chuyển lớp" value={formatVnd(transferRemainderAmount)} />
+              ) : null}
               <GridValueRow label="Tổng số buổi toàn khóa" value={totalSessions} />
               <GridValueRow label="Số buổi đã tính trong phiếu khóa" value={charge.sessionCount} />
               <GridValueRow label="Tiền giáo trình / phát sinh (VND)" value={formatVnd(charge.materialsAmount)} />

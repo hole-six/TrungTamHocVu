@@ -96,7 +96,8 @@ export default function LeadStatusPanel({
     router.push(`/students/${data.item.id}`);
   }
 
-  const options = nextStatuses(status);
+  const isConverted = hasStudent || status === "ENROLLED";
+  const options = isConverted ? [] : nextStatuses(status);
   const colorClass = STATUS_COLORS[status] ?? "bg-slate-100 text-slate-700";
   const dotClass = STATUS_DOT[status] ?? "bg-slate-400";
 
@@ -136,7 +137,7 @@ export default function LeadStatusPanel({
       </div>
 
       {/* Convert CTA */}
-      {status === "QUALIFIED" && !hasStudent && (
+      {status === "QUALIFIED" && !isConverted && (
         <ConfirmActionButton
           title="Xác nhận chuyển lead thành học viên?"
           description="Hệ thống sẽ tạo hồ sơ học viên thật từ lead này và chuyển luồng theo dõi sang khu học viên."

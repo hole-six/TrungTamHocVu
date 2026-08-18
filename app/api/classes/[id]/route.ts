@@ -54,6 +54,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (field in body) data[field] = body[field] || null;
   }
   if ("courseId" in body) data.courseId = body.courseId || null;
+  if ("nextClassId" in body) {
+    const nextClassId = body.nextClassId ? String(body.nextClassId).trim() : null;
+    if (nextClassId === params.id) {
+      return NextResponse.json({ error: "Lop tiep theo khong duoc la chinh lop hien tai." }, { status: 400 });
+    }
+    if (nextClassId) {
+      const nextClass = await prisma.class.findUnique({ where: { id: nextClassId }, select: { branchId: true, isRemedial: true, status: true } });
+      if (!nextClass || nextClass.branchId !== existing.branchId || nextClass.isRemedial || nextClass.status !== "ACTIVE") {
+        return NextResponse.json({ error: "Lop tiep theo khong hop le hoac khong cung co so." }, { status: 400 });
+      }
+    }
+    data.nextClassId = nextClassId;
+  }
   for (const field of ["totalSessions", "sessionsPerWeek", "tuitionPerSession"]) {
     if (field in body) data[field] = body[field] === "" || body[field] === null ? null : Number(body[field]);
   }

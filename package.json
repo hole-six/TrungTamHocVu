@@ -16,6 +16,7 @@
     "check:demo": "tsx scripts/check_demo_erp.ts",
     "audit:system-qa": "tsx scripts/audit_system_qa.ts",
     "check:tuition-stress": "tsx scripts/check_tuition_stress.ts",
+    "check:enrollment-learning": "tsx scripts/check_enrollment_learning_qa.ts",
     "sync:db": "tsx scripts/sync_database_integrity.ts",
     "report:parity": "tsx scripts/generate_workbook_parity_report.ts",
     "check:report-parity": "tsx scripts/check_report_parity.ts",

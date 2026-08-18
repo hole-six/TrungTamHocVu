@@ -6,6 +6,7 @@ import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
 
 type Course = { id: string; code: string; name: string };
+type ClassOption = { id: string; classCode: string; className: string };
 
 type RoadmapDraft = {
   sessionNumber: number;
@@ -27,6 +28,7 @@ type ClassProfile = {
   totalSessions: number | null;
   startDate: string | null;
   expectedEndDate: string | null;
+  nextClassId?: string | null;
   notes: string | null;
   roadmapItems: RoadmapDraft[];
 };
@@ -87,9 +89,11 @@ export default function ClassEditForm({
   triggerClassName,
   triggerLabel = "Sửa thông tin lớp",
   renderSummary = true,
+  classOptions = [],
 }: {
   cls: ClassProfile;
   courses: Course[];
+  classOptions?: ClassOption[];
   triggerClassName?: string;
   triggerLabel?: string;
   renderSummary?: boolean;
@@ -109,22 +113,34 @@ export default function ClassEditForm({
     totalSessions: cls.totalSessions?.toString() ?? "",
     startDate: toDateInput(cls.startDate),
     expectedEndDate: toDateInput(cls.expectedEndDate),
+    nextClassId: cls.nextClassId ?? "",
     notes: cls.notes ?? "",
   });
   const [roadmapItems, setRoadmapItems] = useState<RoadmapDraft[]>(cls.roadmapItems ?? []);
 
   const totalSessions = form.totalSessions === "" ? 0 : Number(form.totalSessions);
-  const visibleRoadmapItems = roadmapItems.slice(0, visibleRoadmapCount);
+  // Chỉ hiện/lưu các buổi trong phạm vi totalSessions hiện tại — KHÔNG xóa các buổi
+  // vượt quá khỏi state khi người dùng giảm số buổi (khác hành vi cũ). Nếu họ tăng số
+  // buổi trở lại, nội dung đã soạn cho các buổi đó vẫn còn nguyên thay vì mất trắng.
+  const roadmapItemsInRange = roadmapItems.filter((item) => item.sessionNumber <= totalSessions);
+  const visibleRoadmapItems = roadmapItemsInRange.slice(0, visibleRoadmapCount);
+  const hiddenAuthoredRoadmapCount = roadmapItems.filter(
+    (item) =>
+      item.sessionNumber > totalSessions &&
+      (item.title.trim() || item.objective.trim() || item.materials.trim() || item.teacherGuide.trim() || item.homeworkGuide.trim()),
+  ).length;
 
   useEffect(() => {
     const normalizedTotal = Number.isFinite(totalSessions) && totalSessions > 0 ? totalSessions : 0;
     setRoadmapItems((prev) => {
-      if (normalizedTotal <= 0) return [];
-      const next: RoadmapDraft[] = [];
+      if (normalizedTotal <= 0) return prev;
+      const next = [...prev];
       for (let sessionNumber = 1; sessionNumber <= normalizedTotal; sessionNumber += 1) {
-        const existing = prev.find((item) => item.sessionNumber === sessionNumber);
-        next.push(existing ?? buildRoadmapDraft(sessionNumber));
+        if (!next.some((item) => item.sessionNumber === sessionNumber)) {
+          next.push(buildRoadmapDraft(sessionNumber));
+        }
       }
+      next.sort((a, b) => a.sessionNumber - b.sessionNumber);
       return next;
     });
     setVisibleRoadmapCount((current) => {
@@ -140,7 +156,7 @@ export default function ClassEditForm({
   }
 
   async function downloadRoadmapTemplate() {
-    if (!roadmapItems.length) {
+    if (!roadmapItemsInRange.length) {
       setError("Cần nhập tổng số buổi trước rồi mới tải được file mẫu lộ trình.");
       return;
     }
@@ -149,7 +165,7 @@ export default function ClassEditForm({
     setImportSummary(null);
 
     const query = new URLSearchParams({
-      totalSessions: String(roadmapItems.length),
+      totalSessions: String(roadmapItemsInRange.length),
       classCode: cls.classCode.trim() || "lop-hoc",
     });
 
@@ -164,7 +180,7 @@ export default function ClassEditForm({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `mau-lo-trinh-${cls.classCode.trim() || "lop-hoc"}-${roadmapItems.length}-buoi.xlsx`;
+    link.download = `mau-lo-trinh-${cls.classCode.trim() || "lop-hoc"}-${roadmapItemsInRange.length}-buoi.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -174,7 +190,7 @@ export default function ClassEditForm({
   }
 
   async function importRoadmapFile(file: File) {
-    if (!roadmapItems.length) {
+    if (!roadmapItemsInRange.length) {
       setError("Cần nhập tổng số buổi trước rồi mới nhập file lộ trình.");
       return;
     }
@@ -225,7 +241,7 @@ export default function ClassEditForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
-        roadmapItems: roadmapItems.map((item) => ({
+        roadmapItems: roadmapItemsInRange.map((item) => ({
           sessionNumber: item.sessionNumber,
           title: item.title,
           objective: item.objective,
@@ -248,10 +264,6 @@ export default function ClassEditForm({
   }
 
   const course = courses.find((item) => item.id === cls.courseId);
-  const estimatedCourseAmount =
-    form.tuitionPerSession !== "" && form.totalSessions !== ""
-      ? Number(form.tuitionPerSession) * Number(form.totalSessions)
-      : null;
 
   return (
     <>
@@ -364,6 +376,11 @@ export default function ClassEditForm({
             <label className="form-group">
               <span className="label">Tổng số buổi</span>
               <input type="number" min={1} className="input" value={form.totalSessions} onChange={(event) => setForm((current) => ({ ...current, totalSessions: event.target.value }))} />
+              {hiddenAuthoredRoadmapCount > 0 ? (
+                <p className="form-hint text-amber-700">
+                  Đang giảm số buổi: nội dung lộ trình đã soạn cho {hiddenAuthoredRoadmapCount} buổi cuối sẽ tạm ẩn và không được lưu — tăng số buổi trở lại để khôi phục.
+                </p>
+              ) : null}
             </label>
 
             <label className="form-group">
@@ -375,20 +392,29 @@ export default function ClassEditForm({
               <span className="label">Ngày dự kiến kết thúc</span>
               <input type="date" className="input" value={form.expectedEndDate} onChange={(event) => setForm((current) => ({ ...current, expectedEndDate: event.target.value }))} />
             </label>
+
+            <label className="form-group md:col-span-2">
+              <span className="label">Lớp tiếp theo (không bắt buộc)</span>
+              <select className="input" value={form.nextClassId} onChange={(event) => setForm((current) => ({ ...current, nextClassId: event.target.value }))}>
+                <option value="">Chưa cấu hình</option>
+                {classOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.classCode} - {item.className}
+                  </option>
+                ))}
+              </select>
+              <p className="form-hint">Học viên học hết lớp này mà chưa đủ số buổi sẽ được đề xuất chuyển sang lớp đã chọn ở đây.</p>
+            </label>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-2xl border border-[#e5eaf7] bg-[#fbfdff] px-4 py-3">
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#64748b]">Mã lớp</p>
               <p className="mt-2 text-base font-semibold text-[#0f1729]">{cls.classCode}</p>
             </div>
             <div className="rounded-2xl border border-[#e5eaf7] bg-[#fbfdff] px-4 py-3">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#64748b]">Số buổi lộ trình</p>
-              <p className="mt-2 text-base font-semibold text-[#0f1729]">{roadmapItems.length}</p>
-            </div>
-            <div className="rounded-2xl border border-[#e5eaf7] bg-[#fbfdff] px-4 py-3">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#64748b]">Tạm tính toàn khóa</p>
-              <p className="mt-2 text-base font-semibold text-[#0f1729]">{formatVnd(estimatedCourseAmount)}</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#64748b]">Số buổi lộ trình đang lưu</p>
+              <p className="mt-2 text-base font-semibold text-[#0f1729]">{roadmapItemsInRange.length}</p>
             </div>
           </div>
 
