@@ -1,7 +1,18 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import PwaProvider from "@/components/PwaProvider";
+
+// Trước đây --font-sans chỉ KHAI BÁO tên "Inter" trong font-stack CSS mà không tải
+// font thật ở đâu cả — máy nào không cài sẵn Inter (hầu hết máy Windows) thì trình
+// duyệt tự rơi về Segoe UI, đây là lý do chữ toàn hệ thống trông không như mong đợi.
+// next/font/google tải đúng file Inter thật, tự host, có subset tiếng Việt.
+const inter = Inter({
+  subsets: ["latin", "vietnamese"],
+  variable: "--font-sans",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "TACH — Quản lý trung tâm",
@@ -25,11 +36,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="vi"
-      suppressHydrationWarning
-      style={{ ["--font-sans" as string]: '"Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif' }}
-    >
+    <html lang="vi" suppressHydrationWarning className={inter.variable}>
       <body className="min-h-screen antialiased">
         <ThemeProvider>
           {children}

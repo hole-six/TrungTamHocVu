@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 // Design tokens: giao diện trắng / xanh biển nhạt, 1 màu nhấn duy nhất (sky blue),
-// chữ Be Vietnam Pro (hỗ trợ tiếng Việt có dấu tốt), bo góc theo thang pill/lg/sm.
+// chữ Inter (hỗ trợ tiếng Việt có dấu tốt), bo góc theo thang pill/lg/sm.
 const config: Config = {
   darkMode: "class",
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],

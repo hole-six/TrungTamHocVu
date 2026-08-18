@@ -16,7 +16,6 @@ import PageHero from "@/components/ui/PageHero/PageHero";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { computeOutstandingBalance } from "@/lib/server/balance";
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
-import { computeEnrollmentSessionProgress } from "@/lib/server/class-generation";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import EditableDateField from "@/components/ui/EditableDateField";
@@ -122,16 +121,16 @@ const STUDENT_DETAIL_TOUR_STEPS: TourStep[] = [
   },
   {
     target: '[data-tour="student-kpi-paid"]',
-    title: "\"Đã lập\" và \"Đã thu\" — 2 số khác nhau",
+    title: "\"Đã thu\" là tiền thật đã vào sổ",
     description:
-      "\"Đã lập\" = tổng tiền trên các hóa đơn đã sinh ra (kể cả chưa thu). \"Đã thu\" = tiền thật đã vào sổ. Chênh lệch giữa 2 số này chính là phần còn nợ. Dòng nhỏ bên dưới tách riêng phần học phí đã thu (không gồm tiền giáo trình) theo đúng tỉ lệ của từng hóa đơn.",
+      "Khác với \"Cần thu\" (chỉ tính kỳ đến hạn) — \"Đã thu\" là tổng tiền thật đã nhận, không phân biệt kỳ. Dòng nhỏ bên dưới tách riêng phần học phí (không gồm tiền giáo trình). Ô \"Còn nợ\" bên cạnh có ghi thêm \"Đã lập\" — tổng tiền trên các hóa đơn đã sinh ra kể cả chưa thu, để đối chiếu khi cần.",
     placement: "bottom",
   },
   {
     target: '[data-tour="student-kpi-attendance"]',
     title: "Có mặt / Vắng / Bù — đếm theo điểm danh thật",
     description:
-      "3 số này đếm trực tiếp từ bảng điểm danh của học viên, không phải từ lịch học lý thuyết. Vắng nhiều có thể tự động sinh buổi bổ trợ tùy theo tình huống — xem chi tiết ở tab Buổi học.",
+      "3 số này đếm trực tiếp từ bảng điểm danh của học viên, không phải từ lịch học lý thuyết. Vắng nhiều có thể tự động sinh buổi bổ trợ tùy theo tình huống — xem chi tiết ở tab Học tập.",
     placement: "bottom",
   },
   {
@@ -139,17 +138,17 @@ const STUDENT_DETAIL_TOUR_STEPS: TourStep[] = [
     title: "Cổng phụ huynh — cấp quyền xem học phí/điểm danh online",
     description:
       "Hiện email đăng nhập cổng phụ huynh của người giám hộ chính (không phải của học viên). \"Chưa cấp\" nghĩa là phụ huynh chưa có tài khoản portal — cấp ở tab Phụ huynh phía dưới.",
-    placement: "left",
+    placement: "bottom",
   },
   {
     target: '[data-tour="student-kpi-books"]',
     title: "Công nợ sách giáo trình — tách riêng khỏi học phí",
-    description: "Tổng tiền sách đã phát nhưng chưa thanh toán — đây là khoản riêng, không cộng vào công nợ học phí ở các thẻ bên trái.",
+    description: "Tổng tiền sách đã phát nhưng chưa thanh toán — đây là khoản riêng, không cộng vào công nợ học phí ở các ô bên cạnh.",
     placement: "left",
   },
   {
     target: '[data-tour="student-tabs"]',
-    title: "4 tab: Tổng quan, Học phí, Buổi học, Phụ huynh",
+    title: "5 tab: Tổng quan, Học phí, Học tập, Phụ huynh, Hồ sơ",
     description:
       "Xử lý rút lớp, học bổng/điều chỉnh, hoàn tiền, buổi bổ trợ đều nằm trong đúng tab liên quan — không có 1 chỗ chung cho tất cả. Nếu vừa bấm nút thu tiền, trang tự mở sẵn tab Học phí.",
     placement: "top",
@@ -315,9 +314,6 @@ export default async function StudentDetailPage({
   );
   const learningSnapshotByEnrollment = new Map(learningSnapshots.map((item) => [item.enrollmentId, item.snapshot]));
   const currentLearningSnapshot = currentEnrollment ? learningSnapshotByEnrollment.get(currentEnrollment.id) ?? null : null;
-  const courseProgress = currentEnrollment?.classId
-    ? await computeEnrollmentSessionProgress(currentEnrollment.classId, currentEnrollment.enrollDate)
-    : null;
   const primaryGuardianLink = student.guardians.find((item) => item.isPrimary) ?? student.guardians[0] ?? null;
   const primaryGuardian = primaryGuardianLink?.guardian ?? null;
 
@@ -478,9 +474,17 @@ export default async function StudentDetailPage({
       ]
     : [];
 
-  // Cảnh báo vận hành gộp — chỉ hiện dòng nào thực sự đúng điều kiện, CSO mở trang là
-  // thấy ngay việc cần làm thay vì phải tự lượm lặt từng tín hiệu rải rác trên trang.
-  const operationalWarnings: { text: string; severity: "warning" | "critical" }[] = [];
+  // Cảnh báo vận hành gộp — MỘT danh sách duy nhất cho toàn trang (trước đây tin
+  // "còn nợ"/"chưa có portal"/"cần chuyển lớp" bị lặp lại ở 3 khối khác nhau: khối
+  // đầu trang, khối "Cảnh báo vận hành" riêng, và checklist "Cần chú ý" trong tab
+  // Tổng quan). Chỉ hiện dòng nào thực sự đúng điều kiện, xếp việc gấp nhất lên đầu.
+  const operationalWarnings: { text: string; severity: "critical" | "warning" | "info" }[] = [];
+  if (!currentEnrollment) {
+    operationalWarnings.push({ text: "Chưa có lớp đang học — cần gán lớp cho học viên.", severity: "critical" });
+  }
+  if (canSeeFinance && outstanding > 0) {
+    operationalWarnings.push({ text: `Còn nợ học phí ${formatVnd(outstanding)}.`, severity: "critical" });
+  }
   if (currentLearningSnapshot?.continuationStatus === "NEED_TRANSFER") {
     operationalWarnings.push({
       text: currentEnrollment?.class.nextClass
@@ -489,31 +493,41 @@ export default async function StudentDetailPage({
       severity: "warning",
     });
   }
+  if (!primaryGuardian) {
+    operationalWarnings.push({ text: "Chưa gắn phụ huynh chính.", severity: "warning" });
+  } else if (!primaryGuardian.user) {
+    operationalWarnings.push({ text: "Phụ huynh chưa có tài khoản portal.", severity: "warning" });
+  }
+  if (student.bookIssues.some((issue) => issue.paymentStatus !== "PAID")) {
+    operationalWarnings.push({ text: "Có sách/giáo trình chưa thu đủ tiền.", severity: "warning" });
+  }
   if (availableCredits.length > 0) {
-    operationalWarnings.push({ text: `Còn ${availableCredits.length} buổi bổ trợ chưa dùng.`, severity: "warning" });
+    operationalWarnings.push({ text: `Còn ${availableCredits.length} buổi bổ trợ chưa dùng.`, severity: "info" });
   }
   if (currentLearningSnapshot && currentLearningSnapshot.remainingMainSessions > 0 && currentLearningSnapshot.remainingMainSessions <= 3) {
-    operationalWarnings.push({ text: `Sắp học xong khóa chính — còn ${currentLearningSnapshot.remainingMainSessions} buổi.`, severity: "warning" });
+    operationalWarnings.push({ text: `Sắp học xong khóa chính — còn ${currentLearningSnapshot.remainingMainSessions} buổi.`, severity: "info" });
   }
-  if (canSeeFinance && outstanding > 0) {
-    operationalWarnings.push({ text: `Còn nợ học phí ${formatVnd(outstanding)}.`, severity: "critical" });
-  }
-  const primaryOperation =
-    !currentEnrollment
-      ? { label: "Cần gán lớp", detail: "Học viên chưa có enrollment đang theo dõi.", tone: "critical" as const }
-      : canSeeFinance && outstanding > 0
-        ? { label: "Ưu tiên thu học phí", detail: `Còn nợ ${formatVnd(outstanding)}.`, tone: "critical" as const }
-        : currentLearningSnapshot?.continuationStatus === "NEED_TRANSFER"
-          ? { label: "Cần chuyển lớp", detail: currentEnrollment.class.nextClass ? `Đề xuất: ${currentEnrollment.class.nextClass.className}` : "Chưa cấu hình lớp tiếp theo.", tone: "warning" as const }
-          : availableCredits.length > 0
-            ? { label: "Cần xếp bổ trợ", detail: `${availableCredits.length} buổi bổ trợ còn khả dụng.`, tone: "warning" as const }
-            : currentLearningSnapshot?.continuationStatus === "COMPLETED"
-              ? { label: "Đã học đủ", detail: "Có thể kiểm tra chuyển lớp/nâng lớp nếu phụ huynh học tiếp.", tone: "success" as const }
-              : { label: "Đang ổn", detail: "Không có việc khẩn cần xử lý ngay.", tone: "success" as const };
+  // Tông màu + tiêu đề của khối "Cần xử lý ngay" lấy TRỰC TIẾP từ operationalWarnings
+  // — trước đây có 1 phép tính "primaryOperation" riêng, kiểm tra lại gần như đúng
+  // các điều kiện đã có trong operationalWarnings nhưng viết tay lần 2, dễ lệch nhau
+  // khi sửa 1 bên quên sửa bên kia. Giờ chỉ còn 1 nguồn duy nhất.
+  const primaryTone: "critical" | "warning" | "success" = operationalWarnings.some((w) => w.severity === "critical")
+    ? "critical"
+    : operationalWarnings.some((w) => w.severity === "warning")
+      ? "warning"
+      : "success";
+  const primaryLabel =
+    primaryTone === "critical"
+      ? "Cần xử lý gấp"
+      : primaryTone === "warning"
+        ? "Cần chú ý"
+        : currentLearningSnapshot?.continuationStatus === "COMPLETED"
+          ? "Đã học đủ khóa chính"
+          : "Đang ổn";
   const operationToneClass =
-    primaryOperation.tone === "critical"
+    primaryTone === "critical"
       ? "border-red-200 bg-red-50 text-red-800"
-      : primaryOperation.tone === "warning"
+      : primaryTone === "warning"
         ? "border-amber-200 bg-amber-50 text-amber-800"
         : "border-emerald-200 bg-emerald-50 text-emerald-800";
 
@@ -614,57 +628,27 @@ export default async function StudentDetailPage({
         </div>
       )}
 
-      <section className="rounded-xl sm:rounded-2xl border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-sm">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className={`rounded-xl border px-4 py-3 ${operationToneClass}`}>
-            <p className="text-xs font-black uppercase tracking-[0.16em]">Việc cần làm</p>
-            <p className="mt-1 text-lg font-black">{primaryOperation.label}</p>
-            <p className="mt-0.5 text-sm font-semibold opacity-90">{primaryOperation.detail}</p>
-          </div>
-
-          <div className="grid flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
-              <p className="text-[10px] font-black uppercase tracking-wide text-[#64748b]">Tiến độ</p>
-              <p className="mt-1 text-base font-black text-[#0f1729]">
-                {currentLearningSnapshot ? `${currentLearningSnapshot.completedMainSessions}/${currentLearningSnapshot.entitledMainSessions}` : "Chưa có lớp"}
-              </p>
-              <p className="text-xs text-[#64748b]">{currentLearningSnapshot ? `Còn ${currentLearningSnapshot.remainingMainSessions} buổi` : "Cần gán lớp trước"}</p>
-            </div>
-            <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
-              <p className="text-[10px] font-black uppercase tracking-wide text-[#64748b]">Tiền</p>
-              <p className={`mt-1 text-base font-black ${outstanding > 0 ? "text-red-600" : "text-emerald-700"}`}>{canSeeFinance ? formatVnd(outstanding) : "Ẩn"}</p>
-              <p className="text-xs text-[#64748b]">Công nợ hiện tại</p>
-            </div>
-            <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
-              <p className="text-[10px] font-black uppercase tracking-wide text-[#64748b]">Bổ trợ</p>
-              <p className={`mt-1 text-base font-black ${availableCredits.length > 0 ? "text-amber-700" : "text-emerald-700"}`}>{availableCredits.length}</p>
-              <p className="text-xs text-[#64748b]">Buổi còn khả dụng</p>
-            </div>
-            <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
-              <p className="text-[10px] font-black uppercase tracking-wide text-[#64748b]">Kết thúc riêng</p>
-              <p className="mt-1 text-base font-black text-[#0f1729]">{formatDate(currentLearningSnapshot?.expectedStudentEndDate ?? null)}</p>
-              <p className="text-xs text-[#64748b]">
-                {currentLearningSnapshot?.continuationStatus === "NEED_TRANSFER" ? "Không đủ buổi ở lớp này" : "Theo enrollment hiện tại"}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {operationalWarnings.length > 0 ? (
-        <div className="rounded-xl sm:rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
-          <p className="text-xs font-bold uppercase tracking-wide text-amber-800">Cảnh báo vận hành</p>
-          <ul className="mt-2 space-y-1.5">
+      {/* ── CẦN XỬ LÝ NGAY ── gộp "việc cần làm" + "cảnh báo vận hành" + checklist tab
+          Tổng quan cũ vào 1 khối duy nhất, xếp việc gấp nhất lên đầu. ── */}
+      <section className={`rounded-xl sm:rounded-2xl border p-4 sm:p-5 shadow-sm ${operationToneClass}`}>
+        <p className="text-xs font-black uppercase tracking-[0.16em] opacity-80">Cần xử lý ngay</p>
+        <p className="mt-1 text-lg font-black">{primaryLabel}</p>
+        {operationalWarnings.length > 0 ? (
+          <ul className="mt-3 space-y-1.5 border-t border-black/10 pt-3">
             {operationalWarnings.map((warning, index) => (
-              <li key={index} className="flex items-start gap-2 text-sm font-medium text-amber-900">
-                <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${warning.severity === "critical" ? "bg-red-600" : "bg-amber-600"}`} />
+              <li key={index} className="flex items-start gap-2 text-sm font-semibold">
+                <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${warning.severity === "critical" ? "bg-red-600" : warning.severity === "warning" ? "bg-amber-600" : "bg-sky-600"}`} />
                 {warning.text}
               </li>
             ))}
           </ul>
-        </div>
-      ) : null}
+        ) : (
+          <p className="mt-0.5 text-sm font-semibold opacity-90">Không có việc cần xử lý ngay.</p>
+        )}
+      </section>
 
+      {/* ── HÀNH TRÌNH HỌC ── nguồn duy nhất cho "tiến độ" trên toàn trang, gồm cả
+          điểm danh — trước đây có 3 nơi khác nhau tự tính lại con số tiến độ này. ── */}
       {currentEnrollment && currentLearningSnapshot ? (
         <div className="rounded-xl sm:rounded-2xl border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -712,45 +696,76 @@ export default async function StudentDetailPage({
               )}
             </div>
           </div>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[#e5eaf7] pt-3 text-xs text-[#64748b]" data-tour="student-kpi-attendance">
+            <span>Điểm danh: <strong className="text-[#0f1729]">{attendanceStats.present} có mặt</strong></span>
+            <span>Vắng {attendanceStats.absent}</span>
+            <span>Bù {attendanceStats.makeup}</span>
+          </div>
         </div>
       ) : null}
 
-      {canSeeFinance && currentEnrollment && enrollmentCharges.length > 0 ? (
+      {/* ── TÀI CHÍNH ── gộp 6 KPI tổng toàn học viên + chi tiết riêng kỳ ghi danh
+          hiện tại vào cùng 1 khối, có ghi rõ phạm vi từng phần để không đọc nhầm
+          thành 2 số trùng nhau. ── */}
+      {canSeeFinance ? (
         <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-4 sm:p-5 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Tài chính của lần ghi danh hiện tại</p>
-          <p className="mt-1 text-xs text-[#64748b]">Riêng cho enrollment đang học ở {currentEnrollment.class.className} — khác 6 số tổng bên dưới vốn cộng dồn toàn bộ lịch sử học viên.</p>
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <div>
-              <p className="text-[10px] font-bold uppercase text-[#64748b]">Học phí chính</p>
-              <p className="mt-0.5 text-sm font-bold text-[#0f1729]">{formatVnd(enrollmentFinance.mainTuition)}</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Tài chính · toàn bộ lịch sử học viên</p>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div data-tour="student-kpi-due">
+              <p className="text-[10px] font-bold uppercase text-[#64748b]">Cần thu</p>
+              <p className="mt-0.5 text-lg font-black text-[#0f1729]">{formatVnd(dueNowAmount)}</p>
+              <p className="text-xs text-[#64748b] truncate">{nextDueCharge ? `Kỳ ${nextDueCharge.periodName}` : "Không đến hạn"}</p>
             </div>
-            {enrollmentFinance.paidCatchup > 0 ? (
-              <div>
-                <p className="text-[10px] font-bold uppercase text-[#64748b]">Bổ trợ đầu khóa</p>
-                <p className="mt-0.5 text-sm font-bold text-[#0f1729]">{formatVnd(enrollmentFinance.paidCatchup)}</p>
-              </div>
-            ) : null}
-            {enrollmentFinance.materials > 0 ? (
-              <div>
-                <p className="text-[10px] font-bold uppercase text-[#64748b]">Sách/tài liệu</p>
-                <p className="mt-0.5 text-sm font-bold text-[#0f1729]">{formatVnd(enrollmentFinance.materials)}</p>
-              </div>
-            ) : null}
-            {enrollmentFinance.transferCredit > 0 ? (
-              <div>
-                <p className="text-[10px] font-bold uppercase text-[#64748b]">Bù trừ từ lớp cũ</p>
-                <p className="mt-0.5 text-sm font-bold text-[#0f1729]">-{formatVnd(enrollmentFinance.transferCredit)}</p>
-              </div>
-            ) : null}
-            <div>
+            <div data-tour="student-kpi-paid">
               <p className="text-[10px] font-bold uppercase text-[#64748b]">Đã thu</p>
-              <p className="mt-0.5 text-sm font-bold text-emerald-700">{formatVnd(enrollmentFinance.paid)}</p>
+              <p className="mt-0.5 text-lg font-black text-emerald-700">{formatVnd(totalPaid)}</p>
+              <p className="text-xs text-[#64748b] truncate">HP {formatVnd(Math.round(tuitionPaid))}</p>
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase text-[#64748b]">Còn nợ</p>
-              <p className={`mt-0.5 text-sm font-bold ${enrollmentOutstanding > 0 ? "text-red-600" : "text-emerald-700"}`}>{formatVnd(enrollmentOutstanding)}</p>
+              <p className={`mt-0.5 text-lg font-black ${outstanding > 0 ? "text-red-600" : "text-emerald-700"}`}>{formatVnd(outstanding)}</p>
+              <p className="text-xs text-[#64748b] truncate">Đã lập {formatVnd(totalCharged)} · {student.charges.length} kỳ</p>
+            </div>
+            <div data-tour="student-kpi-books">
+              <p className="text-[10px] font-bold uppercase text-[#64748b]">Sách</p>
+              <p className="mt-0.5 text-lg font-black text-[#0f1729]">{formatVnd(unpaidBookAmount)}</p>
+              <p className="text-xs text-[#64748b]">{unpaidBookAmount > 0 ? "Còn treo" : "Đủ"}</p>
             </div>
           </div>
+
+          {currentEnrollment && enrollmentCharges.length > 0 ? (
+            <div className="mt-4 border-t border-[#e5eaf7] pt-3">
+              <p className="text-[10px] font-bold uppercase text-[#64748b]">Riêng kỳ ghi danh hiện tại · {currentEnrollment.class.className}</p>
+              <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                <div>
+                  <p className="text-[10px] text-[#64748b]">Học phí chính</p>
+                  <p className="text-sm font-bold text-[#0f1729]">{formatVnd(enrollmentFinance.mainTuition)}</p>
+                </div>
+                {enrollmentFinance.paidCatchup > 0 ? (
+                  <div>
+                    <p className="text-[10px] text-[#64748b]">Bổ trợ đầu khóa</p>
+                    <p className="text-sm font-bold text-[#0f1729]">{formatVnd(enrollmentFinance.paidCatchup)}</p>
+                  </div>
+                ) : null}
+                {enrollmentFinance.materials > 0 ? (
+                  <div>
+                    <p className="text-[10px] text-[#64748b]">Sách/tài liệu</p>
+                    <p className="text-sm font-bold text-[#0f1729]">{formatVnd(enrollmentFinance.materials)}</p>
+                  </div>
+                ) : null}
+                {enrollmentFinance.transferCredit > 0 ? (
+                  <div>
+                    <p className="text-[10px] text-[#64748b]">Bù trừ từ lớp cũ</p>
+                    <p className="text-sm font-bold text-[#0f1729]">-{formatVnd(enrollmentFinance.transferCredit)}</p>
+                  </div>
+                ) : null}
+                <div>
+                  <p className="text-[10px] text-[#64748b]">Còn nợ kỳ này</p>
+                  <p className={`text-sm font-bold ${enrollmentOutstanding > 0 ? "text-red-600" : "text-emerald-700"}`}>{formatVnd(enrollmentOutstanding)}</p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -781,62 +796,6 @@ export default async function StudentDetailPage({
           </div>
         </div>
       ) : null}
-
-      {/* ── KPI 6 CARDS ── */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        {canSeeFinance ? (
-          <>
-        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all" data-tour="student-kpi-due">
-          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          </div>
-          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#64748b] mb-0.5 sm:mb-1">Cần thu</p>
-          <p className="text-lg sm:text-xl md:text-2xl font-black text-[#0f1729] mb-0.5 sm:mb-1">{formatVnd(dueNowAmount)}</p>
-          <p className="text-[10px] sm:text-xs font-semibold text-[#64748b] truncate">{nextDueCharge ? `Kỳ ${nextDueCharge.periodName}` : "Không đến hạn"}</p>
-        </div>
-        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
-          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-          </div>
-          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#64748b] mb-0.5 sm:mb-1">Đã lập</p>
-          <p className="text-lg sm:text-xl md:text-2xl font-black text-[#0f1729] mb-0.5 sm:mb-1">{formatVnd(totalCharged)}</p>
-          <p className="text-[10px] sm:text-xs font-semibold text-[#64748b]">{student.charges.length} kỳ</p>
-        </div>
-        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all" data-tour="student-kpi-paid">
-          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#64748b] mb-0.5 sm:mb-1">Đã thu</p>
-          <p className="text-lg sm:text-xl md:text-2xl font-black text-[#0f1729] mb-0.5 sm:mb-1">{formatVnd(totalPaid)}</p>
-          <p className="text-[10px] sm:text-xs font-semibold text-[#64748b] truncate">HP {formatVnd(Math.round(tuitionPaid))}</p>
-        </div>
-          </>
-        ) : null}
-        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all" data-tour="student-kpi-attendance">
-          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fb923c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          </div>
-          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#64748b] mb-0.5 sm:mb-1">Có mặt</p>
-          <p className="text-lg sm:text-xl md:text-2xl font-black text-[#0f1729] mb-0.5 sm:mb-1">{attendanceStats.present}</p>
-          <p className="text-[10px] sm:text-xs font-semibold text-[#64748b]">Vắng {attendanceStats.absent} · Bù {attendanceStats.makeup}</p>
-        </div>
-        <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all" data-tour="student-kpi-portal">
-          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          </div>
-          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#64748b] mb-0.5 sm:mb-1">Portal PH</p>
-          <p className="text-base sm:text-lg font-black text-[#0f1729] mb-0.5 sm:mb-1 truncate">{primaryGuardian?.user?.email ? primaryGuardian.user.email.split('@')[0] : "Chưa cấp"}</p>
-          <p className="text-[10px] sm:text-xs font-semibold text-[#64748b] truncate">{primaryGuardian?.user ? (primaryGuardian.user.isActive ? "Hoạt động" : "Thu hồi") : "Chưa có"}</p>
-        </div>
-        {canSeeFinance ? <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all" data-tour="student-kpi-books">
-          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-white shadow-md border border-[#e5eaf7] mb-3 sm:mb-4">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-6 sm:h-6"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-          </div>
-          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#64748b] mb-0.5 sm:mb-1">Sách</p>
-          <p className="text-lg sm:text-xl md:text-2xl font-black text-[#0f1729] mb-0.5 sm:mb-1">{formatVnd(unpaidBookAmount)}</p>
-          <p className="text-[10px] sm:text-xs font-semibold text-[#64748b] truncate">{unpaidBookAmount > 0 ? "Còn treo" : "Đủ"}</p>
-        </div> : null}
-      </div>
 
       {/* ── TABS ── */}
       <div data-tour="student-tabs">
@@ -914,9 +873,16 @@ export default async function StudentDetailPage({
                         {primaryGuardian ? <Link href={`/guardians/${primaryGuardian.id}`} className="text-[#f97316] hover:text-[#ea580c]">{primaryGuardian.fullName}</Link> : "Chưa liên kết"}
                       </span>
                     </div>
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
+                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between" data-tour="student-kpi-portal">
                       <span className="text-sm font-semibold text-[#64748b]">Portal</span>
-                      <span className="text-sm font-bold text-[#0f1729]">{primaryGuardian?.user?.email ?? "Chưa cấp"}</span>
+                      <span className="text-sm font-bold text-[#0f1729]">
+                        {primaryGuardian?.user?.email ?? "Chưa cấp"}
+                        {primaryGuardian?.user ? (
+                          <span className={`ml-2 inline-flex items-center rounded-lg px-2 py-0.5 text-[10px] font-bold ${primaryGuardian.user.isActive ? "bg-[#dcfce7] text-[#166534]" : "bg-[#fef9c3] text-[#854d0e]"}`}>
+                            {primaryGuardian.user.isActive ? "Hoạt động" : "Thu hồi"}
+                          </span>
+                        ) : null}
+                      </span>
                     </div>
                     <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                       <span className="text-sm font-semibold text-[#64748b]">Lớp hiện tại</span>
@@ -942,81 +908,9 @@ export default async function StudentDetailPage({
                   </div>
                 </div>
 
-                {currentEnrollment?.class && courseProgress?.planned !== null && courseProgress && (
-                  <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
-                    <div className="flex items-start justify-between gap-3 mb-4">
-                      <div>
-                        <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Tiến độ khóa học</h2>
-                        <p className="mt-1 text-sm text-[#64748b]">Tính từ ngày ghi danh {formatDate(currentEnrollment.enrollDate)}.</p>
-                      </div>
-                    </div>
-                    <div className="rounded-xl bg-gradient-to-br from-[#eff6ff] to-[#dbeafe] border border-[#e5eaf7] p-5">
-                      <div className="flex items-baseline justify-between mb-3">
-                        <p className="text-sm font-bold text-[#0f1729]">
-                          {currentEnrollment.class.className}
-                          {currentEnrollment.class.course && ` · ${currentEnrollment.class.course.name}`}
-                        </p>
-                        <p className="text-2xl font-black text-[#3b82f6]">
-                          {courseProgress.consumed}/{courseProgress.planned} <span className="text-sm font-normal text-[#64748b]">buổi</span>
-                        </p>
-                      </div>
-                      <div className="h-3 w-full overflow-hidden rounded-full bg-white/60">
-                        <div
-                          className={`h-full rounded-full ${courseProgress.remaining !== null && courseProgress.remaining <= 0 ? "bg-[#10b981]" : "bg-[#3b82f6]"}`}
-                          style={{ width: `${Math.min(100, Math.max(2, (courseProgress.consumed / Math.max(1, courseProgress.planned)) * 100))}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
-                  <h2 className="text-lg font-black tracking-tight text-[#0f1729] mb-4">Cần chú ý</h2>
-                  <div className="space-y-2">
-                    {!currentEnrollment && (
-                      <div className="flex items-center gap-3 rounded-xl bg-[#fef2f2] border border-[#fecaca] px-4 py-3">
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-[#ef4444]" />
-                        <span className="text-sm font-semibold text-[#991b1b]">Chưa có lớp đang học</span>
-                      </div>
-                    )}
-                    {!primaryGuardian && (
-                      <div className="flex items-center gap-3 rounded-xl bg-[#fef2f2] border border-[#fecaca] px-4 py-3">
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-[#ef4444]" />
-                        <span className="text-sm font-semibold text-[#991b1b]">Chưa gắn phụ huynh chính</span>
-                      </div>
-                    )}
-                    {primaryGuardian && !primaryGuardian.user && (
-                      <div className="flex items-center gap-3 rounded-xl bg-[#fef9c3] border border-[#fde047] px-4 py-3">
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-[#f59e0b]" />
-                        <span className="text-sm font-semibold text-[#854d0e]">Phụ huynh chưa có portal</span>
-                      </div>
-                    )}
-                    {outstanding > 0 && (
-                      <div className="flex items-center gap-3 rounded-xl bg-[#fef9c3] border border-[#fde047] px-4 py-3">
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-[#f59e0b]" />
-                        <span className="text-sm font-semibold text-[#854d0e]">Còn nợ {formatVnd(outstanding)}</span>
-                      </div>
-                    )}
-                    {student.bookIssues.some((issue) => issue.paymentStatus !== "PAID") && (
-                      <div className="flex items-center gap-3 rounded-xl bg-[#fef9c3] border border-[#fde047] px-4 py-3">
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-[#f59e0b]" />
-                        <span className="text-sm font-semibold text-[#854d0e]">Có sách chưa thu đủ</span>
-                      </div>
-                    )}
-                    {!currentEnrollment &&
-                    primaryGuardian &&
-                    primaryGuardian.user &&
-                    outstanding <= 0 &&
-                    !student.bookIssues.some((issue) => issue.paymentStatus !== "PAID") ? (
-                      <div className="flex items-center gap-3 rounded-xl bg-[#ecfdf5] border border-[#a7f3d0] px-4 py-3">
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-[#10b981]" />
-                        <span className="text-sm font-semibold text-[#065f46]">Hiện không có cảnh báo mở</span>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
+                {/* Tiến độ khóa học + Cần chú ý đã gộp vào khối "Hành trình học" và
+                    "Cần xử lý ngay" ở đầu trang — không lặp lại ở đây nữa. */}
+                <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm lg:col-span-2">
                   <h2 className="text-lg font-black tracking-tight text-[#0f1729] mb-4">Lịch sử thay đổi</h2>
                   <div className="space-y-2">
                     {student.statusHistory.map((item) => (
