@@ -819,38 +819,38 @@ export default async function StudentDetailPage({
                       </Link>
                     )}
                   </div>
-                  <div className="space-y-3">
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                       <span className="text-sm font-semibold text-[#64748b]">Ngày nhập học</span>
-                      <span className="text-sm font-bold text-[#0f1729]">
+                      <div className="mt-1 text-sm font-bold text-[#0f1729]">
                         {canEditStudent ? (
                           <EditableDateField endpoint={`/api/students/${student.id}`} field="enrollDate" value={student.enrollDate} width="w-32" />
                         ) : (
                           formatDate(student.enrollDate)
                         )}
-                      </span>
+                      </div>
                     </div>
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
+                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                       <span className="text-sm font-semibold text-[#64748b]">Ngày sinh</span>
-                      <span className="text-sm font-bold text-[#0f1729]">
+                      <div className="mt-1 text-sm font-bold text-[#0f1729]">
                         {canEditStudent ? (
                           <EditableDateField endpoint={`/api/students/${student.id}`} field="dob" value={student.dob} width="w-32" />
                         ) : (
                           formatDate(student.dob)
                         )}
-                      </span>
-                    </div>
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
-                      <span className="text-sm font-semibold text-[#64748b]">Giới tính</span>
-                      <span className="text-sm font-bold text-[#0f1729]">{student.gender ?? "—"}</span>
+                      </div>
                     </div>
                     <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
+                      <span className="text-sm font-semibold text-[#64748b]">Giới tính</span>
+                      <p className="mt-1 text-sm font-bold text-[#0f1729]">{student.gender ?? "—"}</p>
+                    </div>
+                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
+                      <span className="text-sm font-semibold text-[#64748b]">Người giới thiệu</span>
+                      <p className="mt-1 text-sm font-bold text-[#0f1729]">{student.referredBy ?? "—"}</p>
+                    </div>
+                    <div className="col-span-2 rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                       <span className="text-sm font-semibold text-[#64748b]">SĐT / Địa chỉ</span>
                       <p className="text-sm font-bold text-[#0f1729] mt-1">{student.phone ?? "—"} · {student.address ?? "—"}</p>
-                    </div>
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
-                      <span className="text-sm font-semibold text-[#64748b]">Người giới thiệu</span>
-                      <span className="text-sm font-bold text-[#0f1729]">{student.referredBy ?? "—"}</span>
                     </div>
                   </div>
                 </div>
@@ -860,29 +860,29 @@ export default async function StudentDetailPage({
                     <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Liên kết đang dùng</h2>
                     <p className="mt-1 text-sm text-[#64748b]">Lead, phụ huynh, portal và lớp hiện tại.</p>
                   </div>
-                  <div className="space-y-3">
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                       <span className="text-sm font-semibold text-[#64748b]">Lead gốc</span>
-                      <span className="text-sm font-bold text-[#0f1729]">
+                      <p className="mt-1 text-sm font-bold text-[#0f1729]">
                         {student.lead ? <Link href={`/leads/${student.lead.id}`} className="text-[#f97316] hover:text-[#ea580c]">{student.lead.leadCode}</Link> : "Không gắn lead"}
-                      </span>
+                      </p>
                     </div>
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
+                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                       <span className="text-sm font-semibold text-[#64748b]">Phụ huynh chính</span>
-                      <span className="text-sm font-bold text-[#0f1729]">
+                      <p className="mt-1 text-sm font-bold text-[#0f1729]">
                         {primaryGuardian ? <Link href={`/guardians/${primaryGuardian.id}`} className="text-[#f97316] hover:text-[#ea580c]">{primaryGuardian.fullName}</Link> : "Chưa liên kết"}
-                      </span>
+                      </p>
                     </div>
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between" data-tour="student-kpi-portal">
+                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3" data-tour="student-kpi-portal">
                       <span className="text-sm font-semibold text-[#64748b]">Portal</span>
-                      <span className="text-sm font-bold text-[#0f1729]">
+                      <p className="mt-1 text-sm font-bold text-[#0f1729]">
                         {primaryGuardian?.user?.email ?? "Chưa cấp"}
                         {primaryGuardian?.user ? (
                           <span className={`ml-2 inline-flex items-center rounded-lg px-2 py-0.5 text-[10px] font-bold ${primaryGuardian.user.isActive ? "bg-[#dcfce7] text-[#166534]" : "bg-[#fef9c3] text-[#854d0e]"}`}>
                             {primaryGuardian.user.isActive ? "Hoạt động" : "Thu hồi"}
                           </span>
                         ) : null}
-                      </span>
+                      </p>
                     </div>
                     <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                       <span className="text-sm font-semibold text-[#64748b]">Lớp hiện tại</span>
@@ -897,7 +897,7 @@ export default async function StudentDetailPage({
                         )}
                       </p>
                     </div>
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
+                    <div className="col-span-2 rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                       <span className="text-sm font-semibold text-[#64748b]">Lịch học</span>
                       <p className="text-sm font-bold text-[#0f1729] mt-1">
                         {currentEnrollment?.class.scheduleRules.length
@@ -912,21 +912,19 @@ export default async function StudentDetailPage({
                     "Cần xử lý ngay" ở đầu trang — không lặp lại ở đây nữa. */}
                 <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm lg:col-span-2">
                   <h2 className="text-lg font-black tracking-tight text-[#0f1729] mb-4">Lịch sử thay đổi</h2>
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                     {student.statusHistory.map((item) => (
-                      <div key={item.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-bold text-[#0f1729] text-sm">
-                              {item.fromStatus ?? "INIT"} → {item.toStatus}
-                            </p>
-                            <p className="mt-1 text-xs text-[#64748b]">{item.reason ?? "Không có ghi chú"}</p>
-                          </div>
-                          <span className="text-xs text-[#64748b]">{formatDate(item.changedAt)}</span>
+                      <div key={item.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-2.5 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-bold text-[#0f1729] text-sm truncate">
+                            {item.fromStatus ?? "INIT"} → {item.toStatus}
+                          </p>
+                          <p className="mt-0.5 text-xs text-[#64748b] truncate">{item.reason ?? "Không có ghi chú"}</p>
                         </div>
+                        <span className="shrink-0 text-xs text-[#64748b]">{formatDate(item.changedAt)}</span>
                       </div>
                     ))}
-                    {student.statusHistory.length === 0 && <p className="text-sm text-[#64748b] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">Chưa có lịch sử thay đổi.</p>}
+                    {student.statusHistory.length === 0 && <p className="text-sm text-[#64748b] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7] md:col-span-2">Chưa có lịch sử thay đổi.</p>}
                   </div>
                 </div>
               </div>
@@ -969,80 +967,69 @@ export default async function StudentDetailPage({
                   canManageInventory={canManageInventory}
                 />
 
+                {/* "Các kỳ học phí gần đây" đã gộp vào bảng "Các kỳ học phí" bên trong
+                    StudentFinanceDesk ở trên — không hiển thị trùng ở đây nữa. */}
                 <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm overflow-hidden">
                   <div className="flex items-center justify-between mb-5">
                     <div>
-                      <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Các kỳ học phí gần đây</h2>
-                      <p className="mt-1 text-sm text-[#64748b]">Xem nhanh kỳ nào còn nợ, kỳ nào đã thu xong.</p>
-                    </div>
-                    {canManageFinance && outstanding > 0 && <QuickPaymentButton studentId={student.id} suggestedAmount={outstanding} />}
-                  </div>
-                  <div className="space-y-3">
-                    {student.charges.slice(0, 6).map((charge) => {
-                      const paid = charge.allocations.reduce((sum, alloc) => sum + alloc.amount, 0);
-                      const remaining = chargeOwnDueAmount(charge) - paid;
-                      return (
-                        <div key={charge.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] p-4 hover:border-[#3b82f6] transition-colors">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-bold text-[#0f1729]">{charge.billingPeriod.periodName} · {charge.class.className}</p>
-                              <p className="mt-1 text-xs text-[#64748b]">
-                                {charge.sessionCount} buổi · nghỉ {charge.absentCount} · trừ {charge.deductedCount}
-                                {charge.invoice ? ` · Phiếu ${charge.invoice.invoiceNo}` : " · Chưa có phiếu"}
-                              </p>
-                            </div>
-                            <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${remaining > 0 ? "bg-[#fef9c3] text-[#854d0e]" : "bg-[#dcfce7] text-[#166534]"}`}>
-                              {remaining > 0 ? `Còn ${formatVnd(remaining)}` : "Đã đủ"}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {student.charges.length === 0 && <p className="text-sm text-[#64748b] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">Chưa có kỳ học phí nào.</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                  <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm overflow-hidden">
-                    <div className="mb-5">
                       <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Lịch sử thu</h2>
                       <p className="mt-1 text-sm text-[#64748b]">Các lần thu tiền và hoàn tiền gần đây.</p>
                     </div>
-                    <div className="space-y-3">
-                      {student.payments.slice(0, 6).map((payment) => {
-                        const refunded = payment.refunds.reduce((sum, refund) => sum + refund.amount, 0);
-                        return (
-                          <div key={payment.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                              <p className="font-bold text-[#0f1729]">{payment.paymentNo} · {formatDate(payment.paidDate)}</p>
-                              <p className="mt-1 text-xs text-[#64748b]">
-                                  {payment.method ?? "—"} · {payment.cashPosting?.cashTransaction ? `Đã vào quỹ ${formatDate(payment.cashPosting.cashTransaction.txnDate)}` : "Chưa thấy vào quỹ"}
-                              </p>
-                              </div>
-                              <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${badgeClass(payment.status)}`}>{paymentStatusLabel(payment.status, refunded)}</span>
-                            </div>
-                            {canManageFinance && (
-                              <div className="mt-3 flex justify-end">
-                                <RefundButton paymentId={payment.id} refundable={payment.amount - refunded} />
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                      {student.payments.length === 0 && <p className="text-sm text-[#64748b] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">Chưa có phiếu thu nào.</p>}
-                    </div>
                   </div>
-
-                  {canEditStudent && (
-                    <ScholarshipAdjustmentForm
-                      studentId={student.id}
-                      scholarships={student.scholarships}
-                      adjustments={student.adjustments}
-                      enrollments={student.enrollments.map((e) => ({ id: e.id, className: e.class.className, status: e.status }))}
-                    />
-                  )}
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[640px] border-separate border-spacing-y-2 text-sm">
+                      <thead>
+                        <tr className="text-left text-xs font-semibold uppercase tracking-wide text-[#94a3b8]">
+                          <th className="px-3 pb-1">Phiếu</th>
+                          <th className="px-3 pb-1">Hình thức</th>
+                          <th className="px-3 pb-1">Số tiền</th>
+                          <th className="px-3 pb-1">Trạng thái</th>
+                          <th className="px-3 pb-1 text-right">Hành động</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {student.payments.slice(0, 6).map((payment) => {
+                          const refunded = payment.refunds.reduce((sum, refund) => sum + refund.amount, 0);
+                          return (
+                            <tr key={payment.id} className="bg-[#f8faff]">
+                              <td className="rounded-l-xl px-3 py-3 align-top">
+                                <p className="font-bold text-[#0f1729]">{payment.paymentNo}</p>
+                                <p className="mt-0.5 text-xs text-[#64748b]">{formatDate(payment.paidDate)}</p>
+                              </td>
+                              <td className="px-3 py-3 align-top text-[#64748b]">
+                                {payment.method ?? "—"}
+                                <p className="mt-0.5 text-xs text-[#94a3b8]">
+                                  {payment.cashPosting?.cashTransaction ? `Đã vào quỹ ${formatDate(payment.cashPosting.cashTransaction.txnDate)}` : "Chưa thấy vào quỹ"}
+                                </p>
+                              </td>
+                              <td className="px-3 py-3 align-top font-semibold text-[#0f1729]">{formatVnd(payment.amount)}</td>
+                              <td className="px-3 py-3 align-top">
+                                <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${badgeClass(payment.status)}`}>{paymentStatusLabel(payment.status, refunded)}</span>
+                              </td>
+                              <td className="rounded-r-xl px-3 py-3 text-right align-top">
+                                {canManageFinance && <RefundButton paymentId={payment.id} refundable={payment.amount - refunded} />}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {student.payments.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="px-3 py-6 text-center text-sm text-[#64748b]">Chưa có phiếu thu nào.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
+
+                {canEditStudent && (
+                  <ScholarshipAdjustmentForm
+                    studentId={student.id}
+                    scholarships={student.scholarships}
+                    adjustments={student.adjustments}
+                    enrollments={student.enrollments.map((e) => ({ id: e.id, className: e.class.className, status: e.status }))}
+                  />
+                )}
               </div>
             ),
           }] : []),
@@ -1243,25 +1230,25 @@ export default async function StudentDetailPage({
             ) : (
               <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
                 <h2 className="text-lg font-black tracking-tight text-[#0f1729] mb-5">Hồ sơ học viên</h2>
-                <div className="space-y-3">
-                  <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                     <span className="text-sm font-semibold text-[#64748b]">Giới tính</span>
-                    <span className="text-sm font-bold text-[#0f1729]">{student.gender ?? "—"}</span>
+                    <p className="mt-1 text-sm font-bold text-[#0f1729]">{student.gender ?? "—"}</p>
                   </div>
-                  <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
+                  <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                     <span className="text-sm font-semibold text-[#64748b]">Ngày sinh</span>
-                    <span className="text-sm font-bold text-[#0f1729]">{formatDate(student.dob)}</span>
+                    <p className="mt-1 text-sm font-bold text-[#0f1729]">{formatDate(student.dob)}</p>
                   </div>
-                  <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
+                  <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                     <span className="text-sm font-semibold text-[#64748b]">Địa chỉ</span>
-                    <span className="text-sm font-bold text-[#0f1729]">{student.address ?? "—"}</span>
+                    <p className="mt-1 text-sm font-bold text-[#0f1729]">{student.address ?? "—"}</p>
                   </div>
-                  <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
+                  <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                     <span className="text-sm font-semibold text-[#64748b]">Người giới thiệu</span>
-                    <span className="text-sm font-bold text-[#0f1729]">{student.referredBy ?? "—"}</span>
+                    <p className="mt-1 text-sm font-bold text-[#0f1729]">{student.referredBy ?? "—"}</p>
                   </div>
                   {student.notes && (
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
+                    <div className="col-span-2 rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                       <span className="text-sm font-semibold text-[#64748b]">Ghi chú nội bộ</span>
                       <p className="mt-1 text-sm font-bold text-[#0f1729]">{student.notes}</p>
                     </div>

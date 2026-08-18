@@ -146,19 +146,31 @@ export default function StudentEditForm({ studentId, initial }: Props) {
           </div>
         </div>
 
-        {/* Phone */}
-        <div className="form-group">
-          <label className="label">Số điện thoại</label>
-          <div className="relative">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted48">
-              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9a16 16 0 0 0 6.29 6.29l.38-.38a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.73 17z"/>
-            </svg>
+        {/* Phone + Referred by */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="form-group">
+            <label className="label">Số điện thoại</label>
+            <div className="relative">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                   className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted48">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9a16 16 0 0 0 6.29 6.29l.38-.38a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.73 17z"/>
+              </svg>
+              <input
+                className="input pl-9"
+                placeholder="0912 345 678"
+                value={form.phone}
+                onChange={(e) => update("phone", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="label">Người giới thiệu</label>
             <input
-              className="input pl-9"
-              placeholder="0912 345 678"
-              value={form.phone}
-              onChange={(e) => update("phone", e.target.value)}
+              className="input"
+              placeholder="Tên người giới thiệu (nếu có)"
+              value={form.referredBy}
+              onChange={(e) => update("referredBy", e.target.value)}
             />
           </div>
         </div>
@@ -194,39 +206,29 @@ export default function StudentEditForm({ studentId, initial }: Props) {
           </div>
         )}
 
-        {/* Referred by */}
-        <div className="form-group">
-          <label className="label">Người giới thiệu</label>
-          <input
-            className="input"
-            placeholder="Tên người giới thiệu (nếu có)"
-            value={form.referredBy}
-            onChange={(e) => update("referredBy", e.target.value)}
-          />
-        </div>
+        {/* Evaluation + Notes */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="form-group">
+            <label className="label">Đánh giá học viên</label>
+            <textarea
+              className="input resize-none"
+              rows={3}
+              placeholder="Nhận xét năng lực, thái độ học tập..."
+              value={form.evaluation}
+              onChange={(e) => update("evaluation", e.target.value)}
+            />
+          </div>
 
-        {/* Evaluation */}
-        <div className="form-group">
-          <label className="label">Đánh giá học viên</label>
-          <textarea
-            className="input resize-none"
-            rows={2}
-            placeholder="Nhận xét năng lực, thái độ học tập..."
-            value={form.evaluation}
-            onChange={(e) => update("evaluation", e.target.value)}
-          />
-        </div>
-
-        {/* Notes */}
-        <div className="form-group">
-          <label className="label">Ghi chú nội bộ</label>
-          <textarea
-            className="input resize-none"
-            rows={3}
-            placeholder="Thông tin đặc biệt, lưu ý cho giáo viên, admin..."
-            value={form.notes}
-            onChange={(e) => update("notes", e.target.value)}
-          />
+          <div className="form-group">
+            <label className="label">Ghi chú nội bộ</label>
+            <textarea
+              className="input resize-none"
+              rows={3}
+              placeholder="Thông tin đặc biệt, lưu ý cho giáo viên, admin..."
+              value={form.notes}
+              onChange={(e) => update("notes", e.target.value)}
+            />
+          </div>
         </div>
 
         {/* Feedback */}

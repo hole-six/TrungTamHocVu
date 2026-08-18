@@ -249,6 +249,59 @@ export default function StudentFinanceDesk({
     [bookRequirements],
   );
 
+  // Bảng "Các kỳ học phí" gộp chung khoản ưu tiên thu + kỳ còn treo + vài kỳ gần đây đã
+  // thu đủ, để CSO chỉ cần nhìn 1 danh sách duy nhất thay vì 3 khối tách rời như trước.
+  const chargeTableRows = useMemo(() => {
+    const overdue = overdueOtherCharges;
+    const dueRow = nextDueCharge && !overdue.some((c) => c.id === nextDueCharge.id) ? [nextDueCharge] : [];
+    const closed = charges
+      .filter((charge) => charge.remainingAmount <= 0)
+      .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+      .slice(0, 6);
+    return [...dueRow, ...overdue, ...upcomingOtherCharges, ...closed];
+  }, [charges, overdueOtherCharges, upcomingOtherCharges, nextDueCharge]);
+
+  type BookRow = {
+    key: string;
+    kind: "requirement" | "issue";
+    bookName: string;
+    className: string;
+    quantity: number;
+    amount: number;
+    statusLabel: string;
+    statusClass: string;
+    requirement?: BookRequirementSummary;
+    issue?: BookIssueSummary;
+  };
+
+  // Bảng "Sách" gộp chung sách chuẩn của khóa và sách mua thêm chưa thu vào 1 danh sách,
+  // phân biệt bằng nhãn "Sách chuẩn"/"Phát sinh" thay vì 2 khối tách rời như trước.
+  const bookTableRows = useMemo<BookRow[]>(() => {
+    const requirementRows: BookRow[] = bookRequirements.map((item) => ({
+      key: `req-${item.id}`,
+      kind: "requirement",
+      bookName: item.bookName,
+      className: item.className,
+      quantity: item.quantity,
+      amount: item.totalAmount,
+      statusLabel: requirementLabel(item.status),
+      statusClass: requirementClass(item.status),
+      requirement: item,
+    }));
+    const issueRows: BookRow[] = unpaidBooks.map((issue) => ({
+      key: `issue-${issue.id}`,
+      kind: "issue",
+      bookName: issue.bookName,
+      className: issue.className ?? "Chưa gắn lớp",
+      quantity: issue.quantity,
+      amount: issue.amount,
+      statusLabel: bookPaymentLabel(issue.paymentStatus),
+      statusClass: bookPaymentClass(issue.paymentStatus),
+      issue,
+    }));
+    return [...requirementRows, ...issueRows];
+  }, [bookRequirements, unpaidBooks]);
+
   const bookCategories = useMemo(() => {
     const values = new Set<string>();
     books.forEach((book) => values.add(book.category?.trim() || "Sách khác"));
@@ -462,439 +515,357 @@ export default function StudentFinanceDesk({
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
       <section className="rounded-[28px] border border-hairline bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-ink">Cách thu theo lớp</h3>
+          <div>
+            <h3 className="text-lg font-semibold text-ink">Cách thu theo lớp</h3>
             <p className="mt-1 text-sm text-ink-muted48">Mỗi lớp chọn 1 kiểu thu đang áp dụng cho phụ huynh.</p>
-            </div>
+          </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{activeEnrollmentOptions.length} lớp đang áp dụng</span>
         </div>
 
-        <div className="mt-4 space-y-3">
-          {activeEnrollmentOptions.map((enrollment) => (
-            <div key={enrollment.enrollmentId} className="rounded-[22px] border border-[#e8eefb] bg-[#fbfdff] p-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-ink">{enrollment.className}</p>
-                  <p className="mt-1 text-xs text-ink-muted48">Đang thu: {billingModeLabel(enrollment.billingModel)}</p>
-                  {openChargeByClassId.get(enrollment.classId) ? (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">{openChargeByClassId.get(enrollment.classId)?.periodName}</span>
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">Còn {formatVnd(openChargeByClassId.get(enrollment.classId)?.remainingAmount ?? 0)}</span>
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-xs text-ink-muted48">Hiện chưa có khoản mở cần đổi ngay cho lớp này.</p>
-                  )}
-                </div>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[560px] border-separate border-spacing-y-2 text-sm">
+            <tbody>
+              {activeEnrollmentOptions.map((enrollment) => {
+                const openCharge = openChargeByClassId.get(enrollment.classId);
+                return (
+                  <tr key={enrollment.enrollmentId} className="bg-[#fbfdff]">
+                    <td className="rounded-l-2xl px-4 py-3 align-middle">
+                      <p className="text-sm font-semibold text-ink">{enrollment.className}</p>
+                      <p className="mt-0.5 text-xs text-ink-muted48">Đang thu: {billingModeLabel(enrollment.billingModel)}</p>
+                    </td>
+                    <td className="px-4 py-3 align-middle">
+                      {openCharge ? (
+                        <div className="flex flex-wrap gap-2">
+                          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">{openCharge.periodName}</span>
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">Còn {formatVnd(openCharge.remainingAmount)}</span>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-ink-muted48">Chưa có khoản mở cần đổi ngay.</p>
+                      )}
+                    </td>
+                    <td className="rounded-r-2xl px-4 py-3 text-right align-middle">
+                      <div className="inline-flex flex-wrap justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => switchBillingMode(enrollment.enrollmentId, enrollment.classId, "PERIOD", enrollment.className)}
+                          disabled={switchingEnrollmentId === enrollment.enrollmentId || enrollment.billingModel === "PERIOD"}
+                          className={`rounded-full px-3 py-2 text-xs font-semibold transition ${
+                            enrollment.billingModel === "PERIOD"
+                              ? "bg-sky-100 text-sky-700"
+                              : "border border-sky-200 bg-white text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          }`}
+                        >
+                          {switchingEnrollmentId === enrollment.enrollmentId && enrollment.billingModel !== "PERIOD" ? "Đang đổi..." : "Theo tháng"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => switchBillingMode(enrollment.enrollmentId, enrollment.classId, "COURSE", enrollment.className)}
+                          disabled={switchingEnrollmentId === enrollment.enrollmentId || enrollment.billingModel === "COURSE"}
+                          className={`rounded-full px-3 py-2 text-xs font-semibold transition ${
+                            enrollment.billingModel === "COURSE"
+                              ? "bg-violet-100 text-violet-700"
+                              : "border border-violet-200 bg-white text-violet-700 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          }`}
+                        >
+                          {switchingEnrollmentId === enrollment.enrollmentId && enrollment.billingModel !== "COURSE" ? "Đang đổi..." : "Theo khóa"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {activeEnrollmentOptions.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-3 text-sm text-ink-muted48">Chưa có ghi danh đang hoạt động.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        {billingModeMessage ? <div className="mt-3 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-700">{billingModeMessage}</div> : null}
+      </section>
 
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => switchBillingMode(enrollment.enrollmentId, enrollment.classId, "PERIOD", enrollment.className)}
-                    disabled={switchingEnrollmentId === enrollment.enrollmentId || enrollment.billingModel === "PERIOD"}
-                    className={`rounded-full px-3 py-2 text-xs font-semibold transition ${
-                      enrollment.billingModel === "PERIOD"
-                        ? "bg-sky-100 text-sky-700"
-                        : "border border-sky-200 bg-white text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    }`}
-                  >
-                    {switchingEnrollmentId === enrollment.enrollmentId && enrollment.billingModel !== "PERIOD" ? "Đang đổi..." : "Theo tháng"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => switchBillingMode(enrollment.enrollmentId, enrollment.classId, "COURSE", enrollment.className)}
-                    disabled={switchingEnrollmentId === enrollment.enrollmentId || enrollment.billingModel === "COURSE"}
-                    className={`rounded-full px-3 py-2 text-xs font-semibold transition ${
-                      enrollment.billingModel === "COURSE"
-                        ? "bg-violet-100 text-violet-700"
-                        : "border border-violet-200 bg-white text-violet-700 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    }`}
-                  >
-                    {switchingEnrollmentId === enrollment.enrollmentId && enrollment.billingModel !== "COURSE" ? "Đang đổi..." : "Theo khóa"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+      <section className="rounded-[28px] border border-hairline bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-ink">Các kỳ học phí</h3>
+            <p className="mt-1 text-sm text-ink-muted48">Kỳ ưu tiên thu, kỳ còn treo và vài kỳ gần đây đã thu đủ — gộp chung 1 danh sách, thu tiền ngay trên dòng.</p>
+          </div>
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Cần thu {formatVnd(dueNowAmount)}</span>
+        </div>
 
-          {billingModeMessage ? <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-700">{billingModeMessage}</div> : null}
-          {activeEnrollmentOptions.length === 0 ? <p className="text-sm text-ink-muted48">Chưa có ghi danh đang hoạt động.</p> : null}
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[760px] border-separate border-spacing-y-2 text-sm">
+            <thead>
+              <tr className="text-left text-xs font-semibold uppercase tracking-wide text-ink-muted48">
+                <th className="px-3 pb-1">Kỳ · Lớp</th>
+                <th className="px-3 pb-1">Học phí</th>
+                <th className="px-3 pb-1">Sách</th>
+                <th className="px-3 pb-1">Nợ đầu kỳ</th>
+                <th className="px-3 pb-1">Đã thu</th>
+                <th className="px-3 pb-1">Còn lại</th>
+                <th className="px-3 pb-1">Trạng thái</th>
+                <th className="px-3 pb-1 text-right">Hành động</th>
+              </tr>
+            </thead>
+            <tbody>
+              {chargeTableRows.map((charge) => {
+                const isPriority = charge.id === nextDueCharge?.id;
+                const isClosed = charge.remainingAmount <= 0;
+                const isUpcoming = !isClosed && new Date(charge.startDate).getTime() > today.getTime();
+                const statusLabel = isPriority
+                  ? "Ưu tiên thu ngay"
+                  : isUpcoming
+                    ? `Đến hạn ${new Date(charge.startDate).toLocaleDateString("vi-VN")}`
+                    : isClosed
+                      ? "Đã đủ"
+                      : "Còn nợ";
+                const statusClass = isPriority
+                  ? "bg-amber-200 text-amber-800"
+                  : isUpcoming
+                    ? "bg-sky-100 text-sky-700"
+                    : isClosed
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-rose-100 text-rose-700";
+                return (
+                  <tr key={charge.id} className={isPriority ? "bg-amber-50" : "bg-[#fbfdff]"}>
+                    <td className="rounded-l-2xl px-3 py-3 align-top">
+                      <p className="font-semibold text-ink">{charge.periodName}</p>
+                      <p className="mt-0.5 text-xs text-ink-muted48">{charge.className}</p>
+                      {charge.discountLabels?.length ? <p className="mt-1 text-xs text-emerald-700">{charge.discountLabels.join(" + ")}</p> : null}
+                    </td>
+                    <td className="px-3 py-3 align-top text-ink-muted80">{formatVnd(charge.tuitionAmount)}</td>
+                    <td className="px-3 py-3 align-top text-ink-muted80">{formatVnd(charge.materialsAmount)}</td>
+                    <td className="px-3 py-3 align-top text-ink-muted80">{formatVnd(charge.openingBalance)}</td>
+                    <td className="px-3 py-3 align-top text-ink-muted80">{formatVnd(charge.paidAmount)}</td>
+                    <td className="px-3 py-3 align-top font-semibold text-ink">{formatVnd(charge.remainingAmount)}</td>
+                    <td className="px-3 py-3 align-top">
+                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusClass}`}>{statusLabel}</span>
+                    </td>
+                    <td className="rounded-r-2xl px-3 py-3 text-right align-top">
+                      {charge.remainingAmount > 0 && canManageFinance ? (
+                        <QuickPaymentButton studentId={studentId} suggestedAmount={charge.remainingAmount} />
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
+              {chargeTableRows.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-3 py-6 text-center text-sm text-ink-muted48">
+                    Chưa có kỳ học phí nào.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
         </div>
       </section>
 
       <section className="rounded-[28px] border border-hairline bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-ink">Khoản cần thu ngay</h3>
-            <p className="mt-1 text-sm text-ink-muted48">Ưu tiên thu trước ở lần làm việc này.</p>
-            </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {nextDueCharge ? <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Còn {formatVnd(nextDueCharge.remainingAmount)}</span> : null}
-            {canManageFinance && nextDueCharge ? <QuickPaymentButton studentId={studentId} suggestedAmount={nextDueCharge.remainingAmount} /> : null}
+          <div>
+            <h3 className="text-lg font-semibold text-ink">Sách</h3>
+            <p className="mt-1 text-sm text-ink-muted48">Sách chuẩn của khóa và sách mua thêm chưa thu — gộp chung 1 danh sách.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Chờ xác nhận {requirementStats.pending}</span>
+            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Đã mua {requirementStats.confirmed}</span>
+            {canManageInventory ? (
+              <button type="button" onClick={() => setShowIssueComposer((current) => !current)} className="btn-ghost-sm">
+                {showIssueComposer ? "Ẩn form phát sinh" : "Thêm sách phát sinh"}
+              </button>
+            ) : null}
           </div>
         </div>
 
-        {nextDueCharge ? (
-          <div className="mt-4 space-y-4">
-            <div className="rounded-[22px] border border-amber-200 bg-amber-50 p-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-700">{nextDueCharge.periodName}</span>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">{nextDueCharge.className}</span>
-                    {nextDueCharge.openingBalance > 0 ? (
-                      <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">Có nợ cũ</span>
-                    ) : null}
-                  </div>
-                  {nextDueCharge.discountLabels?.length ? (
-                    <p className="mt-3 text-xs text-emerald-700">{nextDueCharge.discountLabels.join(" + ")}</p>
-                  ) : null}
-                </div>
-
-                <div className="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-right">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Còn phải đóng</p>
-                  <p className="mt-1 text-xl font-semibold text-amber-800">{formatVnd(nextDueCharge.remainingAmount)}</p>
-                  <p className="text-xs text-amber-700">Đã thu {formatVnd(nextDueCharge.paidAmount)}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-[20px] border border-[#e8eefb] bg-[#fbfdff] p-4">
-                <p className="text-xs text-ink-muted48">Học phí</p>
-                <p className="mt-1 text-base font-semibold text-ink">{formatVnd(nextDueCharge.tuitionAmount)}</p>
-              </div>
-              <div className="rounded-[20px] border border-[#e8eefb] bg-[#fbfdff] p-4">
-                <p className="text-xs text-ink-muted48">Sách / phát sinh</p>
-                <p className="mt-1 text-base font-semibold text-ink">{formatVnd(nextDueCharge.materialsAmount)}</p>
-              </div>
-              <div className="rounded-[20px] border border-[#e8eefb] bg-[#fbfdff] p-4">
-                <p className="text-xs text-ink-muted48">Nợ đầu kỳ</p>
-                <p className="mt-1 text-base font-semibold text-ink">{formatVnd(nextDueCharge.openingBalance)}</p>
-              </div>
-              <div className="rounded-[20px] border border-[#e8eefb] bg-[#fbfdff] p-4">
-                <p className="text-xs text-ink-muted48">Tổng phiếu</p>
-                <p className="mt-1 text-base font-semibold text-ink">{formatVnd(nextDueCharge.totalAmount)}</p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-4 rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            {upcomingOtherCharges.length > 0
-              ? `Không có kỳ nào đến hạn ngay bây giờ — còn ${upcomingOtherCharges.length} kỳ trả góp sắp tới chưa tới hạn (xem bên dưới).`
-              : "Đã thu đủ toàn bộ, không còn khoản nào."}
-          </div>
-        )}
-      </section>
-      </div>
-
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-        <div className="rounded-[28px] border border-hairline bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-ink">Các kỳ còn treo</h3>
-              <p className="mt-1 text-sm text-ink-muted48">Các kỳ chưa thu xong ngoài khoản đang ưu tiên.</p>
-            </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{otherOpenCharges.length} kỳ khác</span>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            {overdueOtherCharges.map((charge) => (
-              <div key={charge.id} className="rounded-[22px] border border-[#e8eefb] bg-[#fbfdff] p-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-semibold text-ink">{charge.periodName}</p>
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">{charge.className}</span>
-                      {charge.openingBalance > 0 ? <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">Có nợ cũ</span> : null}
-                    </div>
-                    {charge.discountLabels?.length ? <p className="mt-2 text-xs text-emerald-700">{charge.discountLabels.join(" + ")}</p> : null}
-                  </div>
-
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-right">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Còn nợ</p>
-                    <p className="mt-1 text-base font-semibold text-amber-800">{formatVnd(charge.remainingAmount)}</p>
-                    <p className="text-xs text-amber-700">Đã thu {formatVnd(charge.paidAmount)}</p>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-                  <div className="rounded-2xl bg-white p-3">
-                    <p className="text-xs text-ink-muted48">Học phí</p>
-                    <p className="mt-1 text-sm font-semibold text-ink">{formatVnd(charge.tuitionAmount)}</p>
-                  </div>
-                  <div className="rounded-2xl bg-white p-3">
-                    <p className="text-xs text-ink-muted48">Sách</p>
-                    <p className="mt-1 text-sm font-semibold text-ink">{formatVnd(charge.materialsAmount)}</p>
-                  </div>
-                  <div className="rounded-2xl bg-white p-3">
-                    <p className="text-xs text-ink-muted48">Nợ đầu kỳ</p>
-                    <p className="mt-1 text-sm font-semibold text-ink">{formatVnd(charge.openingBalance)}</p>
-                  </div>
-                  <div className="rounded-2xl bg-white p-3">
-                    <p className="text-xs text-ink-muted48">Tổng phiếu</p>
-                    <p className="mt-1 text-sm font-semibold text-ink">{formatVnd(charge.totalAmount)}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {upcomingOtherCharges.length > 0 ? (
-              <div className="rounded-[22px] border border-dashed border-sky-200 bg-sky-50/40 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Các kỳ sắp tới</p>
-                <div className="mt-3 space-y-2">
-                  {upcomingOtherCharges.map((charge) => (
-                    <div key={charge.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-semibold text-ink">{charge.periodName}</span>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">{charge.className}</span>
-                        <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700">
-                          Đến hạn {new Date(charge.startDate).toLocaleDateString("vi-VN")}
-                        </span>
-                      </div>
-                      <span className="text-sm font-semibold text-ink-muted80">{formatVnd(charge.remainingAmount)}</span>
-                    </div>
+        {canManageInventory && showIssueComposer ? (
+          <form onSubmit={handleIssueBook} className="mt-4 space-y-4 rounded-[22px] border border-[#e8eefb] bg-[#fbfdff] p-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)_120px_180px]">
+              <label className="space-y-2">
+                <span className="label-sm">Lớp gắn sách</span>
+                <select
+                  className="input"
+                  value={selectedClassId}
+                  onChange={(event) => setSelectedClassId(event.target.value)}
+                  disabled={!canIssueBooks || activeEnrollmentOptions.length === 1}
+                >
+                  {activeEnrollmentOptions.length > 1 ? <option value="">Chọn đúng lớp</option> : null}
+                  {activeEnrollmentOptions.map((item) => (
+                    <option key={item.enrollmentId} value={item.classId}>
+                      {item.className}
+                    </option>
                   ))}
-                </div>
-              </div>
-            ) : null}
+                </select>
+              </label>
 
-            {otherOpenCharges.length === 0 ? (
-              <div className="rounded-[22px] border border-dashed border-hairline bg-[#fbfdff] px-4 py-3 text-sm text-ink-muted48">
-                {nextDueCharge ? "Không còn kỳ treo nào khác ngoài kỳ đang ưu tiên thu." : "Hiện chưa có công nợ mở."}
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="rounded-[28px] border border-hairline bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-ink">Sách</h3>
-              <p className="mt-1 text-sm text-ink-muted48">Gồm sách chuẩn của khóa và sách mua thêm.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Chờ xác nhận {requirementStats.pending}</span>
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Đã mua {requirementStats.confirmed}</span>
-              {canManageInventory ? (
-                <button type="button" onClick={() => setShowIssueComposer((current) => !current)} className="btn-ghost-sm">
-                  {showIssueComposer ? "Ẩn form phát sinh" : "Thêm sách phát sinh"}
-                </button>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-4">
-            <div className="rounded-[22px] border border-[#e8eefb] bg-[#fbfdff] p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-ink">Sách chuẩn của khóa</p>
-                <span className="text-xs text-ink-muted48">{bookRequirements.length} yêu cầu</span>
-              </div>
-
-              <div className="mt-3 space-y-3">
-                {bookRequirements.map((item) => (
-                  <div key={item.id} className="rounded-2xl border border-white bg-white p-3">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                      <div>
-                        <p className="text-sm font-semibold text-ink">{item.bookName}</p>
-                        <p className="mt-1 text-xs text-ink-muted48">
-                          {item.className} · SL {item.quantity} · {formatVnd(item.totalAmount)}
+              <div className="space-y-2">
+                <span className="label-sm">Đầu sách</span>
+                <button
+                  type="button"
+                  onClick={() => void openBookPicker()}
+                  className="flex min-h-[52px] w-full items-center justify-between rounded-[18px] border border-[#cfe0fb] bg-white px-4 py-3 text-left transition hover:border-primary/40 hover:bg-canvas"
+                >
+                  <div className="min-w-0">
+                    {selectedBook ? (
+                      <>
+                        <p className="truncate text-sm font-semibold text-ink">{selectedBook.name}</p>
+                        <p className="mt-1 truncate text-xs text-ink-muted48">
+                          {(selectedBook.category?.trim() || "Sách khác")} · {formatVnd(selectedBook.unitPrice)}
                         </p>
-                      </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-semibold text-ink">Chọn danh mục và sách</p>
+                        <p className="mt-1 text-xs text-ink-muted48">Mở danh sách để chọn đúng đầu sách.</p>
+                      </>
+                    )}
+                  </div>
+                  <span className="text-sm font-semibold text-primary">Chọn</span>
+                </button>
+              </div>
 
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${requirementClass(item.status)}`}>{requirementLabel(item.status)}</span>
+              <label className="space-y-2">
+                <span className="label-sm">Số lượng</span>
+                <input type="number" min="1" className="input" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
+              </label>
+
+              <label className="space-y-2">
+                <span className="label-sm">Ngày ghi nhận</span>
+                <DatePicker value={issueDate} onChange={setIssueDate} />
+              </label>
+            </div>
+
+            <label className="space-y-2">
+              <span className="label-sm">Ghi chú</span>
+              <textarea
+                className="input min-h-[88px]"
+                value={issueNotes}
+                onChange={(event) => setIssueNotes(event.target.value)}
+                placeholder="Ví dụ: mua thêm workbook, thiếu sách buổi đầu, đổi sang bộ nâng cao..."
+              />
+            </label>
+
+            {selectedBook ? (
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                  Danh mục: {selectedBook.category?.trim() || "Sách khác"}
+                </span>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${stockClass(selectedBook.quantityOnHand ?? 0)}`}>
+                  {selectedBook.quantityOnHand && selectedBook.quantityOnHand > 0 ? `Còn ${selectedBook.quantityOnHand} cuốn` : "Đang hết kho"}
+                </span>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Đơn giá: {formatVnd(selectedBook.unitPrice)}</span>
+              </div>
+            ) : null}
+
+            {issueError ? <div className="alert-danger">{issueError}</div> : null}
+            {issueNotice ? <div className="alert-success">{issueNotice}</div> : null}
+            {bookStatusError ? <div className="alert-danger">{bookStatusError}</div> : null}
+
+            <button type="submit" disabled={issuing || !canIssueBooks} className="btn-primary">
+              {issuing ? "Đang lưu..." : "Thêm sách"}
+            </button>
+          </form>
+        ) : null}
+
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-sm">
+            <thead>
+              <tr className="text-left text-xs font-semibold uppercase tracking-wide text-ink-muted48">
+                <th className="px-3 pb-1">Đầu sách</th>
+                <th className="px-3 pb-1">Lớp</th>
+                <th className="px-3 pb-1">SL</th>
+                <th className="px-3 pb-1">Tiền</th>
+                <th className="px-3 pb-1">Trạng thái</th>
+                <th className="px-3 pb-1 text-right">Hành động</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bookTableRows.map((row) => (
+                <tr key={row.key} className="bg-[#fbfdff]">
+                  <td className="rounded-l-2xl px-3 py-3 align-top">
+                    <p className="text-sm font-semibold text-ink">{row.bookName}</p>
+                    <p className="mt-0.5 text-xs text-ink-muted48">{row.kind === "requirement" ? "Sách chuẩn" : "Phát sinh"}</p>
+                  </td>
+                  <td className="px-3 py-3 align-top text-ink-muted80">{row.className}</td>
+                  <td className="px-3 py-3 align-top text-ink-muted80">{row.quantity}</td>
+                  <td className="px-3 py-3 align-top text-ink-muted80">{formatVnd(row.amount)}</td>
+                  <td className="px-3 py-3 align-top">
+                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${row.statusClass}`}>{row.statusLabel}</span>
+                  </td>
+                  <td className="rounded-r-2xl px-3 py-3 text-right align-top">
+                    {row.kind === "requirement" && row.requirement ? (
+                      <div className="inline-flex flex-wrap justify-end gap-2">
                         <button
                           type="button"
-                          onClick={() => updateBookRequirement(item.id, "CONFIRMED")}
-                          disabled={updatingRequirementId === item.id || item.status === "CONFIRMED"}
-                          className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          onClick={() => updateBookRequirement(row.requirement!.id, "CONFIRMED")}
+                          disabled={updatingRequirementId === row.requirement.id || row.requirement.status === "CONFIRMED"}
+                          className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Xác nhận mua
                         </button>
                         <button
                           type="button"
-                          onClick={() => updateBookRequirement(item.id, "DECLINED")}
-                          disabled={updatingRequirementId === item.id || item.status === "DECLINED"}
-                          className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          onClick={() => updateBookRequirement(row.requirement!.id, "DECLINED")}
+                          disabled={updatingRequirementId === row.requirement.id || row.requirement.status === "DECLINED"}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Không mua
                         </button>
                       </div>
-                    </div>
-                  </div>
-                ))}
-
-                {bookRequirements.length === 0 ? <p className="text-sm text-ink-muted48">Chưa có yêu cầu sách chuẩn nào.</p> : null}
-              </div>
-            </div>
-
-            <div className="rounded-[22px] border border-[#e8eefb] bg-[#fbfdff] p-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-ink">Sách mua thêm / chưa thu</p>
-                  <p className="mt-1 text-xs text-ink-muted48">Chỉ hiện những dòng còn treo tiền.</p>
-                </div>
-              </div>
-
-              {canManageInventory && showIssueComposer ? (
-                <form onSubmit={handleIssueBook} className="mt-4 space-y-4 rounded-2xl border border-white bg-white p-4">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)_120px_180px]">
-                    <label className="space-y-2">
-                      <span className="label-sm">Lớp gắn sách</span>
-                      <select
-                        className="input"
-                        value={selectedClassId}
-                        onChange={(event) => setSelectedClassId(event.target.value)}
-                        disabled={!canIssueBooks || activeEnrollmentOptions.length === 1}
-                      >
-                        {activeEnrollmentOptions.length > 1 ? <option value="">Chọn đúng lớp</option> : null}
-                        {activeEnrollmentOptions.map((item) => (
-                          <option key={item.enrollmentId} value={item.classId}>
-                            {item.className}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <div className="space-y-2">
-                      <span className="label-sm">Đầu sách</span>
-                      <button
-                        type="button"
-                        onClick={() => void openBookPicker()}
-                        className="flex min-h-[52px] w-full items-center justify-between rounded-[18px] border border-[#cfe0fb] bg-white px-4 py-3 text-left transition hover:border-primary/40 hover:bg-canvas"
-                      >
-                        <div className="min-w-0">
-                          {selectedBook ? (
-                            <>
-                              <p className="truncate text-sm font-semibold text-ink">{selectedBook.name}</p>
-                              <p className="mt-1 truncate text-xs text-ink-muted48">
-                                {(selectedBook.category?.trim() || "Sách khác")} · {formatVnd(selectedBook.unitPrice)}
-                              </p>
-                            </>
-                          ) : (
-                            <>
-                              <p className="text-sm font-semibold text-ink">Chọn danh mục và sách</p>
-                              <p className="mt-1 text-xs text-ink-muted48">Mở danh sách để chọn đúng đầu sách.</p>
-                            </>
-                          )}
-                        </div>
-                        <span className="text-sm font-semibold text-primary">Chọn</span>
-                      </button>
-                    </div>
-
-                    <label className="space-y-2">
-                      <span className="label-sm">Số lượng</span>
-                      <input type="number" min="1" className="input" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
-                    </label>
-
-                    <label className="space-y-2">
-                      <span className="label-sm">Ngày ghi nhận</span>
-                      <DatePicker value={issueDate} onChange={setIssueDate} />
-                    </label>
-                  </div>
-
-                  <label className="space-y-2">
-                    <span className="label-sm">Ghi chú</span>
-                    <textarea
-                      className="input min-h-[88px]"
-                      value={issueNotes}
-                      onChange={(event) => setIssueNotes(event.target.value)}
-                      placeholder="Ví dụ: mua thêm workbook, thiếu sách buổi đầu, đổi sang bộ nâng cao..."
-                    />
-                  </label>
-
-                  {selectedBook ? (
-                    <div className="flex flex-wrap gap-2">
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                        Danh mục: {selectedBook.category?.trim() || "Sách khác"}
-                      </span>
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${stockClass(selectedBook.quantityOnHand ?? 0)}`}>
-                        {selectedBook.quantityOnHand && selectedBook.quantityOnHand > 0 ? `Còn ${selectedBook.quantityOnHand} cuốn` : "Đang hết kho"}
-                      </span>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Đơn giá: {formatVnd(selectedBook.unitPrice)}</span>
-                    </div>
-                  ) : null}
-
-                  {issueError ? <div className="alert-danger">{issueError}</div> : null}
-                  {issueNotice ? <div className="alert-success">{issueNotice}</div> : null}
-                  {bookStatusError ? <div className="alert-danger">{bookStatusError}</div> : null}
-
-                  <button type="submit" disabled={issuing || !canIssueBooks} className="btn-primary">
-                    {issuing ? "Đang lưu..." : "Thêm sách"}
-                  </button>
-                </form>
+                    ) : row.kind === "issue" && row.issue && canManageInventory ? (
+                      <div className="inline-flex flex-wrap justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => updateBookPaymentStatus(row.issue!.id, "PAID")}
+                          disabled={updatingBookIssueId === row.issue.id}
+                          className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-200"
+                        >
+                          Đã thu
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateBookPaymentStatus(row.issue!.id, "PARTIAL")}
+                          disabled={updatingBookIssueId === row.issue.id}
+                          className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-200"
+                        >
+                          Một phần
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateBookPaymentStatus(row.issue!.id, "UNPAID")}
+                          disabled={updatingBookIssueId === row.issue.id}
+                          className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-200"
+                        >
+                          Chưa thu
+                        </button>
+                        <ConfirmActionButton
+                          title="Xác nhận xóa sách phát sinh?"
+                          description="Hệ thống sẽ hoàn tác dòng này khỏi công nợ và tồn kho nếu khoản sách vẫn chưa thu."
+                          confirmLabel="Xóa dòng sách"
+                          tone="danger"
+                          disabled={deletingBookIssueId === row.issue.id}
+                          className="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                          onConfirm={() => deleteBookIssue(row.issue!.id)}
+                        >
+                          Xóa
+                        </ConfirmActionButton>
+                      </div>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+              {bookTableRows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-6 text-center text-sm text-ink-muted48">
+                    Chưa có sách chuẩn hoặc sách phát sinh nào đang treo.
+                  </td>
+                </tr>
               ) : null}
-
-              <div className="mt-4 space-y-3">
-                {unpaidBooks.map((issue) => (
-                  <div key={issue.id} className="rounded-2xl border border-white bg-white p-3">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold text-ink">{issue.bookName}</p>
-                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${bookPaymentClass(issue.paymentStatus)}`}>
-                            {bookPaymentLabel(issue.paymentStatus)}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-ink-muted48">
-                          {issue.className ?? "Chưa gắn lớp"} · SL {issue.quantity} · {formatDate(issue.issueDate)}
-                        </p>
-                        {issue.notes ? <p className="mt-2 text-xs text-ink-muted48">{issue.notes}</p> : null}
-                      </div>
-
-                      <div className="text-left lg:text-right">
-                        <p className="text-sm font-semibold text-ink">{formatVnd(issue.amount)}</p>
-                        {canManageInventory ? (
-                          <div className="mt-3 flex flex-wrap gap-2 lg:justify-end">
-                            <button
-                              type="button"
-                              onClick={() => updateBookPaymentStatus(issue.id, "PAID")}
-                              disabled={updatingBookIssueId === issue.id}
-                              className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-200"
-                            >
-                              Đã thu
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updateBookPaymentStatus(issue.id, "PARTIAL")}
-                              disabled={updatingBookIssueId === issue.id}
-                              className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-200"
-                            >
-                              Đã thu một phần
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updateBookPaymentStatus(issue.id, "UNPAID")}
-                              disabled={updatingBookIssueId === issue.id}
-                              className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-200"
-                            >
-                              Chưa thu
-                            </button>
-                            <ConfirmActionButton
-                              title="Xác nhận xóa sách phát sinh?"
-                              description="Hệ thống sẽ hoàn tác dòng này khỏi công nợ và tồn kho nếu khoản sách vẫn chưa thu."
-                              confirmLabel="Xóa dòng sách"
-                              tone="danger"
-                              disabled={deletingBookIssueId === issue.id}
-                              className="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
-                              onConfirm={() => deleteBookIssue(issue.id)}
-                            >
-                              {deletingBookIssueId === issue.id ? "Đang xóa..." : "Xóa"}
-                            </ConfirmActionButton>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {unpaidBooks.length === 0 ? <p className="text-sm text-emerald-700">Không còn dòng sách nào đang treo tiền.</p> : null}
-              </div>
-            </div>
-          </div>
+            </tbody>
+          </table>
         </div>
       </section>
 
