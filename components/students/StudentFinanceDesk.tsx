@@ -600,14 +600,12 @@ export default function StudentFinanceDesk({
           <table className="w-full min-w-[760px] border-separate border-spacing-y-2 text-sm">
             <thead>
               <tr className="text-left text-xs font-semibold uppercase tracking-wide text-ink-muted48">
-                <th className="px-3 pb-1">Kỳ · Lớp</th>
+                <th className="px-3 pb-1">Kỳ · Lớp · Trạng thái</th>
                 <th className="px-3 pb-1">Học phí</th>
                 <th className="px-3 pb-1">Sách</th>
                 <th className="px-3 pb-1">Nợ đầu kỳ</th>
                 <th className="px-3 pb-1">Đã thu</th>
-                <th className="px-3 pb-1">Còn lại</th>
-                <th className="px-3 pb-1">Trạng thái</th>
-                <th className="px-3 pb-1 text-right">Hành động</th>
+                <th className="px-3 pb-1 text-right">Còn lại · Hành động</th>
               </tr>
             </thead>
             <tbody>
@@ -635,18 +633,18 @@ export default function StudentFinanceDesk({
                       <p className="font-semibold text-ink">{charge.periodName}</p>
                       <p className="mt-0.5 text-xs text-ink-muted48">{charge.className}</p>
                       {charge.discountLabels?.length ? <p className="mt-1 text-xs text-emerald-700">{charge.discountLabels.join(" + ")}</p> : null}
+                      <span className={`mt-1.5 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusClass}`}>{statusLabel}</span>
                     </td>
                     <td className="px-3 py-3 align-top text-ink-muted80">{formatVnd(charge.tuitionAmount)}</td>
                     <td className="px-3 py-3 align-top text-ink-muted80">{formatVnd(charge.materialsAmount)}</td>
                     <td className="px-3 py-3 align-top text-ink-muted80">{formatVnd(charge.openingBalance)}</td>
                     <td className="px-3 py-3 align-top text-ink-muted80">{formatVnd(charge.paidAmount)}</td>
-                    <td className="px-3 py-3 align-top font-semibold text-ink">{formatVnd(charge.remainingAmount)}</td>
-                    <td className="px-3 py-3 align-top">
-                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusClass}`}>{statusLabel}</span>
-                    </td>
                     <td className="rounded-r-2xl px-3 py-3 text-right align-top">
+                      <p className="font-semibold text-ink">{formatVnd(charge.remainingAmount)}</p>
                       {charge.remainingAmount > 0 && canManageFinance ? (
-                        <QuickPaymentButton studentId={studentId} suggestedAmount={charge.remainingAmount} />
+                        <div className="mt-1.5">
+                          <QuickPaymentButton studentId={studentId} suggestedAmount={charge.remainingAmount} />
+                        </div>
                       ) : null}
                     </td>
                   </tr>
@@ -654,7 +652,7 @@ export default function StudentFinanceDesk({
               })}
               {chargeTableRows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-3 py-6 text-center text-sm text-ink-muted48">
+                  <td colSpan={6} className="px-3 py-6 text-center text-sm text-ink-muted48">
                     Chưa có kỳ học phí nào.
                   </td>
                 </tr>

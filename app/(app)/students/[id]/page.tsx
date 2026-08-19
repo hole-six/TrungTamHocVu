@@ -806,7 +806,7 @@ export default async function StudentDetailPage({
             key: "tongquan",
             label: "Tổng quan",
             content: (
-              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
                 <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
                   <div className="flex items-start justify-between gap-3 mb-5">
                     <div>
@@ -819,36 +819,36 @@ export default async function StudentDetailPage({
                       </Link>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
+                  <div className="space-y-3">
+                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
                       <span className="text-sm font-semibold text-[#64748b]">Ngày nhập học</span>
-                      <div className="mt-1 text-sm font-bold text-[#0f1729]">
+                      <span className="text-sm font-bold text-[#0f1729]">
                         {canEditStudent ? (
                           <EditableDateField endpoint={`/api/students/${student.id}`} field="enrollDate" value={student.enrollDate} width="w-32" />
                         ) : (
                           formatDate(student.enrollDate)
                         )}
-                      </div>
+                      </span>
                     </div>
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
+                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
                       <span className="text-sm font-semibold text-[#64748b]">Ngày sinh</span>
-                      <div className="mt-1 text-sm font-bold text-[#0f1729]">
+                      <span className="text-sm font-bold text-[#0f1729]">
                         {canEditStudent ? (
                           <EditableDateField endpoint={`/api/students/${student.id}`} field="dob" value={student.dob} width="w-32" />
                         ) : (
                           formatDate(student.dob)
                         )}
-                      </div>
+                      </span>
                     </div>
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
+                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
                       <span className="text-sm font-semibold text-[#64748b]">Giới tính</span>
-                      <p className="mt-1 text-sm font-bold text-[#0f1729]">{student.gender ?? "—"}</p>
+                      <span className="text-sm font-bold text-[#0f1729]">{student.gender ?? "—"}</span>
+                    </div>
+                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
+                      <span className="text-sm font-semibold text-[#64748b]">Người giới thiệu</span>
+                      <span className="text-sm font-bold text-[#0f1729]">{student.referredBy ?? "—"}</span>
                     </div>
                     <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
-                      <span className="text-sm font-semibold text-[#64748b]">Người giới thiệu</span>
-                      <p className="mt-1 text-sm font-bold text-[#0f1729]">{student.referredBy ?? "—"}</p>
-                    </div>
-                    <div className="col-span-2 rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                       <span className="text-sm font-semibold text-[#64748b]">SĐT / Địa chỉ</span>
                       <p className="text-sm font-bold text-[#0f1729] mt-1">{student.phone ?? "—"} · {student.address ?? "—"}</p>
                     </div>
@@ -860,29 +860,29 @@ export default async function StudentDetailPage({
                     <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Liên kết đang dùng</h2>
                     <p className="mt-1 text-sm text-[#64748b]">Lead, phụ huynh, portal và lớp hiện tại.</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
+                  <div className="space-y-3">
+                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
                       <span className="text-sm font-semibold text-[#64748b]">Lead gốc</span>
-                      <p className="mt-1 text-sm font-bold text-[#0f1729]">
+                      <span className="text-sm font-bold text-[#0f1729]">
                         {student.lead ? <Link href={`/leads/${student.lead.id}`} className="text-[#f97316] hover:text-[#ea580c]">{student.lead.leadCode}</Link> : "Không gắn lead"}
-                      </p>
+                      </span>
                     </div>
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
+                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between">
                       <span className="text-sm font-semibold text-[#64748b]">Phụ huynh chính</span>
-                      <p className="mt-1 text-sm font-bold text-[#0f1729]">
+                      <span className="text-sm font-bold text-[#0f1729]">
                         {primaryGuardian ? <Link href={`/guardians/${primaryGuardian.id}`} className="text-[#f97316] hover:text-[#ea580c]">{primaryGuardian.fullName}</Link> : "Chưa liên kết"}
-                      </p>
+                      </span>
                     </div>
-                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3" data-tour="student-kpi-portal">
+                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3 flex items-center justify-between" data-tour="student-kpi-portal">
                       <span className="text-sm font-semibold text-[#64748b]">Portal</span>
-                      <p className="mt-1 text-sm font-bold text-[#0f1729]">
+                      <span className="text-sm font-bold text-[#0f1729]">
                         {primaryGuardian?.user?.email ?? "Chưa cấp"}
                         {primaryGuardian?.user ? (
                           <span className={`ml-2 inline-flex items-center rounded-lg px-2 py-0.5 text-[10px] font-bold ${primaryGuardian.user.isActive ? "bg-[#dcfce7] text-[#166534]" : "bg-[#fef9c3] text-[#854d0e]"}`}>
                             {primaryGuardian.user.isActive ? "Hoạt động" : "Thu hồi"}
                           </span>
                         ) : null}
-                      </p>
+                      </span>
                     </div>
                     <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                       <span className="text-sm font-semibold text-[#64748b]">Lớp hiện tại</span>
@@ -897,7 +897,7 @@ export default async function StudentDetailPage({
                         )}
                       </p>
                     </div>
-                    <div className="col-span-2 rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
+                    <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                       <span className="text-sm font-semibold text-[#64748b]">Lịch học</span>
                       <p className="text-sm font-bold text-[#0f1729] mt-1">
                         {currentEnrollment?.class.scheduleRules.length
@@ -909,10 +909,11 @@ export default async function StudentDetailPage({
                 </div>
 
                 {/* Tiến độ khóa học + Cần chú ý đã gộp vào khối "Hành trình học" và
-                    "Cần xử lý ngay" ở đầu trang — không lặp lại ở đây nữa. */}
-                <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm lg:col-span-2">
+                    "Cần xử lý ngay" ở đầu trang — không lặp lại ở đây nữa. Cùng hàng với
+                    "Hồ sơ học viên" + "Liên kết đang dùng" (1 hàng 3 cột trên desktop). */}
+                <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
                   <h2 className="text-lg font-black tracking-tight text-[#0f1729] mb-4">Lịch sử thay đổi</h2>
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  <div className="space-y-2">
                     {student.statusHistory.map((item) => (
                       <div key={item.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-2.5 flex items-center justify-between gap-3">
                         <div className="min-w-0">
@@ -924,7 +925,7 @@ export default async function StudentDetailPage({
                         <span className="shrink-0 text-xs text-[#64748b]">{formatDate(item.changedAt)}</span>
                       </div>
                     ))}
-                    {student.statusHistory.length === 0 && <p className="text-sm text-[#64748b] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7] md:col-span-2">Chưa có lịch sử thay đổi.</p>}
+                    {student.statusHistory.length === 0 && <p className="text-sm text-[#64748b] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">Chưa có lịch sử thay đổi.</p>}
                   </div>
                 </div>
               </div>
