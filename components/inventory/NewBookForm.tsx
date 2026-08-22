@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import CategorySelect from "./CategorySelect";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 import { formatVnd } from "@/lib/export-utils";
 
 const NEW_BOOK_GUIDE_SECTIONS = [
@@ -103,12 +104,12 @@ export default function NewBookForm({ categoryOptions }: { categoryOptions: stri
           <div className="grid gap-4 md:grid-cols-2">
             <label className="form-group">
               <span className="label-sm">Đơn giá nhập *</span>
-              <input required type="number" min="0" className="input" value={form.purchasePrice} onChange={(event) => setForm((current) => ({ ...current, purchasePrice: event.target.value }))} />
+              <CurrencyInput required value={form.purchasePrice} onChange={(next) => setForm((current) => ({ ...current, purchasePrice: String(next) }))} />
               <p className="form-hint">{form.purchasePrice ? formatVnd(Number(form.purchasePrice) || 0) : ""}</p>
             </label>
             <label className="form-group">
               <span className="label-sm">Đơn giá bán *</span>
-              <input required type="number" min="0" className="input" value={form.unitPrice} onChange={(event) => setForm((current) => ({ ...current, unitPrice: event.target.value }))} />
+              <CurrencyInput required value={form.unitPrice} onChange={(next) => setForm((current) => ({ ...current, unitPrice: String(next) }))} />
               <p className="form-hint">{form.unitPrice ? formatVnd(Number(form.unitPrice) || 0) : ""}</p>
             </label>
           </div>

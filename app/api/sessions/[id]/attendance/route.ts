@@ -34,11 +34,26 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const attendanceByStudent = Object.fromEntries(session.attendances.map((a) => [a.studentId, a.status]));
 
+  // Học viên đã "học bù trước" buổi này (xem app/api/sessions/[id]/prebook-makeup) có
+  // đúng 1 SessionCredit CONSUMED với sourceSessionId = buổi này — khóa không cho sửa
+  // điểm danh nữa vì buổi thật sự đã học rồi (ở buổi bổ trợ khác, sớm hơn).
+  const lockedCredits = await prisma.sessionCredit.findMany({
+    where: {
+      sourceSessionId: session.id,
+      status: "CONSUMED",
+      studentId: { in: activeEnrollments.map((e) => e.studentId) },
+    },
+    select: { studentId: true, notes: true },
+  });
+  const lockedByStudent = new Map(lockedCredits.map((c) => [c.studentId, c.notes]));
+
   const roster = activeEnrollments.map((e) => ({
     studentId: e.studentId,
     fullName: e.student.fullName,
     studentCode: e.student.studentCode,
     status: attendanceByStudent[e.studentId] ?? "PRESENT",
+    locked: lockedByStudent.has(e.studentId),
+    lockedNote: lockedByStudent.get(e.studentId) ?? null,
   }));
 
   return NextResponse.json({ roster, sessionStatus: session.status });
@@ -82,6 +97,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const existingAttendances = await prisma.studentAttendance.findMany({ where: { sessionId: session.id } });
   const oldStatusByStudent = new Map(existingAttendances.map((a) => [a.studentId, a.status]));
+
+  // Chặn sửa điểm danh cho học viên đã "học bù trước" buổi này (xem GET ở trên) —
+  // buổi thật sự đã học rồi ở 1 buổi bổ trợ khác, không được đổi khác ABSENT.
+  const lockedCredits = await prisma.sessionCredit.findMany({
+    where: { sourceSessionId: session.id, status: "CONSUMED", studentId: { in: records.map((r) => r.studentId) } },
+    select: { studentId: true },
+  });
+  const lockedStudentIds = new Set(lockedCredits.map((c) => c.studentId));
+  const invalidLockedEdit = records.find((r) => lockedStudentIds.has(r.studentId) && r.status !== "ABSENT");
+  if (invalidLockedEdit) {
+    return NextResponse.json(
+      { error: "Có học viên đã học bù trước buổi này — không thể sửa điểm danh của học viên đó." },
+      { status: 409 },
+    );
+  }
 
   // Buổi đã COMPLETED trước đó rồi mà điểm danh lại bị SỬA THAY ĐỔI (không phải lần
   // điểm danh đầu tiên, không phải bấm lưu lại y nguyên) — nếu kỳ thu tháng chứa buổi

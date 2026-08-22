@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import AttendanceForm from "@/components/classes/AttendanceForm";
+import RemedialSessionRoster from "@/components/classes/RemedialSessionRoster";
 import ClassJournalForm from "@/components/classes/ClassJournalForm";
+import SessionRequirementForm from "@/components/classes/SessionRequirementForm";
 import SessionAssignmentForm from "@/components/classes/SessionAssignmentForm";
 import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
@@ -97,6 +99,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
       class: {
         include: {
           branch: true,
+          course: true,
           roadmapItems: { orderBy: { sessionNumber: "asc" } },
           sessions: {
             where: { status: { not: "CANCELLED" } },
@@ -114,6 +117,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
         },
       },
       journal: { include: { entries: { include: { scores: true, student: true } } } },
+      requirementCheck: { include: { employee: { select: { fullName: true } } } },
     },
   });
 
@@ -159,6 +163,18 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
       )
     : null;
 
+  // Học viên đã "học bù trước" buổi này (xem app/api/sessions/[id]/prebook-makeup) —
+  // khóa không cho sửa điểm danh, xem cùng logic ở app/api/sessions/[id]/attendance.
+  const lockedCredits = await prisma.sessionCredit.findMany({
+    where: {
+      sourceSessionId: session.id,
+      status: "CONSUMED",
+      studentId: { in: activeEnrollments.map((e) => e.studentId) },
+    },
+    select: { studentId: true, notes: true },
+  });
+  const lockedByStudent = new Map(lockedCredits.map((c) => [c.studentId, c.notes]));
+
   const roster = activeEnrollments.map((enrollment) => ({
     enrollmentId: enrollment.id,
     studentId: enrollment.studentId,
@@ -166,6 +182,8 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
     studentCode: enrollment.student.studentCode,
     status: attendanceByStudent[enrollment.studentId] ?? "PRESENT",
     availableCredits: availableCreditsByStudent ? availableCreditsByStudent[enrollment.studentId] ?? 0 : null,
+    locked: lockedByStudent.has(enrollment.studentId),
+    lockedNote: lockedByStudent.get(enrollment.studentId) ?? null,
   }));
 
   const careAlertStudentIds = await computeCareAlerts(
@@ -274,7 +292,20 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
               </p>
             </div>
             <div className="rounded-[24px] border border-[#d7ecff] bg-white/90 px-4 py-4" data-tour="session-roadmap">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Hôm nay dạy gì</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Hôm nay dạy gì</p>
+                {session.class.course?.materialsLink ? (
+                  <a
+                    href={session.class.course.materialsLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-100"
+                  >
+                    Mở tài liệu khóa học
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M7 17L17 7M7 7h10v10" /></svg>
+                  </a>
+                ) : null}
+              </div>
               <div className="mt-2 grid gap-3 md:grid-cols-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Mục tiêu</p>
@@ -333,9 +364,12 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
                   <h2 className="mt-1 font-display text-xl font-semibold tracking-tight">Điểm danh học viên</h2>
                   <p className="mt-1 text-sm text-ink-muted48">Chọn đúng trạng thái cho từng học viên trong buổi này.</p>
                 </div>
-                <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
-                  <p className="font-semibold text-ink">Trạng thái dùng</p>
-                  <p className="mt-1">Có mặt · Vắng</p>
+                <div className="flex flex-wrap items-center gap-3">
+                  {session.class.isRemedial && canManageClass ? <RemedialSessionRoster sessionId={session.id} /> : null}
+                  <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
+                    <p className="font-semibold text-ink">Trạng thái dùng</p>
+                    <p className="mt-1">Có mặt · Vắng</p>
+                  </div>
                 </div>
               </div>
 
@@ -412,6 +446,23 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
           }
         />
         </div>
+      ) : null}
+
+      {canTeachSession && session.status === "COMPLETED" && roadmapItem?.teacherRequirement?.trim() ? (
+        <SessionRequirementForm
+          sessionId={session.id}
+          requirementText={roadmapItem.teacherRequirement.trim()}
+          employeeOptions={[...new Map(session.assignments.map((assignment) => [assignment.employeeId, { id: assignment.employeeId, fullName: assignment.employee.fullName }])).values()]}
+          existing={
+            session.requirementCheck
+              ? {
+                  status: session.requirementCheck.status,
+                  employee: session.requirementCheck.employee,
+                  checkedAt: session.requirementCheck.checkedAt,
+                }
+              : null
+          }
+        />
       ) : null}
     </div>
   );

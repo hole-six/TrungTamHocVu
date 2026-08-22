@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
 import type { Column, BulkAction } from "@/components/ui/DataTable";
 import { isFrontDeskRole, isTeachingStaffRole } from "@/lib/client-roles";
-import { exportToExcel } from "@/lib/export-utils";
+import { exportToExcel, formatVnd } from "@/lib/export-utils";
 import GuardianDrawer from "@/components/guardians/GuardianDrawer";
 
 type GuardianChild = {
@@ -45,10 +45,6 @@ type GuardiansTableProps = {
     linkedStudents: number;
   };
 };
-
-function formatVnd(value: number) {
-  return `${value.toLocaleString("vi-VN")}đ`;
-}
 
 function guardianDebt(children: GuardianChild[] | undefined) {
   return (children ?? []).reduce((sum, child) => sum + Math.max(0, child.outstanding), 0);

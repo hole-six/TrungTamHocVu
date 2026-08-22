@@ -162,6 +162,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
             materials: item.materials,
             teacherGuide: item.teacherGuide,
             homeworkGuide: item.homeworkGuide,
+            teacherRequirement: item.teacherRequirement,
           })),
         });
       }

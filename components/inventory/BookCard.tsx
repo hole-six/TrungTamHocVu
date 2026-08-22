@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { formatVnd } from "@/lib/export-utils";
 
 type Book = {
   id: string;
@@ -13,10 +14,6 @@ type Book = {
   currentStock: number;
   minStockLevel?: number;
 };
-
-function formatVnd(n: number) {
-  return n.toLocaleString("vi-VN") + "đ";
-}
 
 export default function BookCard({ book }: { book: Book }) {
   const isLowStock = (book.minStockLevel ?? 0) > 0 && book.currentStock <= (book.minStockLevel ?? 0);

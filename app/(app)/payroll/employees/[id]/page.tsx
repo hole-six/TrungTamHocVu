@@ -9,10 +9,8 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canCreate, canUpdateWithOverride, canViewFullWithOverride } from "@/lib/server/role-matrix";
 import { canAccessBranch } from "@/lib/branch-filter";
+import { formatVnd } from "@/lib/export-utils";
 
-function formatVnd(n: number) {
-  return n.toLocaleString("vi-VN") + "đ";
-}
 function formatDate(d: Date) {
   return new Date(d).toLocaleDateString("vi-VN");
 }

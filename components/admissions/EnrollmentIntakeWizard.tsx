@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatVnd as formatVndBase } from "@/lib/export-utils";
 
 type CourseOption = {
   id: string;
@@ -54,8 +55,7 @@ const STEPS = [
 ] as const;
 
 function formatVnd(amount: number | null | undefined) {
-  if (amount == null) return "—";
-  return `${amount.toLocaleString("vi-VN")}đ`;
+  return amount == null ? "—" : formatVndBase(amount);
 }
 
 function formatDate(value: string | null) {

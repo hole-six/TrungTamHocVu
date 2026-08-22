@@ -10,6 +10,7 @@ import { getUserRole } from "@/lib/permissions";
 import { canDelete, canUpdate } from "@/lib/server/role-matrix";
 import { computeOutstandingBalance } from "@/lib/server/balance";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+import { formatVnd } from "@/lib/export-utils";
 
 const GUARDIAN_DETAIL_TOUR_STEPS: TourStep[] = [
   {
@@ -31,10 +32,6 @@ const GUARDIAN_DETAIL_TOUR_STEPS: TourStep[] = [
     placement: "left",
   },
 ];
-
-function formatVnd(value: number) {
-  return `${value.toLocaleString("vi-VN")}đ`;
-}
 
 export default async function GuardianDetailPage({ params }: { params: { id: string } }) {
   const currentUser = await getCurrentUser();

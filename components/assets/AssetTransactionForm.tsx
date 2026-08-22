@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import FormGuide from "@/components/ui/FormGuide";
 import DatePicker from "@/components/ui/DatePicker";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 import { formatVnd } from "@/lib/export-utils";
 
 function todayYmd() {
@@ -174,15 +175,14 @@ export default function AssetTransactionForm({
             <div className="grid gap-4 md:grid-cols-2">
               <label className="form-group">
                 <span className="label">Số tiền bảo dưỡng</span>
-                <input
+                <CurrencyInput
                   required={!selfMaintenance}
                   disabled={selfMaintenance}
-                  type="number"
-                  min="1"
+                  min={1}
                   className="input disabled:cursor-not-allowed disabled:bg-[#f3f6fb] disabled:text-ink-muted48"
                   placeholder="VD: 350000"
                   value={selfMaintenance ? "0" : amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(next) => setAmount(String(next))}
                 />
                 <p className="form-hint">
                   {selfMaintenance

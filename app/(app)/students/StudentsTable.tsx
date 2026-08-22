@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Action, BulkAction, Column } from "@/components/ui/DataTable";
 import AssignEnrollmentForm from "@/components/students/AssignEnrollmentForm";
-import { exportToExcel } from "@/lib/export-utils";
+import { exportToExcel, formatVnd } from "@/lib/export-utils";
 import { canDelete, canUpdate } from "@/lib/server/role-matrix";
 
 type Student = {
@@ -77,10 +77,6 @@ type StudentsTableProps = {
     endingSoon: number;
   };
 };
-
-function formatVnd(value: number | null | undefined) {
-  return `${(value ?? 0).toLocaleString("vi-VN")}đ`;
-}
 
 function formatDate(value: string | Date | null | undefined) {
   if (!value) return "—";

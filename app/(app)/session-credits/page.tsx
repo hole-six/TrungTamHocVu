@@ -3,8 +3,11 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { canView } from "@/lib/server/role-matrix";
+import { canView, canUpdate } from "@/lib/server/role-matrix";
 import { getUserRole } from "@/lib/permissions";
+import { formatVnd } from "@/lib/export-utils";
+import AddPaidCatchupForm from "@/components/session-credits/AddPaidCatchupForm";
+import { resolveSourceLessonDetails } from "@/lib/server/session-credit-lessons";
 
 type SearchParams = {
   status?: string;
@@ -27,10 +30,6 @@ const STATUS_FILTERS = [
 
 function formatDate(date: Date | string | null | undefined) {
   return date ? new Date(date).toLocaleDateString("vi-VN") : "—";
-}
-
-function formatVnd(value: number | null | undefined) {
-  return `${(value ?? 0).toLocaleString("vi-VN")}đ`;
 }
 
 function buildQuery(current: SearchParams, overrides: SearchParams) {
@@ -74,39 +73,7 @@ async function getCreditRows(activeBranchId: string | null, statusFilter: string
     take: 500,
   });
 
-  const classIds = [
-    ...new Set(
-      credits
-        .map((credit) => credit.sourceSession?.classId)
-        .filter((classId): classId is string => Boolean(classId)),
-    ),
-  ];
-
-  const [classSessions, roadmapItems] = await Promise.all([
-    classIds.length
-      ? prisma.classSession.findMany({
-          where: { classId: { in: classIds } },
-          select: { id: true, classId: true },
-          orderBy: [{ classId: "asc" }, { sessionDate: "asc" }, { startTime: "asc" }, { id: "asc" }],
-        })
-      : Promise.resolve([]),
-    classIds.length
-      ? prisma.classRoadmapItem.findMany({
-          where: { classId: { in: classIds } },
-          select: { classId: true, sessionNumber: true, title: true, objective: true },
-        })
-      : Promise.resolve([]),
-  ]);
-
-  const sessionNumberById = new Map<string, number>();
-  const orderByClass = new Map<string, number>();
-  for (const session of classSessions) {
-    const nextNumber = (orderByClass.get(session.classId) ?? 0) + 1;
-    orderByClass.set(session.classId, nextNumber);
-    sessionNumberById.set(session.id, nextNumber);
-  }
-
-  const roadmapByClassAndNumber = new Map(roadmapItems.map((item) => [`${item.classId}:${item.sessionNumber}`, item]));
+  const lessonDetailByCreditId = await resolveSourceLessonDetails(credits);
   const grouped = new Map<string, typeof credits>();
 
   for (const credit of credits) {
@@ -117,22 +84,11 @@ async function getCreditRows(activeBranchId: string | null, statusFilter: string
   return [...grouped.values()].map((items) => {
     const first = items[0];
     const sourceItems = items
-      .filter((credit) => credit.sourceSession)
-      .map((credit) => {
-        const session = credit.sourceSession!;
-        const sessionNumber = sessionNumberById.get(session.id) ?? null;
-        const roadmap = sessionNumber ? roadmapByClassAndNumber.get(`${session.classId}:${sessionNumber}`) : null;
-        return {
-          id: session.id,
-          classId: session.classId,
-          className: session.class.className,
-          date: session.sessionDate,
-          sessionNumber,
-          lesson: session.journal?.unitLesson || roadmap?.title || null,
-          objective: roadmap?.objective || session.journal?.teacherNote || null,
-          status: credit.status,
-        };
-      });
+      .filter((credit) => credit.sourceSession && lessonDetailByCreditId.has(credit.id))
+      .map((credit) => ({
+        ...lessonDetailByCreditId.get(credit.id)!,
+        status: credit.status,
+      }));
 
     const consumedItems = items
       .filter((credit) => credit.consumedSession)
@@ -340,9 +296,12 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
             Gom học viên bổ trợ vắng cần bài và bổ trợ đầu khóa vào một nơi để CSO biết còn bao nhiêu buổi, đã bù ngày nào và phải mở đúng hồ sơ/lớp nào.
           </p>
         </div>
-        <Link href="/students" className="rounded-xl border border-[#dbe3ef] bg-white px-4 py-2 text-sm font-bold text-[#0f1729] hover:border-[#3b82f6]">
-          Danh sách học viên
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {canUpdate("students", role) ? <AddPaidCatchupForm /> : null}
+          <Link href="/students" className="rounded-xl border border-[#dbe3ef] bg-white px-4 py-2 text-sm font-bold text-[#0f1729] hover:border-[#3b82f6]">
+            Danh sách học viên
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-4">

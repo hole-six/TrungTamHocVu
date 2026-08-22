@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
   const name = String(body.name ?? "").trim();
   const tuitionPerSession = Number(body.tuitionPerSession);
   const sessionsPerWeek = Number(body.sessionsPerWeek);
+  const materialsLink = String(body.materialsLink ?? "").trim() || null;
 
   if (!code || !name) return NextResponse.json({ error: "Thiếu mã hoặc tên khóa học" }, { status: 400 });
   if (!Number.isFinite(tuitionPerSession) || tuitionPerSession < 0) {
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
       name,
       tuitionPerSession,
       sessionsPerWeek,
+      materialsLink,
       bookRequirements: rawBookRequirements.length
         ? {
             create: rawBookRequirements

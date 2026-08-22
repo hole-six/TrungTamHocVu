@@ -1044,6 +1044,7 @@ export default async function StudentDetailPage({
                     id: c.id,
                     status: c.status,
                     origin: c.origin,
+                    notes: c.notes,
                     paidAmount: c.paidAmount,
                     sourceSession: c.sourceSession ? { sessionDate: c.sourceSession.sessionDate, class: c.sourceSession.class } : null,
                     consumedSession: c.consumedSession ? { sessionDate: c.consumedSession.sessionDate, class: c.consumedSession.class } : null,

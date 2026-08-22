@@ -116,6 +116,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       await tx.class.update({ where: { id: original.classId }, data: { expectedEndDate: extendedEnd } });
     }
 
+    // Buổi gốc có học viên đã "học bù trước" (SessionCredit CONSUMED gắn
+    // sourceSessionId = buổi gốc, xem app/api/sessions/[id]/prebook-makeup) — phải
+    // chuyển khóa đó sang đúng buổi bù mới, nếu không tới ngày mới điểm danh sẽ
+    // không còn bị khóa nữa và có thể sinh thêm 1 buổi bổ trợ trùng cho cùng nội dung.
+    const prebookedCredits = await tx.sessionCredit.findMany({
+      where: { sourceSessionId: original.id, status: "CONSUMED" },
+      select: { id: true, studentId: true },
+    });
+    for (const credit of prebookedCredits) {
+      await tx.studentAttendance.create({
+        data: { sessionId: makeupSession.id, studentId: credit.studentId, status: "ABSENT" },
+      });
+      await tx.sessionCredit.update({ where: { id: credit.id }, data: { sourceSessionId: makeupSession.id } });
+    }
+
     return { makeupSession, updatedOriginal };
   });
 

@@ -25,7 +25,7 @@ export type AppShellConfig = {
 
 const DEFAULT_NAV_GROUPS: AppNavGroup[] = [
   { label: "Điều hành", hrefs: ["/dashboard", "/reports"] },
-  { label: "Tuyển sinh & học viên", hrefs: ["/leads", "/students", "/guardians"] },
+  { label: "Tuyển sinh & học viên", hrefs: ["/leads", "/students", "/session-credits", "/guardians"] },
   { label: "Đào tạo", hrefs: ["/classes", "/calendar", "/timesheets"] },
   { label: "Tài chính & nhân sự", hrefs: ["/tuition", "/inventory", "/assets", "/cashbook", "/payroll", "/admin"] },
 ];
@@ -106,7 +106,7 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
   },
   BRANCH_MANAGER: {
     navGroups: [
-      { label: "Điều phối trong ngày", hrefs: ["/dashboard", "/classes", "/calendar", "/students"] },
+      { label: "Điều phối trong ngày", hrefs: ["/dashboard", "/classes", "/calendar", "/students", "/session-credits"] },
       { label: "Tuyển sinh & học phí", hrefs: ["/leads", "/guardians", "/tuition", "/reports"] },
       { label: "Vận hành cơ sở", hrefs: ["/timesheets", "/inventory", "/cashbook", "/payroll", "/assets"] },
     ],
@@ -128,7 +128,7 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
   },
   REGISTRAR: {
     navGroups: [
-      { label: "Giáo vụ trong ngày", hrefs: ["/dashboard", "/classes", "/calendar", "/students"] },
+      { label: "Giáo vụ trong ngày", hrefs: ["/dashboard", "/classes", "/calendar", "/students", "/session-credits"] },
       { label: "Tuyển sinh hỗ trợ", hrefs: ["/leads", "/guardians", "/reports"] },
       { label: "Công việc điều phối", hrefs: ["/timesheets"] },
     ],
@@ -150,7 +150,7 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
   },
   ADMISSIONS: {
     navGroups: [
-      { label: "Tuyển sinh", hrefs: ["/dashboard", "/leads", "/guardians"] },
+      { label: "Tuyển sinh", hrefs: ["/dashboard", "/leads", "/guardians", "/session-credits"] },
       { label: "Lịch & chuyển đổi", hrefs: ["/calendar"] },
     ],
     dashboardTitle: "Dashboard tuyển sinh",
@@ -171,7 +171,7 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
   },
   RECEPTIONIST: {
     navGroups: [
-      { label: "Tiếp nhận & hỗ trợ", hrefs: ["/dashboard", "/students", "/guardians", "/leads"] },
+      { label: "Tiếp nhận & hỗ trợ", hrefs: ["/dashboard", "/students", "/session-credits", "/guardians", "/leads"] },
       { label: "Lớp & học phí", hrefs: ["/classes", "/calendar", "/tuition", "/inventory"] },
     ],
     dashboardTitle: "Dashboard lễ tân",
@@ -193,7 +193,7 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
   ACCOUNTANT: {
     navGroups: [
       { label: "Tài chính", hrefs: ["/dashboard", "/tuition", "/cashbook", "/reports"] },
-      { label: "Đối soát", hrefs: ["/inventory", "/payroll", "/students", "/assets"] },
+      { label: "Đối soát", hrefs: ["/inventory", "/payroll", "/students", "/session-credits", "/assets"] },
     ],
     dashboardTitle: "Dashboard kế toán",
     dashboardSubtitle: "Tập trung phải thu, đã thu, công nợ, thu chi và kỳ lương để đối soát nhanh và chính xác.",

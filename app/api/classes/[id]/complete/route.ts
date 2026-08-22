@@ -8,7 +8,6 @@ import { generateCourseCharge } from "@/lib/server/billing-generation";
 import {
   computeTransferConversion,
   getEnrollmentLearningSnapshot,
-  resolveEnrollmentUnitPrice,
 } from "@/lib/server/enrollment-learning";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -112,7 +111,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
 
       if (!targetClass) throw new Error("Thiếu lớp tiếp theo.");
-      const oldUnitPrice = resolveEnrollmentUnitPrice(enrollment);
+      // snapshot.unitPrice đã trừ học bổng/điều chỉnh đang hiệu lực của đúng học viên
+      // này — mỗi học viên trong danh sách needTransfer có thể có mức giảm khác nhau,
+      // nên không dùng lại resolveEnrollmentUnitPrice() (giá gốc) ở đây.
+      const oldUnitPrice = snapshot.unitPrice;
       const newUnitPrice = targetClass.tuitionPerSession ?? targetClass.course?.tuitionPerSession ?? 0;
       if (!Number.isInteger(newUnitPrice) || newUnitPrice <= 0) {
         throw new Error(`Lớp tiếp theo "${targetClass.className}" chưa có đơn giá/buổi hợp lệ.`);

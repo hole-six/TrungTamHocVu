@@ -215,8 +215,8 @@ export function exportToJSON<T>(data: T[], filename: string) {
 /**
  * Format VND currency
  */
-export function formatVnd(amount: number): string {
-  return amount.toLocaleString("vi-VN") + "đ";
+export function formatVnd(amount: number | null | undefined): string {
+  return (amount ?? 0).toLocaleString("vi-VN") + "đ";
 }
 
 /**

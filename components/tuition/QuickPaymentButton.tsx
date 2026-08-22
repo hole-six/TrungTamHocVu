@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 import { formatVnd } from "@/lib/export-utils";
 
 const CASH_METHOD = "Tiền mặt";
@@ -163,7 +164,7 @@ export default function QuickPaymentButton({
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <label className="space-y-2">
               <span className="label-sm">Số tiền thực thu</span>
-              <input type="number" required min="1" max={maxReceivable > 0 ? maxReceivable : undefined} className="input" value={amount} onChange={(event) => setAmount(event.target.value)} />
+              <CurrencyInput required min={1} max={maxReceivable > 0 ? maxReceivable : undefined} value={amount} onChange={(next) => setAmount(String(next))} />
               <p className="text-xs text-ink-muted48">
                 {amount ? `Sẽ ghi nhận đã thu ${formatVnd(Number(amount) || 0)}. ` : ""}
                 Không được nhập lớn hơn {formatVnd(maxReceivable)}.

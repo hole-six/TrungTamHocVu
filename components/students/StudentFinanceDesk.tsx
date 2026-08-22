@@ -9,6 +9,7 @@ import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import FormGuide from "@/components/ui/FormGuide";
 import { getVietnamToday } from "@/lib/server/class-rules";
+import { formatVnd } from "@/lib/export-utils";
 
 type ChargeSummary = {
   id: string;
@@ -79,10 +80,6 @@ type BookOption = {
   unitPrice: number;
   quantityOnHand?: number;
 };
-
-function formatVnd(value: number) {
-  return `${value.toLocaleString("vi-VN")}đ`;
-}
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("vi-VN");

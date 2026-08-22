@@ -4,12 +4,9 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CASH_TXN_TYPE_LABEL } from "@/lib/server/cash-rules";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import { formatVnd } from "@/lib/export-utils";
 
 type Category = { id: string; type: string; name: string; detail: string | null };
-
-function formatVnd(amount: number) {
-  return `${amount.toLocaleString("vi-VN")}đ`;
-}
 
 function CategoryRow({
   category,

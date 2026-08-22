@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 import { formatVnd } from "@/lib/export-utils";
 
 const GUIDE_SECTIONS = [
@@ -127,7 +128,7 @@ export default function AssetEditForm({
 
             <label className="form-group">
               <span className="label">Giá trị / đơn vị</span>
-              <input type="number" min={0} step={1000} className="input" value={form.unitValue} onChange={(event) => setForm((current) => ({ ...current, unitValue: event.target.value }))} />
+              <CurrencyInput value={form.unitValue} onChange={(next) => setForm((current) => ({ ...current, unitValue: String(next) }))} />
               <p className="form-hint">{form.unitValue ? formatVnd(Number(form.unitValue) || 0) : "Giá gốc của 1 đơn vị tài sản."}</p>
             </label>
 

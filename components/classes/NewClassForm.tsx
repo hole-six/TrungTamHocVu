@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import FormGuide from "@/components/ui/FormGuide";
+import CurrencyInput from "@/components/ui/CurrencyInput";
+import { formatVnd as formatVndBase } from "@/lib/export-utils";
 
 type Course = {
   id: string;
@@ -96,8 +98,7 @@ const NEW_CLASS_GUIDE_SECTIONS = [
 ];
 
 function formatVnd(amount: number | null) {
-  if (amount == null || Number.isNaN(amount)) return "—";
-  return `${amount.toLocaleString("vi-VN")}đ`;
+  return amount == null || Number.isNaN(amount) ? "—" : formatVndBase(amount);
 }
 
 function weekdayLabel(value: string) {
@@ -657,7 +658,7 @@ export default function NewClassForm({
                 {!form.isRemedial ? (
                   <label className="form-group">
                     <span className="label">Học phí / buổi *</span>
-                    <input type="number" min={0} className="input" value={form.tuitionPerSession} onChange={(event) => patchForm("tuitionPerSession", event.target.value)} placeholder="100000" />
+                    <CurrencyInput value={form.tuitionPerSession} onChange={(next) => patchForm("tuitionPerSession", String(next))} placeholder="100000" />
                   </label>
                 ) : null}
                 <label className="form-group">

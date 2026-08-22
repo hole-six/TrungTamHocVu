@@ -14,7 +14,7 @@ import {
   DATE_URGENCY_CLASS,
   dateUrgency,
 } from "@/lib/server/lead-rules";
-import { exportToExcel } from "@/lib/export-utils";
+import { exportToExcel, formatVnd } from "@/lib/export-utils";
 import EditableNoteCell from "@/components/leads/EditableNoteCell";
 import TestQuickAction from "@/components/leads/TestQuickAction";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
@@ -96,10 +96,6 @@ function calculateAge(dob?: string | Date | null): number | null {
   const monthDiff = today.getMonth() - birthDate.getMonth();
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
   return age;
-}
-
-function formatVnd(value: number | null | undefined) {
-  return `${(value ?? 0).toLocaleString("vi-VN")}đ`;
 }
 
 function formatDate(date: Date | string | null | undefined) {

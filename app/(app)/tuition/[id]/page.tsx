@@ -10,10 +10,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
-
-function formatVnd(n: number) {
-  return n.toLocaleString("vi-VN") + "đ";
-}
+import { formatVnd } from "@/lib/export-utils";
 
 const TUITION_TOUR_STEPS: TourStep[] = [
   {

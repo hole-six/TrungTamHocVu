@@ -5,7 +5,7 @@ import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { generateCourseCharge } from "@/lib/server/billing-generation";
-import { computeTransferConversion, getEnrollmentLearningSnapshot, resolveEnrollmentUnitPrice } from "@/lib/server/enrollment-learning";
+import { computeTransferConversion, getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -43,7 +43,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Hoc vien da hoc du so buoi chinh, khong con gia tri de chuyen lop." }, { status: 409 });
   }
 
-  const oldUnitPrice = resolveEnrollmentUnitPrice(existing);
+  // snapshot.unitPrice đã trừ học bổng/điều chỉnh đang hiệu lực (xem
+  // getEnrollmentLearningSnapshot) — dùng đúng số này để quy đổi, không tự lấy lại
+  // giá gốc, nếu không số xem trước và số thực tế chuyển lớp sẽ lệch nhau.
+  const oldUnitPrice = snapshot.unitPrice;
   const newUnitPrice = Number(body.newUnitPrice ?? targetClass.tuitionPerSession ?? targetClass.course?.tuitionPerSession ?? 0);
   if (!Number.isInteger(newUnitPrice) || newUnitPrice <= 0) {
     return NextResponse.json({ error: "Lop moi chua co don gia/buoi hop le." }, { status: 400 });

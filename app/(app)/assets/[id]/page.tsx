@@ -17,6 +17,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate, canDelete } from "@/lib/server/role-matrix";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+import { formatVnd } from "@/lib/export-utils";
 
 const ASSET_DETAIL_TOUR_STEPS: TourStep[] = [
   {
@@ -51,9 +52,6 @@ const ASSET_DETAIL_TOUR_STEPS: TourStep[] = [
   },
 ];
 
-function formatVnd(n: number) {
-  return n.toLocaleString("vi-VN") + "đ";
-}
 function formatDate(d: Date) {
   return new Date(d).toLocaleDateString("vi-VN");
 }

@@ -7,6 +7,7 @@ type Credit = {
   id: string;
   status: string;
   origin?: string;
+  notes?: string | null;
   paidAmount?: number;
   // null khi credit không gắn 1 buổi cụ thể (vd cấp lúc rút lớp mà không còn buổi
   // tương lai để gán) — lúc đó dùng `className` (từ enrollment) để biết thuộc khóa nào.
@@ -27,11 +28,11 @@ function formatDate(d: string | Date) {
   return new Date(d).toLocaleDateString("vi-VN");
 }
 
-function originLabel(origin?: string) {
+function originLabel(origin?: string, notes?: string | null) {
   if (origin === "PAID_CATCHUP") return "Bổ trợ đầu khóa có phí";
   if (origin === "TRANSFER_REMAINING") return "Chuyển lớp";
   if (origin === "WITHDRAWAL_REMAINING") return "Rút lớp";
-  if (origin === "MANUAL") return "Chỉnh tay";
+  if (origin === "MANUAL") return notes?.startsWith("Học bù trước") ? "Học bù trước" : "Chỉnh tay";
   return "Bổ trợ vắng";
 }
 
@@ -127,7 +128,7 @@ export default function StudentSessionCredits({
                     : `Buổi bổ trợ từ khóa ${credit.className}`}
                 </p>
                 <p className="text-xs text-ink-muted48">
-                  {originLabel(credit.origin)}
+                  {originLabel(credit.origin, credit.notes)}
                   {credit.paidAmount && credit.paidAmount > 0 ? ` · đã thu ${credit.paidAmount.toLocaleString("vi-VN")}đ` : ""} — chưa dùng
                 </p>
               </div>

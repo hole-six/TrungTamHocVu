@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { computeEffectiveUnitPrice, overlapsWindow } from "./tuition-rules";
 
 type EnrollmentWithClass = {
   id: string;
@@ -42,9 +43,9 @@ export function resolveManualExtraSessions(enrollment: EnrollmentWithClass) {
   return Math.max(0, enrollment.manualExtraSessionCount ?? 0);
 }
 
-export function computeEnrollmentTuitionPlan(enrollment: EnrollmentWithClass) {
+export function computeEnrollmentTuitionPlan(enrollment: EnrollmentWithClass, unitPriceOverride?: number) {
   const purchasedMainSessions = resolvePurchasedMainSessions(enrollment);
-  const unitPrice = resolveEnrollmentUnitPrice(enrollment);
+  const unitPrice = unitPriceOverride ?? resolveEnrollmentUnitPrice(enrollment);
   const paidCatchupUnitPrice = enrollment.paidCatchupUnitPrice ?? unitPrice;
   const mainTuitionAmount = purchasedMainSessions * unitPrice;
   const paidCatchupAmount = enrollment.paidCatchupSessionCount * paidCatchupUnitPrice;
@@ -63,8 +64,9 @@ export function computeLearningSnapshot(
   enrollment: EnrollmentWithClass,
   completedMainSessions: number,
   futureMainSessions: ClassSessionLite[],
+  unitPriceOverride?: number,
 ) {
-  const plan = computeEnrollmentTuitionPlan(enrollment);
+  const plan = computeEnrollmentTuitionPlan(enrollment, unitPriceOverride);
   const manualExtraSessions = resolveManualExtraSessions(enrollment);
   const entitledMainSessions = plan.purchasedMainSessions + manualExtraSessions;
   const remainingMainSessions = Math.max(0, entitledMainSessions - completedMainSessions);
@@ -104,7 +106,7 @@ export async function getEnrollmentLearningSnapshot(
 ) {
   const learningStart = startOfUtcDay(enrollment.enrollDate);
   const now = new Date();
-  const [completedMainSessions, futureMainSessions] = await Promise.all([
+  const [completedMainSessions, futureMainSessions, scholarships, adjustments] = await Promise.all([
     prismaClient.studentAttendance.count({
       where: {
         studentId: enrollment.studentId,
@@ -125,9 +127,29 @@ export async function getEnrollmentLearningSnapshot(
       orderBy: [{ sessionDate: "asc" }, { startTime: "asc" }],
       select: { id: true, classId: true, sessionDate: true, status: true },
     }),
+    prismaClient.scholarship.findMany({
+      where: { enrollmentId: enrollment.id },
+      select: { percentage: true, effectiveFrom: true, effectiveTo: true },
+    }),
+    prismaClient.adjustment.findMany({
+      where: { studentId: enrollment.studentId, OR: [{ enrollmentId: null }, { enrollmentId: enrollment.id }] },
+      select: { percentage: true, effectiveFrom: true, effectiveTo: true },
+    }),
   ]);
 
-  return computeLearningSnapshot(enrollment, completedMainSessions, futureMainSessions);
+  // Học phí "còn lại quy đổi" (chuyển lớp / kết thúc lớp) phải dựa trên số tiền học
+  // viên THỰC NỘP sau học bổng/điều chỉnh, không phải giá gốc — nếu không, học viên
+  // có giảm giá sẽ bị quy đổi thừa/thiếu tiền khi chuyển lớp. Lấy % đang hiệu lực TẠI
+  // THỜI ĐIỂM HIỆN TẠI (thời điểm chuyển/kết thúc lớp), không phải lúc ghi danh.
+  const scholarshipPct = scholarships
+    .filter((item) => overlapsWindow(item.effectiveFrom, item.effectiveTo, now, now))
+    .reduce((sum, item) => sum + item.percentage, 0);
+  const adjustmentPct = adjustments
+    .filter((item) => overlapsWindow(item.effectiveFrom, item.effectiveTo, now, now))
+    .reduce((sum, item) => sum + item.percentage, 0);
+  const effectiveUnitPrice = computeEffectiveUnitPrice(resolveEnrollmentUnitPrice(enrollment), scholarshipPct, adjustmentPct);
+
+  return computeLearningSnapshot(enrollment, completedMainSessions, futureMainSessions, effectiveUnitPrice);
 }
 
 export function computeTransferConversion(

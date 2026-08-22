@@ -15,6 +15,7 @@ import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
 import type { Column, Action } from "@/components/ui/DataTable/DataTable";
 import { PAYROLL_RUN_STATUS_LABEL } from "@/lib/server/payroll-rules";
 import type { PayrollEmployeeRow } from "@/lib/server/payroll-row-builder";
+import { formatVnd } from "@/lib/export-utils";
 
 type FilterMode = "all" | "missing-bank" | "ready-bank" | "missing-rate";
 
@@ -56,10 +57,6 @@ const PAYROLL_TOUR_STEPS: TourStep[] = [
 type RunSummary = { id: string; periodName: string; status: string; lineCount: number } | null;
 
 type Checklist = { items: { key: string; label: string; done: boolean; help: string }[]; isReady: boolean } | null;
-
-function formatVnd(value: number) {
-  return `${value.toLocaleString("vi-VN")}₫`;
-}
 
 function formatNumber(value: number) {
   return value.toLocaleString("vi-VN");
@@ -404,6 +401,9 @@ export default function PayrollWorkspace({
                 })}
               />
               {!run && permissions.canManagePayrollRuns ? <NewPayrollRunForm defaultPeriod={period} /> : null}
+              <Link href="/payroll/teacher-tasks" className="rounded-xl border border-[#dbe3ef] bg-white px-4 py-2 text-sm font-bold text-[#0f1729] hover:border-[#3b82f6]">
+                Theo dõi bài tập giáo viên
+              </Link>
               <PayrollExportButton period={period} rows={rows} runStatus={run?.status ?? null} totals={totals} />
               {permissions.canManageEmployees ? <NewEmployeeForm /> : null}
               {permissions.canManageEmployees ? <PayrollRateCsvTools items={rows} /> : null}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatVnd } from "@/lib/export-utils";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 
 export default function RefundButton({ paymentId, refundable }: { paymentId: string; refundable: number }) {
   const router = useRouter();
@@ -53,7 +54,7 @@ export default function RefundButton({ paymentId, refundable }: { paymentId: str
         className="flex items-center gap-1"
       >
         <span className="flex flex-col">
-          <input type="number" max={refundable} title={formatVnd(Number(amount) || 0)} className="w-20 rounded-md border-hairline text-xs" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <CurrencyInput max={refundable} className="w-20 rounded-md border-hairline text-xs" value={amount} onChange={(next) => setAmount(String(next))} />
           <span className="text-[10px] leading-tight text-ink-muted48">{formatVnd(Number(amount) || 0)}</span>
         </span>
         <input placeholder="Lý do" className="w-24 rounded-md border-hairline text-xs" value={reason} onChange={(e) => setReason(e.target.value)} />

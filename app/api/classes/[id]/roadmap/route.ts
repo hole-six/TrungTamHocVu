@@ -54,6 +54,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       materials: String(body.materials ?? "").trim() || null,
       teacherGuide: String(body.teacherGuide ?? "").trim() || null,
       homeworkGuide: String(body.homeworkGuide ?? "").trim() || null,
+      teacherRequirement: String(body.teacherRequirement ?? "").trim() || null,
     },
   });
 

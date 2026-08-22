@@ -9,7 +9,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import FormGuide from "@/components/ui/FormGuide";
 import CategorySelect from "./CategorySelect";
 import { canUpdate, canDelete } from "@/lib/server/role-matrix";
-import { exportToExcel } from "@/lib/export-utils";
+import { exportToExcel, formatVnd } from "@/lib/export-utils";
 
 type BookRow = {
   id: string;
@@ -54,10 +54,6 @@ const EDIT_BOOK_GUIDE_SECTIONS = [
     tone: "warning" as const,
   },
 ];
-
-function formatVnd(amount: number) {
-  return `${amount.toLocaleString("vi-VN")}đ`;
-}
 
 const CATEGORY_BADGE_COLORS = ["badge-blue", "badge-purple", "badge-pink", "badge-gray"];
 function categoryBadgeClass(category: string) {

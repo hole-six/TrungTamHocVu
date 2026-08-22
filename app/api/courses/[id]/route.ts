@@ -24,6 +24,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if ("tuitionPerSession" in body) data.tuitionPerSession = Number(body.tuitionPerSession);
   if ("sessionsPerWeek" in body) data.sessionsPerWeek = Number(body.sessionsPerWeek);
   if ("isActive" in body) data.isActive = !!body.isActive;
+  if ("materialsLink" in body) data.materialsLink = String(body.materialsLink ?? "").trim() || null;
 
   if (typeof data.code === "string" && !data.code) {
     return NextResponse.json({ error: "Mã khóa học không được để trống" }, { status: 400 });

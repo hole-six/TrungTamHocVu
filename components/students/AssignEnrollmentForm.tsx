@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
+import { formatVnd as formatVndBase } from "@/lib/export-utils";
 
 type AssignEnrollmentFormProps = {
   student: {
@@ -33,8 +34,7 @@ type ClassHit = {
 };
 
 function formatVnd(value: number | null | undefined) {
-  if (!value) return "Chưa cài đặt";
-  return `${value.toLocaleString("vi-VN")}đ`;
+  return !value ? "Chưa cài đặt" : formatVndBase(value);
 }
 
 const GUIDE_SECTIONS = [

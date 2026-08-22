@@ -197,6 +197,7 @@ model Employee {
   appointments       Appointment[]
   scoreEvents        AssistantScoreEvent[]
   monthlyBonuses     AssistantMonthlyBonus[]
+  requirementChecks  SessionRequirementCheck[]
 
   @@index([workStatus])
   @@map("employees")
@@ -446,6 +447,9 @@ model Course {
   tuitionPerSession Int     @map("tuition_per_session") // HocPhi/Buoi
   sessionsPerWeek   Int     @map("sessions_per_week") // BuoiHoc/Tuan
   isActive          Boolean @default(true) @map("is_active")
+  // Link tài liệu chung (Google Drive...) cho toàn bộ khóa — 1 link duy nhất, giáo viên/
+  // trợ giảng mở thẳng từ trang buổi học thay vì phải tìm lại tài liệu rời từng buổi.
+  materialsLink     String? @map("materials_link")
 
   branch      Branch      @relation(fields: [branchId], references: [id])
   classes     Class[]
@@ -508,6 +512,10 @@ model ClassRoadmapItem {
   materials      String?  @map("materials")
   teacherGuide   String?  @map("teacher_guide")
   homeworkGuide  String?  @map("homework_guide")
+  // Yêu cầu tự do CSO/giáo vụ soạn cho đúng buổi này (vd "Giao bài tập Unit 3, chấm
+  // trước buổi sau") — để trống = buổi này không có yêu cầu gì, không hiện gì thêm ở
+  // trang buổi học. Xem SessionRequirementCheck để biết việc xác nhận đã làm hay chưa.
+  teacherRequirement String? @map("teacher_requirement")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -516,6 +524,32 @@ model ClassRoadmapItem {
   @@unique([classId, sessionNumber])
   @@index([classId, sessionNumber])
   @@map("class_roadmap_items")
+}
+
+// Xác nhận "việc giáo viên cần làm" của 1 buổi học cụ thể (yêu cầu lấy từ
+// ClassRoadmapItem.teacherRequirement) — chỉ tạo được sau khi buổi đã điểm danh xong
+// (ClassSession.status = COMPLETED). Người xác nhận (trợ giảng chính hoặc bất kỳ ai
+// được gán buổi đó) phải TỰ CHỌN employeeId từ danh sách SessionAssignment của đúng
+// buổi này trước khi tick — không cố định theo 1 role, vì 1 buổi có thể có ≥2 trợ
+// giảng và cần biết rõ ai chịu trách nhiệm. Nếu NOT_SUBMITTED, tạo kèm 1
+// AssistantScoreEvent (DEDUCT) trừ điểm tích cực đúng người được chọn.
+model SessionRequirementCheck {
+  id              String    @id @default(uuid())
+  sessionId       String    @unique @map("session_id")
+  // Snapshot lại đúng nội dung yêu cầu tại thời điểm tick — phòng khi roadmap bị sửa
+  // sau đó, lịch sử vẫn hiển thị đúng yêu cầu đã áp dụng lúc kiểm tra.
+  requirementText String    @map("requirement_text")
+  employeeId      String    @map("employee_id")
+  status          String    @map("status") // SUBMITTED | NOT_SUBMITTED
+  scoreEventId    String?   @unique @map("score_event_id")
+  checkedById     String    @map("checked_by_id")
+  checkedAt       DateTime  @default(now()) @map("checked_at")
+
+  session    ClassSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  employee   Employee             @relation(fields: [employeeId], references: [id])
+  scoreEvent AssistantScoreEvent? @relation(fields: [scoreEventId], references: [id])
+
+  @@map("session_requirement_checks")
 }
 
 model ClassDefaultAssignment {
@@ -575,6 +609,7 @@ model ClassSession {
   assignments SessionAssignment[]
   attendances StudentAttendance[]
   journal     ClassSessionJournal?
+  requirementCheck     SessionRequirementCheck?
   creditsFromAbsence   SessionCredit[] @relation("SessionCreditSource")
   creditsRedeemedHere  SessionCredit[] @relation("SessionCreditConsumed")
 
@@ -1563,6 +1598,7 @@ model AssistantScoreEvent {
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   branch   Branch   @relation(fields: [branchId], references: [id])
+  requirementCheck SessionRequirementCheck?
 
   @@index([employeeId, eventDate])
   @@map("assistant_score_events")

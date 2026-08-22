@@ -3,10 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computeOutstandingBalance } from "@/lib/server/balance";
+import { formatVnd } from "@/lib/export-utils";
 
-function formatVnd(n: number) {
-  return n.toLocaleString("vi-VN") + "đ";
-}
 function formatDate(d: Date) {
   return new Date(d).toLocaleDateString("vi-VN");
 }

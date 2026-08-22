@@ -1,12 +1,8 @@
 "use client";
 
-import { exportSectionsToExcel } from "@/lib/export-utils";
+import { exportSectionsToExcel, formatVnd } from "@/lib/export-utils";
 import { PAYROLL_RUN_STATUS_LABEL } from "@/lib/server/payroll-rules";
 import type { PayrollEmployeeRow } from "@/lib/server/payroll-row-builder";
-
-function formatVnd(amount: number) {
-  return `${amount.toLocaleString("vi-VN")}đ`;
-}
 
 function formatMonthLabel(period: string) {
   const [year, month] = period.split("-");

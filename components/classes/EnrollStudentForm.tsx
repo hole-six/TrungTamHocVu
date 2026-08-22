@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 import { formatVnd } from "@/lib/export-utils";
 
 type StudentHit = { id: string; fullName: string; studentCode: string };
@@ -201,7 +202,7 @@ export default function EnrollStudentForm({
                 </label>
                 <label className="form-group">
                   <span className="label-sm">Đơn giá khóa chính</span>
-                  <input type="number" min={0} className="input" value={unitPrice} onChange={(event) => setUnitPrice(event.target.value)} />
+                  <CurrencyInput value={unitPrice} onChange={(next) => setUnitPrice(String(next))} />
                   <span className="text-[10px] leading-tight text-ink-muted48">{formatVnd(Number(unitPrice) || 0)}</span>
                 </label>
                 <label className="form-group">
@@ -211,7 +212,7 @@ export default function EnrollStudentForm({
                 </label>
                 <label className="form-group">
                   <span className="label-sm">Đơn giá buổi học thêm đầu khóa</span>
-                  <input type="number" min={0} className="input" value={paidCatchupUnitPrice} onChange={(event) => setPaidCatchupUnitPrice(event.target.value)} />
+                  <CurrencyInput value={paidCatchupUnitPrice} onChange={(next) => setPaidCatchupUnitPrice(String(next))} />
                   <span className="text-[10px] leading-tight text-ink-muted48">{formatVnd(Number(paidCatchupUnitPrice || unitPrice) || 0)}</span>
                 </label>
                 <div className="rounded-xl border border-emerald-200 bg-white px-4 py-3 md:col-span-2">
@@ -249,7 +250,7 @@ export default function EnrollStudentForm({
                         <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2">
                           <input aria-label={`Tháng thu đợt ${index + 1}`} type="month" value={item.dueMonth} onChange={(event) => setInstallments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, dueMonth: event.target.value } : row))} className="input-sm" />
                           <span className="flex flex-col">
-                            <input aria-label={`Số tiền đợt ${index + 1}`} type="number" min="1" value={item.amount} onChange={(event) => setInstallments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, amount: event.target.value } : row))} className="input-sm" />
+                            <CurrencyInput min={1} value={item.amount} onChange={(next) => setInstallments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, amount: String(next) } : row))} className="input-sm" />
                             <span className="text-[10px] leading-tight text-ink-muted48">{formatVnd(Number(item.amount) || 0)}</span>
                           </span>
                           {installments.length > 2 ? <button type="button" onClick={() => setInstallments((current) => current.filter((_, rowIndex) => rowIndex !== index))} className="btn-ghost-sm px-3 text-red-600">×</button> : <span />}

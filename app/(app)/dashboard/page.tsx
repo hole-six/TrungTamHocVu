@@ -8,6 +8,7 @@ import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import QuickActions from "@/components/dashboard/QuickActions";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+import { formatVnd } from "@/lib/export-utils";
 
 const DASHBOARD_TOUR_STEPS: TourStep[] = [
   {
@@ -44,7 +45,6 @@ const DASHBOARD_TOUR_STEPS: TourStep[] = [
 
 function startOfDay(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0); }
 function endOfDay(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999); }
-function formatVnd(n: number) { return n.toLocaleString("vi-VN") + "đ"; }
 function formatDate(d: Date | string | null) { return d ? new Date(d).toLocaleDateString("vi-VN") : "—"; }
 
 async function getStats(user: Awaited<ReturnType<typeof getCurrentUser>>, activeBranchId: string | null) {

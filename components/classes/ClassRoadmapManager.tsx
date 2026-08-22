@@ -11,6 +11,7 @@ type RoadmapItem = {
   materials: string | null;
   teacherGuide: string | null;
   homeworkGuide: string | null;
+  teacherRequirement: string | null;
 };
 
 type DraftMap = Record<
@@ -21,6 +22,7 @@ type DraftMap = Record<
     materials: string;
     teacherGuide: string;
     homeworkGuide: string;
+    teacherRequirement: string;
   }
 >;
 
@@ -31,6 +33,7 @@ function createDraft(item: RoadmapItem) {
     materials: item.materials ?? "",
     teacherGuide: item.teacherGuide ?? "",
     homeworkGuide: item.homeworkGuide ?? "",
+    teacherRequirement: item.teacherRequirement ?? "",
   };
 }
 
@@ -61,7 +64,7 @@ export default function ClassRoadmapManager({
     setDrafts((current) => ({
       ...current,
       [itemId]: {
-        ...(current[itemId] ?? { title: "", objective: "", materials: "", teacherGuide: "", homeworkGuide: "" }),
+        ...(current[itemId] ?? { title: "", objective: "", materials: "", teacherGuide: "", homeworkGuide: "", teacherRequirement: "" }),
         [key]: value,
       },
     }));
@@ -208,6 +211,18 @@ export default function ClassRoadmapManager({
                     placeholder="Bài tập, việc phụ huynh cần phối hợp, lưu ý cần gửi cuối buổi..."
                     readOnly={!editable}
                   />
+                </label>
+
+                <label className="form-group md:col-span-2">
+                  <span className="label">Yêu cầu giáo viên phải làm cho buổi này (để trống = không có yêu cầu)</span>
+                  <textarea
+                    className="input min-h-[90px]"
+                    value={activeDraft.teacherRequirement}
+                    onChange={(event) => patchDraft(activeItem.id, "teacherRequirement", event.target.value)}
+                    placeholder="Ví dụ: Phải giao bài tập Unit 3, chấm và trả kết quả trước buổi sau..."
+                    readOnly={!editable}
+                  />
+                  <p className="form-hint">Sau khi điểm danh xong buổi này, hệ thống sẽ yêu cầu xác nhận Đã nộp/Chưa nộp cho đúng nội dung này.</p>
                 </label>
               </div>
 

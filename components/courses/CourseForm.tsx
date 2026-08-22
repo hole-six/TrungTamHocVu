@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 import { formatVnd } from "@/lib/export-utils";
 
 type CourseLevel = "BEGINNER" | "ELEMENTARY" | "INTERMEDIATE" | "ADVANCED" | "PROFICIENCY";
@@ -358,68 +359,29 @@ export default function CourseForm({ course, onSubmit, onCancel, mode = "create"
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="form-group">
             <label className="label-sm">Học phí/buổi *</label>
-            <div className="relative">
-              <input
-                type="number"
-                value={formData.tuitionPerSession}
-                onChange={(e) => setFormData({ ...formData, tuitionPerSession: Number(e.target.value) })}
-                onBlur={calculateTotalFee}
-                className="input pr-12"
-                step="1000"
-                min="0"
-                required
-              />
-              <span
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium"
-                style={{ color: "var(--text-muted)" }}
-              >
-                ₫
-              </span>
-            </div>
+            <CurrencyInput
+              required
+              value={formData.tuitionPerSession}
+              onChange={(next) => setFormData({ ...formData, tuitionPerSession: next })}
+            />
             <p className="form-hint">{formatVnd(formData.tuitionPerSession || 0)}</p>
           </div>
 
           <div className="form-group">
             <label className="label-sm">Phí sách</label>
-            <div className="relative">
-              <input
-                type="number"
-                value={formData.bookFee}
-                onChange={(e) => setFormData({ ...formData, bookFee: Number(e.target.value) })}
-                onBlur={calculateTotalFee}
-                className="input pr-12"
-                step="1000"
-                min="0"
-              />
-              <span
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium"
-                style={{ color: "var(--text-muted)" }}
-              >
-                ₫
-              </span>
-            </div>
+            <CurrencyInput
+              value={formData.bookFee ?? 0}
+              onChange={(next) => setFormData({ ...formData, bookFee: next })}
+            />
             <p className="form-hint">{formatVnd(formData.bookFee || 0)}</p>
           </div>
 
           <div className="form-group">
             <label className="label-sm">Phí tài liệu</label>
-            <div className="relative">
-              <input
-                type="number"
-                value={formData.materialFee}
-                onChange={(e) => setFormData({ ...formData, materialFee: Number(e.target.value) })}
-                onBlur={calculateTotalFee}
-                className="input pr-12"
-                step="1000"
-                min="0"
-              />
-              <span
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium"
-                style={{ color: "var(--text-muted)" }}
-              >
-                ₫
-              </span>
-            </div>
+            <CurrencyInput
+              value={formData.materialFee ?? 0}
+              onChange={(next) => setFormData({ ...formData, materialFee: next })}
+            />
             <p className="form-hint">{formatVnd(formData.materialFee || 0)}</p>
           </div>
 

@@ -9,6 +9,7 @@ import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/Spotlig
 import { getUserRole } from "@/lib/permissions";
 import { canCreate } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
+import { formatVnd } from "@/lib/export-utils";
 
 const INVENTORY_TOUR_STEPS: TourStep[] = [
   {
@@ -61,10 +62,6 @@ const INVENTORY_PAGE_GUIDE_SECTIONS = [
     tone: "warning" as const,
   },
 ];
-
-function formatVnd(amount: number) {
-  return `${amount.toLocaleString("vi-VN")}đ`;
-}
 
 function normalizeCategory(category: string | null) {
   const trimmed = category?.trim();

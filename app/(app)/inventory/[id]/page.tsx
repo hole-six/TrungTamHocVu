@@ -8,10 +8,7 @@ import BookEditForm from "@/components/inventory/BookEditForm";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate, canUpdate } from "@/lib/server/role-matrix";
-
-function formatVnd(n: number) {
-  return `${n.toLocaleString("vi-VN")}đ`;
-}
+import { formatVnd } from "@/lib/export-utils";
 
 function formatDate(d: Date) {
   return new Date(d).toLocaleDateString("vi-VN");

@@ -3,12 +3,8 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
-import { exportSectionsToExcel, exportToCSV } from "@/lib/export-utils";
+import { exportSectionsToExcel, exportToCSV, formatVnd } from "@/lib/export-utils";
 import type { PayrollEmployeeRow } from "@/lib/server/payroll-row-builder";
-
-function formatVnd(value: number) {
-  return `${value.toLocaleString("vi-VN")}đ`;
-}
 
 function hasMissingRate(item: PayrollEmployeeRow) {
   return (

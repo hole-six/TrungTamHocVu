@@ -1,6 +1,6 @@
 "use client";
 
-import { exportSectionsToExcel } from "@/lib/export-utils";
+import { exportSectionsToExcel, formatVnd } from "@/lib/export-utils";
 
 type Transaction = {
   txnDate: string;
@@ -10,10 +10,6 @@ type Transaction = {
   description: string | null;
   status: string;
 };
-
-function formatVnd(amount: number) {
-  return `${amount.toLocaleString("vi-VN")}đ`;
-}
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("vi-VN");

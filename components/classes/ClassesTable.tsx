@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
 import { canCreate, canUpdate, canDelete } from "@/lib/server/role-matrix";
-import { exportToExcel } from "@/lib/export-utils";
+import { exportToExcel, formatVnd as formatVndBase } from "@/lib/export-utils";
 
 type ScheduleRule = {
   weekday: number;
@@ -61,8 +61,7 @@ type ClassesTableProps = {
 const WEEKDAY_LABEL = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
 function formatVnd(amount: number | null | undefined) {
-  if (amount == null || Number.isNaN(amount)) return "—";
-  return `${amount.toLocaleString("vi-VN")}đ`;
+  return amount == null || Number.isNaN(amount) ? "—" : formatVndBase(amount);
 }
 
 function formatDate(value: string | Date | null | undefined) {

@@ -50,6 +50,7 @@ export function normalizeRoadmapItemsInput(
   materials: string | null;
   teacherGuide: string | null;
   homeworkGuide: string | null;
+  teacherRequirement: string | null;
 }> {
   const normalizedTotal = Number(totalSessions ?? 0);
   if (!Array.isArray(items) || !Number.isInteger(normalizedTotal) || normalizedTotal <= 0) return [];
@@ -66,6 +67,7 @@ export function normalizeRoadmapItemsInput(
         materials: String(source.materials ?? "").trim() || null,
         teacherGuide: String(source.teacherGuide ?? "").trim() || null,
         homeworkGuide: String(source.homeworkGuide ?? "").trim() || null,
+        teacherRequirement: String(source.teacherRequirement ?? "").trim() || null,
       };
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item));

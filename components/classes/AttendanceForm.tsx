@@ -12,6 +12,8 @@ type RosterRow = {
   studentCode: string;
   status: string;
   availableCredits: number | null;
+  locked?: boolean;
+  lockedNote?: string | null;
 };
 
 const STATUS_OPTIONS = [
@@ -334,10 +336,26 @@ export default function AttendanceForm({
                       </span>
                     )
                   ) : null}
+                  {row.locked ? (
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                      Đã học bù trước
+                    </span>
+                  ) : null}
                 </div>
-                {statusSummary(row.status) ? <p className="text-sm text-ink-muted80">Đang chọn: {statusSummary(row.status)}</p> : null}
+                {row.locked ? (
+                  <p className="text-sm text-ink-muted80">{row.lockedNote ?? "Học viên đã học bù trước buổi này ở 1 buổi bổ trợ khác."}</p>
+                ) : statusSummary(row.status) ? (
+                  <p className="text-sm text-ink-muted80">Đang chọn: {statusSummary(row.status)}</p>
+                ) : null}
               </div>
 
+              {row.locked ? (
+                <div className="flex items-center gap-2 lg:max-w-[720px] lg:justify-end">
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700">
+                    Vắng (đã học bù trước) — không thể sửa
+                  </span>
+                </div>
+              ) : (
               <div className="flex flex-wrap gap-2 lg:max-w-[720px] lg:justify-end">
                 {STATUS_OPTIONS.map((option) => {
                   const active = row.status === option.value;
@@ -374,6 +392,7 @@ export default function AttendanceForm({
                   {withdrawingEnrollmentId === row.enrollmentId ? "Đang rút..." : "Rút lớp"}
                 </ConfirmActionButton>
               </div>
+              )}
             </div>
           </div>
         ))}

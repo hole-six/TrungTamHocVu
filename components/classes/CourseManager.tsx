@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import { formatVnd } from "@/lib/export-utils";
 
 type BookOption = {
   id: string;
@@ -19,6 +20,7 @@ type Course = {
   tuitionPerSession: number;
   sessionsPerWeek: number;
   isActive: boolean;
+  materialsLink?: string | null;
   bookRequirements?: Array<{
     id: string;
     quantity: number;
@@ -30,10 +32,6 @@ type RequirementInput = {
   bookId: string;
   quantity: string;
 };
-
-function formatVnd(amount: number) {
-  return `${amount.toLocaleString("vi-VN")}đ`;
-}
 
 function normalizeCategory(category: string | null | undefined) {
   const trimmed = category?.trim();
@@ -331,6 +329,7 @@ function CourseForm({
     tuitionPerSession: course ? String(course.tuitionPerSession) : "",
     sessionsPerWeek: course ? String(course.sessionsPerWeek) : "",
     isActive: course?.isActive ?? true,
+    materialsLink: course?.materialsLink ?? "",
     bookRequirements: (course?.bookRequirements ?? []).map((item) => ({
       bookId: item.book.id,
       quantity: String(item.quantity),
@@ -383,6 +382,18 @@ function CourseForm({
         <label className="form-group">
           <span className="label">Số buổi / tuần</span>
           <input type="number" required min={1} max={7} className="input" value={form.sessionsPerWeek} onChange={(event) => setForm((current) => ({ ...current, sessionsPerWeek: event.target.value }))} />
+        </label>
+
+        <label className="form-group md:col-span-2">
+          <span className="label">Link tài liệu chung (Google Drive...)</span>
+          <input
+            type="url"
+            className="input"
+            placeholder="https://drive.google.com/..."
+            value={form.materialsLink}
+            onChange={(event) => setForm((current) => ({ ...current, materialsLink: event.target.value }))}
+          />
+          <p className="form-hint">Hiện ở trang buổi học để giáo viên/trợ giảng mở thẳng tài liệu đúng khóa.</p>
         </label>
       </div>
 

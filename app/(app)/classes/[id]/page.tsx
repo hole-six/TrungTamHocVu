@@ -465,6 +465,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                   materials: item.materials ?? "",
                   teacherGuide: item.teacherGuide ?? "",
                   homeworkGuide: item.homeworkGuide ?? "",
+                  teacherRequirement: item.teacherRequirement ?? "",
                 })),
               }}
               courses={courses}
@@ -1265,6 +1266,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                               materials: item.materials ?? "",
                               teacherGuide: item.teacherGuide ?? "",
                               homeworkGuide: item.homeworkGuide ?? "",
+                              teacherRequirement: item.teacherRequirement ?? "",
                             })),
                           }}
                           courses={courses}

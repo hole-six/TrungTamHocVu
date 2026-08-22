@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
+import CurrencyInput from "@/components/ui/CurrencyInput";
+import { formatVnd as formatVndBase } from "@/lib/export-utils";
 
 type Course = { id: string; code: string; name: string };
 type ClassOption = { id: string; classCode: string; className: string };
@@ -15,6 +17,7 @@ type RoadmapDraft = {
   materials: string;
   teacherGuide: string;
   homeworkGuide: string;
+  teacherRequirement: string;
 };
 
 type ClassProfile = {
@@ -39,7 +42,7 @@ function toDateInput(value: string | null) {
 }
 
 function formatVnd(amount: number | null) {
-  return amount != null ? `${amount.toLocaleString("vi-VN")}đ` : "—";
+  return amount == null || Number.isNaN(amount) ? "—" : formatVndBase(amount);
 }
 
 function buildRoadmapDraft(sessionNumber: number): RoadmapDraft {
@@ -50,6 +53,7 @@ function buildRoadmapDraft(sessionNumber: number): RoadmapDraft {
     materials: "",
     teacherGuide: "",
     homeworkGuide: "",
+    teacherRequirement: "",
   };
 }
 
@@ -223,6 +227,7 @@ export default function ClassEditForm({
           materials: imported.materials || item.materials,
           teacherGuide: imported.teacherGuide || item.teacherGuide,
           homeworkGuide: imported.homeworkGuide || item.homeworkGuide,
+          teacherRequirement: imported.teacherRequirement || item.teacherRequirement,
         };
       }),
     );
@@ -248,6 +253,7 @@ export default function ClassEditForm({
           materials: item.materials,
           teacherGuide: item.teacherGuide,
           homeworkGuide: item.homeworkGuide,
+          teacherRequirement: item.teacherRequirement,
         })),
       }),
     });
@@ -364,7 +370,7 @@ export default function ClassEditForm({
 
             <label className="form-group">
               <span className="label">Học phí / buổi</span>
-              <input type="number" min={0} className="input" value={form.tuitionPerSession} onChange={(event) => setForm((current) => ({ ...current, tuitionPerSession: event.target.value }))} />
+              <CurrencyInput value={form.tuitionPerSession} onChange={(next) => setForm((current) => ({ ...current, tuitionPerSession: String(next) }))} />
               <p className="form-hint">{form.tuitionPerSession ? formatVnd(Number(form.tuitionPerSession) || 0) : ""}</p>
             </label>
 
@@ -485,6 +491,17 @@ export default function ClassEditForm({
                       <label className="form-group">
                         <span className="label">Bài tập / dặn dò</span>
                         <textarea className="input min-h-[96px] resize-y" value={item.homeworkGuide} onChange={(event) => patchRoadmap(item.sessionNumber, "homeworkGuide", event.target.value)} />
+                      </label>
+
+                      <label className="form-group md:col-span-2">
+                        <span className="label">Yêu cầu giáo viên phải làm cho buổi này (để trống = không có yêu cầu)</span>
+                        <textarea
+                          className="input min-h-[72px] resize-y"
+                          value={item.teacherRequirement}
+                          onChange={(event) => patchRoadmap(item.sessionNumber, "teacherRequirement", event.target.value)}
+                          placeholder="Ví dụ: Phải giao bài tập Unit 3, chấm và trả kết quả trước buổi sau..."
+                        />
+                        <p className="form-hint">Sau khi điểm danh xong buổi này, hệ thống sẽ yêu cầu xác nhận Đã nộp/Chưa nộp cho đúng nội dung này.</p>
                       </label>
                     </div>
                   </div>
