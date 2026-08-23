@@ -321,16 +321,6 @@ export default async function StudentsPage({
           <p className="mt-1 text-xs sm:text-sm text-[#64748b]">Theo dõi hồ sơ, học phí và lớp học của {total} học viên</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <Link href="/classes" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
-            <span className="hidden sm:inline">Lớp học</span>
-            <span className="sm:hidden">Lớp</span>
-          </Link>
-          {canViewFinance ? (
-            <Link href="/tuition" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
-              <span className="hidden sm:inline">Học phí</span>
-              <span className="sm:hidden">Phí</span>
-            </Link>
-          ) : null}
           {canCreate("students", userRole) ? (
             <Link href="/students/new" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-3.5 sm:h-3.5">

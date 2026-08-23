@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { LEAD_STATUS_LABEL, nextStatuses } from "@/lib/server/lead-rules";
 import FormGuide from "@/components/ui/FormGuide";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import { useStudentDrawer } from "@/contexts/StudentDrawerContext";
 
 const STATUS_COLORS: Record<string, string> = {
   NEW:        "bg-slate-100 text-slate-700",
@@ -63,6 +64,7 @@ export default function LeadStatusPanel({
   hasStudent: boolean;
 }) {
   const router = useRouter();
+  const { openDrawer } = useStudentDrawer();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,7 +95,8 @@ export default function LeadStatusPanel({
       setError(data.error ?? "Không thể chuyển đổi thành học viên.");
       return;
     }
-    router.push(`/students/${data.item.id}`);
+    openDrawer(data.item.id);
+    router.refresh();
   }
 
   const isConverted = hasStudent || status === "ENROLLED";

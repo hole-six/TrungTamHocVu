@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import StudentLink from "@/components/students/StudentLink";
 
 type ExceptionItem = {
   studentId: string;
@@ -92,9 +92,9 @@ export default function BillingPeriodExceptionQueue({ periodId }: { periodId: st
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                       <p className="font-semibold text-ink">
-                        <Link href={`/students/${item.studentId}?tab=hocphi`} className="text-primary hover:underline">
+                        <StudentLink studentId={item.studentId} className="text-primary hover:underline">
                           {item.studentName}
-                        </Link>{" "}
+                        </StudentLink>{" "}
                         <span className="text-ink-muted48">({item.studentCode})</span>
                       </p>
                       <p className="mt-1 text-sm text-ink-muted80">
@@ -104,12 +104,12 @@ export default function BillingPeriodExceptionQueue({ periodId }: { periodId: st
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <Link href={`/students/${item.studentId}?tab=hocphi`} className="btn-secondary">
+                      <StudentLink studentId={item.studentId} className="btn-secondary">
                         Mở học phí HV
-                      </Link>
-                      <Link href={`/students/${item.studentId}`} className="btn-ghost">
+                      </StudentLink>
+                      <StudentLink studentId={item.studentId} className="btn-ghost">
                         Hồ sơ học viên
-                      </Link>
+                      </StudentLink>
                     </div>
                   </div>
                 </div>

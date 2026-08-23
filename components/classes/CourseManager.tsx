@@ -484,9 +484,9 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
         </div>
 
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3 rounded-[28px] border border-[#dce6f5] bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] px-5 py-3.5 shadow-[0_16px_40px_-32px_rgba(15,23,42,0.35)]">
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[#e5e7eb] bg-white px-4 py-3 shadow-sm">
             <div className="relative min-w-[260px] flex-1">
-              <input className="input pl-4" placeholder="Tìm theo mã khóa, tên khóa học..." value={search} onChange={(event) => setSearch(event.target.value)} />
+              <input className="input" placeholder="Tìm theo mã khóa, tên khóa học..." value={search} onChange={(event) => setSearch(event.target.value)} />
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -497,14 +497,14 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
                     key={chip.key}
                     type="button"
                     onClick={() => setStatusFilter(chip.key)}
-                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
                       active
-                        ? "border-[#1f6feb] bg-[linear-gradient(135deg,#1f6feb,#2f80ed)] text-white shadow-[0_10px_20px_-12px_rgba(31,111,235,0.8)]"
-                        : "border-[#dbe7ff] bg-white text-ink hover:border-primary/40 hover:bg-[#f8fbff] hover:text-primary"
+                        ? "border-primary bg-primary text-white"
+                        : "border-[#e5e7eb] bg-white text-slate-700 hover:border-primary/40 hover:bg-[#fafafa]"
                     }`}
                   >
                     <span>{chip.label}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-xs ${active ? "bg-white/20 text-white" : "bg-[#eef4ff] text-primary"}`}>
+                    <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700"}`}>
                       {chip.count}
                     </span>
                   </button>
@@ -513,84 +513,82 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-[30px] border border-[#dce6f5] bg-white shadow-[0_30px_80px_-52px_rgba(15,23,42,0.45)]">
+          <div className="overflow-hidden rounded-lg border border-[#e5e7eb] bg-white shadow-sm">
             <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <table className="w-full">
-                <thead className="border-b border-[#e8edf5] bg-[linear-gradient(180deg,#fbfdff_0%,#f3f8ff_100%)]">
+                <thead className="border-b border-[#e5e7eb] bg-white">
                   <tr>
-                    <th className="px-5 py-4 text-left text-[11px] font-extrabold uppercase tracking-[0.22em] text-ink-muted48">Khóa học</th>
-                    <th className="px-5 py-4 text-left text-[11px] font-extrabold uppercase tracking-[0.22em] text-ink-muted48">Học phí</th>
-                    <th className="px-5 py-4 text-left text-[11px] font-extrabold uppercase tracking-[0.22em] text-ink-muted48">Bộ sách chuẩn</th>
-                    <th className="px-5 py-4 text-center text-[11px] font-extrabold uppercase tracking-[0.22em] text-ink-muted48">Trạng thái</th>
-                    <th className="px-5 py-4 text-right text-[11px] font-extrabold uppercase tracking-[0.22em] text-ink-muted48">Tác vụ</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase text-[#111827]">MÃ KHÓA</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase text-[#111827]">TÊN KHÓA HỌC</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold uppercase text-[#111827]">BUỔI/TUẦN</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold uppercase text-[#111827]">HỌC PHÍ/BUỔI</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold uppercase text-[#111827]">TUẦN</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase text-[#111827]">BỘ SÁCH</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold uppercase text-[#111827]">TRẠNG THÁI</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold uppercase text-[#111827]">TÁC VỤ</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#e8edf5]">
+                <tbody>
                   {filteredCourses.map((course) => (
-                    <tr key={course.id} className="align-top transition-colors hover:bg-[#fbfdff]">
-                      <td className="px-5 py-5">
-                        <div className="min-w-[240px]">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-primary/8 px-3 py-1 text-[11px] font-bold text-primary">{course.code}</span>
-                            <span className="rounded-full bg-[#f5f7fb] px-2.5 py-1 text-[11px] font-semibold text-ink-muted80">
-                              {course.sessionsPerWeek} buổi/tuần
-                            </span>
-                          </div>
-                          <p className="mt-2 text-[15px] font-extrabold leading-6 text-ink">{course.name}</p>
-                        </div>
+                    <tr key={course.id} className="border-b border-[#f3f4f6] transition-colors hover:bg-[#f9fafb]">
+                      <td className="px-4 py-4">
+                        <span className="inline-block rounded-lg bg-primary/10 px-3 py-1.5 text-sm font-bold text-primary">{course.code}</span>
                       </td>
 
-                      <td className="px-5 py-5">
-                        <div className="grid min-w-[220px] gap-2 text-sm">
-                          <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#f7faff] px-3 py-2.5">
-                            <span className="text-ink-muted48">Học phí / buổi</span>
-                            <p className="font-semibold text-ink">{formatVnd(course.tuitionPerSession)}</p>
-                          </div>
-                          <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#edf5ff] px-3 py-2.5">
-                            <span className="text-ink-muted48">Tạm tính tuần</span>
-                            <p className="font-semibold text-primary">{formatVnd(course.tuitionPerSession * course.sessionsPerWeek)}</p>
-                          </div>
-                        </div>
+                      <td className="px-4 py-4">
+                        <p className="min-w-[200px] text-sm font-semibold text-[#0f172a]">{course.name}</p>
                       </td>
 
-                      <td className="px-5 py-5">
+                      <td className="px-4 py-4 text-center">
+                        <span className="text-sm font-semibold text-[#0f172a]">{course.sessionsPerWeek}</span>
+                      </td>
+
+                      <td className="px-4 py-4 text-right">
+                        <p className="text-sm font-semibold text-[#0f172a]">{formatVnd(course.tuitionPerSession)}</p>
+                      </td>
+
+                      <td className="px-4 py-4 text-right">
+                        <p className="text-sm font-semibold text-primary">{formatVnd(course.tuitionPerSession * course.sessionsPerWeek)}</p>
+                      </td>
+
+                      <td className="px-4 py-4">
                         {course.bookRequirements?.length ? (
-                          <div className="min-w-[260px] space-y-2">
-                            {course.bookRequirements.map((item) => (
-                              <div key={item.id} className="rounded-2xl bg-[#f8fbff] px-3 py-3">
-                                <p className="text-sm font-semibold text-ink">{item.book.name}</p>
-                                <p className={`mt-1 text-xs ${stockTone(item.book.quantityOnHand, item.quantity)}`}>
-                                  {normalizeCategory(item.book.category)} · SL {item.quantity} · Tồn {item.book.quantityOnHand}
-                                  {item.book.quantityOnHand <= item.quantity ? " · Cần nhập thêm" : ""}
+                          <div className="min-w-[220px] space-y-1.5">
+                            {course.bookRequirements.slice(0, 2).map((item) => (
+                              <div key={item.id} className="text-xs">
+                                <p className="font-semibold text-[#0f172a]">{item.book.name}</p>
+                                <p className={`${stockTone(item.book.quantityOnHand, item.quantity)}`}>
+                                  SL {item.quantity} · Tồn {item.book.quantityOnHand}
                                 </p>
                               </div>
                             ))}
+                            {(course.bookRequirements.length ?? 0) > 2 ? (
+                              <p className="text-xs text-slate-500">+{(course.bookRequirements.length ?? 0) - 2} cuốn khác</p>
+                            ) : null}
                           </div>
                         ) : (
-                          <div className="rounded-2xl border border-dashed border-[#dbe7ff] px-4 py-8 text-center text-xs text-ink-muted48">
-                            Chưa gắn bộ sách chuẩn
-                          </div>
+                          <span className="text-xs text-slate-500">Chưa có</span>
                         )}
                       </td>
 
-                      <td className="px-5 py-5 text-center">
+                      <td className="px-4 py-4 text-center">
                         <span
-                          className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-bold ${
+                          className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-xs font-bold ${
                             course.isActive
-                              ? "border-[#cdeedb] bg-[#ebf8f1] text-[#159d65]"
-                              : "border-[#d7e7ff] bg-[#eef5ff] text-[#1f6feb]"
+                              ? "border-emerald-200 bg-emerald-100 text-emerald-700"
+                              : "border-slate-200 bg-slate-100 text-slate-700"
                           }`}
                         >
-                          {course.isActive ? "Đang áp dụng" : "Ngừng áp dụng"}
+                          {course.isActive ? "Đang dùng" : "Ngừng"}
                         </span>
                       </td>
 
-                      <td className="px-5 py-5">
+                      <td className="px-4 py-4">
                         <div className="flex justify-end gap-2">
                           <button
                             type="button"
                             onClick={() => setEditingCourse(course)}
-                            className="inline-flex min-w-[86px] items-center justify-center rounded-[14px] border border-[#d9e3f7] bg-white px-3.5 py-2.5 text-[12px] font-bold text-ink-muted64 transition hover:bg-[#f8fbff]"
+                            className="inline-flex min-w-[70px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
                           >
                             Sửa
                           </button>
@@ -600,7 +598,7 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
                             confirmLabel="Xóa khóa học"
                             tone="danger"
                             disabled={deletingId === course.id}
-                            className="inline-flex min-w-[86px] items-center justify-center rounded-[14px] border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-[12px] font-bold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                            className="inline-flex min-w-[70px] items-center justify-center rounded-lg border border-rose-300 bg-white px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
                             onConfirm={() => removeCourse(course)}
                           >
                             {deletingId === course.id ? "Đang xóa..." : "Xóa"}
@@ -612,7 +610,7 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
 
                   {filteredCourses.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-10 text-center text-sm text-ink-muted48">
+                      <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">
                         Chưa có khóa học phù hợp với bộ lọc hiện tại.
                       </td>
                     </tr>

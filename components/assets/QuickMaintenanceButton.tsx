@@ -7,6 +7,12 @@ import FormGuide from "@/components/ui/FormGuide";
 import DatePicker from "@/components/ui/DatePicker";
 import { formatVnd } from "@/lib/export-utils";
 
+type MaintenanceHistoryItem = { id: string; txnDate: string; amount: number; notes: string | null; voidedAt: string | null; voidReason: string | null };
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("vi-VN");
+}
+
 function todayYmd() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -46,10 +52,12 @@ const GUIDE_SECTIONS = [
 export default function QuickMaintenanceButton({
   assetId,
   assetName,
+  history = [],
   compact = false,
 }: {
   assetId: string;
   assetName: string;
+  history?: MaintenanceHistoryItem[];
   compact?: boolean;
 }) {
   const router = useRouter();
@@ -119,6 +127,35 @@ export default function QuickMaintenanceButton({
           <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Tài sản</p>
             <p className="mt-2 text-lg font-semibold text-ink">{assetName}</p>
+          </div>
+
+          {/* Hiện ngay lịch sử các lần bảo dưỡng trước (có phí lẫn tự bảo dưỡng) tại đúng chỗ
+              đang ghi nhận lần mới — tránh việc người thao tác chỉ nhập ngày/hẹn ngày mà không
+              biết tài sản đã từng bảo dưỡng bao nhiêu lần, hết bao nhiêu tiền trước đó. */}
+          <div className="rounded-2xl border border-hairline bg-white/70 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">
+              Lịch sử bảo dưỡng ({history.length})
+            </p>
+            {history.length === 0 ? (
+              <p className="mt-2 text-sm text-ink-muted48">Chưa bảo dưỡng lần nào trước đây.</p>
+            ) : (
+              <div className="mt-2 max-h-48 space-y-1.5 overflow-y-auto">
+                {history.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className={`flex items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-xs ${entry.voidedAt ? "bg-slate-50 text-ink-muted48 line-through" : "bg-[#f8fafc] text-ink"}`}
+                  >
+                    <span>
+                      {formatDate(entry.txnDate)}
+                      {entry.notes ? ` · ${entry.notes}` : ""}
+                    </span>
+                    <span className={entry.voidedAt ? "" : "font-semibold text-amber-700"}>
+                      {entry.amount > 0 ? formatVnd(entry.amount) : "Tự bảo dưỡng"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <label className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">

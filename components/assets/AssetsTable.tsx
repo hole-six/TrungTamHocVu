@@ -117,7 +117,7 @@ export default function AssetsTable({
       label: "Thao tác",
       render: (_value, row) => (
         <div className="flex flex-wrap items-center gap-2">
-          {canManageAssets && <QuickMaintenanceButton assetId={row.id} assetName={row.name} compact />}
+          {canManageAssets && <QuickMaintenanceButton assetId={row.id} assetName={row.name} history={row.maintenanceHistory} compact />}
           {canManageAssets && (
             <AssetEditForm
               assetId={row.id}

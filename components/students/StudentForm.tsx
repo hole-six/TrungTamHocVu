@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import SmartForm, { FormSection } from "@/components/ui/SmartForm/SmartForm";
+import { useStudentDrawer } from "@/contexts/StudentDrawerContext";
 
 type StudentFormProps = {
   initialData?: any;
@@ -10,6 +11,7 @@ type StudentFormProps = {
 
 export default function StudentForm({ initialData, studentId }: StudentFormProps) {
   const router = useRouter();
+  const { openDrawer } = useStudentDrawer();
   const isEdit = !!studentId;
 
   const sections: FormSection[] = [
@@ -262,7 +264,7 @@ export default function StudentForm({ initialData, studentId }: StudentFormProps
     }
 
     const result = await res.json();
-    router.push(`/students/${result.item.id}`);
+    openDrawer(result.item.id);
     router.refresh();
   };
 

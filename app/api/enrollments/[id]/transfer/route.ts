@@ -6,6 +6,7 @@ import { canUpdate } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { generateCourseCharge } from "@/lib/server/billing-generation";
 import { computeTransferConversion, getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
+import { computeEffectiveUnitPrice } from "@/lib/server/tuition-rules";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -47,10 +48,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // getEnrollmentLearningSnapshot) — dùng đúng số này để quy đổi, không tự lấy lại
   // giá gốc, nếu không số xem trước và số thực tế chuyển lớp sẽ lệch nhau.
   const oldUnitPrice = snapshot.unitPrice;
-  const newUnitPrice = Number(body.newUnitPrice ?? targetClass.tuitionPerSession ?? targetClass.course?.tuitionPerSession ?? 0);
-  if (!Number.isInteger(newUnitPrice) || newUnitPrice <= 0) {
+
+  // Học bổng gắn theo TỪNG enrollment (không tự động theo học viên) — khi chuyển
+  // lớp phải hỏi rõ có giữ nguyên % học bổng cho enrollment MỚI hay không, không tự
+  // động giữ (có thể lớp mới không còn áp dụng ưu đãi đó) và cũng không âm thầm mất
+  // đi nếu người xử lý thực sự muốn giữ. Mặc định giữ nếu đang có học bổng, trừ khi
+  // body nói rõ carryScholarship=false.
+  const carryScholarship = body.carryScholarship !== false && snapshot.scholarshipPct > 0;
+  const rawNewUnitPrice = Number(body.newUnitPrice ?? targetClass.tuitionPerSession ?? targetClass.course?.tuitionPerSession ?? 0);
+  if (!Number.isInteger(rawNewUnitPrice) || rawNewUnitPrice <= 0) {
     return NextResponse.json({ error: "Lop moi chua co don gia/buoi hop le." }, { status: 400 });
   }
+
+  // Neu giu hoc bong, gia dung de quy doi (va gia snapshot cho enrollment moi) phai
+  // la gia DA AP DUNG %, khong phai gia goc — neu khong, tien vao bao nhieu se khong
+  // con quy dung ra tung do buoi o lop moi (2 lop cung "ngan xep" thuong gia bang
+  // nhau, nen khi giu dung % thi so buoi quy doi phai ~ bang so buoi con lai, khong
+  // bi lech do vo tinh dung gia goc lam mau so).
+  const newUnitPrice = carryScholarship ? computeEffectiveUnitPrice(rawNewUnitPrice, snapshot.scholarshipPct, 0) : rawNewUnitPrice;
 
   const conversion = computeTransferConversion(snapshot.paidRemainingSessions, oldUnitPrice, newUnitPrice);
   if (conversion.convertedSessionCount <= 0 && snapshot.manualExtraRemainingSessions <= 0) {
@@ -64,6 +79,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     conversion.convertedSessionCount > 0 ? `Quy sang ${conversion.convertedSessionCount} buoi x ${newUnitPrice.toLocaleString("vi-VN")}d` : null,
     snapshot.manualExtraRemainingSessions > 0 ? `Mang theo ${snapshot.manualExtraRemainingSessions} buoi cong linh dong` : null,
     conversion.remainingCashAmount > 0 ? `Du ${conversion.remainingCashAmount.toLocaleString("vi-VN")}d` : null,
+    snapshot.scholarshipPct > 0
+      ? carryScholarship
+        ? `Giu hoc bong ${Math.round(snapshot.scholarshipPct * 100)}% sang lop moi`
+        : `Khong mang hoc bong ${Math.round(snapshot.scholarshipPct * 100)}% sang lop moi`
+      : null,
     body.reason ? `Ly do: ${String(body.reason).trim()}` : null,
   ].filter(Boolean).join(" · ");
 
@@ -104,6 +124,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         notes: note,
       },
     });
+
+    if (carryScholarship) {
+      await tx.scholarship.create({
+        data: {
+          studentId: existing.studentId,
+          enrollmentId: nextEnrollment.id,
+          percentage: snapshot.scholarshipPct,
+          reason: `Giu nguyen tu enrollment cu khi chuyen lop: ${existing.class.className} -> ${targetClass.className}`,
+          effectiveFrom: now,
+          effectiveTo: null,
+        },
+      });
+    }
 
     if (conversion.remainingCashAmount > 0) {
       await tx.creditBalance.create({

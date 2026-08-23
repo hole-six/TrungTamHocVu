@@ -53,6 +53,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const body = await req.json();
   const employeeId = String(body.employeeId ?? "").trim();
   const status = String(body.status ?? "").trim();
+  const deductPoints = Boolean(body.deductPoints); // Tùy chọn trừ điểm
+  
   if (!["SUBMITTED", "NOT_SUBMITTED"].includes(status)) {
     return NextResponse.json({ error: "Trạng thái không hợp lệ." }, { status: 400 });
   }
@@ -62,7 +64,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const result = await prisma.$transaction(async (tx) => {
     let scoreEventId: string | null = null;
-    if (status === "NOT_SUBMITTED") {
+    // Chỉ trừ điểm nếu: Chưa nộp VÀ người dùng chọn trừ điểm
+    if (status === "NOT_SUBMITTED" && deductPoints) {
       const scoreEvent = await tx.assistantScoreEvent.create({
         data: {
           employeeId,

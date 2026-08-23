@@ -184,14 +184,14 @@ export default function DataTable<T extends Record<string, any>>({
 
       <div
         data-dt="table-shell"
-        className="overflow-hidden rounded-[28px] border border-[#e4ebf8] bg-white shadow-[0_24px_70px_-45px_rgba(15,23,42,0.45)]"
+        className="overflow-hidden rounded-lg border border-[#e5e7eb] bg-white shadow-sm"
       >
         <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <table data-dt="table" className="w-full">
-            <thead data-dt="thead" className={`border-b border-[#e8edf5] bg-[linear-gradient(135deg,#fbfcff_0%,#f4f8ff_100%)] ${stickyHeader ? "sticky top-0 z-10" : ""}`}>
+          <table data-dt="table" className="w-full bg-white">
+            <thead data-dt="thead" className={`border-b border-[#e5e7eb] bg-white ${stickyHeader ? "sticky top-0 z-10" : ""}`}>
               <tr>
                 {selectable ? (
-                  <th className="w-12 px-4 py-3">
+                  <th className="w-12 px-6 py-3 bg-white">
                     <input
                       type="checkbox"
                       checked={isAllSelected}
@@ -207,8 +207,8 @@ export default function DataTable<T extends Record<string, any>>({
                 {columns.map((column) => (
                   <th
                     key={column.key}
-                    className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-ink-muted48 ${
-                      column.sortable && sortable ? "cursor-pointer select-none hover:bg-[#f1f5f9]" : ""
+                    className={`px-6 py-3 text-left text-xs font-bold uppercase tracking-normal text-[#111827] bg-white ${
+                      column.sortable && sortable ? "cursor-pointer select-none hover:bg-[#fafafa]" : ""
                     } ${column.align === "center" ? "text-center" : column.align === "right" ? "text-right" : ""}`}
                     style={column.width ? { width: column.width } : undefined}
                     onClick={() => column.sortable && handleSort(column.key)}
@@ -216,7 +216,7 @@ export default function DataTable<T extends Record<string, any>>({
                     <div className="flex items-center gap-2">
                       {column.label}
                       {column.sortable && sortable ? (
-                        <span className="text-ink-muted48">
+                        <span className="text-[#111827]">
                           {sortColumn === column.key ? (
                             sortDirection === "asc" ? (
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -240,14 +240,14 @@ export default function DataTable<T extends Record<string, any>>({
                 ))}
 
                 {actions.length > 0 || renderExpanded ? (
-                  <th className="w-[220px] px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-ink-muted48">
+                  <th className="w-[220px] px-6 py-3 text-right text-xs font-bold uppercase tracking-normal text-[#111827] bg-white">
                     Actions
                   </th>
                 ) : null}
               </tr>
             </thead>
 
-            <tbody data-dt="tbody" className="divide-y divide-[#e8edf5]">
+            <tbody data-dt="tbody" className="divide-y divide-[#f3f4f6] bg-white">
               {loading ? (
                 <tr>
                   <td

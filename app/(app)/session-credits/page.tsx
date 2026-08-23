@@ -8,6 +8,8 @@ import { getUserRole } from "@/lib/permissions";
 import { formatVnd } from "@/lib/export-utils";
 import AddPaidCatchupForm from "@/components/session-credits/AddPaidCatchupForm";
 import { resolveSourceLessonDetails } from "@/lib/server/session-credit-lessons";
+import StudentLink from "@/components/students/StudentLink";
+import SessionCreditsBulkAssign from "@/components/session-credits/SessionCreditsBulkAssign";
 
 type SearchParams = {
   status?: string;
@@ -140,8 +142,8 @@ function FilterLink({
   return (
     <Link
       href={href}
-      className={`inline-flex items-center rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
-        active ? "border-[#0f1729] bg-[#0f1729] text-white shadow-sm" : "border-[#dbe3ef] bg-white text-[#475569] hover:border-[#3b82f6] hover:text-[#1d4ed8]"
+      className={`inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
+        active ? "border-primary bg-primary text-white" : "border-[#e5e7eb] bg-white text-[#475569] hover:border-primary/40 hover:bg-[#fafafa]"
       }`}
     >
       {children}
@@ -197,68 +199,76 @@ function ConsumedList({ row }: { row: CreditRow }) {
   );
 }
 
-function CreditTable({ rows }: { rows: CreditRow[] }) {
+function CreditTable({ rows, statusFilter }: { rows: CreditRow[]; statusFilter: string }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-[#dbe3ef] bg-white p-8 text-center">
+      <div className="rounded-lg border border-dashed border-[#e5e7eb] bg-white p-8 text-center">
         <p className="text-sm font-bold text-[#0f1729]">Không có học viên trong bộ lọc này</p>
         <p className="mt-1 text-xs text-[#64748b]">Khi điểm danh vắng hoặc bán bổ trợ đầu khóa, dữ liệu sẽ xuất hiện ở đây.</p>
       </div>
     );
   }
 
+  // Bộ lọc "Còn phải xếp" (mặc định) chỉ truy vấn credit AVAILABLE — với bộ lọc đó,
+  // consumedSession không bao giờ tồn tại nên cột "Các ngày đã bổ trợ" chắc chắn luôn
+  // rỗng ở mọi dòng. Ẩn hẳn cột này khi nó không thể có dữ liệu, thay vì hiện 1 cột
+  // trống vô nghĩa xuyên suốt bảng — chỉ hiện khi bộ lọc có thể trả về credit đã dùng.
+  const showConsumedColumn = statusFilter !== "AVAILABLE";
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#e5eaf7] bg-white shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="min-w-[1100px] w-full text-left text-sm">
-          <thead className="bg-[#f8fafc] text-[11px] uppercase tracking-[0.12em] text-[#64748b]">
+    <div className="overflow-hidden rounded-lg border border-[#e5e7eb] bg-white shadow-sm">
+      <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <table className={`${showConsumedColumn ? "min-w-[1100px]" : "min-w-[900px]"} w-full bg-white`}>
+          <thead className="border-b border-[#e5e7eb] bg-white">
             <tr>
-              <th className="px-4 py-3">Học viên</th>
-              <th className="px-4 py-3">Loại bổ trợ</th>
-              <th className="px-4 py-3 text-center">Số buổi</th>
-              <th className="px-4 py-3 text-center">Còn lại</th>
-              <th className="px-4 py-3">Bài/ngày cần bù</th>
-              <th className="px-4 py-3">Các ngày đã bổ trợ</th>
-              <th className="px-4 py-3 text-right">Tác vụ</th>
+              <th className="w-[200px] px-6 py-3 text-left text-xs font-bold uppercase text-[#111827]">Học viên</th>
+              <th className="w-[180px] px-6 py-3 text-left text-xs font-bold uppercase text-[#111827]">Loại bổ trợ</th>
+              <th className="w-[100px] px-6 py-3 text-center text-xs font-bold uppercase text-[#111827]">Số buổi</th>
+              <th className="w-[100px] px-6 py-3 text-center text-xs font-bold uppercase text-[#111827]">Còn lại</th>
+              <th className="px-6 py-3 text-left text-xs font-bold uppercase text-[#111827]">Bài/ngày cần bù</th>
+              {showConsumedColumn ? <th className="px-6 py-3 text-left text-xs font-bold uppercase text-[#111827]">Các ngày đã bổ trợ</th> : null}
+              <th className="w-[140px] px-6 py-3 text-right text-xs font-bold uppercase text-[#111827]">Tác vụ</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#edf2f7]">
+          <tbody className="divide-y divide-[#f3f4f6] bg-white">
             {rows.map((row) => (
-              <tr key={row.key} className="align-top hover:bg-[#f8fbff]">
-                <td className="px-4 py-4">
-                  <Link href={`/students/${row.student.id}`} className="font-black text-[#0f1729] hover:text-[#1d4ed8]">
+              <tr key={row.key} className="align-top transition-colors hover:bg-[#fafafa]">
+                <td className="w-[200px] px-6 py-4">
+                  <StudentLink studentId={row.student.id} className="font-black text-[#0f1729] hover:text-[#1d4ed8]">
                     {row.student.fullName}
-                  </Link>
+                  </StudentLink>
                   <p className="mt-0.5 text-xs font-semibold text-[#64748b]">{row.student.studentCode}</p>
                   <Link href={`/classes/${row.enrollment.classId}`} className="mt-2 inline-flex text-xs font-bold text-[#1d4ed8] underline underline-offset-2">
                     {row.enrollment.class.className}
                   </Link>
                 </td>
-                <td className="px-4 py-4">
+                <td className="w-[180px] px-6 py-4">
                   <TypeBadge origin={row.origin} />
                   {row.paidAmount > 0 ? <p className="mt-2 text-xs font-bold text-[#0f766e]">Đã tính phí {formatVnd(row.paidAmount)}</p> : null}
                   {row.notes ? <p className="mt-2 line-clamp-2 text-xs text-[#64748b]">{row.notes}</p> : null}
                 </td>
-                <td className="px-4 py-4 text-center">
+                <td className="w-[100px] px-6 py-4 text-center">
                   <p className="text-lg font-black text-[#0f1729]">{row.totalCount}</p>
                   <p className="text-[11px] text-[#64748b]">Đã dùng {row.consumedCount}</p>
                 </td>
-                <td className="px-4 py-4 text-center">
+                <td className="w-[100px] px-6 py-4 text-center">
                   <p className={`text-lg font-black ${row.availableCount > 0 ? "text-[#dc2626]" : "text-[#059669]"}`}>{row.availableCount}</p>
                   {row.voidedCount > 0 ? <p className="text-[11px] text-[#94a3b8]">Hủy {row.voidedCount}</p> : null}
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-6 py-4">
                   <LessonList row={row} />
                 </td>
-                <td className="px-4 py-4">
-                  <ConsumedList row={row} />
-                </td>
-                <td className="px-4 py-4 text-right">
+                {showConsumedColumn ? (
+                  <td className="px-6 py-4">
+                    <ConsumedList row={row} />
+                  </td>
+                ) : null}
+                <td className="w-[140px] px-6 py-4 text-right">
                   <div className="flex flex-col items-end gap-2">
-                    <Link href={`/students/${row.student.id}?tab=session-credits`} className="rounded-lg border border-[#dbeafe] bg-[#eff6ff] px-3 py-1.5 text-xs font-bold text-[#1d4ed8] hover:bg-[#dbeafe]">
+                    <StudentLink studentId={row.student.id} className="rounded-lg border border-[#dbeafe] bg-[#eff6ff] px-3 py-1.5 text-xs font-bold text-[#1d4ed8] hover:bg-[#dbeafe]">
                       Mở học viên
-                    </Link>
-                    <Link href={`/classes/${row.enrollment.classId}`} className="rounded-lg border border-[#e5eaf7] bg-white px-3 py-1.5 text-xs font-bold text-[#475569] hover:border-[#94a3b8]">
+                    </StudentLink>
+                    <Link href={`/classes/${row.enrollment.classId}`} className="rounded-lg border border-[#e5e7eb] bg-white px-3 py-1.5 text-xs font-bold text-[#475569] hover:bg-[#fafafa]">
                       Mở lớp gốc
                     </Link>
                   </div>
@@ -287,6 +297,24 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
   const absenceNeedLesson = rows.filter((row) => row.origin === "ABSENCE").reduce((sum, row) => sum + row.availableCount, 0);
   const paidCatchupRemaining = rows.filter((row) => row.origin === "PAID_CATCHUP").reduce((sum, row) => sum + row.availableCount, 0);
 
+  // Gộp theo học viên (1 học viên có thể xuất hiện ở nhiều dòng khác nhau — vd vừa có
+  // credit ABSENCE vừa có PAID_CATCHUP) để form xếp hàng loạt không hiện trùng 1 người
+  // 2 lần với 2 số buổi khả dụng lệch nhau.
+  const bulkAssignCandidates = Object.values(
+    rows
+      .filter((row) => row.availableCount > 0)
+      .reduce<Record<string, { id: string; fullName: string; studentCode: string; availableCredits: number }>>((acc, row) => {
+        const existing = acc[row.student.id];
+        acc[row.student.id] = {
+          id: row.student.id,
+          fullName: row.student.fullName,
+          studentCode: row.student.studentCode,
+          availableCredits: (existing?.availableCredits ?? 0) + row.availableCount,
+        };
+        return acc;
+      }, {}),
+  );
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
@@ -298,34 +326,34 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {canUpdate("students", role) ? <AddPaidCatchupForm /> : null}
-          <Link href="/students" className="rounded-xl border border-[#dbe3ef] bg-white px-4 py-2 text-sm font-bold text-[#0f1729] hover:border-[#3b82f6]">
+          <Link href="/students" className="rounded-lg border border-[#e5e7eb] bg-white px-4 py-2 text-sm font-bold text-[#0f1729] hover:bg-[#fafafa]">
             Danh sách học viên
           </Link>
         </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-4">
-        <div className="rounded-2xl border border-[#dbeafe] bg-[#eff6ff] p-4">
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#1d4ed8]">Tổng credit</p>
+        <div className="rounded-lg border border-[#dbeafe] bg-[#eff6ff] p-4">
+          <p className="text-xs font-bold uppercase text-[#1d4ed8]">Tổng credit</p>
           <p className="mt-2 text-2xl font-black text-[#0f1729]">{totalCredits}</p>
         </div>
-        <div className="rounded-2xl border border-[#fecaca] bg-[#fef2f2] p-4">
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#b91c1c]">Còn phải xếp</p>
+        <div className="rounded-lg border border-[#fecaca] bg-[#fef2f2] p-4">
+          <p className="text-xs font-bold uppercase text-[#b91c1c]">Còn phải xếp</p>
           <p className="mt-2 text-2xl font-black text-[#0f1729]">{availableCredits}</p>
         </div>
-        <div className="rounded-2xl border border-[#fde68a] bg-[#fffbeb] p-4">
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#b45309]">Vắng cần bài</p>
+        <div className="rounded-lg border border-[#fde68a] bg-[#fffbeb] p-4">
+          <p className="text-xs font-bold uppercase text-[#b45309]">Vắng cần bài</p>
           <p className="mt-2 text-2xl font-black text-[#0f1729]">{absenceNeedLesson}</p>
         </div>
-        <div className="rounded-2xl border border-[#bae6fd] bg-[#f0f9ff] p-4">
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#0369a1]">Đầu khóa còn lại</p>
+        <div className="rounded-lg border border-[#bae6fd] bg-[#f0f9ff] p-4">
+          <p className="text-xs font-bold uppercase text-[#0369a1]">Đầu khóa còn lại</p>
           <p className="mt-2 text-2xl font-black text-[#0f1729]">{paidCatchupRemaining}</p>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-[#e5eaf7] bg-[#f8fafc] p-3">
+      <div className="flex flex-col gap-3 rounded-lg border border-[#e5e7eb] bg-white p-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-black uppercase tracking-[0.12em] text-[#64748b]">Trạng thái</span>
+          <span className="text-xs font-bold uppercase text-[#64748b]">Trạng thái</span>
           {STATUS_FILTERS.map((item) => (
             <FilterLink key={item.key} href={`/session-credits?${buildQuery({ status, type }, { status: item.key })}`} active={item.key === "ALL" ? !status : status === item.key}>
               {item.label}
@@ -333,7 +361,7 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-black uppercase tracking-[0.12em] text-[#64748b]">Loại bổ trợ</span>
+          <span className="text-xs font-bold uppercase text-[#64748b]">Loại bổ trợ</span>
           {TYPE_FILTERS.map((item) => (
             <FilterLink key={item.key || "ALL"} href={`/session-credits?${buildQuery({ status, type }, { type: item.key })}`} active={type === item.key}>
               {item.label}
@@ -342,7 +370,9 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
         </div>
       </div>
 
-      <CreditTable rows={rows} />
+      {canUpdate("schedule", role) ? <SessionCreditsBulkAssign candidates={bulkAssignCandidates} /> : null}
+
+      <CreditTable rows={rows} statusFilter={status} />
     </div>
   );
 }

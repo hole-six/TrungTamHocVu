@@ -57,10 +57,10 @@ export default function DataTableRow<T extends Record<string, any>>({
     <>
     <tr
       data-dt="row"
-      className={`group transition-colors ${onClick ? "cursor-pointer hover:bg-primary/5" : ""} ${selected ? "bg-primary/10" : ""}`}
+      className={`group bg-white transition-colors ${onClick ? "cursor-pointer hover:bg-[#fafafa]" : "hover:bg-[#fafafa]"} ${selected ? "bg-primary/5" : ""}`}
     >
       {selectable ? (
-        <td className="w-12 px-4 py-3 align-middle">
+        <td className="w-12 px-6 py-3 align-middle">
           <input
             type="checkbox"
             checked={selected}
@@ -80,7 +80,7 @@ export default function DataTableRow<T extends Record<string, any>>({
         return (
           <td
             key={column.key}
-            className={`px-4 py-3 align-middle text-sm ${
+            className={`px-6 py-3 align-middle text-sm ${
               column.align === "center"
                 ? "text-center"
                 : column.align === "right"
@@ -95,7 +95,7 @@ export default function DataTableRow<T extends Record<string, any>>({
       })}
 
       {visibleActions.length > 0 || renderExpanded ? (
-        <td data-dt="actions-cell" className="px-4 py-3 text-right align-middle">
+        <td data-dt="actions-cell" className="px-6 py-3 text-right align-middle">
           <div className="flex flex-nowrap items-center justify-end gap-2">
             {renderExpanded ? (
               <button
@@ -152,7 +152,7 @@ export default function DataTableRow<T extends Record<string, any>>({
     </tr>
     {expanded && renderExpanded ? (
       <tr data-dt="row-expanded">
-        <td colSpan={totalColumnCount} className="bg-[#f9fbff] px-5 py-4">
+        <td colSpan={totalColumnCount} className="bg-white px-5 py-4 border-t border-[#f3f4f6]">
           {renderExpanded(row)}
         </td>
       </tr>

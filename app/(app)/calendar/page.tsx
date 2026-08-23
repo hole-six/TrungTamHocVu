@@ -4,6 +4,7 @@ import { getUserRole } from "@/lib/permissions";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import CalendarFilters from "@/components/calendar/CalendarFilters";
 import SessionCard from "@/components/calendar/SessionCard";
+import CalendarListView from "@/components/calendar/CalendarListView";
 import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 
@@ -91,7 +92,7 @@ const CALENDAR_PAGE_GUIDE_SECTIONS = [
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: { week?: string; q?: string; timePreset?: string };
+  searchParams: { week?: string; q?: string; timePreset?: string; view?: string };
 }) {
   const user = await getCurrentUser();
   const role = user ? await getUserRole(user.id) : null;
@@ -99,6 +100,7 @@ export default async function CalendarPage({
 
   const q = searchParams.q?.trim() ?? "";
   const timePreset = searchParams.timePreset?.trim() ?? "all";
+  const view = searchParams.view === "list" ? "list" : "grid";
   const anchor = searchParams.week ? new Date(searchParams.week) : new Date();
   const weekStart = startOfWeek(anchor);
   const weekEnd = new Date(weekStart);
@@ -220,14 +222,19 @@ export default async function CalendarPage({
 
       <div data-tour="calendar-filters">
         <CalendarFilters
-          key={`${anchor.toISOString().slice(0, 10)}|${q}|${timePreset}`}
+          key={`${anchor.toISOString().slice(0, 10)}|${q}|${timePreset}|${view}`}
           initialWeek={anchor.toISOString().slice(0, 10)}
           initialQuery={q}
           initialTimePreset={timePreset}
+          initialView={view}
         />
       </div>
 
       <div data-tour="calendar-week">
+      {view === "list" ? (
+        <CalendarListView rows={sessions} />
+      ) : (
+      <>
       <div className="hidden overflow-x-auto pb-2 md:block [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="grid min-w-[1460px] grid-cols-7 gap-3">
           {sessionsByDay.map((day) => {
@@ -366,6 +373,8 @@ export default async function CalendarPage({
           );
         })}
       </div>
+      </>
+      )}
 
       </div>
     </div>

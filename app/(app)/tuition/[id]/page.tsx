@@ -11,6 +11,7 @@ import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { formatVnd } from "@/lib/export-utils";
+import StudentLink from "@/components/students/StudentLink";
 
 const TUITION_TOUR_STEPS: TourStep[] = [
   {
@@ -146,9 +147,9 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
               {/* Student info */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
-                  <Link href={`/students/${c.studentId}`} className="text-base font-semibold text-primary">
+                  <StudentLink studentId={c.studentId} className="text-base font-semibold text-primary">
                     {c.student.fullName}
-                  </Link>
+                  </StudentLink>
                   <p className="text-xs text-ink-muted48 mt-1">
                     {c.student.studentCode}
                     {c.student.lead?.leadCode ? ` · Lead: ${c.student.lead.leadCode}` : ""}
@@ -266,9 +267,9 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
             return (
               <tr key={c.id} className="border-b border-hairline last:border-0 hover:bg-canvas-parchment/40">
                 <td className="px-4 py-3">
-                  <Link href={`/students/${c.studentId}`} className="font-medium text-primary">
+                  <StudentLink studentId={c.studentId} className="font-medium text-primary">
                     {c.student.fullName} <span className="text-ink-muted48">({c.student.studentCode})</span>
-                  </Link>
+                  </StudentLink>
                   {c.student.lead?.leadCode ? <p className="mt-1 text-xs text-ink-muted48">Lead: {c.student.lead.leadCode}</p> : null}
                 </td>
                 <td className="px-4 py-3 text-ink-muted80">

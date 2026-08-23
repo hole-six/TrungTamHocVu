@@ -257,7 +257,7 @@ export default async function InventoryPage({
             {issueRows.length} <span className="hidden sm:inline">dòng</span>
           </span>
         </div>
-        <form className="grid gap-2 sm:gap-3 rounded-2xl sm:rounded-3xl border border-line/70 bg-surface/70 p-3 sm:p-4 xl:grid-cols-[minmax(0,1.2fr)_260px_220px_190px_auto]" data-tour="inventory-filter">
+        <form className="grid gap-2 sm:gap-3 rounded-2xl sm:rounded-3xl border border-line/70 bg-surface/70 p-3 sm:p-4 xl:grid-cols-[minmax(0,1fr)_240px_240px_220px_auto]" data-tour="inventory-filter">
           <label className="form-group">
             <span className="label-sm text-[10px] sm:text-xs">Tìm kiếm</span>
             <input type="text" name="q" defaultValue={q} placeholder="Lớp, học viên, sách..." className="input h-10 sm:h-11 text-xs sm:text-sm" />

@@ -29,6 +29,7 @@ type CalendarFiltersProps = {
   initialWeek: string;
   initialQuery: string;
   initialTimePreset: string;
+  initialView: string;
 };
 
 const TIME_PRESET_LABEL: Record<string, string> = {
@@ -41,6 +42,7 @@ export default function CalendarFilters({
   initialWeek,
   initialQuery,
   initialTimePreset,
+  initialView,
 }: CalendarFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -48,6 +50,7 @@ export default function CalendarFilters({
   const [week, setWeek] = useState(initialWeek);
   const [query, setQuery] = useState(initialQuery);
   const [timePreset, setTimePreset] = useState(initialTimePreset || "all");
+  const [view, setView] = useState(initialView || "grid");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const quickPresets = useMemo(
@@ -60,15 +63,17 @@ export default function CalendarFilters({
     [],
   );
 
-  function pushFilters(next: { week?: string; query?: string; timePreset?: string }) {
+  function pushFilters(next: { week?: string; query?: string; timePreset?: string; view?: string }) {
     const params = new URLSearchParams();
     const resolvedWeek = next.week ?? week;
     const resolvedQuery = next.query ?? query;
     const resolvedTimePreset = next.timePreset ?? timePreset;
+    const resolvedView = next.view ?? view;
 
     if (resolvedWeek) params.set("week", startOfWeek(resolvedWeek));
     if (resolvedQuery.trim()) params.set("q", resolvedQuery.trim());
     if (resolvedTimePreset && resolvedTimePreset !== "all") params.set("timePreset", resolvedTimePreset);
+    if (resolvedView && resolvedView !== "grid") params.set("view", resolvedView);
 
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
@@ -180,6 +185,34 @@ export default function CalendarFilters({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+          <div className="inline-flex rounded-[11px] border border-[#dce7f3] bg-white p-1">
+            <button
+              type="button"
+              onClick={() => {
+                setView("grid");
+                pushFilters({ view: "grid" });
+              }}
+              className={`rounded-[8px] px-3 py-1.5 text-xs font-semibold transition ${
+                view === "grid" ? "bg-[#eaf4ff] text-[#1389e8]" : "text-[#5d7290] hover:text-primary"
+              }`}
+              title="Xem dạng lưới theo tuần"
+            >
+              Lưới
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setView("list");
+                pushFilters({ view: "list" });
+              }}
+              className={`rounded-[8px] px-3 py-1.5 text-xs font-semibold transition ${
+                view === "list" ? "bg-[#eaf4ff] text-[#1389e8]" : "text-[#5d7290] hover:text-primary"
+              }`}
+              title="Xem dạng danh sách, mỗi buổi 1 dòng"
+            >
+              Danh sách
+            </button>
+          </div>
           {quickPresets.map((preset) => (
             <button
               key={preset.id}

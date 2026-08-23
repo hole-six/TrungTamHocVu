@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Action, BulkAction, Column } from "@/components/ui/DataTable";
 import AssignEnrollmentForm from "@/components/students/AssignEnrollmentForm";
+import StudentDetailDrawer from "@/components/students/StudentDetailDrawer";
 import { exportToExcel, formatVnd } from "@/lib/export-utils";
 import { canDelete, canUpdate } from "@/lib/server/role-matrix";
 
@@ -106,6 +107,7 @@ export default function StudentsTable({
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [assigningStudent, setAssigningStudent] = useState<Student | null>(null);
+  const [drawerStudentId, setDrawerStudentId] = useState<string | null>(null);
 
   function updateParams(patch: Record<string, string | null>) {
     const next = new URLSearchParams(searchParams.toString());
@@ -367,14 +369,14 @@ export default function StudentsTable({
     if (financeColumnIndex >= 0) columns.splice(financeColumnIndex, 1);
   }
 
-  const actions: Action<Student>[] = [{ label: "Xem", onClick: (row) => router.push(`/students/${row.id}`), variant: "primary" }];
+  const actions: Action<Student>[] = [{ label: "Xem", onClick: (row) => setDrawerStudentId(row.id), variant: "primary" }];
 
   if (canUpdate("schedule", userRole)) {
     actions.push({ label: "Gán nhập học", onClick: (row) => setAssigningStudent(row), variant: "secondary" });
   }
 
   if (canUpdate("students", userRole)) {
-    actions.push({ label: "Sửa", onClick: (row) => router.push(`/students/${row.id}`), variant: "secondary" });
+    actions.push({ label: "Sửa", onClick: (row) => setDrawerStudentId(row.id), variant: "secondary" });
   }
 
   if (canDelete("students", userRole)) {
@@ -483,12 +485,22 @@ export default function StudentsTable({
         loading={isPending}
         stickyHeader
         rowKey="id"
-        onRowClick={(row) => router.push(`/students/${row.id}`)}
+        onRowClick={(row) => setDrawerStudentId(row.id)}
         className="[&_table]:min-w-[1750px]"
         primaryColumn="fullName"
         secondaryColumns={["studentCode", "status", "outstanding"]}
       />
 
+      {/* Student Detail Drawer */}
+      {drawerStudentId && (
+        <StudentDetailDrawer
+          open={!!drawerStudentId}
+          onClose={() => setDrawerStudentId(null)}
+          studentId={drawerStudentId}
+        />
+      )}
+
+      {/* Assign Enrollment Form */}
       {assigningStudent ? (
         <AssignEnrollmentForm
           student={{

@@ -6,6 +6,7 @@ import { getFilteredNavItems, getUserRole } from "@/lib/permissions";
 import { NAV_ITEMS } from "@/lib/nav";
 import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
+import { AppLayoutClient } from "@/components/layout/AppLayoutClient";
 
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
@@ -25,7 +26,7 @@ async function getNavBadges(
   const todayStart = startOfDay(today);
   const todayEnd = endOfDay(today);
 
-  const [openLeads, activeStudents, openSessionCredits, branchSessionsToday, mySessionsToday, openBillingPeriods, openPayrollRuns] = await Promise.all([
+  const [openLeads, activeStudents, openSessionCredits, branchSessionsToday, mySessionsToday, openBillingPeriods, openPayrollRuns, notSubmittedTeacherTasks] = await Promise.all([
     prisma.lead.count({ where: { ...branchWhere, status: { notIn: ["ENROLLED", "LOST"] } } }),
     role !== "TEACHER" && role !== "TEACHING_ASSISTANT"
       ? prisma.student.findMany({
@@ -70,6 +71,9 @@ async function getNavBadges(
     prisma.payrollRun.count({
       where: { ...branchWhere, status: { in: ["DRAFT", "CALCULATED", "REVIEWED", "APPROVED"] } },
     }),
+    prisma.sessionRequirementCheck.count({
+      where: { status: "NOT_SUBMITTED", employee: activeBranchId ? { branchId: activeBranchId } : {} },
+    }),
   ]);
 
   const studentsWithoutPortal = activeStudents.filter((student) =>
@@ -89,6 +93,7 @@ async function getNavBadges(
     "/calendar": role === "TEACHER" || role === "TEACHING_ASSISTANT" ? mySessionsToday : branchSessionsToday,
     "/tuition": openBillingPeriods,
     "/payroll": openPayrollRuns,
+    "/teacher-tasks": notSubmittedTeacherTasks,
   };
 }
 
@@ -119,17 +124,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const navBadges = await getNavBadges(user, userRole, activeBranchId);
 
   return (
-    <div className="min-h-screen">
-      <Sidebar navItems={filteredNavItems} navBadges={navBadges} userRole={userRole || undefined} />
-      <div className="md:pl-20">
-        <Topbar
-          fullName={session.fullName}
-          branchName={user?.branch?.name}
-          branches={branches}
-          currentBranchId={activeBranchId ?? undefined}
-        />
-        <main className="w-full px-6 py-8 pb-28 md:pb-8">{children}</main>
+    <AppLayoutClient>
+      <div className="min-h-screen">
+        <Sidebar navItems={filteredNavItems} navBadges={navBadges} userRole={userRole || undefined} />
+        <div className="md:pl-20">
+          <Topbar
+            fullName={session.fullName}
+            branchName={user?.branch?.name}
+            branches={branches}
+            currentBranchId={activeBranchId ?? undefined}
+          />
+          <main className="w-full px-6 py-8 pb-28 md:pb-8">{children}</main>
+        </div>
       </div>
-    </div>
+    </AppLayoutClient>
   );
 }

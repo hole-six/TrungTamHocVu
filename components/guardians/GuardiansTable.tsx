@@ -7,6 +7,7 @@ import type { Column, BulkAction } from "@/components/ui/DataTable";
 import { isFrontDeskRole, isTeachingStaffRole } from "@/lib/client-roles";
 import { exportToExcel, formatVnd } from "@/lib/export-utils";
 import GuardianDrawer from "@/components/guardians/GuardianDrawer";
+import { useStudentDrawer } from "@/contexts/StudentDrawerContext";
 
 type GuardianChild = {
   id: string;
@@ -59,6 +60,7 @@ export default function GuardiansTable({
   stats,
 }: GuardiansTableProps) {
   const router = useRouter();
+  const { openDrawer } = useStudentDrawer();
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
   const [filterKey, setFilterKey] = useState<"ALL" | "PORTAL" | "DEBT" | "STUDENTS">("ALL");
@@ -179,7 +181,7 @@ export default function GuardiansTable({
               </p>
             </div>
             {firstStudent ? (
-              <button type="button" onClick={() => router.push(`/students/${firstStudent.id}`)} className="btn-360-sm">
+              <button type="button" onClick={(e) => { e.stopPropagation(); openDrawer(firstStudent.id); }} className="btn-360-sm">
                 Mở hồ sơ 360
               </button>
             ) : (

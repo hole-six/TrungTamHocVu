@@ -401,9 +401,6 @@ export default function PayrollWorkspace({
                 })}
               />
               {!run && permissions.canManagePayrollRuns ? <NewPayrollRunForm defaultPeriod={period} /> : null}
-              <Link href="/payroll/teacher-tasks" className="rounded-xl border border-[#dbe3ef] bg-white px-4 py-2 text-sm font-bold text-[#0f1729] hover:border-[#3b82f6]">
-                Theo dõi bài tập giáo viên
-              </Link>
               <PayrollExportButton period={period} rows={rows} runStatus={run?.status ?? null} totals={totals} />
               {permissions.canManageEmployees ? <NewEmployeeForm /> : null}
               {permissions.canManageEmployees ? <PayrollRateCsvTools items={rows} /> : null}

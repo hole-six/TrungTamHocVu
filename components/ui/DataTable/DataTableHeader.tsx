@@ -53,7 +53,7 @@ export default function DataTableHeader({
   return (
     <div
       data-dt="header"
-      className="flex flex-wrap items-center gap-3 rounded-[26px] border border-[#dfe8f6] bg-white px-4 py-3 shadow-[0_16px_40px_-32px_rgba(15,23,42,0.35)]"
+      className="flex flex-wrap items-center gap-3 rounded-lg border border-[#e5e7eb] bg-white px-4 py-3 shadow-sm"
     >
       {searchable ? (
         <div data-dt="search" className="relative min-w-[220px] flex-1">

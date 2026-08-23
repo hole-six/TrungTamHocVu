@@ -193,14 +193,14 @@ const ROLE_ROUTES: Record<string, string[]> = {
 
   // Kế toán / Thu ngân — tài chính là chính, thêm lịch để xem lịch tổng (đã có quyền
   // xem "schedule" ở role-matrix từ trước nhưng bị chặn nhầm ở đây, không vào được trang)
-  ACCOUNTANT: ["/dashboard", "/students", "/session-credits", "/tuition", "/inventory", "/assets", "/cashbook", "/payroll", "/reports", "/calendar"],
+  ACCOUNTANT: ["/dashboard", "/students", "/session-credits", "/tuition", "/inventory", "/assets", "/cashbook", "/payroll", "/teacher-tasks", "/reports", "/calendar"],
 
   // Nhân sự / HR — chấm công, lương, hợp đồng, thêm lịch để xem lịch tổng (lý do như trên)
-  HR: ["/dashboard", "/timesheets", "/payroll", "/assets", "/reports", "/calendar"],
+  HR: ["/dashboard", "/timesheets", "/payroll", "/teacher-tasks", "/assets", "/reports", "/calendar"],
 
   // Giáo viên / Trợ giảng — lịch dạy, học viên lớp mình, lương của mình
-  TEACHER: ["/dashboard", "/students", "/classes", "/calendar", "/payroll"],
-  TEACHING_ASSISTANT: ["/dashboard", "/classes", "/calendar", "/payroll"],
+  TEACHER: ["/dashboard", "/students", "/classes", "/calendar", "/payroll", "/teacher-tasks"],
+  TEACHING_ASSISTANT: ["/dashboard", "/classes", "/calendar", "/payroll", "/teacher-tasks"],
 };
 
 export async function getFilteredNavItems(userId: string) {

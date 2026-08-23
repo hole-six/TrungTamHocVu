@@ -26,6 +26,7 @@ import ClassRecurringTaskManager from "@/components/classes/ClassRecurringTaskMa
 import ClassEditForm from "@/components/classes/ClassEditForm";
 import RescheduleSessionButton from "@/components/classes/RescheduleSessionButton";
 import ClassDefaultAssignmentManager from "@/components/classes/ClassDefaultAssignmentManager";
+import RemedialBulkAssignPanel from "@/components/classes/RemedialBulkAssignPanel";
 import PageGuide from "@/components/ui/PageGuide";
 import PageHero from "@/components/ui/PageHero/PageHero";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
@@ -234,14 +235,60 @@ export default async function ClassDetailPage({ params }: { params: { id: string
   const role = currentUser ? await getUserRole(currentUser.id) : null;
   const canManageClass = canUpdate("schedule", role);
   const roadmapItems = await ensureClassRoadmapItems(cls.id, cls.totalSessions);
-  const continuationClassOptions = canManageClass
+
+  // Danh sách học viên đang có buổi bổ trợ khả dụng (mọi lớp, không chỉ lớp này) —
+  // để gán hàng loạt nhiều học viên cùng lúc vào 1 buổi tương lai của lớp bổ trợ, thay
+  // vì phải mở "Gán nhập học" + "Đăng ký học bù" riêng cho từng người một.
+  let remedialCandidates: { id: string; fullName: string; studentCode: string; availableCredits: number }[] = [];
+  let remedialFutureSessions: { id: string; sessionDate: string; startTime: string | null; endTime: string | null }[] = [];
+  if (cls.isRemedial && canManageClass) {
+    const creditGroups = await prisma.sessionCredit.groupBy({
+      by: ["studentId"],
+      where: { status: "AVAILABLE", student: { branchId: cls.branchId } },
+      _count: { _all: true },
+    });
+    const candidateStudents = creditGroups.length
+      ? await prisma.student.findMany({
+          where: { id: { in: creditGroups.map((g) => g.studentId) } },
+          select: { id: true, fullName: true, studentCode: true },
+          orderBy: { fullName: "asc" },
+        })
+      : [];
+    remedialCandidates = candidateStudents.map((student) => ({
+      ...student,
+      availableCredits: creditGroups.find((g) => g.studentId === student.id)?._count._all ?? 0,
+    }));
+
+    const todayStart = getVietnamToday();
+    remedialFutureSessions = cls.sessions
+      .filter((session) => session.status !== "CANCELLED" && session.status !== "COMPLETED" && session.sessionDate >= todayStart)
+      .sort((a, b) => a.sessionDate.getTime() - b.sessionDate.getTime())
+      .map((session) => ({
+        id: session.id,
+        sessionDate: session.sessionDate.toISOString(),
+        startTime: session.startTime,
+        endTime: session.endTime,
+      }));
+  }
+  // Lớp để chuyển tiếp phải CÙNG khóa học (cùng nội dung) — học viên giữa khóa
+  // chuyển lớp là để học tiếp cùng chương trình ở lớp khác, không phải đổi sang
+  // môn/nội dung khác. Trước đây lọc theo branch+status mà thiếu courseId nên hiện
+  // ra lẫn lộn mọi lớp trong cơ sở, kể cả khác hẳn nội dung.
+  // KHÔNG lọc cứng theo courseId — "chuyển lớp" còn bao gồm cả trường hợp học viên
+  // chuyển LÊN khóa nâng cao (khác courseId hẳn), không chỉ chuyển sang lớp khác cùng
+  // nội dung. Vẫn ưu tiên hiện lớp CÙNG khóa học lên đầu danh sách (trường hợp phổ
+  // biến nhất) để không quay lại tình trạng danh sách lẫn lộn ngẫu nhiên như trước.
+  const continuationClassOptionsRaw = canManageClass
     ? await prisma.class.findMany({
         where: { branchId: cls.branchId, id: { not: cls.id }, status: "ACTIVE", isRemedial: false },
         include: { course: true },
         orderBy: [{ className: "asc" }, { classCode: "asc" }],
-        take: 80,
+        take: 200,
       })
     : [];
+  const continuationClassOptions = [...continuationClassOptionsRaw].sort(
+    (a, b) => Number(b.courseId === cls.courseId) - Number(a.courseId === cls.courseId),
+  );
 
   const tasks = await prisma.task.findMany({
     where: { relatedType: "Class", relatedId: cls.id },
@@ -929,6 +976,11 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                     />
                   )}
                 </div>
+                {cls.isRemedial && canManageClass ? (
+                  <div className="px-6 pt-4">
+                    <RemedialBulkAssignPanel classId={cls.id} candidates={remedialCandidates} futureSessions={remedialFutureSessions} />
+                  </div>
+                ) : null}
                 {/* Desktop: Full 5-column table */}
                 <div className="hidden lg:block overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                   <table className="w-full text-left text-sm">
@@ -1034,10 +1086,12 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                     <TransferEnrollmentButton
                                       enrollmentId={enrollment.id}
                                       currentClassName={cls.className}
+                                      currentCourseId={cls.courseId}
                                       remainingSessions={remainingMainSessions}
                                       paidRemainingSessions={snapshot.paidRemainingSessions}
                                       manualExtraRemainingSessions={snapshot.manualExtraRemainingSessions}
                                       oldUnitPrice={unitPrice}
+                                      scholarshipPct={snapshot.scholarshipPct}
                                       defaultTargetClassId={cls.nextClassId}
                                       classOptions={continuationClassOptions}
                                     />
@@ -1182,10 +1236,12 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                             <TransferEnrollmentButton
                               enrollmentId={enrollment.id}
                               currentClassName={cls.className}
+                              currentCourseId={cls.courseId}
                               remainingSessions={remainingMainSessions}
                               paidRemainingSessions={snapshot.paidRemainingSessions}
                               manualExtraRemainingSessions={snapshot.manualExtraRemainingSessions}
                               oldUnitPrice={unitPrice}
+                              scholarshipPct={snapshot.scholarshipPct}
                               defaultTargetClassId={cls.nextClassId}
                               classOptions={continuationClassOptions}
                             />

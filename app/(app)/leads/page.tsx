@@ -9,6 +9,7 @@ import { getCurrentBranchId } from "@/lib/branch-filter";
 import LeadsTable from "@/components/leads/LeadsTable";
 import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+import NewLeadDrawer from "@/components/leads/NewLeadDrawer";
 
 const PAGE_SIZE = 20;
 
@@ -265,29 +266,7 @@ export default async function LeadsPage({
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <SpotlightTour steps={LEADS_TOUR_STEPS} />
-          {canCreate("leads", userRole) ? (
-            <>
-              <Link href="/leads/intake" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-3.5 sm:h-3.5">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M19 8h4" />
-                  <path d="M21 6v4" />
-                </svg>
-                <span className="hidden sm:inline">Đăng ký nhập học</span>
-                <span className="sm:hidden">Nhập học</span>
-              </Link>
-
-              <Link href="/leads/new" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-3.5 sm:h-3.5">
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-                <span className="hidden sm:inline">Thêm lead</span>
-                <span className="sm:hidden">Thêm</span>
-              </Link>
-            </>
-          ) : null}
+          {canCreate("leads", userRole) ? <NewLeadDrawer classOptions={classOptions} /> : null}
         </div>
       </div>
 

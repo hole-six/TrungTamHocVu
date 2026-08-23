@@ -149,7 +149,14 @@ export async function getEnrollmentLearningSnapshot(
     .reduce((sum, item) => sum + item.percentage, 0);
   const effectiveUnitPrice = computeEffectiveUnitPrice(resolveEnrollmentUnitPrice(enrollment), scholarshipPct, adjustmentPct);
 
-  return computeLearningSnapshot(enrollment, completedMainSessions, futureMainSessions, effectiveUnitPrice);
+  // Trả kèm % học bổng/điều chỉnh đang hiệu lực (không chỉ đơn giá đã áp dụng) để
+  // luồng chuyển lớp biết CÓ học bổng hay không mà mở tuỳ chọn giữ nguyên/không giữ
+  // khi ghi danh vào lớp mới — thay vì âm thầm mất học bổng sau khi chuyển.
+  return {
+    ...computeLearningSnapshot(enrollment, completedMainSessions, futureMainSessions, effectiveUnitPrice),
+    scholarshipPct,
+    adjustmentPct,
+  };
 }
 
 export function computeTransferConversion(

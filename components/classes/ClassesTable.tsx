@@ -6,6 +6,7 @@ import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
 import { canCreate, canUpdate, canDelete } from "@/lib/server/role-matrix";
 import { exportToExcel, formatVnd as formatVndBase } from "@/lib/export-utils";
+import { useClassDrawer } from "@/contexts/ClassDrawerContext";
 
 type ScheduleRule = {
   weekday: number;
@@ -116,6 +117,7 @@ export default function ClassesTable({
   const [isPending, startTransition] = useTransition();
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
+  const { openDrawer } = useClassDrawer();
 
   useEffect(() => {
     setData(initialData);
@@ -176,96 +178,121 @@ export default function ClassesTable({
 
   const columns: Column<Class>[] = [
     {
-      key: "className",
-      label: "Lớp học",
+      key: "classCode",
+      label: "MÃ LỚP",
       sortable: true,
       render: (value, row) => (
-        <div className="min-w-[260px]">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-primary/8 px-3 py-1 text-xs font-bold text-primary">{row.classCode}</span>
-            {row.classGroup ? <span className="rounded-full bg-[#eef5ff] px-3 py-1 text-xs font-semibold text-ink-muted80">{row.classGroup}</span> : null}
-            {row.isRemedial ? <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-700">🎯 Khóa bổ trợ</span> : null}
-          </div>
-          <p className="mt-2 text-[15px] font-extrabold leading-6 text-ink">{value}</p>
-          <p className="mt-1 text-xs text-ink-muted48">
-            {row.course ? `[${row.course.code ?? "Khóa"}] ${row.course.name}` : "Chưa gắn khóa chuẩn"}
-          </p>
-          <p className="mt-2 text-xs text-ink-muted48">
-            Khai giảng {formatDate(row.startDate)} · Dự kiến kết thúc {formatDate(row.expectedEndDate)}
-          </p>
+        <div className="min-w-[120px]">
+          <span className="inline-block rounded-lg bg-primary/10 px-3 py-1.5 text-sm font-bold text-primary">{value}</span>
+          {row.classGroup ? (
+            <span className="mt-1.5 inline-block rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">{row.classGroup}</span>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      key: "className",
+      label: "TÊN LỚP",
+      sortable: true,
+      render: (value, row) => (
+        <div className="min-w-[200px]">
+          <p className="text-sm font-bold text-[#0f172a]">{value}</p>
+          {row.isRemedial ? (
+            <span className="mt-1 inline-block rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">Bổ trợ</span>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      key: "course",
+      label: "KHÓA HỌC",
+      render: (value, row) => (
+        <div className="min-w-[180px]">
+          <p className="text-sm font-semibold text-[#0f172a]">{value?.name ?? "—"}</p>
+          {value?.code ? <p className="mt-0.5 text-xs text-slate-500">{value.code}</p> : null}
         </div>
       ),
     },
     {
       key: "scheduleRules",
-      label: "Lịch & tiến độ",
+      label: "LỊCH CỐ ĐỊNH",
+      render: (value, row) => (
+        <div className="min-w-[160px]">
+          <p className="text-sm font-medium text-[#0f172a]">{formatSchedule(value)}</p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {row.sessionsPerWeek ?? row.scheduleRules?.length ?? 0} buổi/tuần
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: "_count.enrollments",
+      label: "SĨ SỐ",
+      align: "center",
+      render: (value, row) => (
+        <div className="min-w-[80px] text-center">
+          <p className="text-lg font-bold text-[#0f172a]">{row._count?.enrollments ?? 0}</p>
+          <p className="text-xs text-slate-500">học viên</p>
+        </div>
+      ),
+    },
+    {
+      key: "_count.sessions",
+      label: "TIẾN ĐỘ",
       render: (value, row) => {
         const completed = row._count?.sessions ?? 0;
-        const totalSessions = row.totalSessions ?? null;
-        const progress = progressPercent(completed, totalSessions);
-        const nextSession = row.sessions?.[0] ?? null;
+        const total = row.totalSessions ?? 0;
+        const progress = progressPercent(completed, total);
         return (
-          <div className="min-w-[280px] space-y-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Lịch cố định</p>
-              <p className="mt-1 text-sm font-medium text-ink">{formatSchedule(value)}</p>
-              <p className="mt-1 text-xs text-ink-muted48">
-                {row.sessionsPerWeek ?? row.scheduleRules?.length ?? 0} buổi/tuần
-              </p>
+          <div className="min-w-[140px]">
+            <div className="flex items-center justify-between gap-2 text-xs font-semibold text-[#0f172a]">
+              <span>{completed}/{total || "—"}</span>
+              <span className="text-slate-500">{progress}%</span>
             </div>
-
-            <div>
-              <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="font-semibold uppercase tracking-[0.16em] text-ink-muted48">Tiến độ</span>
-                <span className="font-semibold text-ink">
-                  {completed}/{totalSessions ?? "—"} buổi
-                </span>
-              </div>
-              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-[#eef3fb]">
-                <div className="h-full rounded-full bg-[linear-gradient(90deg,#0ea5e9_0%,#2563eb_100%)]" style={{ width: `${progress}%` }} />
-              </div>
-              <p className="mt-2 text-xs text-ink-muted48">Buổi kế tiếp: {formatUpcomingSession(nextSession)}</p>
+            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100">
+              <div 
+                className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600" 
+                style={{ width: `${progress}%` }} 
+              />
             </div>
           </div>
         );
       },
     },
     {
-      key: "_count",
-      label: "Vận hành & học phí",
-      render: (value, row) => (
-        <div className="grid min-w-[220px] gap-2 text-sm">
-          <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#f7faff] px-3 py-2.5">
-            <span className="text-ink-muted48">Sĩ số active</span>
-            <span className="font-semibold text-ink">{value?.enrollments ?? 0} học viên</span>
-          </div>
-          <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#f7faff] px-3 py-2.5">
-            <span className="text-ink-muted48">Học phí / buổi</span>
-            <span className="font-semibold text-ink">{formatVnd(row.tuitionPerSession)}</span>
-          </div>
-          <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#edf5ff] px-3 py-2.5">
-            <span className="text-ink-muted48">Tạm tính toàn khóa</span>
-            <span className="font-semibold text-primary">
-              {row.tuitionPerSession != null && row.totalSessions != null ? formatVnd(row.tuitionPerSession * row.totalSessions) : "—"}
-            </span>
-          </div>
+      key: "tuitionPerSession",
+      label: "HỌC PHÍ/BUỔI",
+      align: "right",
+      render: (value) => (
+        <div className="min-w-[120px] text-right">
+          <p className="text-sm font-semibold text-[#0f172a]">{formatVnd(value)}</p>
+        </div>
+      ),
+    },
+    {
+      key: "expectedEndDate",
+      label: "DỰ KIẾN KẾT THÚC",
+      align: "center",
+      render: (value) => (
+        <div className="min-w-[100px] text-center">
+          <p className="text-sm font-medium text-[#0f172a]">{formatDate(value)}</p>
         </div>
       ),
     },
     {
       key: "status",
-      label: "Trạng thái",
+      label: "TRẠNG THÁI",
       align: "center",
       render: (value, row) => {
         const config = statusConfig(value);
-        const nextSession = row.sessions?.[0] ?? null;
         return (
-          <div className="space-y-2 text-center">
-            <span className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-bold ${config.color}`}>
+          <div className="min-w-[120px] text-center">
+            <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${config.color}`}>
               {config.label}
             </span>
-            <p className="text-xs text-ink-muted48">{nextSession ? `Buổi tới ${formatDate(nextSession.sessionDate)}` : "Chưa có buổi tới"}</p>
-            {!row.scheduleRules?.length ? <p className="text-xs font-semibold text-rose-600">Thiếu lịch chuẩn</p> : null}
+            {!row.scheduleRules?.length ? (
+              <p className="mt-1 text-xs font-semibold text-rose-600">⚠️ Thiếu lịch</p>
+            ) : null}
           </div>
         );
       },
@@ -281,7 +308,7 @@ export default function ClassesTable({
           <circle cx="12" cy="12" r="3" />
         </svg>
       ),
-      onClick: (row) => router.push(`/classes/${row.id}`),
+      onClick: (row) => openDrawer(row.id),
       variant: "primary",
     },
   ];
@@ -292,7 +319,7 @@ export default function ClassesTable({
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          <path d="M18.5 2.5a2.121 2.121 2 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
         </svg>
       ),
       onClick: (row) => router.push(`/classes/${row.id}`),
@@ -445,32 +472,6 @@ export default function ClassesTable({
       filterChips={filterChips}
       sortable
       selectable={canUpdate("schedule", userRole)}
-      className="
-        [&_[data-dt='header']]:rounded-[28px]
-        [&_[data-dt='header']]:border-[#dce6f5]
-        [&_[data-dt='header']]:bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)]
-        [&_[data-dt='header']]:px-5
-        [&_[data-dt='header']]:py-3.5
-        [&_[data-dt='table-shell']]:rounded-[30px]
-        [&_[data-dt='table-shell']]:border-[#dce6f5]
-        [&_[data-dt='table-shell']]:shadow-[0_30px_80px_-52px_rgba(15,23,42,0.45)]
-        [&_[data-dt='thead']]:bg-[linear-gradient(180deg,#fbfdff_0%,#f3f8ff_100%)]
-        [&_[data-dt='thead']_th]:px-5
-        [&_[data-dt='thead']_th]:py-4
-        [&_[data-dt='thead']_th]:text-[11px]
-        [&_[data-dt='thead']_th]:font-extrabold
-        [&_[data-dt='thead']_th]:tracking-[0.22em]
-        [&_[data-dt='tbody']_[data-dt='row']]:hover:bg-[#fbfdff]
-        [&_[data-dt='tbody']_[data-dt='row']_td]:px-5
-        [&_[data-dt='tbody']_[data-dt='row']_td]:py-5
-        [&_[data-dt='actions-cell']_[data-dt-action]]:min-w-[86px]
-        [&_[data-dt='actions-cell']_[data-dt-action]]:justify-center
-        [&_[data-dt='actions-cell']_[data-dt-action]]:rounded-[14px]
-        [&_[data-dt='actions-cell']_[data-dt-action]]:px-3.5
-        [&_[data-dt='actions-cell']_[data-dt-action]]:py-2.5
-        [&_[data-dt='actions-cell']_[data-dt-action]]:text-[12px]
-        [&_[data-dt='actions-cell']_[data-dt-action]]:font-bold
-      "
       pagination={{
         total,
         page,
@@ -491,7 +492,7 @@ export default function ClassesTable({
       loading={loading || isPending}
       stickyHeader
       rowKey="id"
-      onRowClick={(row) => router.push(`/classes/${row.id}`)}
+      onRowClick={(row) => openDrawer(row.id)}
       primaryColumn="className"
       secondaryColumns={["status"]}
     />

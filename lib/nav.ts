@@ -101,6 +101,13 @@ export const NAV_ITEMS: NavItem[] = [
     sections: ["Hợp đồng lao động", "Phiếu lương PDF"],
   },
   {
+    href: "/teacher-tasks",
+    label: "Bài tập GV",
+    status: "live",
+    description: "Xác nhận giáo viên/trợ giảng đã hoàn thành yêu cầu buổi dạy hay chưa, tự trừ điểm tích cực nếu chưa nộp.",
+    sections: ["Đã nộp / Chưa nộp", "Lịch sử điểm tích cực"],
+  },
+  {
     href: "/reports",
     label: "Báo cáo",
     status: "live",

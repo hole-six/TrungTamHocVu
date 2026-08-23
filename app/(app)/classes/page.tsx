@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import CourseManager from "@/components/classes/CourseManager";
 import ClassesTable from "@/components/classes/ClassesTable";
+import ClassLink from "@/components/classes/ClassLink";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { canCreate } from "@/lib/server/role-matrix";
 import { getVietnamToday } from "@/lib/server/class-rules";
@@ -253,9 +254,9 @@ export default async function ClassesPage({
           {pipelineRows.map((row) => (
             <div key={row.id} className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Link href={`/classes/${row.id}`} className="font-bold text-[#0f1729] hover:text-[#2563eb]">
+                <ClassLink classId={row.id} className="font-bold text-[#0f1729] hover:text-[#2563eb]">
                   {row.className}
-                </Link>
+                </ClassLink>
                 {row.transferNeed > 0 ? (
                   <span className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800">
                     {row.transferNeed} cần chuyển

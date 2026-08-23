@@ -11,6 +11,7 @@ import { canDelete, canUpdate } from "@/lib/server/role-matrix";
 import { computeOutstandingBalance } from "@/lib/server/balance";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { formatVnd } from "@/lib/export-utils";
+import StudentLink from "@/components/students/StudentLink";
 
 const GUARDIAN_DETAIL_TOUR_STEPS: TourStep[] = [
   {
@@ -152,9 +153,9 @@ export default async function GuardianDetailPage({ params }: { params: { id: str
                   <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-1.5 sm:space-y-2">
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                        <Link href={`/students/${sg.student.id}`} className="text-base sm:text-lg font-semibold text-primary">
+                        <StudentLink studentId={sg.student.id} className="text-base sm:text-lg font-semibold text-primary">
                           {sg.student.fullName}
-                        </Link>
+                        </StudentLink>
                         <span className="badge bg-ink/5 text-ink-muted80 text-[10px] sm:text-xs">
                           {sg.relation ?? (sg.isPrimary ? <><span className="sm:hidden">PH chính</span><span className="hidden sm:inline">Phụ huynh chính</span></> : <><span className="sm:hidden">PH phụ</span><span className="hidden sm:inline">Phụ huynh liên kết</span></>)}
                         </span>
@@ -186,10 +187,10 @@ export default async function GuardianDetailPage({ params }: { params: { id: str
                   </div>
 
                   <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
-                    <Link href={`/students/${sg.student.id}`} className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2">
+                    <StudentLink studentId={sg.student.id} className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2">
                       <span className="sm:hidden">Mở HV</span>
                       <span className="hidden sm:inline">Mở hồ sơ học viên</span>
-                    </Link>
+                    </StudentLink>
                     {sg.activeEnrollment?.classId ? (
                       <Link href={`/classes/${sg.activeEnrollment.classId}`} className="btn-ghost text-xs sm:text-sm px-3 sm:px-4 py-2">
                         Mở lớp

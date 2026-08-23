@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import StudentLink from "@/components/students/StudentLink";
 
 const NEXT: Record<string, { to: string; label: string; confirm: string; danger?: boolean }[]> = {
   DRAFT: [],
@@ -164,9 +165,9 @@ export default function BillingPeriodActions({ periodId, status }: { periodId: s
                     <div key={`${item.studentId}-${item.classId}-${index}`} className="rounded-2xl border border-[#f6d67b] bg-white px-4 py-3">
                       <p className="text-sm font-medium text-ink">
                         Học viên:{" "}
-                        <Link href={`/students/${item.studentId}?tab=hocphi`} className="text-primary hover:underline">
+                        <StudentLink studentId={item.studentId} className="text-primary hover:underline">
                           {item.studentId}
-                        </Link>
+                        </StudentLink>
                       </p>
                       <p className="mt-1 text-xs text-ink-muted48">Lớp: {item.classId}</p>
                       <p className="mt-2 text-sm text-[#8a5a00]">{item.reason}</p>

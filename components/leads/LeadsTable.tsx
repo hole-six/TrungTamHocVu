@@ -18,6 +18,7 @@ import { exportToExcel, formatVnd } from "@/lib/export-utils";
 import EditableNoteCell from "@/components/leads/EditableNoteCell";
 import TestQuickAction from "@/components/leads/TestQuickAction";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import { useStudentDrawer } from "@/contexts/StudentDrawerContext";
 
 type LatestTest = {
   id: string;
@@ -136,6 +137,7 @@ export default function LeadsTable({
   classOptions = [],
 }: LeadsTableProps) {
   const router = useRouter();
+  const { openDrawer } = useStudentDrawer();
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
   const [statusSavingId, setStatusSavingId] = useState<string | null>(null);
@@ -205,7 +207,8 @@ export default function LeadsTable({
       window.alert(result.error ?? "Không thể chuyển đổi thành học viên.");
       return;
     }
-    router.push(`/students/${result.item.id}`);
+    openDrawer(result.item.id);
+    router.refresh();
   };
 
   // Ghép mọi chiều lọc đang bật (status/q/testStatus/urgent) để các link chip/phân

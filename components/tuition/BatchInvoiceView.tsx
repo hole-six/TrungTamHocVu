@@ -9,6 +9,7 @@ import DetailTabs from "@/components/ui/DetailTabs";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import { formatVnd } from "@/lib/export-utils";
+import StudentLink from "@/components/students/StudentLink";
 
 type BatchCharge = InvoiceChargeData & {
   enrollmentId: string | null;
@@ -111,12 +112,12 @@ function ChargeActions({
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        <Link
-          href={`/students/${charge.student.id}?tab=hocphi`}
+        <StudentLink
+          studentId={charge.student.id ?? ""}
           className="inline-flex h-10 items-center justify-center rounded-full border border-[#b7dff8] bg-[#f6fcff] px-4 text-sm font-semibold text-[#077dc8] transition hover:border-[#8fcdf3] hover:bg-[#eaf7ff]"
         >
           Học phí HV
-        </Link>
+        </StudentLink>
         {remaining > 0 ? (
           <a
             href={`/api/invoices/${charge.id}/pdf`}

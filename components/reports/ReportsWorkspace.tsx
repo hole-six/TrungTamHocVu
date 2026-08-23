@@ -7,6 +7,7 @@ import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
 import { getCreateSnapshotButtonLabel, getLiveFallbackLabel, getReportEffectiveBadge, getReportModeLabel, getSnapshotTimestampLabel } from "@/lib/reporting-ui";
 import { exportSectionsToExcel, formatVnd } from "@/lib/export-utils";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+import StudentLink from "@/components/students/StudentLink";
 
 const REPORTS_TOUR_STEPS: TourStep[] = [
   {
@@ -297,7 +298,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
                 {data.dashboard.debtors.map((d) => (
                   <div key={d.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
-                      <Link href={`/students/${d.id}`} className="font-bold text-[#f97316] hover:text-[#ea580c] truncate">{d.fullName}</Link>
+                      <StudentLink studentId={d.id} className="font-bold text-[#f97316] hover:text-[#ea580c] truncate">{d.fullName}</StudentLink>
                       <span className="text-sm font-black text-[#ef4444] whitespace-nowrap">{formatVnd(d.outstanding)}</span>
                     </div>
                     <p className="mt-1 text-xs text-[#64748b]">
