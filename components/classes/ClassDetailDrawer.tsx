@@ -23,12 +23,6 @@ type Props = {
   classId: string;
 };
 
-const attendanceLabel = (status: string) => {
-  if (status === "PRESENT") return "Có mặt";
-  if (status === "ABSENT" || status === "MAKEUP") return "Vắng";
-  return status;
-};
-
 const timingLabel = (timing: string) => {
   if (timing === "past") return "Đã qua";
   if (timing === "today") return "Hôm nay";
@@ -169,7 +163,7 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                 </button>
               </div>
 
-              {/* KPI Cards - continuing from previous implementation */}
+              {/* KPI Cards */}
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
                 {[
                   { icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 0 1 0 0-8 4 0 0 0 0 8", label: "Sĩ số", value: data.activeEnrollments, sub: "học sinh", bg: "#eff6ff", color: "#f97316" },

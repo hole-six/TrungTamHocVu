@@ -11,14 +11,13 @@ import {
   getVietnamToday,
   isSameUtcDay,
   computeSessionTiming,
-  SESSION_STATUS_LABEL,
 } from "@/lib/server/class-rules";
 import { getHolidayDateSet } from "@/lib/server/holidays";
 import { ensureClassRoadmapItems } from "@/lib/server/class-roadmap";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { isTaskDueOn, computeTaskLogStatus } from "@/lib/server/class-task-rules";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
@@ -72,8 +71,23 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
                 },
                 orderBy: { billingPeriod: { startDate: "desc" } },
               },
+              attendances: {
+                where: { session: { classId: params.id } },
+                include: { session: true },
+                orderBy: { session: { sessionDate: "desc" } },
+                take: 1,
+              },
+              bookIssues: {
+                where: { classId: params.id },
+                include: { book: true },
+                orderBy: { issueDate: "desc" },
+                take: 1,
+              },
             }
-          }
+          },
+          scholarships: {
+            orderBy: { effectiveFrom: "desc" },
+          },
         },
         orderBy: { enrollDate: "desc" },
       },
@@ -142,10 +156,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     estimateEndDate(cls.startDate, cls.totalSessions, cls.sessionsPerWeek);
 
   // Generate projected schedule
-  const sessionsChronological = [...cls.sessions]
-    .filter((s) => s.status !== "CANCELLED")
-    .sort((a, b) => a.sessionDate.getTime() - b.sessionDate.getTime());
-    
   const projectedSlots =
     cls.startDate && suggestedEnd && cls.scheduleRules.length > 0
       ? generateSessionDates(cls.scheduleRules, cls.startDate, suggestedEnd, holidayDates)
@@ -184,9 +194,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       const primaryGuardian = enrollment.student.guardians.find((g) => g.isPrimary)?.guardian ?? enrollment.student.guardians[0]?.guardian ?? null;
       const latestCharge = classCharges[0] ?? null;
       const now = new Date();
-      const activeScholarship = enrollment.scholarships.find((sc) => sc.effectiveFrom <= now && (!sc.effectiveTo || sc.effectiveTo >= now));
-      const latestAttendance = enrollment.student.attendances[0] ?? null;
-      const latestBookIssue = enrollment.student.bookIssues[0] ?? null;
+      const activeScholarship = enrollment.scholarships.find((sc: any) => sc.effectiveFrom <= now && (!sc.effectiveTo || sc.effectiveTo >= now));
+      const latestAttendance = enrollment.student.attendances?.[0] ?? null;
+      const latestBookIssue = enrollment.student.bookIssues?.[0] ?? null;
       
       return {
         id: enrollment.id,
@@ -238,6 +248,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const tasks = await prisma.task.findMany({
     where: { relatedType: "Class", relatedId: cls.id },
     orderBy: [{ status: "asc" }, { dueDate: "asc" }],
+    select: {
+      id: true,
+      createdAt: true,
+      status: true,
+      title: true,
+      description: true,
+      dueDate: true,
+      relatedType: true,
+      relatedId: true,
+      assignedToId: true,
+    },
   });
 
   const classTasksRaw = await prisma.classTask.findMany({
@@ -247,16 +268,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   });
 
   const classTasks = classTasksRaw.map((task) => {
-    const dueToday = task.isActive && isTaskDueOn(task, today);
+    const dueToday = task.isActive && isTaskDueOn(task, vietnamToday);
     const todayLog = task.logs.find((log) =>
-      log.dueDate.getFullYear() === today.getFullYear() &&
-      log.dueDate.getMonth() === today.getMonth() &&
-      log.dueDate.getDate() === today.getDate()
+      log.dueDate.getFullYear() === vietnamToday.getFullYear() &&
+      log.dueDate.getMonth() === vietnamToday.getMonth() &&
+      log.dueDate.getDate() === vietnamToday.getDate()
     );
     return { 
       ...task, 
       dueToday, 
-      todayStatus: dueToday ? computeTaskLogStatus(today, todayLog?.completedAt ?? null, today) : null,
+      todayStatus: dueToday ? computeTaskLogStatus(vietnamToday, todayLog?.completedAt ?? null, vietnamToday) : null,
       logs: task.logs.map(log => ({
         ...log,
         dueDate: log.dueDate.toISOString(),
@@ -417,7 +438,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     tasks: tasks.map(t => ({
       ...t,
       dueDate: t.dueDate?.toISOString() || null,
-      completedAt: t.completedAt?.toISOString() || null,
     })),
     classTasks,
     courses,
