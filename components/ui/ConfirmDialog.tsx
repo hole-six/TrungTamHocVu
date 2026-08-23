@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 type ConfirmDialogProps = {
   open: boolean;
   title: string;
-  description?: string;
+  description?: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   tone?: "default" | "danger";
@@ -87,7 +87,7 @@ export default function ConfirmDialog({
 
           <div className="flex-1">
             <h3 className="text-xl font-bold tracking-tight text-[#12304a]">{title}</h3>
-            {description ? <p className="mt-2 text-sm leading-6 text-[#64748b]">{description}</p> : null}
+            {description ? <div className="mt-2 text-sm leading-6 text-[#64748b]">{description}</div> : null}
           </div>
         </div>
 
