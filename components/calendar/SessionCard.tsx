@@ -116,40 +116,40 @@ export default function SessionCard({ session, variant }: { session: SessionCard
       </div>
 
       <div className="mt-[10px] grid grid-cols-2 gap-[7px]">
-        <div className="min-h-[48px] rounded-[9px] bg-[#f7f9fc] p-2">
+        <div className="rounded-[9px] bg-[#f7f9fc] p-2">
           <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">Giờ</p>
-          <p className="mt-1 text-[11px] font-semibold leading-[1.35] text-ink">
+          <p className="mt-0.5 text-[11px] font-semibold leading-tight text-ink">
             {session.startTime ?? "Chưa rõ"} - {session.endTime ?? "Chưa rõ"}
           </p>
         </div>
-        <div className="min-h-[48px] rounded-[9px] bg-[#f7f9fc] p-2">
+        <div className="rounded-[9px] bg-[#f7f9fc] p-2">
           <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">Phòng</p>
-          <p className={`mt-1 text-[11px] font-semibold leading-[1.35] ${session.room ? "text-ink" : "text-amber-700"}`}>
-            {session.room || "Chưa gán phòng"}
+          <p className={`mt-0.5 text-[11px] font-semibold leading-tight ${session.room ? "text-ink" : "text-amber-700"}`}>
+            {session.room || "Chưa gán"}
           </p>
         </div>
-        <div className="min-h-[48px] rounded-[9px] bg-[#f7f9fc] p-2">
+        <div className="rounded-[9px] bg-[#f7f9fc] p-2">
           <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">Sĩ số</p>
-          <p className="mt-1 text-[11px] font-semibold leading-[1.35] text-ink">{enrollmentCount} bạn</p>
+          <p className="mt-0.5 text-[11px] font-semibold leading-tight text-ink">{enrollmentCount} bạn</p>
         </div>
-        <div className="min-h-[48px] rounded-[9px] bg-[#f7f9fc] p-2">
+        <div className="rounded-[9px] bg-[#f7f9fc] p-2">
           <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">Nhân sự</p>
-          <p className={`mt-1 text-[11px] font-semibold leading-[1.35] ${session.assignments.length > 0 ? "text-ink" : "text-amber-700"}`}>
-            {session.assignments.length > 0 ? `${session.assignments.length} người` : "Chưa phân công"}
+          <p className={`mt-0.5 text-[11px] font-semibold leading-tight ${session.assignments.length > 0 ? "text-ink" : "text-amber-700"}`}>
+            {session.assignments.length > 0 ? `${session.assignments.length} người` : "Chưa phân"}
           </p>
         </div>
       </div>
 
-      <div className="mt-[9px] space-y-1 text-[10px] leading-[1.65] text-ink-muted80">
+      <div className="mt-[8px] space-y-0.5 text-[10px] leading-[1.5] text-ink-muted80">
         <p>
-          <span className="font-semibold text-ink">GV:</span> {teacherNames.length > 0 ? teacherNames.join(", ") : "Chưa có giáo viên"}
+          <span className="font-semibold text-ink">GV:</span> {teacherNames.length > 0 ? teacherNames.join(", ") : "Chưa có"}
         </p>
         <p>
           <span className="font-semibold text-ink">TG:</span> {assistantNames.length > 0 ? assistantNames.join(", ") : "Chưa có"}
         </p>
       </div>
 
-      {session.notes ? <div className="mt-2 rounded-[9px] bg-[#fff8ed] px-2 py-2 text-[10px] font-medium text-amber-800">{session.notes}</div> : null}
+      {session.notes ? <div className="mt-2 rounded-[9px] bg-[#fff8ed] px-2 py-1.5 text-[10px] font-medium leading-tight text-amber-800">{session.notes}</div> : null}
     </SessionLinkWithDrawer>
   );
 }
