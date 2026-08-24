@@ -58,7 +58,14 @@ interface SessionData {
   absentCount: number;
   enrollmentCount: number;
   assignments: Array<any>;
-  journal: any;
+  journal: {
+    id: string;
+    unitLesson: string | null;
+    teacherNote?: string | null;
+    homeworkNote: string | null;
+    publishedAt: string | Date | null;
+    entries: any[];
+  } | null;
   requirementCheck: any;
   employees: Array<{ id: string; fullName: string; shortName: string | null }>;
   careAlertStudentIds: string[];
@@ -325,7 +332,7 @@ export default function SessionDetailDrawer({
                   fullName: r.fullName, 
                   studentCode: r.studentCode 
                 }))}
-                careAlertStudentIds={sessionData.careAlertStudentIds}
+                careAlertStudentIds={sessionData.careAlertStudentIds || []}
                 journal={sessionData.journal}
                 publishedUrl={`/classes/${sessionData.class.id}/sessions/${sessionData.session.id}`}
                 plannedRoadmap={sessionData.roadmapItem ? {

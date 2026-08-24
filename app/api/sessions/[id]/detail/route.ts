@@ -120,7 +120,7 @@ export async function GET(
       roster.map((student) => student.studentId),
       session.sessionDate,
       session.id
-    );
+    ) || [];
 
     const presentCount = roster.filter((student) => student.status === "PRESENT").length;
     const absentCount = roster.filter((student) => student.status === "ABSENT").length;
