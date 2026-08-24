@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate, canView } from "@/lib/server/role-matrix";
-import { LEAD_STATUSES } from "@/lib/server/lead-rules";
+import { LEAD_STATUSES, LEAD_STATUS_FILTER_GROUPS } from "@/lib/server/lead-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import LeadsTable from "@/components/leads/LeadsTable";
 import PageGuide from "@/components/ui/PageGuide";
@@ -12,13 +12,6 @@ import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/Spotlig
 import NewLeadDrawer from "@/components/leads/NewLeadDrawer";
 
 const PAGE_SIZE = 20;
-
-const LEAD_STATUS_FILTER_GROUPS = [
-  { key: "UNCONTACTED", label: "Chưa liên hệ", statuses: ["NEW", "CONTACTING"] },
-  { key: "APPOINTED", label: "Đã hẹn lịch", statuses: ["APPOINTED"] },
-  { key: "QUALIFIED", label: "Đạt chờ xếp lớp", statuses: ["QUALIFIED", "TESTED"] },
-  { key: "CLOSED", label: "Chưa đạt / không có nhu cầu", statuses: ["UNQUALIFIED", "LOST"] },
-] as const;
 
 function resolveLeadStatusFilter(status: string) {
   const group = LEAD_STATUS_FILTER_GROUPS.find((item) => item.key === status);

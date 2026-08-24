@@ -6,6 +6,7 @@ import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Action, BulkAction, Column } from "@/components/ui/DataTable";
 import AssignEnrollmentForm from "@/components/students/AssignEnrollmentForm";
 import StudentDetailDrawer from "@/components/students/StudentDetailDrawer";
+import AddPaidCatchupForm from "@/components/session-credits/AddPaidCatchupForm";
 import { exportToExcel, formatVnd } from "@/lib/export-utils";
 import { canDelete, canUpdate } from "@/lib/server/role-matrix";
 
@@ -41,6 +42,7 @@ type Student = {
   scholarshipCount?: number;
   adjustmentCount?: number;
   sessionCreditCount?: number;
+  sessionCreditUnitPrice?: number | null;
   learningRemainingSessions?: number | null;
   learningPurchasedSessions?: number | null;
   learningCompletedSessions?: number | null;
@@ -108,6 +110,7 @@ export default function StudentsTable({
   const [isPending, startTransition] = useTransition();
   const [assigningStudent, setAssigningStudent] = useState<Student | null>(null);
   const [drawerStudentId, setDrawerStudentId] = useState<string | null>(null);
+  const [addingCreditsStudent, setAddingCreditsStudent] = useState<Student | null>(null);
 
   function updateParams(patch: Record<string, string | null>) {
     const next = new URLSearchParams(searchParams.toString());
@@ -324,10 +327,20 @@ export default function StudentsTable({
       key: "sessionCreditCount",
       label: "Buổi bổ trợ",
       sortable: true,
-      width: "110px",
-      render: (value) => {
+      width: "130px",
+      render: (value, row) => {
         const count = value ?? 0;
-        return <span className="text-sm font-semibold text-ink">{count > 0 ? count : "—"}</span>;
+        if (count <= 0) return <span className="text-sm text-ink-muted48">—</span>;
+        return (
+          <div>
+            <span className="text-sm font-semibold text-ink">{count} buổi</span>
+            {row.sessionCreditUnitPrice ? (
+              <p className="mt-0.5 text-xs text-ink-muted48">{formatVnd(row.sessionCreditUnitPrice)}/buổi</p>
+            ) : (
+              <p className="mt-0.5 text-xs text-ink-muted48">Miễn phí</p>
+            )}
+          </div>
+        );
       },
     },
     {
@@ -377,6 +390,7 @@ export default function StudentsTable({
 
   if (canUpdate("students", userRole)) {
     actions.push({ label: "Sửa", onClick: (row) => setDrawerStudentId(row.id), variant: "secondary" });
+    actions.push({ label: "Thêm bổ trợ", onClick: (row) => setAddingCreditsStudent(row), variant: "secondary" });
   }
 
   if (canDelete("students", userRole)) {
@@ -499,6 +513,14 @@ export default function StudentsTable({
           studentId={drawerStudentId}
         />
       )}
+
+      {/* Add Paid Catchup (bổ trợ đầu khóa) Form */}
+      {addingCreditsStudent ? (
+        <AddPaidCatchupForm
+          initialStudent={{ id: addingCreditsStudent.id, fullName: addingCreditsStudent.fullName, studentCode: addingCreditsStudent.studentCode }}
+          onClose={() => setAddingCreditsStudent(null)}
+        />
+      ) : null}
 
       {/* Assign Enrollment Form */}
       {assigningStudent ? (

@@ -7,8 +7,9 @@ import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Column, BulkAction } from "@/components/ui/DataTable";
 import { canView, canUpdate, canDelete } from "@/lib/server/role-matrix";
 import {
-  LEAD_STATUSES,
   LEAD_STATUS_LABEL,
+  LEAD_STATUS_FILTER_GROUPS,
+  leadStatusGroupKey,
   PLACEMENT_TEST_STATUS_LABEL,
   PLACEMENT_TEST_BADGE_CLASS,
   DATE_URGENCY_CLASS,
@@ -328,26 +329,32 @@ export default function LeadsTable({
       align: "center",
       render: (value, row) => {
         const isConverted = Boolean(row.hasStudent || row.convertedStudentCode || value === "ENROLLED");
-        const options = value === "ENROLLED" ? [value] : LEAD_STATUSES.filter((s) => s !== "ENROLLED");
-        const cfg = LEAD_STATUS_CONFIG[value] || LEAD_STATUS_CONFIG.NEW;
+        // Chỉ cho chọn 4 nhóm gộp (đúng như thanh lọc phía trên) thay vì 7 trạng thái
+        // chi tiết — chọn 1 nhóm sẽ set về trạng thái ĐẦU TIÊN trong nhóm đó (xem
+        // LEAD_STATUS_FILTER_GROUPS ở lib/server/lead-rules.ts). TESTED không có trong
+        // danh sách vì nó tự chuyển khi ghi nhận kết quả test, không phải chọn tay.
+        const currentGroupKey = leadStatusGroupKey(value);
+        const cfg = LEAD_STATUS_CONFIG[currentGroupKey] || LEAD_STATUS_CONFIG[value] || LEAD_STATUS_CONFIG.NEW;
         return (
           <div className="flex flex-col items-start gap-1.5" onClick={(e) => e.stopPropagation()}>
-            {canUpdate("leads", userRole) ? (
+            {canUpdate("leads", userRole) && !isConverted ? (
               <div className={`relative inline-flex items-center gap-1.5 rounded-lg border pr-5 ${cfg.color} ${statusSavingId === row.id ? "opacity-60" : ""} [&_select]:focus:outline-none [&_select]:focus:ring-0 [&_select]:focus:shadow-none`}>
                 <span className={`ml-2 h-1.5 w-1.5 shrink-0 rounded-full ${cfg.dot}`} />
                 <select
-                  value={value}
-                  disabled={statusSavingId === row.id || isConverted}
+                  value={currentGroupKey}
+                  disabled={statusSavingId === row.id}
                   onChange={(e) => {
                     e.stopPropagation();
-                    if (e.target.value !== value) void changeLeadStatus(row.id, e.target.value);
+                    const group = LEAD_STATUS_FILTER_GROUPS.find((item) => item.key === e.target.value);
+                    const nextStatus = group?.statuses[0] ?? e.target.value;
+                    if (nextStatus !== value) void changeLeadStatus(row.id, nextStatus);
                   }}
                   className="h-7 w-full appearance-none bg-transparent py-0 pl-0 pr-0 text-xs font-bold outline-none border-none ring-0 shadow-none focus:outline-none focus:ring-0 focus:border-none focus:shadow-none cursor-pointer"
                   style={{ WebkitAppearance: "none", MozAppearance: "none", outline: "none", boxShadow: "none" }}
                 >
-                  {options.map((s) => (
-                    <option key={s} value={s}>
-                      {LEAD_STATUS_LABEL[s as keyof typeof LEAD_STATUS_LABEL] ?? s}
+                  {LEAD_STATUS_FILTER_GROUPS.map((group) => (
+                    <option key={group.key} value={group.key}>
+                      {group.label}
                     </option>
                   ))}
                 </select>
@@ -356,7 +363,7 @@ export default function LeadsTable({
             ) : (
               <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-bold ${cfg.color}`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
-                {cfg.label}
+                {isConverted ? LEAD_STATUS_LABEL.ENROLLED : cfg.label}
               </span>
             )}
 

@@ -26,6 +26,22 @@ export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
   LOST: "Không có nhu cầu",
 };
 
+// Gộp 8 trạng thái chi tiết thành 4 nhóm cho CSO chọn nhanh — dùng chung cho cả bộ
+// lọc (Leads) lẫn ô đổi trạng thái từng dòng (LeadsTable), để không lệch nhau giữa
+// nơi lọc và nơi sửa. TESTED không có trong ô đổi tay vì nó tự chuyển khi ghi nhận
+// kết quả test thật (xem app/api/leads/[id]/placement-test/route.ts), không phải do
+// nhân sự tự bấm — nhóm "Đạt chờ xếp lớp" chỉ set QUALIFIED khi chọn tay.
+export const LEAD_STATUS_FILTER_GROUPS = [
+  { key: "UNCONTACTED", label: "Chưa liên hệ", statuses: ["NEW", "CONTACTING"] },
+  { key: "APPOINTED", label: "Đã hẹn lịch", statuses: ["APPOINTED"] },
+  { key: "QUALIFIED", label: "Đạt chờ xếp lớp", statuses: ["QUALIFIED", "TESTED"] },
+  { key: "CLOSED", label: "Chưa đạt / không có nhu cầu", statuses: ["UNQUALIFIED", "LOST"] },
+] as const satisfies { key: string; label: string; statuses: LeadStatus[] }[];
+
+export function leadStatusGroupKey(status: string): string {
+  return LEAD_STATUS_FILTER_GROUPS.find((group) => (group.statuses as readonly string[]).includes(status))?.key ?? status;
+}
+
 // State machine theo Master Spec §9. LOST/UNQUALIFIED có thể mở lại về CONTACTING
 // vì thực tế phụ huynh hay quay lại liên hệ sau — không nên khóa cứng thành trạng
 // thái chết như trong Excel (nơi mọi thứ chỉ là text tự gõ).

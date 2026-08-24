@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { printPage } from "@/lib/export-utils";
 import FormGuide from "@/components/ui/FormGuide";
+import Linkify from "@/components/ui/Linkify";
 
 type Student = { id: string; fullName: string; studentCode: string };
 type ScoreVal = { label: string; score: number | null; maxScore: number };
@@ -395,11 +396,19 @@ export default function ClassJournalForm({
               </div>
               <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Tài liệu</p>
-                <p className="mt-2 text-sm leading-6 text-ink">{plannedRoadmap.materials?.trim() || "Chưa có tài liệu."}</p>
+                <p className="mt-2 text-sm leading-6 text-ink">
+                  {plannedRoadmap.materials?.trim() ? <Linkify text={plannedRoadmap.materials.trim()} /> : "Chưa có tài liệu."}
+                </p>
               </div>
               <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Ghi chú GV</p>
-                <p className="mt-2 text-sm leading-6 text-ink">{plannedRoadmap.teacherGuide?.trim() || plannedRoadmap.homeworkGuide?.trim() || "Chưa có ghi chú thêm."}</p>
+                <p className="mt-2 text-sm leading-6 text-ink">
+                  {plannedRoadmap.teacherGuide?.trim() || plannedRoadmap.homeworkGuide?.trim() ? (
+                    <Linkify text={plannedRoadmap.teacherGuide?.trim() || plannedRoadmap.homeworkGuide?.trim()} />
+                  ) : (
+                    "Chưa có ghi chú thêm."
+                  )}
+                </p>
               </div>
             </div>
           </details>

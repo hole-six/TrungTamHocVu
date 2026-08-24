@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import CurrencyInput from "@/components/ui/CurrencyInput";
@@ -9,9 +9,19 @@ import { formatVnd } from "@/lib/export-utils";
 type StudentHit = { id: string; fullName: string; studentCode: string };
 type EnrollmentOption = { id: string; className: string };
 
-export default function AddPaidCatchupForm() {
+// Dùng theo 2 cách: (1) nút tự thân mở drawer rồi tự tìm học viên (trang Bổ trợ), hoặc
+// (2) điều khiển từ ngoài — truyền sẵn `initialStudent` + `onClose` để mở thẳng vào
+// đúng học viên đó, bỏ qua bước tìm kiếm (dùng ở nút "Thêm bổ trợ" trên trang Học viên).
+export default function AddPaidCatchupForm({
+  initialStudent,
+  onClose: externalOnClose,
+}: {
+  initialStudent?: StudentHit | null;
+  onClose?: () => void;
+} = {}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const controlled = Boolean(initialStudent);
+  const [open, setOpen] = useState(controlled);
   const [q, setQ] = useState("");
   const [results, setResults] = useState<StudentHit[]>([]);
   const [selected, setSelected] = useState<StudentHit | null>(null);
@@ -65,6 +75,19 @@ export default function AddPaidCatchupForm() {
     if (active.length === 1) setEnrollmentId(active[0].id);
   }
 
+  useEffect(() => {
+    if (initialStudent) void pickStudent(initialStudent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialStudent?.id]);
+
+  function closeDrawer() {
+    if (controlled) {
+      externalOnClose?.();
+    } else {
+      setOpen(false);
+    }
+  }
+
   async function submit() {
     if (!selected) return;
     if (!enrollmentId) {
@@ -89,26 +112,35 @@ export default function AddPaidCatchupForm() {
       setError(data.error ?? "Không thể thêm bổ trợ đầu khóa.");
       return;
     }
-    setSuccess(`Đã thêm ${count} buổi bổ trợ đầu khóa cho ${selected.fullName}.`);
+    const chargeNote = !isFree
+      ? data.chargeUpdated
+        ? " Đã cộng vào công nợ học phí hiện tại."
+        : data.warning
+          ? ` ${data.warning}`
+          : ""
+      : "";
+    setSuccess(`Đã thêm ${count} buổi bổ trợ đầu khóa cho ${selected.fullName}.${chargeNote}`);
     router.refresh();
   }
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => {
-          reset();
-          setOpen(true);
-        }}
-        className="rounded-xl border border-[#dbe3ef] bg-white px-4 py-2 text-sm font-bold text-[#0f1729] hover:border-[#3b82f6]"
-      >
-        Thêm bổ trợ đầu khóa
-      </button>
+      {!controlled ? (
+        <button
+          type="button"
+          onClick={() => {
+            reset();
+            setOpen(true);
+          }}
+          className="rounded-xl border border-[#dbe3ef] bg-white px-4 py-2 text-sm font-bold text-[#0f1729] hover:border-[#3b82f6]"
+        >
+          Thêm bổ trợ đầu khóa
+        </button>
+      ) : null}
 
       <ResponsiveDrawer
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={closeDrawer}
         title="Thêm bổ trợ đầu khóa"
         description="Dùng khi học viên đã ghi danh sẵn đến đăng ký thêm buổi bổ trợ đầu khóa — có thể miễn phí hoặc tính phí."
       >
@@ -204,7 +236,7 @@ export default function AddPaidCatchupForm() {
                 <button type="button" onClick={submit} disabled={submitting} className="btn-primary">
                   {submitting ? "Đang lưu..." : "Thêm bổ trợ đầu khóa"}
                 </button>
-                <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
+                <button type="button" onClick={closeDrawer} className="btn-ghost">
                   Đóng
                 </button>
               </div>

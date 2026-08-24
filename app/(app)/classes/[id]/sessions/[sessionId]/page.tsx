@@ -4,6 +4,7 @@ import AttendanceForm from "@/components/classes/AttendanceForm";
 import RemedialSessionRoster from "@/components/classes/RemedialSessionRoster";
 import ClassJournalForm from "@/components/classes/ClassJournalForm";
 import SessionRequirementForm from "@/components/classes/SessionRequirementForm";
+import Linkify from "@/components/ui/Linkify";
 import SessionAssignmentForm from "@/components/classes/SessionAssignmentForm";
 import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
@@ -313,12 +314,18 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Tài liệu</p>
-                  <p className="mt-1 text-sm leading-6 text-ink">{roadmapItem?.materials?.trim() || "Chưa khai báo tài liệu."}</p>
+                  <p className="mt-1 text-sm leading-6 text-ink">
+                    {roadmapItem?.materials?.trim() ? <Linkify text={roadmapItem.materials.trim()} /> : "Chưa khai báo tài liệu."}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Gợi ý cho GV</p>
                   <p className="mt-1 text-sm leading-6 text-ink">
-                    {roadmapItem?.teacherGuide?.trim() || roadmapItem?.homeworkGuide?.trim() || "Chưa có ghi chú cho giáo viên."}
+                    {roadmapItem?.teacherGuide?.trim() || roadmapItem?.homeworkGuide?.trim() ? (
+                      <Linkify text={roadmapItem?.teacherGuide?.trim() || roadmapItem?.homeworkGuide?.trim()} />
+                    ) : (
+                      "Chưa có ghi chú cho giáo viên."
+                    )}
                   </p>
                 </div>
               </div>
@@ -340,12 +347,18 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
                 </div>
                 <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Tài liệu</p>
-                  <p className="mt-2 text-sm leading-6 text-ink">{roadmapItem.materials?.trim() || "Chưa khai báo tài liệu."}</p>
+                  <p className="mt-2 text-sm leading-6 text-ink">
+                    {roadmapItem.materials?.trim() ? <Linkify text={roadmapItem.materials.trim()} /> : "Chưa khai báo tài liệu."}
+                  </p>
                 </div>
                 <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Ghi chú GV</p>
                   <p className="mt-2 text-sm leading-6 text-ink">
-                    {roadmapItem.teacherGuide?.trim() || roadmapItem.homeworkGuide?.trim() || "Chưa có ghi chú cho giáo viên."}
+                    {roadmapItem.teacherGuide?.trim() || roadmapItem.homeworkGuide?.trim() ? (
+                      <Linkify text={roadmapItem.teacherGuide?.trim() || roadmapItem.homeworkGuide?.trim()} />
+                    ) : (
+                      "Chưa có ghi chú cho giáo viên."
+                    )}
                   </p>
                 </div>
               </div>

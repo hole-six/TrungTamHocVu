@@ -185,6 +185,7 @@ export default async function StudentsPage({
         status: "AVAILABLE",
       },
       _count: { _all: true },
+      _avg: { unitPriceSnapshot: true },
     }),
     Promise.all(
       currentEnrollments.map(async (enrollment) => ({
@@ -256,6 +257,9 @@ export default async function StudentsPage({
   const availableSessionCreditByStudent = new Map(
     availableSessionCreditRows.map((row) => [row.studentId, row._count._all]),
   );
+  const sessionCreditUnitPriceByStudent = new Map(
+    availableSessionCreditRows.map((row) => [row.studentId, Math.round(row._avg.unitPriceSnapshot ?? 0)]),
+  );
   const learningSnapshotByEnrollment = new Map(learningSnapshots.map((row) => [row.enrollmentId, row.snapshot]));
 
   const normalizedItems = items.map((item) => {
@@ -286,6 +290,7 @@ export default async function StudentsPage({
       scholarshipCount: counts?.scholarships ?? 0,
       adjustmentCount: counts?.adjustments ?? 0,
       sessionCreditCount: availableSessionCreditByStudent.get(item.id) ?? 0,
+      sessionCreditUnitPrice: sessionCreditUnitPriceByStudent.get(item.id) ?? null,
       enrollmentsCount: item.enrollments.length,
       learningRemainingSessions: learningSnapshot?.remainingMainSessions ?? null,
       learningPurchasedSessions: learningSnapshot?.entitledMainSessions ?? null,

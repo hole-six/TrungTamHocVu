@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import Linkify from "@/components/ui/Linkify";
 
 type EmployeeOption = { id: string; fullName: string };
 type ExistingCheck = { status: string; employee: { fullName: string }; checkedAt: string | Date } | null;
@@ -55,7 +56,7 @@ export default function SessionRequirementForm({
       <div className="card space-y-3">
         <h2 className="font-display text-xl font-semibold tracking-tight">Việc giáo viên cần làm</h2>
         <div className="rounded-2xl border border-[#e5eaf7] bg-[#fbfdff] p-4">
-          <p className="text-sm text-ink-muted80">{requirementText}</p>
+          <p className="text-sm text-ink-muted80"><Linkify text={requirementText} /></p>
         </div>
         <div
           className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
