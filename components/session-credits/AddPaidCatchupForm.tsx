@@ -24,13 +24,13 @@ export default function AddPaidCatchupForm({
   const [open, setOpen] = useState(controlled);
   const [q, setQ] = useState("");
   const [results, setResults] = useState<StudentHit[]>([]);
+  const [loadingResults, setLoadingResults] = useState(false);
   const [selected, setSelected] = useState<StudentHit | null>(null);
   const [enrollments, setEnrollments] = useState<EnrollmentOption[]>([]);
   const [enrollmentId, setEnrollmentId] = useState("");
   const [count, setCount] = useState("1");
   const [isFree, setIsFree] = useState(false);
   const [unitPrice, setUnitPrice] = useState(0);
-  const [searching, setSearching] = useState(false);
   const [loadingEnrollments, setLoadingEnrollments] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,17 +48,29 @@ export default function AddPaidCatchupForm({
     setError(null);
   }
 
-  async function search(event: React.FormEvent) {
-    event.preventDefault();
-    if (!q.trim()) return;
-    setSearching(true);
-    setError(null);
-    setSelected(null);
-    const response = await fetch(`/api/students?q=${encodeURIComponent(q)}&status=ACTIVE&pageSize=10`);
-    const result = await response.json().catch(() => ({}));
-    setSearching(false);
-    setResults(result.items ?? []);
-  }
+  // Luôn hiện sẵn 1 danh sách học viên duyệt được (không bắt buộc gõ tìm trước mới
+  // thấy ai) — gõ vào ô tìm sẽ lọc lại danh sách này theo tên/mã, debounce 300ms.
+  useEffect(() => {
+    if (!open || selected) return;
+    let cancelled = false;
+    setLoadingResults(true);
+    const timer = setTimeout(async () => {
+      const trimmed = q.trim();
+      const response = await fetch(`/api/students?q=${encodeURIComponent(trimmed)}&status=ACTIVE&pageSize=30`);
+      const result = await response.json().catch(() => ({}));
+      if (!cancelled) {
+        const items: StudentHit[] = result.items ?? [];
+        // Không gõ gì (duyệt cả danh sách) thì xếp theo tên cho dễ tìm bằng mắt — API
+        // trả về theo createdAt desc, không hợp để DUYỆT (mới tạo lên đầu).
+        setResults(trimmed ? items : [...items].sort((a, b) => a.fullName.localeCompare(b.fullName, "vi")));
+        setLoadingResults(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [open, q, selected]);
 
   async function pickStudent(student: StudentHit) {
     setSelected(student);
@@ -147,20 +159,20 @@ export default function AddPaidCatchupForm({
         <div className="space-y-5">
           {!selected ? (
             <>
-              <form onSubmit={search} className="flex gap-2">
-                <input
-                  className="input"
-                  placeholder="Tìm theo tên hoặc mã học viên..."
-                  value={q}
-                  onChange={(event) => setQ(event.target.value)}
-                />
-                <button type="submit" disabled={searching} className="btn-primary shrink-0">
-                  {searching ? "Đang tìm..." : "Tìm"}
-                </button>
-              </form>
-              {results.length > 0 ? (
-                <div className="space-y-2">
-                  {results.map((student) => (
+              <input
+                className="input"
+                placeholder="Tìm theo tên hoặc mã học viên... (để trống để xem cả danh sách)"
+                value={q}
+                onChange={(event) => setQ(event.target.value)}
+                autoFocus
+              />
+              <div className="max-h-[60vh] space-y-2 overflow-y-auto">
+                {loadingResults ? (
+                  <p className="text-sm text-[#64748b]">Đang tải...</p>
+                ) : results.length === 0 ? (
+                  <p className="text-sm text-[#64748b]">Không tìm thấy học viên phù hợp.</p>
+                ) : (
+                  results.map((student) => (
                     <button
                       key={student.id}
                       type="button"
@@ -170,9 +182,9 @@ export default function AddPaidCatchupForm({
                       <span className="font-bold text-[#0f1729]">{student.fullName}</span>
                       <span className="text-xs text-[#64748b]">{student.studentCode}</span>
                     </button>
-                  ))}
-                </div>
-              ) : null}
+                  ))
+                )}
+              </div>
             </>
           ) : (
             <>
