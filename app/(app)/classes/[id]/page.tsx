@@ -792,8 +792,8 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                     </table>
                   </div>
 
-                {/* Mobile/Tablet: Card view */}
-                <div className="lg:hidden space-y-3 p-4">
+                {/* Mobile/Tablet: Compact horizontal layout */}
+                <div className="lg:hidden space-y-2 p-4">
                   {projectedSchedule.map((slot) => {
                     const session = slot.session;
                     const roadmapItem = roadmapItems.find((item) => item.sessionNumber === slot.number) ?? null;
@@ -808,125 +808,107 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                     const timing = slot.timing;
 
                     return (
-                      <div key={slot.number} className="rounded-2xl border border-[#e5eaf7] bg-white p-4 shadow-sm">
-                        {/* Header: Session number, date, timing */}
-                        <div className="flex items-start justify-between gap-2 mb-3 pb-3 border-b border-[#e5eaf7]">
-                          <div className="flex-1 min-w-0">
-                            <p className="inline-flex rounded-full bg-[#eff6ff] px-2.5 py-1 font-mono text-xs font-bold text-[#2563eb]">
-                              #{slot.number}/{projectedSchedule.length}
-                            </p>
-                            <p className="mt-1.5 text-base font-bold text-[#12304a]">{formatDate(slot.sessionDate)}</p>
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                              <p className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${timingClass(timing)}`}>
-                                {timingLabel(timing)}
-                              </p>
-                              <p className="inline-flex rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-2.5 py-1 text-xs font-semibold text-[#4b6480]">
-                                {slot.startTime ?? "—"} – {slot.endTime ?? "—"}
-                              </p>
-                              {!session && (
-                                <p className="inline-flex rounded-full border border-[#ffe0b2] bg-[#fff8eb] px-2.5 py-1 text-xs font-semibold text-[#c67c14]">
-                                  Chưa tạo buổi
-                                </p>
-                              )}
-                            </div>
+                      <div key={slot.number} className="rounded-xl border border-[#e5eaf7] bg-white p-3 shadow-sm">
+                        {/* Header row - Session info + Status */}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className="inline-flex shrink-0 rounded-full bg-[#eff6ff] px-2 py-0.5 font-mono text-[10px] font-bold text-[#2563eb]">
+                              #{slot.number}
+                            </span>
+                            <span className="text-sm font-bold text-[#12304a] truncate">{formatDate(slot.sessionDate)}</span>
+                            <span className={`shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${timingClass(timing)}`}>
+                              {timingLabel(timing)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {session ? (
+                              <>
+                                <span className={`inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-bold ${badgeClass(session.status)}`}>
+                                  {SESSION_STATUS_LABEL[session.status] ?? session.status}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="inline-flex rounded-md border border-[#ffe0b2] bg-[#fff8eb] px-1.5 py-0.5 text-[10px] font-semibold text-[#c67c14]">
+                                Chưa tạo
+                              </span>
+                            )}
                           </div>
                         </div>
 
-                        {/* Roadmap: Title & objective */}
-                        <div className="mb-3 pb-3 border-b border-[#e5eaf7]">
-                          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1">Nội dung giảng dạy</p>
-                          <p className="text-sm font-bold text-[#12304a]">
-                            {roadmapItem?.title?.trim() || `Buổi ${slot.number}`}
-                          </p>
-                          <p className="mt-1.5 text-xs leading-5 text-[#64748b]">
-                            {roadmapItem?.objective?.trim() || "Chưa có mục tiêu hoặc ghi chú dạy."}
-                          </p>
-                          {roadmapItem?.materials?.trim() && (
-                            <p className="mt-2 inline-flex rounded-lg border border-[#e8eef8] bg-[#f8fbff] px-2.5 py-1.5 text-xs font-medium text-[#0f1729]">
-                              <span className="text-[#64748b]">Tài liệu: {roadmapItem.materials}</span>
+                        {/* Time + Topic row */}
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <span className="inline-flex items-center gap-1 text-[11px] text-[#64748b]">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                              {slot.startTime ?? "—"} – {slot.endTime ?? "—"}
+                            </span>
+                            <p className="mt-0.5 text-xs font-medium text-[#12304a] line-clamp-1">
+                              {roadmapItem?.title?.trim() || `Buổi ${slot.number}`}
                             </p>
+                          </div>
+                        </div>
+
+                        {/* Teacher + Attendance row */}
+                        <div className="flex items-center justify-between gap-2 text-[11px] mb-2">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[#64748b]">GV: </span>
+                            <span className="font-medium text-[#12304a] truncate">{teacherNames || "Chưa phân công"}</span>
+                          </div>
+                          {session && session.attendances.length ? (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-[#ecfdf3] px-1.5 py-0.5 text-[10px] font-bold text-[#15803d]">
+                                ✓ {present}
+                              </span>
+                              {absent > 0 && (
+                                <span className="inline-flex items-center gap-0.5 rounded-full bg-[#fff1f2] px-1.5 py-0.5 text-[10px] font-bold text-[#e11d48]">
+                                  ✗ {absent}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[#94a3b8] text-[10px]">{session ? "Chưa điểm danh" : "—"}</span>
                           )}
                         </div>
 
-                        {/* Teachers & Assistants */}
-                        <div className="mb-3 pb-3 border-b border-[#e5eaf7]">
-                          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Người dạy</p>
-                          <p className="text-sm font-bold text-[#12304a]">{teacherNames || "Chưa phân công GV"}</p>
-                          <p className="mt-1.5 inline-flex rounded-full border border-[#e8eef8] bg-[#f8fbff] px-2.5 py-1 text-xs font-semibold text-[#64748b]">
-                            {assistantNames || "Không có trợ giảng"}
-                          </p>
-                        </div>
-
-                        {/* Attendance & Journal Status */}
-                        <div className="grid grid-cols-2 gap-3 mb-3">
-                          <div>
-                            <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Điểm danh</p>
-                            {session && session.attendances.length ? (
-                              <div className="space-y-1.5">
-                                <p className="inline-flex rounded-full bg-[#ecfdf3] px-2.5 py-1 text-xs font-bold text-[#15803d]">
-                                  {present} có mặt
-                                </p>
-                                <p className="inline-flex rounded-full bg-[#fff1f2] px-2.5 py-1 text-xs font-semibold text-[#e11d48]">
-                                  {absent} vắng
-                                </p>
-                              </div>
-                            ) : (
-                              <p className="inline-flex rounded-lg border border-[#e8eef8] bg-[#f8fbff] px-2.5 py-1.5 text-xs font-semibold text-[#7b8ea5]">
-                                {session ? "Chưa điểm danh" : "Chưa có buổi"}
-                              </p>
-                            )}
-                          </div>
-
-                          <div>
-                            <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Nhật ký</p>
-                            {session ? (
-                              <div className="space-y-1.5">
-                                <p className="inline-flex rounded-lg border border-[#e8eef8] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#64748b]">
-                                  {session.journal?.publishedAt ? "Đã gửi PH" : session.journal ? "Lưu nháp" : "Chưa có"}
-                                </p>
-                                <span className={`inline-flex rounded-lg px-2 py-1 text-xs font-bold ${badgeClass(session.status)}`}>
-                                  {SESSION_STATUS_LABEL[session.status] ?? session.status}
-                                </span>
-                                {session.status === "RESCHEDULED" && session.replacedBySession && (
-                                  <p className="mt-1 text-xs text-[#f59e0b] font-semibold">
-                                    Bù sang <Link href={`/classes/${cls.id}/sessions/${session.replacedBySession.id}`} className="underline">{formatDate(session.replacedBySession.sessionDate)}</Link>
-                                  </p>
-                                )}
-                                {session.replacesSession && (
-                                  <p className="mt-1 text-xs text-[#64748b]">Buổi bù cho {formatDate(session.replacesSession.sessionDate)}</p>
-                                )}
-                              </div>
-                            ) : (
-                              <p className="text-xs text-[#94a3b8]">Chưa có trạng thái</p>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="pt-3 border-t border-[#e5eaf7]">
+                        {/* Action buttons row */}
+                        <div className="flex items-center gap-2 pt-2 border-t border-[#f1f5f9]">
                           {session ? (
-                            <div className="flex flex-col gap-2">
+                            <>
                               <Link
                                 href={`/classes/${cls.id}/sessions/${session.id}`}
-                                className="flex items-center justify-center gap-2 rounded-xl bg-[#0ea5e9] px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#0284c7]"
+                                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-[#0ea5e9] px-3 py-2 text-xs font-bold text-white hover:bg-[#0284c7] transition-colors"
                               >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                   <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
                                 </svg>
-                                Điểm danh / nhật ký
+                                Mở buổi
                               </Link>
                               {canManageClass && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession && (
-                                <div className="grid grid-cols-1 gap-2">
+                                <div className="shrink-0">
                                   <RescheduleSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} />
                                 </div>
                               )}
-                            </div>
+                            </>
                           ) : canManageClass ? (
-                            <p className="text-center text-xs text-[#f59e0b] font-semibold">Sinh buổi trước</p>
+                            <p className="flex-1 text-center text-[11px] text-[#f59e0b] font-semibold py-1">Sinh buổi trước</p>
                           ) : (
-                            <p className="text-center text-xs text-[#94a3b8]">—</p>
+                            <p className="flex-1 text-center text-[11px] text-[#94a3b8] py-1">—</p>
                           )}
                         </div>
+
+                        {/* Reschedule info if applicable */}
+                        {session && session.status === "RESCHEDULED" && session.replacedBySession && (
+                          <div className="mt-2 pt-2 border-t border-[#f1f5f9]">
+                            <p className="text-[10px] text-[#f59e0b] font-medium">
+                              → Bù sang <Link href={`/classes/${cls.id}/sessions/${session.replacedBySession.id}`} className="underline font-semibold">{formatDate(session.replacedBySession.sessionDate)}</Link>
+                            </p>
+                          </div>
+                        )}
+                        {session && session.replacesSession && (
+                          <div className="mt-2 pt-2 border-t border-[#f1f5f9]">
+                            <p className="text-[10px] text-[#64748b]">← Buổi bù cho {formatDate(session.replacesSession.sessionDate)}</p>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
