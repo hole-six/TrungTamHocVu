@@ -1,5 +1,7 @@
-import Link from "next/link";
+"use client";
+
 import { SESSION_STATUS_LABEL } from "@/lib/server/class-rules";
+import SessionLinkWithDrawer from "@/components/classes/SessionLinkWithDrawer";
 
 export type CalendarListRow = {
   id: string;
@@ -77,9 +79,14 @@ export default function CalendarListView({ rows }: { rows: CalendarListRow[] }) 
                     {row.startTime ?? "?"}-{row.endTime ?? "?"}
                   </td>
                   <td className="px-4 py-3">
-                    <Link href={`/classes/${row.classId}/sessions/${row.id}`} className="font-bold text-[#0f1729] hover:text-[#1d4ed8] hover:underline">
+                    <SessionLinkWithDrawer
+                      sessionId={row.id}
+                      classId={row.classId}
+                      returnPath="/calendar"
+                      className="font-bold text-[#0f1729] hover:text-[#1d4ed8] hover:underline cursor-pointer"
+                    >
                       {row.class.className}
-                    </Link>
+                    </SessionLinkWithDrawer>
                     <p className="mt-0.5 text-xs text-ink-muted48">
                       {row.class.classCode}
                       {row.class.course?.name ? ` · ${row.class.course.name}` : ""}

@@ -16,6 +16,7 @@ import ClassDefaultAssignmentManager from "./ClassDefaultAssignmentManager";
 import ClassTaskManager from "./ClassTaskManager";
 import ClassRecurringTaskManager from "./ClassRecurringTaskManager";
 import RemedialBulkAssignPanel from "./RemedialBulkAssignPanel";
+import SessionLinkWithDrawer from "./SessionLinkWithDrawer";
 
 type Props = {
   open: boolean;
@@ -147,10 +148,14 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
               {/* Quick Actions */}
               <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#e5eaf7] bg-white p-3 shadow-sm">
                 {data.latestSession && (
-                  <Link href={`/classes/${data.id}/sessions/${data.latestSession.id}`} onClick={onClose} className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#f97316] to-[#ea580c] px-3 py-2 text-sm font-bold text-white">
+                  <SessionLinkWithDrawer
+                    sessionId={data.latestSession.id}
+                    classId={data.id}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#f97316] to-[#ea580c] px-3 py-2 text-sm font-bold text-white"
+                  >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="10 8 16 12 10 16" /></svg>
                     Mở buổi
-                  </Link>
+                  </SessionLinkWithDrawer>
                 )}
                 {data.permissions.canManageClass && <GenerateSessionsForm classId={data.id} totalSessions={data.totalSessions} existingSessionCount={data.projectedSchedule.filter((s: any) => s.session).length} />}
                 {data.permissions.canManageClass && data.status === "ACTIVE" && data.activeEnrollments > 0 && (
@@ -218,7 +223,13 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                       <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm">
                         <div className="mb-3 flex justify-between">
                           <h3 className="text-base font-black">Buổi gần nhất</h3>
-                          <Link href={`/classes/${data.id}/sessions/${data.latestSession.id}`} onClick={onClose} className="text-sm font-bold text-[#f97316]">Mở →</Link>
+                          <SessionLinkWithDrawer
+                            sessionId={data.latestSession.id}
+                            classId={data.id}
+                            className="text-sm font-bold text-[#f97316] cursor-pointer"
+                          >
+                            Mở →
+                          </SessionLinkWithDrawer>
                         </div>
                         <div className="grid gap-2 sm:grid-cols-2">
                           {[
@@ -265,7 +276,13 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                           {slot.roadmapItem?.objective && <p className="mt-1 text-xs text-[#64748b] line-clamp-2">{slot.roadmapItem.objective}</p>}
                         </div>
                         {slot.session && (
-                          <Link href={`/classes/${data.id}/sessions/${slot.session.id}`} onClick={onClose} className="inline-flex h-fit items-center gap-1 rounded-xl bg-[#0ea5e9] px-3 py-1.5 text-xs font-bold text-white">Mở →</Link>
+                          <SessionLinkWithDrawer
+                            sessionId={slot.session.id}
+                            classId={data.id}
+                            className="inline-flex h-fit items-center gap-1 rounded-xl bg-[#0ea5e9] px-3 py-1.5 text-xs font-bold text-white cursor-pointer"
+                          >
+                            Mở →
+                          </SessionLinkWithDrawer>
                         )}
                       </div>
                       {slot.session ? (

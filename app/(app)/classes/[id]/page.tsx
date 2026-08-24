@@ -27,6 +27,7 @@ import ClassEditForm from "@/components/classes/ClassEditForm";
 import RescheduleSessionButton from "@/components/classes/RescheduleSessionButton";
 import ClassDefaultAssignmentManager from "@/components/classes/ClassDefaultAssignmentManager";
 import RemedialBulkAssignPanel from "@/components/classes/RemedialBulkAssignPanel";
+import SessionLinkWithDrawer from "@/components/classes/SessionLinkWithDrawer";
 import PageGuide from "@/components/ui/PageGuide";
 import PageHero from "@/components/ui/PageHero/PageHero";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
@@ -471,11 +472,16 @@ export default async function ClassDetailPage({ params }: { params: { id: string
           <div className="flex flex-wrap items-center gap-2 sm:gap-3" data-tour="class-actions">
             <SpotlightTour steps={CLASS_DETAIL_TOUR_STEPS} />
             {latestSession && (
-              <Link href={`/classes/${cls.id}/sessions/${latestSession.id}`} className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl bg-gradient-to-r from-[#f97316] to-[#ea580c] px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm font-bold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
+              <SessionLinkWithDrawer
+                sessionId={latestSession.id}
+                classId={cls.id}
+                returnPath={`/classes/${cls.id}`}
+                className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl bg-gradient-to-r from-[#f97316] to-[#ea580c] px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm font-bold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sm:w-[18px] sm:h-[18px]"><circle cx="12" cy="12" r="10"/><polyline points="10 8 16 12 10 16"/></svg>
                 <span className="hidden sm:inline">Mở buổi học</span>
                 <span className="sm:hidden">Buổi học</span>
-              </Link>
+              </SessionLinkWithDrawer>
             )}
             {canManageClass && (
               <GenerateSessionsForm classId={cls.id} totalSessions={cls.totalSessions} existingSessionCount={cls.sessions.length} />
@@ -582,9 +588,14 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                 <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
                   <SectionHeading icon={ICON_CLOCK} eyebrow="Trọng tâm" title="Buổi gần nhất"
                     action={latestSession ? (
-                      <Link href={`/classes/${cls.id}/sessions/${latestSession.id}`} className="inline-flex items-center gap-1 text-sm font-bold text-[#f97316] hover:text-[#ea580c]">
+                      <SessionLinkWithDrawer
+                        sessionId={latestSession.id}
+                        classId={cls.id}
+                        returnPath={`/classes/${cls.id}`}
+                        className="inline-flex items-center gap-1 text-sm font-bold text-[#f97316] hover:text-[#ea580c]"
+                      >
                         Mở buổi <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                      </Link>
+                      </SessionLinkWithDrawer>
                     ) : null}
                   />
                   {latestSession ? (
@@ -651,10 +662,15 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                   <SectionHeading icon={ICON_LINK} title="Đi nhanh" description="Mở đúng khu đang cần xử lý mà không vòng qua nhiều màn." />
                   <div className="mt-4 flex flex-wrap gap-2">
                     {latestSession && (
-                      <Link href={`/classes/${cls.id}/sessions/${latestSession.id}`} className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] transition-all">
+                      <SessionLinkWithDrawer
+                        sessionId={latestSession.id}
+                        classId={cls.id}
+                        returnPath={`/classes/${cls.id}`}
+                        className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] transition-all"
+                      >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                         Điểm danh buổi gần nhất
-                      </Link>
+                      </SessionLinkWithDrawer>
                     )}
                     <Link href="/tuition" className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] transition-all">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
@@ -749,7 +765,17 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                     <p className="inline-flex rounded-2xl border border-[#e8eef8] bg-white px-3 py-2 text-sm font-semibold text-[#64748b]">{session.journal?.publishedAt ? "Đã gửi PH" : session.journal ? "Đang lưu nháp" : "Chưa có nhật ký"}</p>
                                     <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${badgeClass(session.status)}`}>{SESSION_STATUS_LABEL[session.status] ?? session.status}</span>
                                     {session.status === "RESCHEDULED" && session.replacedBySession && (
-                                      <p className="mt-2 text-xs text-[#f59e0b] font-semibold">Bù sang <Link href={`/classes/${cls.id}/sessions/${session.replacedBySession.id}`} className="underline">{formatDate(session.replacedBySession.sessionDate)}</Link></p>
+                                      <p className="mt-2 text-xs text-[#f59e0b] font-semibold">
+                                        Bù sang{" "}
+                                        <SessionLinkWithDrawer
+                                          sessionId={session.replacedBySession.id}
+                                          classId={cls.id}
+                                          returnPath={`/classes/${cls.id}`}
+                                          className="underline cursor-pointer"
+                                        >
+                                          {formatDate(session.replacedBySession.sessionDate)}
+                                        </SessionLinkWithDrawer>
+                                      </p>
                                     )}
                                     {session.replacesSession ? <p className="mt-2 text-xs text-[#64748b]">Buổi bù cho {formatDate(session.replacesSession.sessionDate)}</p> : null}
                                   </div>
@@ -760,7 +786,14 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                               <td className="px-5 py-5 text-right">
                                 {session ? (
                                   <div className="flex flex-col items-end gap-2">
-                                    <Link href={`/classes/${cls.id}/sessions/${session.id}`} className="inline-flex min-w-[140px] items-center justify-center rounded-xl bg-[#0ea5e9] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#0284c7]">Điểm danh / nhật ký</Link>
+                                    <SessionLinkWithDrawer
+                                      sessionId={session.id}
+                                      classId={cls.id}
+                                      returnPath={`/classes/${cls.id}`}
+                                      className="inline-flex min-w-[140px] items-center justify-center rounded-xl bg-[#0ea5e9] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#0284c7]"
+                                    >
+                                      Điểm danh / nhật ký
+                                    </SessionLinkWithDrawer>
                                     {canManageClass && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession ? <RescheduleSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} /> : null}
                                   </div>
                                 ) : canManageClass ? (
@@ -874,15 +907,17 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                         <div className="flex items-center gap-2 pt-2 border-t border-[#f1f5f9]">
                           {session ? (
                             <>
-                              <Link
-                                href={`/classes/${cls.id}/sessions/${session.id}`}
+                              <SessionLinkWithDrawer
+                                sessionId={session.id}
+                                classId={cls.id}
+                                returnPath={`/classes/${cls.id}`}
                                 className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-[#0ea5e9] px-3 py-2 text-xs font-bold text-white hover:bg-[#0284c7] transition-colors"
                               >
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                   <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
                                 </svg>
                                 Mở buổi
-                              </Link>
+                              </SessionLinkWithDrawer>
                               {canManageClass && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession && (
                                 <div className="shrink-0">
                                   <RescheduleSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} />
@@ -900,7 +935,15 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                         {session && session.status === "RESCHEDULED" && session.replacedBySession && (
                           <div className="mt-2 pt-2 border-t border-[#f1f5f9]">
                             <p className="text-[10px] text-[#f59e0b] font-medium">
-                              → Bù sang <Link href={`/classes/${cls.id}/sessions/${session.replacedBySession.id}`} className="underline font-semibold">{formatDate(session.replacedBySession.sessionDate)}</Link>
+                              → Bù sang{" "}
+                              <SessionLinkWithDrawer
+                                sessionId={session.replacedBySession.id}
+                                classId={cls.id}
+                                returnPath={`/classes/${cls.id}`}
+                                className="underline font-semibold cursor-pointer"
+                              >
+                                {formatDate(session.replacedBySession.sessionDate)}
+                              </SessionLinkWithDrawer>
                             </p>
                           </div>
                         )}
