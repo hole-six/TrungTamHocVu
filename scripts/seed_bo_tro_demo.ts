@@ -307,8 +307,23 @@ async function seedManualPrebook(pool: Awaited<ReturnType<typeof getCleanActiveS
 
 async function ensureTodayRemedialSession() {
   log("\n== Phase C: lớp bổ trợ đang diễn ra hôm nay + phân công ==");
-  const remedialClass = await prisma.class.findFirst({ where: { isRemedial: true, status: "ACTIVE" }, orderBy: { className: "asc" } });
-  if (!remedialClass) throw new Error("Không tìm thấy lớp bổ trợ (isRemedial=true) nào để seed.");
+  let remedialClass = await prisma.class.findFirst({ where: { isRemedial: true, status: "ACTIVE" }, orderBy: { className: "asc" } });
+  if (!remedialClass) {
+    const branch = await prisma.branch.findFirst({ orderBy: { createdAt: "asc" } });
+    if (!branch) throw new Error("Không tìm thấy cơ sở (Branch) nào để tạo lớp bổ trợ.");
+    const classCode = `BOTRO-${Date.now().toString(36).toUpperCase()}`;
+    remedialClass = await prisma.class.create({
+      data: {
+        branchId: branch.id,
+        classCode,
+        className: "Lớp bổ trợ",
+        status: "ACTIVE",
+        isRemedial: true,
+        notes: `${SEED_TAG} Lớp bổ trợ minh họa — không thu học phí riêng, chứa các buổi bổ trợ`,
+      },
+    });
+    log(`  + Tạo mới lớp bổ trợ: ${remedialClass.className} (${remedialClass.id.slice(0, 8)})`);
+  }
 
   const now = new Date();
   let session = await prisma.classSession.findFirst({
