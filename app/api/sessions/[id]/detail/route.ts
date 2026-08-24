@@ -115,12 +115,12 @@ export async function GET(
       lockedNote: lockedByStudent.get(enrollment.studentId) ?? null,
     }));
 
-    const careAlertStudentIds = await computeCareAlerts(
+    const careAlertStudentIds = Array.from(await computeCareAlerts(
       session.classId,
       roster.map((student) => student.studentId),
       session.sessionDate,
       session.id
-    ) || [];
+    ));
 
     const presentCount = roster.filter((student) => student.status === "PRESENT").length;
     const absentCount = roster.filter((student) => student.status === "ABSENT").length;

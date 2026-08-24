@@ -186,12 +186,12 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
     lockedNote: lockedByStudent.get(enrollment.studentId) ?? null,
   }));
 
-  const careAlertStudentIds = await computeCareAlerts(
+  const careAlertStudentIds = Array.from(await computeCareAlerts(
     session.classId,
     roster.map((student) => student.studentId),
     session.sessionDate,
     session.id
-  );
+  ));
 
   const presentCount = roster.filter((student) => student.status === "PRESENT").length;
   const absentCount = roster.filter((student) => student.status === "ABSENT").length;
@@ -421,7 +421,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
         <ClassJournalForm
           sessionId={session.id}
           roster={activeEnrollments.map((enrollment) => enrollment.student)}
-          careAlertStudentIds={[...careAlertStudentIds]}
+          careAlertStudentIds={careAlertStudentIds}
           journal={session.journal}
           publishedUrl={`/journal/${session.id}`}
           printMeta={{

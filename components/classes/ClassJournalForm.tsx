@@ -164,7 +164,7 @@ export default function ClassJournalForm({
   printMeta: PrintMeta;
 }) {
   const router = useRouter();
-  const careAlertSet = useMemo(() => new Set(careAlertStudentIds), [careAlertStudentIds]);
+  const careAlertSet = useMemo(() => new Set(careAlertStudentIds || []), [careAlertStudentIds]);
   const initialLabels =
     journal && journal.entries.length > 0 && journal.entries[0].scores.length > 0
       ? journal.entries[0].scores.map((score: any) => score.label)
