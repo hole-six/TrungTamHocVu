@@ -128,10 +128,10 @@ export default function SessionDetailDrawer({
 
   return (
     <ResponsiveDrawer
-      isOpen={isOpen}
+      open={isOpen}
       onClose={handleClose}
       title={sessionData ? `${sessionData.class.className}` : "Chi tiết buổi học"}
-      size="xl"
+      widthClassName="max-w-6xl"
     >
       {loading && (
         <div className="flex items-center justify-center py-12">
@@ -312,35 +312,51 @@ export default function SessionDetailDrawer({
             {activeTab === "attendance" && (
               <AttendanceForm
                 sessionId={sessionData.session.id}
-                classId={sessionData.class.id}
+                initialRoster={sessionData.roster}
                 isRemedial={sessionData.class.isRemedial}
-                roster={sessionData.roster}
-                careAlertStudentIds={sessionData.careAlertStudentIds}
-                onSaved={fetchSessionData}
               />
             )}
 
             {activeTab === "journal" && (
               <ClassJournalForm
                 sessionId={sessionData.session.id}
-                classId={sessionData.class.id}
-                className={sessionData.class.className}
-                sessionDate={sessionData.session.sessionDate}
-                roster={sessionData.roster}
-                existingJournal={sessionData.journal}
-                onSaved={fetchSessionData}
+                roster={sessionData.roster.map(r => ({ 
+                  id: r.studentId, 
+                  fullName: r.fullName, 
+                  studentCode: r.studentCode 
+                }))}
+                careAlertStudentIds={sessionData.careAlertStudentIds}
+                journal={sessionData.journal}
+                publishedUrl={`/classes/${sessionData.class.id}/sessions/${sessionData.session.id}`}
+                plannedRoadmap={sessionData.roadmapItem ? {
+                  sessionNumber: sessionData.sessionNumber ?? 1,
+                  title: sessionData.roadmapItem.title,
+                  objective: sessionData.roadmapItem.objective,
+                  materials: sessionData.roadmapItem.materials,
+                  teacherGuide: sessionData.roadmapItem.teacherGuide,
+                  homeworkGuide: sessionData.roadmapItem.homeworkGuide,
+                } : null}
+                printMeta={{
+                  branchName: sessionData.class.branchName,
+                  className: sessionData.class.className,
+                  sessionDateLabel: formatDate(sessionData.session.sessionDate),
+                  weekdayLabel: sessionData.session.weekdayLabel,
+                  scheduleLabel: `${sessionData.session.startTime?.slice(0, 5) || "—"} - ${sessionData.session.endTime?.slice(0, 5) || "—"}`,
+                  totalStudents: sessionData.enrollmentCount,
+                }}
               />
             )}
 
             {activeTab === "assignment" && (
               <SessionAssignmentForm
                 sessionId={sessionData.session.id}
-                sessionDate={sessionData.session.sessionDate}
-                startTime={sessionData.session.startTime}
-                endTime={sessionData.session.endTime}
-                employees={sessionData.employees}
-                existingAssignments={sessionData.assignments}
-                onSaved={fetchSessionData}
+                employees={sessionData.employees.map(e => ({
+                  id: e.id,
+                  fullName: e.fullName,
+                  shortName: e.shortName ?? e.fullName.split(' ').slice(-1)[0]
+                }))}
+                assignments={sessionData.assignments}
+                currentEmployeeId={null}
               />
             )}
           </div>

@@ -8,7 +8,7 @@ import { computeSessionTiming, getVietnamToday } from "@/lib/server/class-rules"
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const currentUser = await getCurrentUser();
@@ -21,7 +21,7 @@ export async function GET(
     const canTeachSession = canManageClass || role === "TEACHER" || role === "TEACHING_ASSISTANT";
 
     const session = await prisma.classSession.findUnique({
-      where: { id: params.sessionId },
+      where: { id: params.id },
       include: {
         class: {
           include: {
@@ -169,15 +169,29 @@ export async function GET(
         employeeId: a.employeeId,
         employeeName: a.employee.fullName,
         employeeShortName: a.employee.shortName,
-        payMode: a.payMode,
-        hourlyRate: a.hourlyRate,
-        sessionRate: a.sessionRate,
-        substituteFor: a.substituteFor,
-        substitutedBy: a.substitutedBy,
+        hours: a.hours,
+        amount: a.amount,
+        deductedHours: a.deductedHours ?? 0,
+        addedHours: a.addedHours ?? 0,
+        adjustmentNote: a.adjustmentNote,
+        isSubstituteShift: a.isSubstituteShift ?? false,
+        checkInAt: a.checkInAt,
+        checkOutAt: a.checkOutAt,
+        employee: { fullName: a.employee.fullName },
+        substituteFor: a.substituteFor ? {
+          id: a.substituteFor.id,
+          employee: { fullName: a.substituteFor.employee.fullName }
+        } : null,
+        substitutedBy: a.substitutedBy ? {
+          id: a.substitutedBy.id,
+          employee: { fullName: a.substitutedBy.employee.fullName }
+        } : null,
       })),
       journal: session.journal ? {
         id: session.journal.id,
-        content: session.journal.content,
+        unitLesson: session.journal.unitLesson,
+        teacherNote: session.journal.teacherNote,
+        homeworkNote: session.journal.homeworkNote,
         publishedAt: session.journal.publishedAt,
         entries: session.journal.entries.map((e) => ({
           id: e.id,
