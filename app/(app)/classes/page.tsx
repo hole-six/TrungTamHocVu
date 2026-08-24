@@ -73,7 +73,7 @@ function addDays(base: Date, days: number) {
 export default async function ClassesPage({
   searchParams,
 }: {
-  searchParams: { q?: string; status?: string; page?: string; pageSize?: string };
+  searchParams: { q?: string; status?: string; classGroup?: string; page?: string; pageSize?: string };
 }) {
   const user = await getCurrentUser();
   const userRole = user ? await getUserRole(user.id) : null;
@@ -81,6 +81,7 @@ export default async function ClassesPage({
 
   const q = searchParams.q?.trim() ?? "";
   const status = searchParams.status?.trim() ?? "";
+  const classGroup = searchParams.classGroup?.trim() ?? "";
   const page = Math.max(1, Number(searchParams.page ?? 1));
   const pageSize = Number(searchParams.pageSize ?? PAGE_SIZE);
 
@@ -88,6 +89,7 @@ export default async function ClassesPage({
   const where = {
     ...branchWhere,
     ...(status ? { status } : {}),
+    ...(classGroup ? { classGroup } : {}),
     ...(q ? { OR: [{ className: { contains: q } }, { classCode: { contains: q } }] } : {}),
   };
 
@@ -95,7 +97,7 @@ export default async function ClassesPage({
   const nextWeekEnd = endOfUpcomingWeek(today);
   const nextMonth = addDays(today, 30);
 
-  const [classes, courses, books, total, grouped, activeEnrollments, upcomingSessions, endingSoon, unscheduledClasses] = await Promise.all([
+  const [classes, courses, books, total, grouped, activeEnrollments, upcomingSessions, endingSoon, unscheduledClasses, classGroups] = await Promise.all([
     prisma.class.findMany({
       where,
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
@@ -171,6 +173,16 @@ export default async function ClassesPage({
         scheduleRules: { none: { isActive: true } },
       },
     }),
+    // Get distinct classGroups for filter
+    prisma.class.findMany({
+      where: {
+        ...branchWhere,
+        classGroup: { not: null },
+      },
+      select: { classGroup: true },
+      distinct: ["classGroup"],
+      orderBy: { classGroup: "asc" },
+    }),
   ]);
 
   const classStats = Object.fromEntries(grouped.map((row) => [row.status, row._count._all])) as Record<string, number>;
@@ -202,6 +214,7 @@ export default async function ClassesPage({
       id: item.id,
       classCode: item.classCode,
       className: item.className,
+      classGroup: item.classGroup,
       nextClassName: item.nextClass?.className ?? null,
       activeCount: item._count.enrollments,
       transferNeed: transferNeedByClass.get(item.id)?.count ?? 0,
@@ -243,20 +256,58 @@ export default async function ClassesPage({
       </div>
 
       <section className="rounded-2xl border border-[#dbe7ff] bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Pipeline lớp học</p>
-            <h2 className="mt-1 text-lg font-black text-[#0f1729]">Ngăn xếp chuyển tiếp</h2>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Pipeline lớp học</p>
+              <h2 className="mt-1 text-lg font-black text-[#0f1729]">Ngăn xếp chuyển tiếp</h2>
+            </div>
+            <p className="text-sm text-[#64748b]">Mỗi lớp nên có lớp tiếp theo để học viên vào giữa/cuối khóa không bị rơi hành trình.</p>
           </div>
-          <p className="text-sm text-[#64748b]">Mỗi lớp nên có lớp tiếp theo để học viên vào giữa/cuối khóa không bị rơi hành trình.</p>
+          
+          {/* Class Group Pills */}
+          {classGroups.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <a
+                href={`/classes?${new URLSearchParams({ ...(q && { q }), ...(status && { status }) }).toString()}`}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  !classGroup
+                    ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                    : "border-[#dbe7ff] bg-white text-[#64748b] hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                }`}
+              >
+                Tất cả ngăn sếp
+              </a>
+              {classGroups.map((group) => (
+                <a
+                  key={group.classGroup}
+                  href={`/classes?${new URLSearchParams({ ...(q && { q }), ...(status && { status }), classGroup: group.classGroup! }).toString()}`}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                    classGroup === group.classGroup
+                      ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                      : "border-[#dbe7ff] bg-white text-[#64748b] hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                  }`}
+                >
+                  Ngăn {group.classGroup}
+                </a>
+              ))}
+            </div>
+          )}
         </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {pipelineRows.map((row) => (
             <div key={row.id} className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <ClassLink classId={row.id} className="font-bold text-[#0f1729] hover:text-[#2563eb]">
-                  {row.className}
-                </ClassLink>
+                <div className="flex items-center gap-2">
+                  <ClassLink classId={row.id} className="font-bold text-[#0f1729] hover:text-[#2563eb]">
+                    {row.className}
+                  </ClassLink>
+                  {row.classGroup && (
+                    <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700">
+                      {row.classGroup}
+                    </span>
+                  )}
+                </div>
                 {row.transferNeed > 0 ? (
                   <span className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800">
                     {row.transferNeed} cần chuyển

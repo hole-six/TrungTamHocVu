@@ -106,16 +106,16 @@ export async function getEnrollmentLearningSnapshot(
 ) {
   const learningStart = startOfUtcDay(enrollment.enrollDate);
   const now = new Date();
+  
+  // ĐẾM BUỔI THEO LỊCH ĐÃ QUA (không phân biệt có mặt/vắng)
+  // Logic: Qua ngày = tính buổi, vắng thì được buổi bổ trợ riêng
+  // KHÔNG đếm theo attendance.status = "PRESENT" vì sẽ làm chậm tiến độ
   const [completedMainSessions, futureMainSessions, scholarships, adjustments] = await Promise.all([
-    prismaClient.studentAttendance.count({
+    prismaClient.classSession.count({
       where: {
-        studentId: enrollment.studentId,
-        status: "PRESENT",
-        session: {
-          classId: enrollment.classId,
-          status: "COMPLETED",
-          sessionDate: { gte: learningStart },
-        },
+        classId: enrollment.classId,
+        status: "COMPLETED",
+        sessionDate: { gte: learningStart },
       },
     }),
     prismaClient.classSession.findMany({
