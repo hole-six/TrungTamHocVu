@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
@@ -82,19 +82,27 @@ export default function EnrollStudentForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  async function search(event: React.FormEvent) {
-    event.preventDefault();
-    if (!q.trim()) return;
-
+  // Luôn hiện sẵn 1 danh sách học viên duyệt được khi mở form (không bắt gõ tìm trước
+  // mới thấy ai) — gõ vào ô tìm sẽ lọc lại theo tên/mã, debounce 300ms.
+  useEffect(() => {
+    if (!open || selected) return;
+    let cancelled = false;
     setSearching(true);
-    setError(null);
-    setSelected(null);
-
-    const response = await fetch(`/api/students?q=${encodeURIComponent(q)}&status=ACTIVE&pageSize=10`);
-    const result = await response.json().catch(() => ({}));
-    setSearching(false);
-    setResults(result.items ?? []);
-  }
+    const timer = setTimeout(async () => {
+      const trimmed = q.trim();
+      const response = await fetch(`/api/students?q=${encodeURIComponent(trimmed)}&status=ACTIVE&pageSize=30`);
+      const result = await response.json().catch(() => ({}));
+      if (!cancelled) {
+        const items: StudentHit[] = result.items ?? [];
+        setResults(trimmed ? items : [...items].sort((a, b) => a.fullName.localeCompare(b.fullName, "vi")));
+        setSearching(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [open, q, selected]);
 
   async function enroll() {
     if (!selected) return;
@@ -156,18 +164,16 @@ export default function EnrollStudentForm({
         guide={<FormGuide title="Hướng dẫn ghi danh học viên vào lớp" summary="Đây là một trong những form quan trọng nhất của vận hành vì nó nối học viên với lớp và kéo theo logic học phí phía sau. Chọn đúng học viên và đúng kiểu thu là mấu chốt." sections={GUIDE_SECTIONS} position="inline" />}
       >
         <div className="space-y-5">
-          <form onSubmit={search} className="flex gap-3">
-            <input className="input" placeholder="Tìm theo tên hoặc mã học viên..." value={q} onChange={(event) => {
-              setQ(event.target.value);
-              if (!event.target.value) setResults([]);
-            }} />
-            <button type="submit" className="btn-ghost whitespace-nowrap" disabled={searching}>
-              {searching ? "Đang tìm..." : "Tìm học viên"}
-            </button>
-          </form>
+          <input
+            className="input"
+            placeholder="Tìm theo tên hoặc mã học viên... (để trống để xem cả danh sách)"
+            value={q}
+            onChange={(event) => setQ(event.target.value)}
+            autoFocus
+          />
 
           {results.length > 0 ? (
-            <div className="space-y-2">
+            <div className="max-h-[50vh] space-y-2 overflow-y-auto">
               <p className="text-sm font-medium text-ink-muted48">Chọn học viên phù hợp</p>
               {results.map((student) => (
                 <button key={student.id} type="button" onClick={() => setSelected(selected?.id === student.id ? null : student)} className={selected?.id === student.id ? "search-result-item-active" : "search-result-item"}>
@@ -183,7 +189,7 @@ export default function EnrollStudentForm({
             </div>
           ) : null}
 
-          {!results.length && q && !searching ? (
+          {!results.length && !searching ? (
             <div className="empty-state rounded-2xl border border-dashed border-[#dbe7ff]">
               <p className="empty-state-title">Không tìm thấy học viên phù hợp</p>
               <p className="empty-state-desc">Thử tìm bằng mã học viên hoặc tên ngắn hơn.</p>

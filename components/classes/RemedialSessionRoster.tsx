@@ -36,13 +36,14 @@ export default function RemedialSessionRoster({ sessionId, buttonLabel = "Chọn
   // Tab 1: Có buổi bổ trợ
   const [credits, setCredits] = useState<CreditItem[]>([]);
   const [loadingCredits, setLoadingCredits] = useState(false);
+  const [creditQuery, setCreditQuery] = useState("");
   const [selectedCreditIds, setSelectedCreditIds] = useState<Set<string>>(new Set());
   const [addingCredits, setAddingCredits] = useState(false);
 
   // Tab 2: Học sinh toàn khóa
   const [q, setQ] = useState("");
   const [results, setResults] = useState<StudentHit[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [loadingResults, setLoadingResults] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<StudentHit | null>(null);
   const [futureSessions, setFutureSessions] = useState<FutureSession[]>([]);
   const [loadingFuture, setLoadingFuture] = useState(false);
@@ -61,12 +62,31 @@ export default function RemedialSessionRoster({ sessionId, buttonLabel = "Chọn
       .finally(() => setLoadingCredits(false));
   }, [open, tab]);
 
+  const filteredCredits = creditQuery.trim()
+    ? credits.filter((item) => {
+        const q = creditQuery.trim().toLowerCase();
+        return item.student.fullName.toLowerCase().includes(q) || item.student.studentCode.toLowerCase().includes(q);
+      })
+    : credits;
+  const allFilteredSelected = filteredCredits.length > 0 && filteredCredits.every((item) => selectedCreditIds.has(item.id));
+
   function toggleCredit(id: string) {
     setSelectedCreditIds((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
+    });
+  }
+
+  function toggleSelectAllCredits() {
+    setSelectedCreditIds((current) => {
+      if (allFilteredSelected) {
+        const next = new Set(current);
+        for (const item of filteredCredits) next.delete(item.id);
+        return next;
+      }
+      return new Set([...current, ...filteredCredits.map((item) => item.id)]);
     });
   }
 
@@ -94,16 +114,28 @@ export default function RemedialSessionRoster({ sessionId, buttonLabel = "Chọn
     router.refresh();
   }
 
-  async function searchStudents(event: React.FormEvent) {
-    event.preventDefault();
-    if (!q.trim()) return;
-    setSearching(true);
-    setSelectedStudent(null);
-    const response = await fetch(`/api/students?q=${encodeURIComponent(q)}&status=ACTIVE&pageSize=10`);
-    const data = await response.json().catch(() => ({}));
-    setSearching(false);
-    setResults(data.items ?? []);
-  }
+  // Luôn hiện sẵn 1 danh sách học viên duyệt được (không bắt gõ tìm trước mới thấy ai)
+  // — gõ vào ô tìm sẽ lọc lại theo tên/mã, debounce 300ms. Cùng pattern đã áp dụng cho
+  // AddPaidCatchupForm.
+  useEffect(() => {
+    if (!open || tab !== "wholeCourse" || selectedStudent) return;
+    let cancelled = false;
+    setLoadingResults(true);
+    const timer = setTimeout(async () => {
+      const trimmed = q.trim();
+      const response = await fetch(`/api/students?q=${encodeURIComponent(trimmed)}&status=ACTIVE&pageSize=30`);
+      const data = await response.json().catch(() => ({}));
+      if (!cancelled) {
+        const items: StudentHit[] = data.items ?? [];
+        setResults(trimmed ? items : [...items].sort((a, b) => a.fullName.localeCompare(b.fullName, "vi")));
+        setLoadingResults(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [open, tab, q, selectedStudent]);
 
   async function pickStudentForWholeCourse(student: StudentHit) {
     setSelectedStudent(student);
@@ -172,7 +204,21 @@ export default function RemedialSessionRoster({ sessionId, buttonLabel = "Chọn
                 <p className="text-sm text-ink-muted48">Không có học viên nào đang có buổi bổ trợ khả dụng.</p>
               ) : (
                 <>
-                  {credits.map((item) => {
+                  <input
+                    className="input"
+                    placeholder="Tìm theo tên hoặc mã học viên..."
+                    value={creditQuery}
+                    onChange={(event) => setCreditQuery(event.target.value)}
+                  />
+                  {filteredCredits.length === 0 ? (
+                    <p className="text-sm text-ink-muted48">Không tìm thấy học viên phù hợp.</p>
+                  ) : (
+                    <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-ink-muted80">
+                      <input type="checkbox" className="h-4 w-4" checked={allFilteredSelected} onChange={toggleSelectAllCredits} />
+                      Chọn tất cả ({filteredCredits.length})
+                    </label>
+                  )}
+                  {filteredCredits.map((item) => {
                     const checked = selectedCreditIds.has(item.id);
                     return (
                       <label
@@ -218,15 +264,20 @@ export default function RemedialSessionRoster({ sessionId, buttonLabel = "Chọn
             <div className="space-y-4">
               {!selectedStudent ? (
                 <>
-                  <form onSubmit={searchStudents} className="flex gap-2">
-                    <input className="input" placeholder="Tìm theo tên hoặc mã học viên..." value={q} onChange={(event) => setQ(event.target.value)} />
-                    <button type="submit" disabled={searching} className="btn-primary shrink-0">
-                      {searching ? "Đang tìm..." : "Tìm"}
-                    </button>
-                  </form>
-                  {results.length > 0 ? (
-                    <div className="space-y-2">
-                      {results.map((student) => (
+                  <input
+                    className="input"
+                    placeholder="Tìm theo tên hoặc mã học viên... (để trống để xem cả danh sách)"
+                    value={q}
+                    onChange={(event) => setQ(event.target.value)}
+                    autoFocus
+                  />
+                  <div className="max-h-[50vh] space-y-2 overflow-y-auto">
+                    {loadingResults ? (
+                      <p className="text-sm text-ink-muted48">Đang tải...</p>
+                    ) : results.length === 0 ? (
+                      <p className="text-sm text-ink-muted48">Không tìm thấy học viên phù hợp.</p>
+                    ) : (
+                      results.map((student) => (
                         <button
                           key={student.id}
                           type="button"
@@ -236,9 +287,9 @@ export default function RemedialSessionRoster({ sessionId, buttonLabel = "Chọn
                           <span className="font-bold text-ink">{student.fullName}</span>
                           <span className="text-xs text-ink-muted48">{student.studentCode}</span>
                         </button>
-                      ))}
-                    </div>
-                  ) : null}
+                      ))
+                    )}
+                  </div>
                 </>
               ) : (
                 <>
