@@ -91,8 +91,12 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
 
   return (
     <>
-      <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed inset-0 z-[101] flex flex-col overflow-hidden bg-white">
+      {/* z-[60]/[61] — PHẢI thấp hơn các dialog mở TỪ BÊN TRONG drawer này (Sinh buổi
+          học/Sửa dùng ResponsiveDrawer z-[80], Kết thúc lớp dùng ConfirmDialog z-[90]).
+          Trước đây drawer này để z-[100]/[101] (cao hơn cả 2) nên các dialog đó mở ra
+          bị NẰM SAU drawer, nhìn như bấm không có phản ứng gì. */}
+      <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-[61] flex flex-col overflow-hidden bg-white">
         {/* Header */}
         <div className="sticky top-0 z-10 border-b border-[#e5eaf7] bg-gradient-to-r from-[#f97316] to-[#ea580c] px-4 py-3 shadow-lg">
           <div className="flex items-center justify-between gap-3">
