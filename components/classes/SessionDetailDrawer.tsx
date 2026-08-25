@@ -6,6 +6,7 @@ import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import AttendanceForm from "@/components/classes/AttendanceForm";
 import ClassJournalForm from "@/components/classes/ClassJournalForm";
 import SessionAssignmentForm from "@/components/classes/SessionAssignmentForm";
+import RemedialSessionRoster from "@/components/classes/RemedialSessionRoster";
 
 interface SessionDetailDrawerProps {
   sessionId: string;
@@ -317,11 +318,18 @@ export default function SessionDetailDrawer({
             )}
 
             {activeTab === "attendance" && (
-              <AttendanceForm
-                sessionId={sessionData.session.id}
-                initialRoster={sessionData.roster}
-                isRemedial={sessionData.class.isRemedial}
-              />
+              <div className="space-y-3">
+                {sessionData.class.isRemedial && sessionData.permissions.canManageClass ? (
+                  <div className="flex justify-end">
+                    <RemedialSessionRoster sessionId={sessionData.session.id} onSuccess={fetchSessionData} />
+                  </div>
+                ) : null}
+                <AttendanceForm
+                  sessionId={sessionData.session.id}
+                  initialRoster={sessionData.roster}
+                  isRemedial={sessionData.class.isRemedial}
+                />
+              </div>
             )}
 
             {activeTab === "journal" && (

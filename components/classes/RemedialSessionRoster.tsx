@@ -28,7 +28,18 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString("vi-VN");
 }
 
-export default function RemedialSessionRoster({ sessionId, buttonLabel = "Chọn học sinh" }: { sessionId: string; buttonLabel?: string }) {
+export default function RemedialSessionRoster({
+  sessionId,
+  buttonLabel = "Chọn học sinh",
+  onSuccess,
+}: {
+  sessionId: string;
+  buttonLabel?: string;
+  /** Gọi thêm sau khi thêm học viên thành công — SessionDetailDrawer (mở từ Lịch tổng)
+   * tự fetch dữ liệu riêng qua API, router.refresh() không kéo lại được, cần callback
+   * này để nơi gọi tự fetch lại roster của mình. */
+  onSuccess?: () => void;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"credits" | "wholeCourse">("credits");
@@ -112,6 +123,7 @@ export default function RemedialSessionRoster({ sessionId, buttonLabel = "Chọn
     }
     setSelectedCreditIds(new Set());
     router.refresh();
+    onSuccess?.();
   }
 
   // Luôn hiện sẵn 1 danh sách học viên duyệt được (không bắt gõ tìm trước mới thấy ai)
@@ -169,6 +181,7 @@ export default function RemedialSessionRoster({ sessionId, buttonLabel = "Chọn
     setFutureSessions([]);
     setFutureSessionId("");
     router.refresh();
+    onSuccess?.();
   }
 
   return (
