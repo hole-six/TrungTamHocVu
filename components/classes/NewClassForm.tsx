@@ -42,6 +42,7 @@ type RoadmapDraft = {
   materials: string;
   teacherGuide: string;
   homeworkGuide: string;
+  teacherRequirement: string;
 };
 
 type DefaultAssignmentDraft = {
@@ -122,6 +123,7 @@ function buildRoadmapDraft(sessionNumber: number): RoadmapDraft {
     materials: "",
     teacherGuide: "",
     homeworkGuide: "",
+    teacherRequirement: "",
   };
 }
 
@@ -418,14 +420,17 @@ export default function NewClassForm({
       materials: string;
       teacherGuide: string;
       homeworkGuide: string;
+      teacherRequirement: string;
     }> = Array.isArray(result.items) ? result.items : [];
 
-    let mergedCount = 0;
+    // Đếm số buổi khớp trực tiếp từ roadmapItems/importedRows hiện có — không mutate 1
+    // biến ngoài bên trong callback setState, vì updater đó không đảm bảo chạy đồng bộ
+    // trước dòng đọc mergedCount (số hiện ra hay bị sai, luôn ra 0).
+    const mergedCount = roadmapItems.filter((item) => importedRows.some((row) => row.sessionNumber === item.sessionNumber)).length;
     setRoadmapItems((prev) =>
       prev.map((item) => {
         const imported = importedRows.find((row) => row.sessionNumber === item.sessionNumber);
         if (!imported) return item;
-        mergedCount += 1;
         return {
           ...item,
           title: imported.title || item.title,
@@ -433,6 +438,7 @@ export default function NewClassForm({
           materials: imported.materials || item.materials,
           teacherGuide: imported.teacherGuide || item.teacherGuide,
           homeworkGuide: imported.homeworkGuide || item.homeworkGuide,
+          teacherRequirement: imported.teacherRequirement || item.teacherRequirement,
         };
       }),
     );
@@ -514,6 +520,7 @@ export default function NewClassForm({
               materials: item.materials.trim() || null,
               teacherGuide: item.teacherGuide.trim() || null,
               homeworkGuide: item.homeworkGuide.trim() || null,
+              teacherRequirement: item.teacherRequirement.trim() || null,
             })),
         defaultAssignments: [
           ...defaultAssignments
@@ -947,6 +954,16 @@ export default function NewClassForm({
                               onChange={(event) => patchRoadmap(item.sessionNumber, "homeworkGuide", event.target.value)}
                               placeholder="Bài tập, dặn phụ huynh, việc cần ôn lại sau buổi này..."
                             />
+                          </label>
+                          <label className="form-group md:col-span-2">
+                            <span className="label">Yêu cầu giáo viên phải làm cho buổi này (để trống = không có yêu cầu)</span>
+                            <textarea
+                              className="input min-h-[100px]"
+                              value={item.teacherRequirement}
+                              onChange={(event) => patchRoadmap(item.sessionNumber, "teacherRequirement", event.target.value)}
+                              placeholder="Ví dụ: Phải giao bài tập Unit 3, chấm và trả kết quả trước buổi sau..."
+                            />
+                            <p className="form-hint">Sau khi điểm danh xong buổi này, hệ thống sẽ yêu cầu xác nhận Đã nộp/Chưa nộp cho đúng nội dung này.</p>
                           </label>
                         </div>
                       </div>

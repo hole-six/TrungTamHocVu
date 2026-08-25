@@ -223,13 +223,14 @@ export default function ClassEditForm({
     }
 
     const importedRows: RoadmapDraft[] = Array.isArray(result.items) ? result.items : [];
-
-    let mergedCount = 0;
+    // Đếm số buổi khớp NGAY TỪ importedRows/roadmapItems hiện có, không đếm bằng cách
+    // mutate 1 biến ngoài bên trong callback của setState — updater đó không đảm bảo
+    // chạy đồng bộ trước dòng đọc mergedCount, nên số hiện ra hay bị sai (luôn ra 0).
+    const mergedCount = roadmapItemsInRange.filter((item) => importedRows.some((row) => row.sessionNumber === item.sessionNumber)).length;
     setRoadmapItems((prev) =>
       prev.map((item) => {
         const imported = importedRows.find((row) => row.sessionNumber === item.sessionNumber);
         if (!imported) return item;
-        mergedCount += 1;
         return {
           ...item,
           title: imported.title || item.title,

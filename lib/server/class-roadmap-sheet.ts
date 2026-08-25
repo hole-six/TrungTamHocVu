@@ -7,6 +7,7 @@ export type RoadmapSheetItem = {
   materials: string;
   teacherGuide: string;
   homeworkGuide: string;
+  teacherRequirement: string;
 };
 
 const IMPORT_HEADERS = {
@@ -16,6 +17,7 @@ const IMPORT_HEADERS = {
   materials: "Tài liệu / học cụ",
   teacherGuide: "Ghi chú cho giáo viên",
   homeworkGuide: "Dặn dò / bài tập cuối buổi",
+  teacherRequirement: "Yêu cầu giáo viên (Đã nộp/Chưa nộp)",
 } as const;
 
 function normalizeHeader(value: string) {
@@ -75,6 +77,7 @@ function mapHeaderIndexes(headers: string[]) {
     materials: findIndex("tai lieu", "hoc cu", "materials"),
     teacherGuide: findIndex("ghi chu cho giao vien", "teacher", "giao vien"),
     homeworkGuide: findIndex("dan do", "bai tap", "homework"),
+    teacherRequirement: findIndex("yeu cau giao vien", "yeu cau", "requirement"),
   };
 }
 
@@ -98,6 +101,7 @@ function parseRoadmapCsv(content: string) {
       materials: cells[headerIndexes.materials] ?? "",
       teacherGuide: cells[headerIndexes.teacherGuide] ?? "",
       homeworkGuide: cells[headerIndexes.homeworkGuide] ?? "",
+      teacherRequirement: cells[headerIndexes.teacherRequirement] ?? "",
     };
   });
 }
@@ -117,14 +121,14 @@ export async function buildRoadmapTemplateWorkbook({
     views: [{ state: "frozen", ySplit: 5 }],
   });
 
-  sheet.mergeCells("A1:H1");
+  sheet.mergeCells("A1:I1");
   sheet.getCell("A1").value = `MẪU NHẬP CHƯƠNG TRÌNH ĐÀO TẠO${classCode ? ` - ${classCode}` : ""}`;
   sheet.getCell("A1").font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
   sheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1D4ED8" } };
   sheet.getCell("A1").alignment = { vertical: "middle", horizontal: "center" };
   sheet.getRow(1).height = 26;
 
-  sheet.mergeCells("A2:H2");
+  sheet.mergeCells("A2:I2");
   sheet.getCell("A2").value =
     "Điền nội dung cho từng buổi rồi lưu lại file .xlsx. Khi nhập lại vào hệ thống, dữ liệu sẽ được ghép theo cột 'Số buổi'.";
   sheet.getCell("A2").font = { italic: true, color: { argb: "FF334155" } };
@@ -133,7 +137,7 @@ export async function buildRoadmapTemplateWorkbook({
   sheet.getRow(2).height = 34;
 
   sheet.getCell("A3").value = "Lưu ý";
-  sheet.getCell("B3").value = "Không đổi tên cột A-F. Có thể sửa hoặc xóa cột G-H nếu không cần.";
+  sheet.getCell("B3").value = "Không đổi tên cột A-G. Có thể sửa hoặc xóa cột H-I nếu không cần.";
   sheet.getCell("A3").font = { bold: true };
   sheet.getCell("B3").font = { color: { argb: "FF475569" } };
 
@@ -145,6 +149,7 @@ export async function buildRoadmapTemplateWorkbook({
     IMPORT_HEADERS.materials,
     IMPORT_HEADERS.teacherGuide,
     IMPORT_HEADERS.homeworkGuide,
+    IMPORT_HEADERS.teacherRequirement,
     "Hướng dẫn điền",
     "Ví dụ tham khảo",
   ];
@@ -152,7 +157,7 @@ export async function buildRoadmapTemplateWorkbook({
   headerRow.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
   headerRow.height = 28;
 
-  const headerColors = ["FF0F766E", "FF0F766E", "FF0F766E", "FF0F766E", "FF0284C7", "FF0284C7", "FFF59E0B", "FFF59E0B"];
+  const headerColors = ["FF0F766E", "FF0F766E", "FF0F766E", "FF0F766E", "FF0284C7", "FF0284C7", "FF7C3AED", "FFF59E0B", "FFF59E0B"];
   headerRow.eachCell((cell, colNumber) => {
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: headerColors[colNumber - 1] } };
     cell.border = {
@@ -170,6 +175,7 @@ export async function buildRoadmapTemplateWorkbook({
     { key: "materials", width: 28 },
     { key: "teacherGuide", width: 34 },
     { key: "homeworkGuide", width: 34 },
+    { key: "teacherRequirement", width: 34 },
     { key: "instruction", width: 34 },
     { key: "example", width: 32 },
   ];
@@ -179,6 +185,7 @@ export async function buildRoadmapTemplateWorkbook({
     row.values = [
       sessionNumber,
       `Buổi ${sessionNumber}`,
+      "",
       "",
       "",
       "",
@@ -196,7 +203,7 @@ export async function buildRoadmapTemplateWorkbook({
         bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
         right: { style: "thin", color: { argb: "FFE5E7EB" } },
       };
-      if (colNumber <= 6) {
+      if (colNumber <= 7) {
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sessionNumber % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF" } };
       } else {
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFBEB" } };
@@ -216,6 +223,10 @@ export async function buildRoadmapTemplateWorkbook({
   guide.addRow(["Tài liệu / học cụ", "Sách, workbook, flashcards, file nghe, mini test, slide hoặc trò chơi."]);
   guide.addRow(["Ghi chú cho giáo viên", "Cách vào bài, điểm cần nhấn mạnh, nhóm học viên cần chú ý, lưu ý đổi hoạt động."]);
   guide.addRow(["Dặn dò / bài tập cuối buổi", "Bài tập về nhà, yêu cầu phụ huynh phối hợp, phần cần ôn lại trước buổi sau."]);
+  guide.addRow([
+    "Yêu cầu giáo viên (Đã nộp/Chưa nộp)",
+    "Việc giáo viên/trợ giảng cần làm sau buổi này (vd 'Giao bài tập Unit 3, chấm và gửi nhận xét trước buổi sau'). Để trống nếu buổi này không có yêu cầu gì — hệ thống sẽ không hỏi Đã nộp/Chưa nộp cho buổi đó. Có yêu cầu thì sau khi điểm danh xong, người phụ trách buổi phải xác nhận Đã nộp hoặc Chưa nộp.",
+  ]);
   guide.eachRow((row, index) => {
     row.eachCell((cell) => {
       cell.alignment = { vertical: "top", wrapText: true };
@@ -262,8 +273,9 @@ export async function parseRoadmapImportFile(fileName: string, fileBytes: Uint8A
     const materials = cells[headerIndexes.materials] ?? "";
     const teacherGuide = cells[headerIndexes.teacherGuide] ?? "";
     const homeworkGuide = cells[headerIndexes.homeworkGuide] ?? "";
+    const teacherRequirement = cells[headerIndexes.teacherRequirement] ?? "";
 
-    if (!sessionNumber || (!title && !objective && !materials && !teacherGuide && !homeworkGuide)) return;
+    if (!sessionNumber || (!title && !objective && !materials && !teacherGuide && !homeworkGuide && !teacherRequirement)) return;
     rows.push({
       sessionNumber,
       title,
@@ -271,6 +283,7 @@ export async function parseRoadmapImportFile(fileName: string, fileBytes: Uint8A
       materials,
       teacherGuide,
       homeworkGuide,
+      teacherRequirement,
     });
   });
 
