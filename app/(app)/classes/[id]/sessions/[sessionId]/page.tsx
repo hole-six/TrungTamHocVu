@@ -331,39 +331,6 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
               </div>
             </div>
           </div>
-          {roadmapItem ? (
-            <details className="mt-4 rounded-[24px] border border-[#d7ecff] bg-white/85 px-4 py-4">
-              <summary className="cursor-pointer list-none text-sm font-semibold text-primary">
-                Xem chi tiết buổi {roadmapItem.sessionNumber}
-              </summary>
-              <div className="mt-3 grid gap-3 md:grid-cols-4">
-                <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Hôm nay học gì</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-ink">{roadmapItem.title?.trim() || `Buổi ${roadmapItem.sessionNumber}`}</p>
-                </div>
-                <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Mục tiêu</p>
-                  <p className="mt-2 text-sm leading-6 text-ink">{roadmapItem.objective?.trim() || "Chưa có mục tiêu."}</p>
-                </div>
-                <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Tài liệu</p>
-                  <p className="mt-2 text-sm leading-6 text-ink">
-                    {roadmapItem.materials?.trim() ? <Linkify text={roadmapItem.materials.trim()} /> : "Chưa khai báo tài liệu."}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Ghi chú GV</p>
-                  <p className="mt-2 text-sm leading-6 text-ink">
-                    {roadmapItem.teacherGuide?.trim() || roadmapItem.homeworkGuide?.trim() ? (
-                      <Linkify text={roadmapItem.teacherGuide?.trim() || roadmapItem.homeworkGuide?.trim()} />
-                    ) : (
-                      "Chưa có ghi chú cho giáo viên."
-                    )}
-                  </p>
-                </div>
-              </div>
-            </details>
-          ) : null}
         </div>
       </div>
 
@@ -429,6 +396,23 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
         ) : null}
       </div>
 
+      {canTeachSession && session.status === "COMPLETED" && roadmapItem?.teacherRequirement?.trim() ? (
+        <SessionRequirementForm
+          sessionId={session.id}
+          requirementText={roadmapItem.teacherRequirement.trim()}
+          employeeOptions={[...new Map(session.assignments.map((assignment) => [assignment.employeeId, { id: assignment.employeeId, fullName: assignment.employee.fullName }])).values()]}
+          existing={
+            session.requirementCheck
+              ? {
+                  status: session.requirementCheck.status,
+                  employee: session.requirementCheck.employee,
+                  checkedAt: session.requirementCheck.checkedAt,
+                }
+              : null
+          }
+        />
+      ) : null}
+
       {canTeachSession ? (
         <div data-tour="session-journal">
         <ClassJournalForm
@@ -459,23 +443,6 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
           }
         />
         </div>
-      ) : null}
-
-      {canTeachSession && session.status === "COMPLETED" && roadmapItem?.teacherRequirement?.trim() ? (
-        <SessionRequirementForm
-          sessionId={session.id}
-          requirementText={roadmapItem.teacherRequirement.trim()}
-          employeeOptions={[...new Map(session.assignments.map((assignment) => [assignment.employeeId, { id: assignment.employeeId, fullName: assignment.employee.fullName }])).values()]}
-          existing={
-            session.requirementCheck
-              ? {
-                  status: session.requirementCheck.status,
-                  employee: session.requirementCheck.employee,
-                  checkedAt: session.requirementCheck.checkedAt,
-                }
-              : null
-          }
-        />
       ) : null}
     </div>
   );

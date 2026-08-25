@@ -1,7 +1,7 @@
 "use client";
 
+import Link from "next/link";
 import { SESSION_STATUS_LABEL } from "@/lib/server/class-rules";
-import SessionLinkWithDrawer from "@/components/classes/SessionLinkWithDrawer";
 
 export type SessionCardData = {
   id: string;
@@ -45,10 +45,8 @@ export default function SessionCard({ session, variant }: { session: SessionCard
 
   if (variant === "list") {
     return (
-      <SessionLinkWithDrawer
-        sessionId={session.id}
-        classId={session.classId}
-        returnPath="/calendar"
+      <Link
+        href={`/classes/${session.classId}/sessions/${session.id}`}
         className="block rounded-2xl border border-hairline bg-white p-4 transition active:scale-[0.98] active:bg-canvas-parchment"
       >
         <div className="mb-3 flex items-start justify-between gap-3">
@@ -91,15 +89,13 @@ export default function SessionCard({ session, variant }: { session: SessionCard
         {session.notes ? (
           <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">{session.notes}</div>
         ) : null}
-      </SessionLinkWithDrawer>
+      </Link>
     );
   }
 
   return (
-    <SessionLinkWithDrawer
-      sessionId={session.id}
-      classId={session.classId}
-      returnPath="/calendar"
+    <Link
+      href={`/classes/${session.classId}/sessions/${session.id}`}
       className="block rounded-[14px] border border-[#d5e4f3] bg-white p-[11px] transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_18px_40px_-30px_rgba(14,116,144,0.45)]"
     >
       <div className="flex items-start justify-between gap-3">
@@ -150,6 +146,6 @@ export default function SessionCard({ session, variant }: { session: SessionCard
       </div>
 
       {session.notes ? <div className="mt-2 rounded-[9px] bg-[#fff8ed] px-2 py-1.5 text-[10px] font-medium leading-tight text-amber-800">{session.notes}</div> : null}
-    </SessionLinkWithDrawer>
+    </Link>
   );
 }
