@@ -45,7 +45,7 @@ function TextFilterCell({
       placeholder={placeholder ?? "Lọc..."}
       onChange={(event) => handleChange(event.target.value)}
       onClick={(event) => event.stopPropagation()}
-      className="w-full min-w-0 rounded-md border border-[#e5e7eb] bg-white px-2 py-1 text-xs font-normal normal-case text-[#111827] placeholder:text-[#9ca3af] focus:border-primary focus:outline-none"
+      className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2.5 py-1.5 text-sm font-normal normal-case text-[#111827] placeholder:text-[#9ca3af] focus:border-primary focus:outline-none"
     />
   );
 }
@@ -68,7 +68,7 @@ function SelectFilterCell({
       value={value}
       onChange={(event) => onChange?.(paramKey, event.target.value || null)}
       onClick={(event) => event.stopPropagation()}
-      className="w-full min-w-0 rounded-md border border-[#e5e7eb] bg-white px-2 py-1 text-xs font-normal normal-case text-[#111827] focus:border-primary focus:outline-none"
+      className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2.5 py-1.5 text-sm font-normal normal-case text-[#111827] focus:border-primary focus:outline-none"
     >
       <option value="">{placeholder ?? "Tất cả"}</option>
       {options.map((option) => (
@@ -105,7 +105,7 @@ function RangeFilterCell({
         placeholder={type === "number" ? placeholder ?? "Từ" : undefined}
         onBlur={(event) => onChange?.(paramKeyFrom, event.target.value || null)}
         onClick={(event) => event.stopPropagation()}
-        className="w-full min-w-0 rounded-md border border-[#e5e7eb] bg-white px-1.5 py-1 text-xs font-normal normal-case text-[#111827] focus:border-primary focus:outline-none"
+        className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2 py-1.5 text-sm font-normal normal-case text-[#111827] focus:border-primary focus:outline-none"
       />
       <span className="text-[10px] text-[#9ca3af]">–</span>
       <input
@@ -114,7 +114,7 @@ function RangeFilterCell({
         placeholder={type === "number" ? placeholder ?? "Đến" : undefined}
         onBlur={(event) => onChange?.(paramKeyTo, event.target.value || null)}
         onClick={(event) => event.stopPropagation()}
-        className="w-full min-w-0 rounded-md border border-[#e5e7eb] bg-white px-1.5 py-1 text-xs font-normal normal-case text-[#111827] focus:border-primary focus:outline-none"
+        className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2 py-1.5 text-sm font-normal normal-case text-[#111827] focus:border-primary focus:outline-none"
       />
     </div>
   );
@@ -132,7 +132,7 @@ export default function DataTableFilterRow<T>({
       {selectable ? <th className="px-6 py-2" /> : null}
 
       {columns.map((column) => (
-        <th key={column.key} className="px-6 py-2 text-left align-top">
+        <th key={column.key} className="px-2 py-2 text-left align-top">
           {!column.filter ? null : column.filter.type === "text" ? (
             <TextFilterCell
               paramKey={column.filter.paramKey}

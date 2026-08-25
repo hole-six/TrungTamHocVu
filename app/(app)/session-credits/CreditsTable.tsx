@@ -46,6 +46,7 @@ type CreditsTableProps = {
   initialData: CreditRow[];
   statusParam: string;
   typeParam: string;
+  studentParam: string;
   showConsumedColumn: boolean;
 };
 
@@ -111,7 +112,7 @@ function ConsumedList({ row }: { row: CreditRow }) {
   );
 }
 
-export default function CreditsTable({ initialData, statusParam, typeParam, showConsumedColumn }: CreditsTableProps) {
+export default function CreditsTable({ initialData, statusParam, typeParam, studentParam, showConsumedColumn }: CreditsTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -131,6 +132,7 @@ export default function CreditsTable({ initialData, statusParam, typeParam, show
   const filterValues = {
     status: statusParam,
     type: typeParam,
+    student: studentParam,
   };
 
   const columns: Column<CreditRow>[] = [
@@ -138,6 +140,7 @@ export default function CreditsTable({ initialData, statusParam, typeParam, show
       key: "student",
       label: "Học viên",
       width: "200px",
+      filter: { type: "text", paramKey: "student", placeholder: "Tên hoặc mã HV..." },
       render: (_value, row) => (
         <div>
           <StudentLink studentId={row.student.id} className="font-black text-[#0f1729] hover:text-[#1d4ed8]">

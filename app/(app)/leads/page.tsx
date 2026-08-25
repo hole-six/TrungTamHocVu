@@ -83,6 +83,12 @@ export default async function LeadsPage({
     leadCode?: string;
     name?: string;
     source?: string;
+    phone?: string;
+    meetFrom?: string;
+    meetTo?: string;
+    startFrom?: string;
+    startTo?: string;
+    notes?: string;
   };
 }) {
   const user = await getCurrentUser();
@@ -100,6 +106,12 @@ export default async function LeadsPage({
   const leadCodeFilter = searchParams.leadCode?.trim() ?? "";
   const nameFilter = searchParams.name?.trim() ?? "";
   const sourceFilter = searchParams.source?.trim() ?? "";
+  const phoneFilter = searchParams.phone?.trim() ?? "";
+  const meetFrom = searchParams.meetFrom?.trim() ?? "";
+  const meetTo = searchParams.meetTo?.trim() ?? "";
+  const startFrom = searchParams.startFrom?.trim() ?? "";
+  const startTo = searchParams.startTo?.trim() ?? "";
+  const notesFilter = searchParams.notes?.trim() ?? "";
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -117,6 +129,17 @@ export default async function LeadsPage({
     ...(leadCodeFilter ? { leadCode: { contains: leadCodeFilter } } : {}),
     ...(nameFilter ? { fullName: { contains: nameFilter } } : {}),
     ...(sourceFilter ? { source: { contains: sourceFilter } } : {}),
+    // Dùng AND lồng 1 OR riêng (không phải OR trần) — tránh đè lên OR của ô tìm chung
+    // `q` phía dưới nếu cả 2 cùng có giá trị (2 key "OR" trần trong cùng object sẽ bị
+    // ghi đè, chỉ còn cái sau).
+    ...(phoneFilter ? { AND: [{ OR: [{ phone: { contains: phoneFilter } }, { secondaryPhone: { contains: phoneFilter } }] }] } : {}),
+    ...(meetFrom || meetTo
+      ? { meetDate: { ...(meetFrom ? { gte: new Date(meetFrom) } : {}), ...(meetTo ? { lte: new Date(meetTo) } : {}) } }
+      : {}),
+    ...(startFrom || startTo
+      ? { expectedStartDate: { ...(startFrom ? { gte: new Date(startFrom) } : {}), ...(startTo ? { lte: new Date(startTo) } : {}) } }
+      : {}),
+    ...(notesFilter ? { notes: { contains: notesFilter } } : {}),
     ...(testStatus === "NONE" ? { placementTests: { none: {} } } : testStatus ? { placementTests: { some: { status: testStatus } } } : {}),
     ...(urgent === "overdue"
       ? { placementTests: { some: { status: "SCHEDULED", scheduledDate: { lt: today } } } }

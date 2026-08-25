@@ -213,24 +213,19 @@ export default function LeadsTable({
     router.refresh();
   };
 
-  // Ghép mọi chiều lọc đang bật (status/q/testStatus/urgent) để các link chip/phân
-  // trang không làm mất bộ lọc khác đang chọn — thay cho nối chuỗi thủ công cũ vì
-  // giờ có 4 chiều lọc độc lập thay vì 1.
+  // Đọc searchParams hiện tại làm nền rồi patch đúng key được đổi — giữ nguyên MỌI
+  // filter khác đang bật (leadCode/name/source/phone/meetDate/... ) thay vì dựng lại
+  // URL từ 1 danh sách field cố định (bug cũ: đổi filter A sẽ xóa mất filter B đã chọn
+  // vì buildQuery không biết B tồn tại). Trừ page: reset về 1 mỗi khi đổi filter, giữ
+  // nguyên chỉ khi chính overrides đang set page (phân trang).
   function buildQuery(overrides: Record<string, string | number | null>) {
-    const params = new URLSearchParams();
-    const merged: Record<string, string | number | null> = {
-      q: searchQuery || null,
-      status: statusFilter || null,
-      testStatus: testStatusFilter || null,
-      urgent: urgentFilter || null,
-      page: 1,
-      pageSize,
-      ...overrides,
-    };
-    for (const [key, value] of Object.entries(merged)) {
-      if (value === null || value === "") continue;
-      params.set(key, String(value));
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(overrides)) {
+      if (value === null || value === "") params.delete(key);
+      else params.set(key, String(value));
     }
+    if (!("page" in overrides)) params.set("page", "1");
+    if (!params.has("pageSize")) params.set("pageSize", String(pageSize));
     return params.toString();
   }
 
@@ -279,6 +274,7 @@ export default function LeadsTable({
     {
       key: "phone",
       label: "Liên hệ",
+      filter: { type: "text", paramKey: "phone", placeholder: "SĐT..." },
       render: (value, row) => (
         <div className="space-y-0.5 text-xs">
           <p className="text-ink-muted80">{value ?? "Chưa có SĐT"}</p>
@@ -297,6 +293,7 @@ export default function LeadsTable({
     {
       key: "meetDate",
       label: "Ngày gặp",
+      filter: { type: "dateRange", paramKeyFrom: "meetFrom", paramKeyTo: "meetTo" },
       render: (value) => <DateCell date={value} />,
     },
     {
@@ -322,6 +319,7 @@ export default function LeadsTable({
     {
       key: "expectedStartDate",
       label: "Nhập học",
+      filter: { type: "dateRange", paramKeyFrom: "startFrom", paramKeyTo: "startTo" },
       render: (_value, row) => (
         <div className="min-w-[130px] space-y-1 text-xs">
           <p>
@@ -410,6 +408,7 @@ export default function LeadsTable({
     {
       key: "notes",
       label: "Ghi chú",
+      filter: { type: "text", paramKey: "notes", placeholder: "Tìm ghi chú..." },
       render: (value, row) => (
         <div onClick={(event) => event.stopPropagation()} className="max-w-[220px]">
           <EditableNoteCell leadId={row.id} notes={value ?? null} />
@@ -543,6 +542,12 @@ export default function LeadsTable({
     name: searchParams.get("name") ?? "",
     source: searchParams.get("source") ?? "",
     status: statusFilter,
+    phone: searchParams.get("phone") ?? "",
+    meetFrom: searchParams.get("meetFrom") ?? "",
+    meetTo: searchParams.get("meetTo") ?? "",
+    startFrom: searchParams.get("startFrom") ?? "",
+    startTo: searchParams.get("startTo") ?? "",
+    notes: searchParams.get("notes") ?? "",
   };
 
   const testChips: { key: string; label: string; count: number; active: boolean; query: Record<string, string | null> }[] = [

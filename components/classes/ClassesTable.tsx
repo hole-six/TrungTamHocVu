@@ -172,6 +172,10 @@ export default function ClassesTable({
     className: searchParams.get("className") ?? "",
     courseId: searchParams.get("courseId") ?? "",
     status: statusFilter,
+    tuitionFrom: searchParams.get("tuitionFrom") ?? "",
+    tuitionTo: searchParams.get("tuitionTo") ?? "",
+    endFrom: searchParams.get("endFrom") ?? "",
+    endTo: searchParams.get("endTo") ?? "",
   };
 
   const exportRows = (rows: Class[]) => {
@@ -300,6 +304,7 @@ export default function ClassesTable({
       key: "tuitionPerSession",
       label: "HỌC PHÍ/BUỔI",
       align: "right",
+      filter: { type: "numberRange", paramKeyFrom: "tuitionFrom", paramKeyTo: "tuitionTo", placeholder: "đ" },
       render: (value) => (
         <div className="min-w-[120px] text-right">
           <p className="text-sm font-semibold text-[#0f172a]">{formatVnd(value)}</p>
@@ -310,6 +315,7 @@ export default function ClassesTable({
       key: "expectedEndDate",
       label: "DỰ KIẾN KẾT THÚC",
       align: "center",
+      filter: { type: "dateRange", paramKeyFrom: "endFrom", paramKeyTo: "endTo" },
       render: (value) => (
         <div className="min-w-[100px] text-center">
           <p className="text-sm font-medium text-[#0f172a]">{formatDate(value)}</p>

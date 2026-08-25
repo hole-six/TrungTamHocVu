@@ -82,6 +82,10 @@ export default async function ClassesPage({
     classCode?: string;
     className?: string;
     courseId?: string;
+    tuitionFrom?: string;
+    tuitionTo?: string;
+    endFrom?: string;
+    endTo?: string;
   };
 }) {
   const user = await getCurrentUser();
@@ -97,6 +101,10 @@ export default async function ClassesPage({
   const classCodeFilter = searchParams.classCode?.trim() ?? "";
   const classNameFilter = searchParams.className?.trim() ?? "";
   const courseIdFilter = searchParams.courseId?.trim() ?? "";
+  const tuitionFrom = searchParams.tuitionFrom?.trim() ?? "";
+  const tuitionTo = searchParams.tuitionTo?.trim() ?? "";
+  const endFrom = searchParams.endFrom?.trim() ?? "";
+  const endTo = searchParams.endTo?.trim() ?? "";
 
   const branchWhere = activeBranchId ? { branchId: activeBranchId } : {};
   const where = {
@@ -106,6 +114,12 @@ export default async function ClassesPage({
     ...(classCodeFilter ? { classCode: { contains: classCodeFilter } } : {}),
     ...(classNameFilter ? { className: { contains: classNameFilter } } : {}),
     ...(courseIdFilter ? { courseId: courseIdFilter } : {}),
+    ...(tuitionFrom || tuitionTo
+      ? { tuitionPerSession: { ...(tuitionFrom ? { gte: Number(tuitionFrom) } : {}), ...(tuitionTo ? { lte: Number(tuitionTo) } : {}) } }
+      : {}),
+    ...(endFrom || endTo
+      ? { expectedEndDate: { ...(endFrom ? { gte: new Date(endFrom) } : {}), ...(endTo ? { lte: new Date(endTo) } : {}) } }
+      : {}),
     ...(q ? { OR: [{ className: { contains: q } }, { classCode: { contains: q } }] } : {}),
   };
 

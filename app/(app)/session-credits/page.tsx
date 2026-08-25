@@ -13,14 +13,18 @@ import CreditsTable from "./CreditsTable";
 type SearchParams = {
   status?: string;
   type?: string;
+  student?: string;
 };
 
-async function getCreditRows(activeBranchId: string | null, statusFilter: string, typeFilter: string) {
+async function getCreditRows(activeBranchId: string | null, statusFilter: string, typeFilter: string, studentFilter: string) {
   const credits = await prisma.sessionCredit.findMany({
     where: {
       origin: typeFilter ? typeFilter : { in: ["ABSENCE", "PAID_CATCHUP"] },
       ...(statusFilter ? { status: statusFilter } : {}),
-      student: activeBranchId ? { branchId: activeBranchId } : {},
+      student: {
+        ...(activeBranchId ? { branchId: activeBranchId } : {}),
+        ...(studentFilter ? { OR: [{ fullName: { contains: studentFilter } }, { studentCode: { contains: studentFilter } }] } : {}),
+      },
     },
     include: {
       student: true,
@@ -100,7 +104,8 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
   const statusParam = searchParams.status ?? "AVAILABLE";
   const status = statusParam === "ALL" ? "" : statusParam;
   const type = searchParams.type ?? "";
-  const rows = await getCreditRows(activeBranchId, status, type);
+  const student = searchParams.student?.trim() ?? "";
+  const rows = await getCreditRows(activeBranchId, status, type, student);
   // Bộ lọc "Còn phải xếp" (mặc định) chỉ truy vấn credit AVAILABLE — với bộ lọc đó,
   // consumedSession không bao giờ tồn tại nên cột "Các ngày đã bổ trợ" chắc chắn luôn
   // rỗng ở mọi dòng. Ẩn hẳn cột này khi nó không thể có dữ liệu, thay vì hiện 1 cột
@@ -168,7 +173,7 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
 
       {canUpdate("schedule", role) ? <SessionCreditsBulkAssign candidates={bulkAssignCandidates} /> : null}
 
-      <CreditsTable initialData={rows} statusParam={statusParam} typeParam={type} showConsumedColumn={showConsumedColumn} />
+      <CreditsTable initialData={rows} statusParam={statusParam} typeParam={type} studentParam={student} showConsumedColumn={showConsumedColumn} />
     </div>
   );
 }
