@@ -154,7 +154,7 @@ function AssignmentRow({ assignment, isSelf, employees }: { assignment: Assignme
 
           <div className="flex items-center gap-2 text-xs">
             {!assignment.substitutedBy ? (
-              <button type="button" onClick={() => setSubOpen((current) => !current)} className="status-action text-amber-700 hover:text-amber-700">
+              <button type="button" onClick={() => setSubOpen((current) => !current)} className="status-action">
                 {subOpen ? "Đóng" : "Nhờ dạy thay"}
               </button>
             ) : null}

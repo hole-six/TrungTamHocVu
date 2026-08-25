@@ -73,7 +73,17 @@ const LEADS_PAGE_GUIDE_SECTIONS = [
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; status?: string; testStatus?: string; urgent?: string; page?: string; pageSize?: string };
+  searchParams: {
+    q?: string;
+    status?: string;
+    testStatus?: string;
+    urgent?: string;
+    page?: string;
+    pageSize?: string;
+    leadCode?: string;
+    name?: string;
+    source?: string;
+  };
 }) {
   const user = await getCurrentUser();
   const userRole = user ? await getUserRole(user.id) : null;
@@ -86,6 +96,10 @@ export default async function LeadsPage({
   const urgent = searchParams.urgent?.trim() ?? "";
   const page = Math.max(1, Number(searchParams.page ?? 1));
   const pageSize = Number(searchParams.pageSize ?? PAGE_SIZE);
+  // Lọc theo từng cột (hàng cố định dưới header bảng) — độc lập với ô tìm chung `q`.
+  const leadCodeFilter = searchParams.leadCode?.trim() ?? "";
+  const nameFilter = searchParams.name?.trim() ?? "";
+  const sourceFilter = searchParams.source?.trim() ?? "";
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -100,6 +114,9 @@ export default async function LeadsPage({
     // danh sách chính để ưu tiên các lead còn cần xử lý, vẫn xem được khi bấm rõ
     // ràng vào chip "Đã ghi danh" (status=ENROLLED).
     ...resolveLeadStatusFilter(status),
+    ...(leadCodeFilter ? { leadCode: { contains: leadCodeFilter } } : {}),
+    ...(nameFilter ? { fullName: { contains: nameFilter } } : {}),
+    ...(sourceFilter ? { source: { contains: sourceFilter } } : {}),
     ...(testStatus === "NONE" ? { placementTests: { none: {} } } : testStatus ? { placementTests: { some: { status: testStatus } } } : {}),
     ...(urgent === "overdue"
       ? { placementTests: { some: { status: "SCHEDULED", scheduledDate: { lt: today } } } }

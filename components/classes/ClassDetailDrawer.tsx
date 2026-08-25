@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatVnd, formatDate } from "@/lib/export-utils";
-import GenerateSessionsForm from "./GenerateSessionsForm";
-import CompleteClassButton from "./CompleteClassButton";
-import ClassEditForm from "./ClassEditForm";
+import ClassQuickActions from "./ClassQuickActions";
 import EnrollStudentForm from "./EnrollStudentForm";
 import EnrollmentRowActions from "./EnrollmentRowActions";
 import TransferEnrollmentButton from "./TransferEnrollmentButton";
@@ -146,26 +144,45 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
           ) : (
             <div className="container mx-auto max-w-[1600px] space-y-4 p-4 pb-20">
               {/* Quick Actions */}
-              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#e5eaf7] bg-white p-3 shadow-sm">
-                {data.latestSession && (
-                  <SessionLinkWithDrawer
-                    sessionId={data.latestSession.id}
-                    classId={data.id}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#f97316] to-[#ea580c] px-3 py-2 text-sm font-bold text-white"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="10 8 16 12 10 16" /></svg>
-                    Mở buổi
-                  </SessionLinkWithDrawer>
-                )}
-                {data.permissions.canManageClass && <GenerateSessionsForm classId={data.id} totalSessions={data.totalSessions} existingSessionCount={data.projectedSchedule.filter((s: any) => s.session).length} />}
-                {data.permissions.canManageClass && data.status === "ACTIVE" && data.activeEnrollments > 0 && (
-                  <CompleteClassButton classId={data.id} className={data.className} nextClassName={data.nextClass?.className ?? null} needTransferCount={data.completionStats.needTransferCount} completedCount={data.completionStats.readyCount} transferValueAmount={data.completionStats.transferValueAmount} freeExtraSessions={data.completionStats.freeExtraSessions} />
-                )}
-                <ClassEditForm cls={{ id: data.id, classCode: data.classCode, className: data.className, classGroup: data.classGroup, courseId: data.courseId, tuitionPerSession: data.tuitionPerSession, sessionsPerWeek: data.sessionsPerWeek, totalSessions: data.totalSessions, startDate: data.startDate, expectedEndDate: data.expectedEndDate, nextClassId: data.nextClassId, notes: data.notes, roadmapItems: data.roadmapItems }} courses={data.courses} classOptions={data.continuationClassOptions} renderSummary={false} triggerLabel="Sửa" triggerClassName="inline-flex items-center gap-1.5 rounded-xl border-2 border-[#e5eaf7] bg-white px-3 py-2 text-sm font-semibold hover:border-[#f97316]" />
-                <button onClick={() => { onClose(); window.location.href = `/classes/${classId}`; }} className="inline-flex items-center gap-1.5 rounded-xl border-2 border-[#e5eaf7] bg-white px-3 py-2 text-sm font-semibold">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
-                  Full
-                </button>
+              <div className="rounded-2xl border border-[#e5eaf7] bg-white p-3 shadow-sm">
+              <ClassQuickActions
+                classId={data.id}
+                className={data.className}
+                status={data.status}
+                latestSessionId={data.latestSession?.id ?? null}
+                canManageClass={data.permissions.canManageClass}
+                totalSessions={data.totalSessions}
+                existingSessionCount={data.projectedSchedule.filter((s: any) => s.session).length}
+                activeEnrollmentsCount={data.activeEnrollments}
+                nextClassName={data.nextClass?.className ?? null}
+                needTransferCount={data.completionStats.needTransferCount}
+                completedCount={data.completionStats.readyCount}
+                transferValueAmount={data.completionStats.transferValueAmount}
+                freeExtraSessions={data.completionStats.freeExtraSessions}
+                editCls={{
+                  id: data.id,
+                  classCode: data.classCode,
+                  className: data.className,
+                  classGroup: data.classGroup,
+                  courseId: data.courseId,
+                  tuitionPerSession: data.tuitionPerSession,
+                  sessionsPerWeek: data.sessionsPerWeek,
+                  totalSessions: data.totalSessions,
+                  startDate: data.startDate,
+                  expectedEndDate: data.expectedEndDate,
+                  nextClassId: data.nextClassId,
+                  notes: data.notes,
+                  roadmapItems: data.roadmapItems,
+                }}
+                courses={data.courses}
+                classOptions={data.continuationClassOptions}
+                extraSlot={
+                  <button onClick={() => { onClose(); window.location.href = `/classes/${classId}`; }} className="btn-quickaction btn-quickaction--neutral">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
+                    Full
+                  </button>
+                }
+              />
               </div>
 
               {/* KPI Cards */}

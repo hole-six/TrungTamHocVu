@@ -712,6 +712,25 @@
            active:scale-95 cursor-pointer;
   }
 
+  /* ─── Quick-action bar button (entity-detail action rows: students, classes) ── */
+  .btn-quickaction {
+    @apply inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-5 py-3
+           text-base font-semibold text-[#0f1729] shadow-sm
+           transition-all hover:-translate-y-0.5;
+  }
+  .btn-quickaction--orange {
+    @apply hover:border-[#f97316] hover:text-[#f97316];
+  }
+  .btn-quickaction--blue {
+    @apply hover:border-[#3b82f6] hover:text-[#3b82f6];
+  }
+  .btn-quickaction--purple {
+    @apply hover:border-[#8b5cf6] hover:text-[#8b5cf6];
+  }
+  .btn-quickaction--neutral {
+    @apply text-[#6b7280] hover:border-[#9ca3af] hover:text-[#111827];
+  }
+
   /* ─── Search result item ─────────────────────────────── */
   .search-result-item {
     @apply block w-full rounded-xl border border-[#e8edf5] px-4 py-3

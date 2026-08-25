@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
 import type { Column, BulkAction } from "@/components/ui/DataTable";
 import { isFrontDeskRole, isTeachingStaffRole } from "@/lib/client-roles";
@@ -60,6 +60,9 @@ export default function GuardiansTable({
   stats,
 }: GuardiansTableProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
   const { openDrawer } = useStudentDrawer();
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
@@ -69,6 +72,19 @@ export default function GuardiansTable({
   useEffect(() => {
     setData(initialData);
   }, [initialData]);
+
+  // Lọc theo TỪNG CỘT (hàng cố định dưới header) — patch qua URL searchParams, giữ
+  // nguyên mọi param khác (q, page, pageSize, các filter cột còn lại) thay vì tự dựng
+  // URL từ đầu như onPageChange/handleSearch cũ vẫn làm (dễ làm rơi mất filter khi
+  // chuyển trang/tìm kiếm).
+  function updateParams(patch: Record<string, string | null>) {
+    const next = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === null || value === "") next.delete(key);
+      else next.set(key, value);
+    }
+    startTransition(() => router.push(`${pathname}?${next.toString()}`));
+  }
 
   const visibleData = data.filter((row) => {
     if (filterKey === "PORTAL") return Boolean(row.portalEmail);
@@ -111,6 +127,10 @@ export default function GuardiansTable({
       key: "fullName",
       label: "Phụ huynh",
       sortable: true,
+      // Một ô text gộp tên/SĐT (OR contains ở backend) — phone không có cột riêng
+      // trong bảng này nên gộp vào đây, nhường ô lọc của cột "phone" cho trạng thái
+      // portal (xem bên dưới).
+      filter: { type: "text", paramKey: "contact", placeholder: "Tên hoặc SĐT..." },
       render: (value, row) => (
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 via-cyan-50 to-white text-sm font-bold text-sky-700 shadow-sm ring-1 ring-sky-100">
@@ -129,6 +149,21 @@ export default function GuardiansTable({
     {
       key: "phone",
       label: "Liên hệ / Portal",
+      // Trạng thái portal không phải cột thật trên Guardian — nó suy ra từ quan hệ
+      // 1-1 optional `user` (Guardian.user User?). Vì đây là quan hệ trực tiếp (không
+      // phải tổng hợp qua nhiều bảng như outstanding/continuationStatus ở Students),
+      // Prisma lọc được thẳng bằng where.user = null / { isActive: true|false } ở
+      // page.tsx — không cần kỹ thuật computed-filter (tính hết rồi lọc JS) nặng hơn.
+      filter: {
+        type: "select",
+        paramKey: "portalStatus",
+        placeholder: "Tất cả",
+        options: [
+          { label: "Chưa có portal", value: "NONE" },
+          { label: "Portal hoạt động", value: "ACTIVE" },
+          { label: "Portal chưa kích hoạt", value: "INACTIVE" },
+        ],
+      },
       render: (value, row) => (
         <div className="space-y-2">
           <div>
@@ -207,8 +242,16 @@ export default function GuardiansTable({
     const result = await res.json();
     setData(result.items);
     setLoading(false);
-    router.push(`/guardians?q=${encodeURIComponent(query)}&page=1&pageSize=${pageSize}`);
+    // updateParams (không tự dựng URL) để giữ nguyên các filter cột (contact,
+    // portalStatus) đang áp dụng thay vì bị xóa mất khi tìm kiếm.
+    updateParams({ q: query || null, page: "1" });
   };
+
+  const filterValues = {
+    contact: searchParams.get("contact") ?? "",
+    portalStatus: searchParams.get("portalStatus") ?? "",
+  };
+  const handleFilterChange = (key: string, value: string | null) => updateParams({ [key]: value, page: "1" });
 
   const filterChips = (
     <>
@@ -247,6 +290,8 @@ export default function GuardiansTable({
         searchPlaceholder="Tìm phụ huynh, SĐT, học viên..."
         onSearch={handleSearch}
         filterChips={filterChips}
+        filterValues={filterValues}
+        onFilterChange={handleFilterChange}
         sortable
         selectable={false}
         showCountBadge={false}
@@ -254,8 +299,8 @@ export default function GuardiansTable({
           total,
           page,
           pageSize,
-          onPageChange: (newPage) => router.push(`/guardians?page=${newPage}&pageSize=${pageSize}`),
-          onPageSizeChange: (newSize) => router.push(`/guardians?page=1&pageSize=${newSize}`),
+          onPageChange: (newPage) => updateParams({ page: String(newPage) }),
+          onPageSizeChange: (newSize) => updateParams({ page: "1", pageSize: String(newSize) }),
         }}
         emptyState={{
           title: "Chưa có phụ huynh",
@@ -267,7 +312,7 @@ export default function GuardiansTable({
               }
             : undefined,
         }}
-        loading={loading}
+        loading={loading || isPending}
         stickyHeader
         rowKey="id"
         onRowClick={(row) => router.push(`/guardians/${row.id}`)}

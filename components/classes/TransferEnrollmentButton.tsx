@@ -27,6 +27,7 @@ export default function TransferEnrollmentButton({
   scholarshipPct = 0,
   defaultTargetClassId,
   classOptions,
+  variant = "row",
 }: {
   enrollmentId: string;
   currentClassName: string;
@@ -38,6 +39,8 @@ export default function TransferEnrollmentButton({
   scholarshipPct?: number;
   defaultTargetClassId?: string | null;
   classOptions: ClassOption[];
+  /** "row" (mặc định) cho dòng bảng học viên trong lớp; "quickaction" cho thanh hành động nhanh ở hồ sơ học viên. */
+  variant?: "row" | "quickaction";
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -87,7 +90,7 @@ export default function TransferEnrollmentButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex min-w-[104px] items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 transition hover:bg-amber-100"
+        className={variant === "quickaction" ? "btn-quickaction btn-quickaction--orange" : "status-action"}
       >
         Chuyển lớp
       </button>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Column, Action, BulkAction } from "@/components/ui/DataTable";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
@@ -158,6 +158,9 @@ function EditBookSlideOver({
 
 export default function BooksTable({
   initialData,
+  total,
+  page,
+  pageSize,
   categoryOptions,
   userRole,
   totalOnHand,
@@ -165,6 +168,9 @@ export default function BooksTable({
   unpaidIssuesCount,
 }: {
   initialData: BookRow[];
+  total: number;
+  page: number;
+  pageSize: number;
   categoryOptions: string[];
   userRole: string;
   totalOnHand: number;
@@ -172,14 +178,31 @@ export default function BooksTable({
   unpaidIssuesCount: number;
 }) {
   const router = useRouter();
-  const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
   const [editingBook, setEditingBook] = useState<BookRow | null>(null);
   const [deletingBook, setDeletingBook] = useState<BookRow | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+
+  function updateParams(patch: Record<string, string | null>) {
+    const next = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === null || value === "") next.delete(key);
+      else next.set(key, value);
+    }
+    startTransition(() => router.push(`${pathname}?${next.toString()}`));
+  }
+
+  const bookNameFilter = searchParams.get("bookName") ?? "";
+  const filterValues = {
+    bookName: bookNameFilter,
+    bookCategory: searchParams.get("bookCategory") ?? "",
+    stockFrom: searchParams.get("stockFrom") ?? "",
+    stockTo: searchParams.get("stockTo") ?? "",
+  };
+  const handleFilterChange = (key: string, value: string | null) => updateParams({ [key]: value, page: "1" });
 
   async function confirmDeleteBook() {
     if (!deletingBook) return;
@@ -200,29 +223,24 @@ export default function BooksTable({
     router.refresh();
   }
 
-  const data = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return initialData.filter((book) => {
-      if (categoryFilter && book.categoryLabel !== categoryFilter) return false;
-      if (!term) return true;
-      const haystack = `${book.name} ${book.bookCode ?? ""} ${book.categoryLabel}`.toLowerCase();
-      return haystack.includes(term);
-    });
-  }, [initialData, search, categoryFilter]);
-
-  const pagedData = useMemo(() => data.slice((page - 1) * pageSize, page * pageSize), [data, page, pageSize]);
-
   const columns: Column<BookRow>[] = [
     {
       key: "categoryLabel",
       label: "Danh mục",
       width: "150px",
+      filter: {
+        type: "select",
+        paramKey: "bookCategory",
+        placeholder: "Tất cả",
+        options: categoryOptions.map((category) => ({ label: category, value: category })),
+      },
       render: (value) => <span className={categoryBadgeClass(value)}>{value}</span>,
     },
     {
       key: "name",
       label: "Sách",
       sortable: true,
+      filter: { type: "text", paramKey: "bookName", placeholder: "Tên/mã sách..." },
       render: (value, row) => (
         <div>
           <p className="text-sm font-semibold text-ink">{value}</p>
@@ -253,6 +271,7 @@ export default function BooksTable({
       label: "Tồn",
       sortable: true,
       align: "center",
+      filter: { type: "numberRange", paramKeyFrom: "stockFrom", paramKeyTo: "stockTo" },
       render: (value) => <span className={value <= 5 ? "badge-amber" : "badge-green"}>{value}</span>,
     },
   ];
@@ -340,54 +359,37 @@ export default function BooksTable({
   const filterChips = (
     <div className="flex flex-wrap items-center gap-2">
       <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-ink">Tồn kho {totalOnHand}</span>
-      <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-sky-700">Đầu sách {initialData.length}</span>
+      <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-sky-700">Đầu sách {total}</span>
       <span className="rounded-full border border-[#fde7d8] bg-[#fff8f2] px-3 py-2 text-xs font-semibold text-amber-700">Tồn thấp {lowStockCount}</span>
       <span className="rounded-full border border-[#ffe0e0] bg-[#fff7f7] px-3 py-2 text-xs font-semibold text-rose-700">Chưa TT {unpaidIssuesCount}</span>
-      <select
-        value={categoryFilter}
-        onChange={(event) => {
-          setCategoryFilter(event.target.value);
-          setPage(1);
-        }}
-        className="rounded-full border border-hairline bg-white px-3 py-2 text-xs font-medium text-ink-muted64"
-      >
-        <option value="">Tất cả danh mục</option>
-        {categoryOptions.map((category) => (
-          <option key={category} value={category}>
-            {category}
-          </option>
-        ))}
-      </select>
     </div>
   );
 
   return (
     <>
       <DataTableResponsive
-        data={pagedData}
+        data={initialData}
         columns={columns}
         actions={actions}
         bulkActions={bulkActions}
         searchable
         searchPlaceholder="Tìm tên sách, mã sách..."
-        onSearch={(value) => {
-          setSearch(value);
-          setPage(1);
-        }}
+        onSearch={(value) => updateParams({ bookName: value || null, page: "1" })}
+        defaultSearchValue={bookNameFilter}
         filterChips={filterChips}
+        filterValues={filterValues}
+        onFilterChange={handleFilterChange}
         showCountBadge={false}
         sortable
         selectable
         rowKey="id"
+        loading={isPending}
         pagination={{
-          total: data.length,
+          total,
           page,
           pageSize,
-          onPageChange: setPage,
-          onPageSizeChange: (size) => {
-            setPageSize(size);
-            setPage(1);
-          },
+          onPageChange: (newPage) => updateParams({ page: String(newPage) }),
+          onPageSizeChange: (size) => updateParams({ page: "1", pageSize: String(size) }),
         }}
         emptyState={{
           title: "Chưa có đầu sách",

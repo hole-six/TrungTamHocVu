@@ -824,7 +824,7 @@ export default function StudentFinanceDesk({
                           type="button"
                           onClick={() => updateBookPaymentStatus(row.issue!.id, "PARTIAL")}
                           disabled={updatingBookIssueId === row.issue.id}
-                          className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-200"
+                          className="status-action"
                         >
                           Một phần
                         </button>

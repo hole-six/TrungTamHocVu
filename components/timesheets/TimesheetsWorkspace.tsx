@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
 import type { Column, Action } from "@/components/ui/DataTable/DataTable";
@@ -20,12 +20,6 @@ const TIMESHEET_TOUR_STEPS: TourStep[] = [
     target: '[data-tour="timesheet-header"]',
     title: "Chấm công dành cho công hành chính, không phải công dạy",
     description: "Giáo viên/trợ giảng lấy công dạy tự động theo phân công lớp — chỉ chấm công thêm ở đây nếu họ có làm việc hành chính ngoài giờ dạy.",
-    placement: "bottom",
-  },
-  {
-    target: '[data-tour="timesheet-filters"]',
-    title: "Đổi ngày trước, tìm/lọc sau",
-    description: "Bảng luôn hiển thị trạng thái chấm công của ĐÚNG ngày đang chọn ở góc trên — mọi dòng đang mở sẵn sẽ tự cập nhật theo ngày mới.",
     placement: "bottom",
   },
   {
@@ -71,22 +65,32 @@ function formatVnDate(value: string) {
 
 export default function TimesheetsWorkspace({
   employees,
+  tableEmployees,
   monthLabel,
   defaultDate,
   canManageEmployees,
   canDeleteTimesheet,
+  positionOptions,
+  search,
+  position,
 }: {
   employees: EmployeeRow[];
+  /** Nhân sự ACTIVE đã lọc theo `search`/`position` ở server (Prisma `where`) — dùng để
+   * hiển thị bảng. `employees` (đầy đủ mọi workStatus, không lọc search/position) vẫn
+   * giữ nguyên để tính KPI/tổng và danh sách vị trí cho ô lọc. */
+  tableEmployees: EmployeeRow[];
   monthLabel: string;
   defaultDate: string;
   canManageEmployees: boolean;
   canDeleteTimesheet: boolean;
+  positionOptions: string[];
+  search: string;
+  position: string;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedDate, setSelectedDate] = useState(defaultDate);
   const [notice, setNotice] = useState<string | null>(null);
-  const [keyword, setKeyword] = useState("");
-  const [positionFilter, setPositionFilter] = useState<string>("ALL");
   const [page, setPage] = useState(1);
 
   const today = todayYmd();
@@ -109,23 +113,7 @@ export default function TimesheetsWorkspace({
 
   const activeEmployees = useMemo(() => employees.filter((item) => item.workStatus === "ACTIVE"), [employees]);
 
-  const positionOptions = useMemo(() => {
-    const set = new Set<string>();
-    activeEmployees.forEach((employee) => set.add(employee.position?.trim() || "Chưa khai báo"));
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "vi"));
-  }, [activeEmployees]);
-
   const entryOnSelectedDate = (employee: EmployeeRow) => employee.timesheetEntries.find((entry) => entry.workDate.slice(0, 10) === selectedDate) ?? null;
-
-  const filteredEmployees = useMemo(() => {
-    const kw = keyword.trim().toLowerCase();
-    return activeEmployees.filter((employee) => {
-      const positionLabel = employee.position?.trim() || "Chưa khai báo";
-      if (positionFilter !== "ALL" && positionLabel !== positionFilter) return false;
-      if (!kw) return true;
-      return employee.fullName.toLowerCase().includes(kw) || employee.employeeCode.toLowerCase().includes(kw);
-    });
-  }, [activeEmployees, keyword, positionFilter]);
 
   const stats = useMemo(() => {
     const entriesToday = employees.filter((employee) => employee.timesheetEntries.some((entry) => entry.workDate.slice(0, 10) === selectedDate));
@@ -139,18 +127,30 @@ export default function TimesheetsWorkspace({
     };
   }, [activeEmployees.length, employees, selectedDate]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(tableEmployees.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
-  const pagedEmployees = filteredEmployees.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pagedEmployees = tableEmployees.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   useEffect(() => {
     setPage(1);
-  }, [keyword, positionFilter, selectedDate]);
+  }, [tableEmployees, selectedDate]);
 
   function loadDate(date: string) {
     setSelectedDate(date);
     setNotice(null);
   }
+
+  function updateParams(patch: Record<string, string | null>) {
+    const params = new URLSearchParams(searchParams?.toString());
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === null) params.delete(key);
+      else params.set(key, value);
+    }
+    router.push(`/timesheets?${params.toString()}`);
+  }
+
+  const handleSearch = (value: string) => updateParams({ search: value || null });
+  const handleFilterChange = (key: string, value: string | null) => updateParams({ [key]: value });
 
   const columns: Column<EmployeeRow>[] = [
     {
@@ -163,7 +163,17 @@ export default function TimesheetsWorkspace({
         </div>
       ),
     },
-    { key: "position", label: "Vị trí", render: (value) => value ?? "—" },
+    {
+      key: "position",
+      label: "Vị trí",
+      filter: {
+        type: "select",
+        paramKey: "position",
+        placeholder: "Tất cả vị trí",
+        options: positionOptions.map((value) => ({ label: value, value })),
+      },
+      render: (value) => value ?? "—",
+    },
     {
       key: "id",
       label: `Ngày ${formatVnDate(selectedDate)}`,
@@ -243,26 +253,9 @@ export default function TimesheetsWorkspace({
           <div>
             <h2 className="font-display text-xl font-semibold tracking-tight">Danh sách chấm công</h2>
             <p className="mt-1 text-sm text-ink-muted48">
-              Ngày {formatVnDate(selectedDate)} · {filteredEmployees.length} nhân viên đang hiển thị · cột &quot;Công tháng&quot; đã gồm cả công/giờ/lần chấm gần nhất
+              Ngày {formatVnDate(selectedDate)} · {tableEmployees.length} nhân viên đang hiển thị · cột &quot;Công tháng&quot; đã gồm cả công/giờ/lần chấm gần nhất
             </p>
           </div>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center" data-tour="timesheet-filters">
-          <input
-            className="input flex-1"
-            placeholder="Tìm theo tên hoặc mã nhân viên..."
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
-          />
-          <select className="input sm:w-56" value={positionFilter} onChange={(event) => setPositionFilter(event.target.value)}>
-            <option value="ALL">Tất cả vị trí</option>
-            {positionOptions.map((position) => (
-              <option key={position} value={position}>
-                {position}
-              </option>
-            ))}
-          </select>
         </div>
 
         {notice ? <div className="alert-success">{notice}</div> : null}
@@ -273,7 +266,12 @@ export default function TimesheetsWorkspace({
             columns={columns}
             actions={actions}
             rowKey="id"
-            searchable={false}
+            searchable
+            searchPlaceholder="Tìm theo tên hoặc mã nhân viên..."
+            onSearch={handleSearch}
+            defaultSearchValue={search}
+            filterValues={{ position }}
+            onFilterChange={handleFilterChange}
             selectable={false}
             showCountBadge={false}
             primaryColumn="fullName"
@@ -291,7 +289,7 @@ export default function TimesheetsWorkspace({
               />
             )}
             pagination={{
-              total: filteredEmployees.length,
+              total: tableEmployees.length,
               page: currentPage,
               pageSize: PAGE_SIZE,
               onPageChange: (nextPage) => setPage(nextPage),

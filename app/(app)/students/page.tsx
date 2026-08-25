@@ -45,7 +45,19 @@ const STUDENTS_PAGE_GUIDE_SECTIONS = [
 export default async function StudentsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; status?: string; page?: string; pageSize?: string };
+  searchParams: {
+    q?: string;
+    status?: string;
+    page?: string;
+    pageSize?: string;
+    code?: string;
+    name?: string;
+    className?: string;
+    guardian?: string;
+    continuationStatus?: string;
+    outstandingFrom?: string;
+    outstandingTo?: string;
+  };
 }) {
   const user = await getCurrentUser();
   if (!user) notFound();
@@ -60,6 +72,20 @@ export default async function StudentsPage({
   const status = searchParams.status ?? "";
   const page = Math.max(1, Number(searchParams.page ?? 1));
   const pageSize = Number(searchParams.pageSize ?? PAGE_SIZE);
+  // Lọc theo từng cột (hàng cố định dưới header bảng) — độc lập với ô tìm chung `q`.
+  const codeFilter = searchParams.code?.trim() ?? "";
+  const nameFilter = searchParams.name?.trim() ?? "";
+  const classNameFilter = searchParams.className?.trim() ?? "";
+  const guardianFilter = searchParams.guardian?.trim() ?? "";
+  // continuationStatus/outstanding không phải cột thật (tính SAU khi query, từ charge +
+  // enrollment snapshot) — không lọc được bằng Prisma `where` trực tiếp. Áp dụng bằng
+  // cách: tính đủ cho TOÀN BỘ danh sách khớp các filter còn lại (không phân trang ở
+  // DB), lọc 2 field này trong JS ở SERVER, rồi mới cắt trang — vẫn là lọc backend
+  // đúng nghĩa (không gửi dữ liệu chưa lọc ra browser), chỉ khác chỗ phân trang xảy ra
+  // sau bước tính toán thay vì ở Prisma `skip/take`.
+  const continuationStatusFilter = searchParams.continuationStatus?.trim() ?? "";
+  const outstandingFrom = searchParams.outstandingFrom?.trim() ?? "";
+  const outstandingTo = searchParams.outstandingTo?.trim() ?? "";
 
   const assignmentScope: Prisma.StudentWhereInput = limitedToAssignedStudents
     ? user.employeeId
@@ -85,6 +111,21 @@ export default async function StudentsPage({
   const where: Prisma.StudentWhereInput = {
     ...baseWhere,
     ...(status ? { status } : {}),
+    ...(codeFilter ? { studentCode: { contains: codeFilter } } : {}),
+    ...(nameFilter ? { fullName: { contains: nameFilter } } : {}),
+    ...(classNameFilter
+      ? {
+          enrollments: {
+            some: {
+              status: "ACTIVE",
+              class: { OR: [{ className: { contains: classNameFilter } }, { classCode: { contains: classNameFilter } }] },
+            },
+          },
+        }
+      : {}),
+    ...(guardianFilter
+      ? { guardians: { some: { isPrimary: true, guardian: { fullName: { contains: guardianFilter } } } } }
+      : {}),
     ...(q
       ? {
           OR: [
@@ -98,12 +139,16 @@ export default async function StudentsPage({
       : {}),
   };
 
-  const [items, total, grouped] = await Promise.all([
+  const needsComputedFilter = Boolean(continuationStatusFilter || outstandingFrom || outstandingTo);
+
+  const [items, grouped, countResult] = await Promise.all([
     prisma.student.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      // continuationStatus/outstanding lọc SAU khi tính (xem ghi chú ở trên) — khi có
+      // 1 trong 2 filter đó, phải lấy đủ toàn bộ danh sách khớp rồi mới cắt trang, nên
+      // bỏ skip/take ở đây; ngược lại giữ nguyên phân trang ở DB như cũ (rẻ hơn).
+      ...(needsComputedFilter ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
       include: {
         lead: true,
         guardians: {
@@ -116,12 +161,12 @@ export default async function StudentsPage({
         },
       },
     }),
-    prisma.student.count({ where }),
     prisma.student.groupBy({
       by: ["status"],
       where: baseWhere,
       _count: { _all: true },
     }),
+    needsComputedFilter ? Promise.resolve(null) : prisma.student.count({ where }),
   ]);
 
   const studentIds = items.map((item) => item.id);
@@ -302,11 +347,29 @@ export default async function StudentsPage({
     };
   });
 
+  // continuationStatus/outstanding lọc ở đây (sau khi đã tính xong, xem ghi chú ở
+  // needsComputedFilter) rồi mới cắt trang — vẫn trên server, chưa gửi gì ra browser.
+  let filteredItems = normalizedItems;
+  if (continuationStatusFilter) {
+    filteredItems = filteredItems.filter((item) => item.continuationStatus === continuationStatusFilter);
+  }
+  if (outstandingFrom) {
+    filteredItems = filteredItems.filter((item) => (item.outstanding ?? 0) >= Number(outstandingFrom));
+  }
+  if (outstandingTo) {
+    filteredItems = filteredItems.filter((item) => (item.outstanding ?? 0) <= Number(outstandingTo));
+  }
+
+  const total = needsComputedFilter ? filteredItems.length : countResult ?? 0;
+  const pageItems = needsComputedFilter
+    ? filteredItems.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
+    : filteredItems;
+
   const stats = Object.fromEntries(grouped.map((row) => [row.status, row._count._all])) as Record<string, number>;
-  const portalCount = normalizedItems.filter((item) => item.primaryGuardian?.user?.isActive).length;
-  const debtCount = normalizedItems.filter((item) => (item.outstanding ?? 0) > 0).length;
-  const needTransferCount = normalizedItems.filter((item) => item.continuationStatus === "NEED_TRANSFER").length;
-  const endingSoonCount = normalizedItems.filter((item) => {
+  const portalCount = pageItems.filter((item) => item.primaryGuardian?.user?.isActive).length;
+  const debtCount = pageItems.filter((item) => (item.outstanding ?? 0) > 0).length;
+  const needTransferCount = pageItems.filter((item) => item.continuationStatus === "NEED_TRANSFER").length;
+  const endingSoonCount = pageItems.filter((item) => {
     if (item.continuationStatus === "NEED_TRANSFER") return false;
     const remaining = item.learningRemainingSessions ?? 999;
     return remaining > 0 && remaining <= 3;
@@ -340,7 +403,7 @@ export default async function StudentsPage({
       </div>
 
       <StudentsTable
-        initialData={normalizedItems}
+        initialData={pageItems}
         total={total}
         page={page}
         pageSize={pageSize}

@@ -5,11 +5,48 @@ import { SESSION_ROLE_LABEL, computeContractStatus } from "@/lib/server/payroll-
 import PayrollEmployeeEditPanels from "@/components/payroll/PayrollEmployeeEditPanels";
 import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
+import type { Column } from "@/components/ui/DataTable";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canCreate, canUpdateWithOverride, canViewFullWithOverride } from "@/lib/server/role-matrix";
 import { canAccessBranch } from "@/lib/branch-filter";
 import { formatVnd } from "@/lib/export-utils";
+
+type RequirementCheckRow = {
+  id: string;
+  sessionDate: string;
+  className: string;
+  classId: string;
+  sessionId: string;
+  requirementText: string;
+  status: string;
+  deductedPoints: number | null;
+};
+
+const REQUIREMENT_CHECK_COLUMNS: Column<RequirementCheckRow>[] = [
+  { key: "sessionDate", label: "Ngày buổi học", sortable: true },
+  { key: "className", label: "Lớp" },
+  {
+    key: "requirementText",
+    label: "Yêu cầu",
+    render: (value: string) => <p className="line-clamp-2 max-w-xs text-sm text-ink-muted80">{value}</p>,
+  },
+  {
+    key: "status",
+    label: "Trạng thái",
+    render: (value: string) => (
+      <span className={`badge ${value === "SUBMITTED" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+        {value === "SUBMITTED" ? "Đã nộp" : "Chưa nộp"}
+      </span>
+    ),
+  },
+  {
+    key: "deductedPoints",
+    label: "Điểm trừ",
+    render: (value: number | null) => (value != null ? <span className="font-bold text-rose-600">-{value}</span> : <span className="text-ink-muted48">—</span>),
+  },
+];
 
 function formatDate(d: Date) {
   return new Date(d).toLocaleDateString("vi-VN");
@@ -98,6 +135,29 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
   if (!(await canAccessBranch(employee.branchId))) notFound();
 
   const contractStatus = computeContractStatus(employee.resignDate, employee.contracts[0]?.expiryDate ?? null);
+
+  // Cùng shape truy vấn với /teacher-tasks (xem app/(app)/teacher-tasks/page.tsx), thu hẹp
+  // về đúng 1 nhân sự này để hiển thị lịch sử "việc đã nộp/chưa nộp" ngay tại hồ sơ.
+  const requirementChecks = await prisma.sessionRequirementCheck.findMany({
+    where: { employeeId: params.id },
+    include: {
+      session: { select: { id: true, classId: true, sessionDate: true, class: { select: { className: true } } } },
+      scoreEvent: { select: { points: true, type: true } },
+    },
+    orderBy: { checkedAt: "desc" },
+    take: 100,
+  });
+
+  const requirementCheckRows: RequirementCheckRow[] = requirementChecks.map((item) => ({
+    id: item.id,
+    sessionDate: formatDate(item.session.sessionDate),
+    className: item.session.class.className,
+    classId: item.session.classId,
+    sessionId: item.session.id,
+    requirementText: item.requirementText,
+    status: item.status,
+    deductedPoints: item.scoreEvent && item.scoreEvent.type === "DEDUCT" ? item.scoreEvent.points : null,
+  }));
 
   return (
     <div className="space-y-6">
@@ -249,6 +309,25 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Việc giáo viên cần làm — nộp/chưa nộp theo buổi (xem thêm /teacher-tasks) */}
+          <div className="card" data-tour="employee-requirement-checks">
+            <h2 className="font-display text-lg font-semibold tracking-tight mb-3">
+              Việc giáo viên cần làm theo buổi ({requirementCheckRows.length})
+            </h2>
+            <DataTableResponsive
+              data={requirementCheckRows}
+              columns={REQUIREMENT_CHECK_COLUMNS}
+              rowKey="id"
+              primaryColumn="sessionDate"
+              secondaryColumns={["className", "status"]}
+              sortable
+              emptyState={{
+                title: "Chưa có xác nhận nào",
+                description: "Các xác nhận sẽ xuất hiện khi trợ giảng đánh dấu tại từng buổi học.",
+              }}
+            />
           </div>
         </div>
 

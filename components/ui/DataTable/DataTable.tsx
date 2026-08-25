@@ -3,15 +3,25 @@
 import { ReactNode, useMemo, useState } from "react";
 import DataTableHeader from "./DataTableHeader";
 import DataTableRow from "./DataTableRow";
+import DataTableFilterRow from "./DataTableFilterRow";
 import DataTablePagination from "./DataTablePagination";
 import DataTableEmpty from "./DataTableEmpty";
 import DataTableBulk from "./DataTableBulk";
+
+// Lọc theo TỪNG CỘT (hàng cố định dưới header, backend — patch qua URL searchParams,
+// tái dùng đúng updateParams() mà mỗi XxxTable.tsx đã có sẵn cho search/pagination,
+// không phát minh luồng fetch thứ 2). Khác `sortable` — sort vẫn client-side như cũ.
+export type ColumnFilter =
+  | { type: "text"; paramKey: string; placeholder?: string }
+  | { type: "select"; paramKey: string; options: { label: string; value: string }[]; placeholder?: string }
+  | { type: "dateRange"; paramKeyFrom: string; paramKeyTo: string }
+  | { type: "numberRange"; paramKeyFrom: string; paramKeyTo: string; placeholder?: string };
 
 export type Column<T> = {
   key: string;
   label: string;
   sortable?: boolean;
-  filterable?: boolean;
+  filter?: ColumnFilter;
   width?: string;
   align?: "left" | "center" | "right";
   render?: (value: any, row: T) => React.ReactNode;
@@ -73,6 +83,10 @@ type DataTableProps<T> = {
   headerActions?: ReactNode;
   filterChips?: ReactNode;
   defaultSearchValue?: string;
+  /** Giá trị lọc theo cột hiện tại, keyed theo paramKey/paramKeyFrom/paramKeyTo của Column.filter. */
+  filterValues?: Record<string, string>;
+  /** Bắn ra khi 1 ô lọc cột đổi giá trị — value=null nghĩa là xóa param đó. */
+  onFilterChange?: (paramKey: string, value: string | null) => void;
   /**
    * Nếu có, mỗi dòng có nút "Xem thêm" mở ra 1 dòng phụ bên dưới chứa nội dung này
    * (dùng cho các bảng cần hiện chi tiết/sửa-tại-chỗ mà không hợp để tách thành cột,
@@ -102,6 +116,8 @@ export default function DataTable<T extends Record<string, any>>({
   headerActions,
   filterChips,
   defaultSearchValue = "",
+  filterValues = {},
+  onFilterChange,
   renderExpanded,
 }: DataTableProps<T>) {
   const [selectedRows, setSelectedRows] = useState<Set<any>>(new Set());
@@ -245,6 +261,16 @@ export default function DataTable<T extends Record<string, any>>({
                   </th>
                 ) : null}
               </tr>
+
+              {columns.some((column) => column.filter) ? (
+                <DataTableFilterRow
+                  columns={columns}
+                  values={filterValues}
+                  onChange={onFilterChange}
+                  selectable={selectable}
+                  hasActionsColumn={actions.length > 0 || !!renderExpanded}
+                />
+              ) : null}
             </thead>
 
             <tbody data-dt="tbody" className="divide-y divide-[#f3f4f6] bg-white">

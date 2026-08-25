@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Column, Action } from "./DataTable";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import DataTableMobileFilters from "./DataTableMobileFilters";
 
 type DataTableMobileProps<T> = {
   data: T[];
@@ -32,6 +33,8 @@ type DataTableMobileProps<T> = {
   secondaryColumns?: string[];
   className?: string;
   defaultSearchValue?: string;
+  filterValues?: Record<string, string>;
+  onFilterChange?: (paramKey: string, value: string | null) => void;
   /** Xem mô tả ở DataTable.tsx — cùng 1 nội dung được dùng cho cả bản desktop lẫn mobile. */
   renderExpanded?: (row: T) => ReactNode;
 };
@@ -52,6 +55,8 @@ export default function DataTableMobile<T extends Record<string, any>>({
   secondaryColumns = [],
   className = "",
   defaultSearchValue = "",
+  filterValues = {},
+  onFilterChange,
   renderExpanded,
 }: DataTableMobileProps<T>) {
   const [searchQuery, setSearchQuery] = useState(defaultSearchValue);
@@ -125,6 +130,10 @@ export default function DataTableMobile<T extends Record<string, any>>({
             <path d="m21 21-4.35-4.35" />
           </svg>
         </div>
+      ) : null}
+
+      {columns.some((column) => column.filter) ? (
+        <DataTableMobileFilters columns={columns} values={filterValues} onChange={onFilterChange} />
       ) : null}
 
       {loading ? (

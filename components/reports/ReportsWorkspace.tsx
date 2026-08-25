@@ -167,7 +167,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Xuất Excel
             </button>
-            <button onClick={createSnapshot} disabled={creating} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#f97316] to-[#ea580c] px-4 py-2.5 text-sm font-bold text-white shadow hover:shadow-lg hover:-translate-y-0.5 transition disabled:opacity-60">
+            <button onClick={createSnapshot} disabled={creating} className="btn-primary-sm">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v14a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
               {getCreateSnapshotButtonLabel("report", creating)}
             </button>
@@ -194,7 +194,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
               <input type="text" value={keyword} onChange={(e) => setKeyword(e.target.value)}
                 placeholder="Tên, mã HV, SĐT, phụ huynh, lớp..."
                 className="flex-1 rounded-xl border border-[#e5eaf7] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#f97316] transition" />
-              <button onClick={applyFilters} className="rounded-xl bg-[#f97316] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#ea580c] transition">
+              <button onClick={applyFilters} className="btn-primary-sm">
                 Áp dụng
               </button>
             </div>

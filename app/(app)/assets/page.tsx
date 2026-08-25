@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeAssetTotalValue, computeNextMaintenanceDue, computeMaintenanceStatus } from "@/lib/server/asset-rules";
@@ -71,7 +72,7 @@ function normalizeUnit(unitName: string | null) {
 export default async function AssetsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; page?: string };
+  searchParams: { q?: string; page?: string; name?: string; category?: string; status?: string };
 }) {
   const user = await getCurrentUser();
   const role = user ? await getUserRole(user.id) : null;
@@ -80,23 +81,34 @@ export default async function AssetsPage({
   const q = searchParams.q?.trim() ?? "";
   const page = Math.max(1, Number(searchParams.page ?? 1));
   const pageSize = PAGE_SIZE;
+  // Lọc theo từng cột (hàng cố định dưới header bảng) — độc lập với ô tìm chung `q`.
+  const nameFilter = searchParams.name?.trim() ?? "";
+  const categoryFilter = searchParams.category?.trim() ?? "";
+  const statusFilter = searchParams.status?.trim() ?? "";
 
   const branchWhere = activeBranchId ? { branchId: activeBranchId } : {};
-  const where = {
+  const andConditions: Prisma.AssetWhereInput[] = [];
+  if (q) {
+    andConditions.push({
+      OR: [
+        { name: { contains: q } },
+        { assetCode: { contains: q } },
+        { category: { contains: q } },
+        { room: { contains: q } },
+      ],
+    });
+  }
+  if (nameFilter) {
+    andConditions.push({ OR: [{ name: { contains: nameFilter } }, { assetCode: { contains: nameFilter } }] });
+  }
+  if (categoryFilter) andConditions.push({ category: categoryFilter });
+  if (statusFilter) andConditions.push({ status: statusFilter });
+  const where: Prisma.AssetWhereInput = {
     ...branchWhere,
-    ...(q
-      ? {
-          OR: [
-            { name: { contains: q } },
-            { assetCode: { contains: q } },
-            { category: { contains: q } },
-            { room: { contains: q } },
-          ],
-        }
-      : {}),
+    ...(andConditions.length ? { AND: andConditions } : {}),
   };
 
-  const [assets, total, assetsForTotals] = await Promise.all([
+  const [assets, total, assetsForTotals, categoryRows] = await Promise.all([
     prisma.asset.findMany({
       where,
       orderBy: [{ category: "asc" }, { name: "asc" }],
@@ -121,7 +133,19 @@ export default async function AssetsPage({
         transactions: { select: { type: true, quantity: true, amount: true, txnDate: true, voidedAt: true } },
       },
     }),
+    // Danh sách tùy chọn cho bộ lọc "Danh mục" — lấy trên toàn bộ tài sản của cơ sở
+    // (chỉ theo branchWhere, KHÔNG theo các filter cột khác), để dropdown luôn đủ lựa
+    // chọn thay vì co lại theo bộ lọc đang áp dụng.
+    prisma.asset.findMany({
+      where: branchWhere,
+      select: { category: true },
+      distinct: ["category"],
+    }),
   ]);
+
+  const categoryOptions = Array.from(
+    new Set(categoryRows.map((row) => row.category?.trim()).filter((value): value is string => Boolean(value))),
+  ).sort((left, right) => left.localeCompare(right, "vi"));
 
   const rows = assets.map((asset) => {
     const quantity = asset.transactions.reduce((sum, transaction) => sum + transaction.quantity, 0);
@@ -247,6 +271,7 @@ export default async function AssetsPage({
           currentPage={page}
           totalCount={total}
           pageSize={pageSize}
+          categoryOptions={categoryOptions}
         />
       </div>
     </div>

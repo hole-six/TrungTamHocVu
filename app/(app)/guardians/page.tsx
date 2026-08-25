@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
@@ -51,7 +52,7 @@ const GUARDIANS_PAGE_GUIDE_SECTIONS = [
 export default async function GuardiansPage({
   searchParams,
 }: {
-  searchParams: { q?: string; page?: string; pageSize?: string };
+  searchParams: { q?: string; page?: string; pageSize?: string; contact?: string; portalStatus?: string };
 }) {
   const user = await getCurrentUser();
   const userRole = user ? await getUserRole(user.id) : null;
@@ -60,6 +61,9 @@ export default async function GuardiansPage({
   const q = searchParams.q?.trim() ?? "";
   const page = Math.max(1, Number(searchParams.page ?? 1));
   const pageSize = Number(searchParams.pageSize ?? PAGE_SIZE);
+  // Lọc theo từng cột (hàng cố định dưới header bảng) — độc lập với ô tìm chung `q`.
+  const contactFilterValue = searchParams.contact?.trim() ?? "";
+  const portalStatusFilter = searchParams.portalStatus?.trim() ?? "";
 
   // Guardian không có cột branchId riêng (dùng chung cho mọi cơ sở) — chỉ suy ra được
   // cơ sở qua lead/học viên đang liên kết. Phụ huynh chưa liên kết gì (mồ côi) không
@@ -86,10 +90,29 @@ export default async function GuardiansPage({
       }
     : {};
 
-  // branchFilter và searchFilter đều có thể tự khai báo "OR" riêng — gộp bằng AND để
-  // 2 điều kiện không đè lên nhau (spread trực tiếp sẽ làm key "OR" sau ghi đè key
-  // "OR" trước).
-  const where = { AND: [branchFilter, searchFilter] };
+  // Ô lọc cột "Phụ huynh" gộp tên/SĐT thành 1 ô text (OR contains) — bảng không có
+  // cột riêng cho SĐT nên gộp vào đây thay vì tách 2 ô lọc.
+  const contactWhere: Prisma.GuardianWhereInput = contactFilterValue
+    ? { OR: [{ fullName: { contains: contactFilterValue } }, { phone: { contains: contactFilterValue } }] }
+    : {};
+  // Trạng thái portal không phải cột thật — suy ra từ quan hệ 1-1 optional
+  // Guardian.user (User?). Đây là quan hệ trực tiếp nên Prisma lọc được thẳng bằng
+  // where.user (null / { isActive }) ở DB, không cần tính hết rồi lọc JS như
+  // outstanding/continuationStatus bên Students (những field đó tổng hợp qua nhiều
+  // bảng charge/payment/enrollment nên không viết được thành 1 where trực tiếp).
+  const portalStatusWhere: Prisma.GuardianWhereInput =
+    portalStatusFilter === "NONE"
+      ? { user: null }
+      : portalStatusFilter === "ACTIVE"
+        ? { user: { isActive: true } }
+        : portalStatusFilter === "INACTIVE"
+          ? { user: { isActive: false } }
+          : {};
+
+  // branchFilter/searchFilter/contactFilter đều có thể tự khai báo "OR" riêng — gộp
+  // bằng AND để các điều kiện không đè lên nhau (spread trực tiếp sẽ làm key "OR"
+  // sau ghi đè key "OR" trước).
+  const where = { AND: [branchFilter, searchFilter, contactWhere, portalStatusWhere] };
 
   const [guardians, total, guardiansForStats] = await Promise.all([
     prisma.guardian.findMany({

@@ -1,8 +1,107 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import EmployeeProfileEditor from "@/components/payroll/EmployeeProfileEditor";
 import TimesheetQuickAddForm from "@/components/payroll/TimesheetQuickAddForm";
 import AssistantScoreForm from "@/components/payroll/AssistantScoreForm";
 import PayrollLineAdjustForm from "@/components/payroll/PayrollLineAdjustForm";
 import type { EmployeeContractStatus } from "@/lib/server/payroll-rules";
+
+type BranchScorecard = {
+  branchId: string;
+  branchName: string;
+  countedShifts: number;
+  deducted: number;
+  added: number;
+  ratio: number | null;
+  bonus: { bonusPercent: number } | null;
+};
+
+// Client-side vì component này được PayrollEmployeeDrawer ("use client") render trực
+// tiếp, không qua children slot — nên không thể gọi computeAssistantScorecard() (dùng
+// prisma) thẳng ở đây, phải gọi qua route GET /api/employees/[id]/assistant-score có sẵn.
+function AssistantScorecardSummary({ employeeId, month }: { employeeId: string; month: string }) {
+  const [data, setData] = useState<{ byBranch: BranchScorecard[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setData(null);
+    setError(null);
+    fetch(`/api/employees/${employeeId}/assistant-score?month=${month}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (cancelled) return;
+        if (json.error) {
+          setError(json.error);
+          return;
+        }
+        setData(json);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Không tải được điểm đánh giá.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId, month]);
+
+  return (
+    <div className="rounded-2xl border-2 border-[#e5e7eb] bg-white px-6 py-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-bold text-[#111827]">Tổng hợp điểm đánh giá tháng {month}</h3>
+          <p className="text-sm text-[#6b7280]">Số ca, điểm trừ/cộng và tỉ lệ A — tính riêng theo từng cơ sở.</p>
+        </div>
+        <Link
+          href={`/teacher-tasks?employeeId=${employeeId}&status=NOT_SUBMITTED`}
+          className="inline-flex shrink-0 items-center gap-1 rounded-lg border-2 border-[#f97316] px-3 py-2 text-xs font-bold text-[#f97316] transition hover:bg-[#fff7ed]"
+        >
+          Xem việc chưa nộp →
+        </Link>
+      </div>
+
+      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+      {!data && !error ? <p className="mt-3 text-sm text-[#9ca3af]">Đang tải...</p> : null}
+      {data && data.byBranch.length === 0 ? (
+        <p className="mt-3 text-sm text-[#9ca3af]">Chưa có ca/điểm nào ghi nhận trong tháng {month}.</p>
+      ) : null}
+
+      {data && data.byBranch.length > 0 ? (
+        <div className="mt-4 space-y-3">
+          {data.byBranch.map((b) => (
+            <div key={b.branchId} className="rounded-xl border border-[#e5e7eb] bg-[#fbfbfc] px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-[#6b7280]">{b.branchName}</p>
+              <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-5">
+                <div>
+                  <p className="text-[11px] text-[#9ca3af]">Số ca tính</p>
+                  <p className="text-lg font-black text-[#0f1729]">{b.countedShifts}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-[#9ca3af]">Điểm trừ</p>
+                  <p className="text-lg font-black text-red-600">{b.deducted}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-[#9ca3af]">Điểm cộng</p>
+                  <p className="text-lg font-black text-emerald-600">{b.added}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-[#9ca3af]">Tỉ lệ A</p>
+                  <p className="text-lg font-black text-[#0f1729]">{b.ratio !== null ? `${b.ratio.toFixed(1)}%` : "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-[#9ca3af]">% Thưởng hiện tại</p>
+                  <p className="text-lg font-black text-[#f97316]">{b.bonus ? `${(b.bonus.bonusPercent * 100).toFixed(0)}%` : "—"}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 type EmployeeProfile = {
   id: string;
@@ -107,12 +206,15 @@ export default function PayrollEmployeeEditPanels({
       {canAddTimesheet ? <TimesheetQuickAddForm employeeId={profile.id} /> : null}
 
       {assistant ? (
-        <AssistantScoreForm
-          employeeId={assistant.employeeId}
-          month={assistant.month}
-          branches={assistant.branches}
-          bonusByBranch={assistant.bonusByBranch}
-        />
+        <>
+          <AssistantScorecardSummary employeeId={assistant.employeeId} month={assistant.month} />
+          <AssistantScoreForm
+            employeeId={assistant.employeeId}
+            month={assistant.month}
+            branches={assistant.branches}
+            bonusByBranch={assistant.bonusByBranch}
+          />
+        </>
       ) : null}
     </div>
   );

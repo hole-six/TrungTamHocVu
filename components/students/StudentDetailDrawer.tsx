@@ -405,6 +405,7 @@ export default function StudentDetailDrawer({
                 scholarshipPct={data.learningSnapshot.scholarshipPct}
                 defaultTargetClassId={data.currentEnrollment.nextClassId}
                 classOptions={data.continuationClassOptions}
+                variant="quickaction"
               />
             ) : null
           }

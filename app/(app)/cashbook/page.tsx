@@ -4,7 +4,6 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate, canUpdate, canView } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
-import CashbookFilters from "@/components/cashbook/CashbookFilters";
 import CashbookExportButton from "@/components/cashbook/CashbookExportButton";
 import NewCashTransactionForm from "@/components/cashbook/NewCashTransactionForm";
 import CategoryManager from "@/components/cashbook/CategoryManager";
@@ -21,12 +20,6 @@ const CASHBOOK_TOUR_STEPS: TourStep[] = [
     placement: "bottom",
   },
   {
-    target: '[data-tour="cashbook-filters"]',
-    title: "Lọc theo ngày, loại phiếu, danh mục",
-    description: "Luôn chọn đúng khoảng ngày trước khi xuất báo cáo — 3 số Tổng thu/Tổng chi/Số dư bên dưới tính trên TOÀN BỘ khoảng ngày đang lọc, không chỉ trang đang xem.",
-    placement: "bottom",
-  },
-  {
     target: '[data-tour="cashbook-kpi"]',
     title: "Tổng thu, Tổng chi, Số dư",
     description: "Giao dịch đã hủy (VOIDED) không được cộng vào 3 số này, dù vẫn còn hiển thị trong bảng bên dưới để giữ dấu vết.",
@@ -34,8 +27,8 @@ const CASHBOOK_TOUR_STEPS: TourStep[] = [
   },
   {
     target: '[data-tour="cashbook-table"]',
-    title: "Nhãn \"Tự động\" — phiếu sinh từ nghiệp vụ khác",
-    description: "Phiếu thu học phí, hoàn tiền hoặc nhập kho tự sinh phiếu thu/chi ở đây và chỉ sửa được từ đúng nghiệp vụ gốc, không sửa trực tiếp tại Sổ quỹ.",
+    title: "Lọc ngay trên bảng — nhãn \"Tự động\" là phiếu sinh từ nghiệp vụ khác",
+    description: "Hàng lọc cố định dưới tiêu đề cột lọc theo ngày, loại thu/chi, danh mục, nội dung và số tiền — luôn chọn đúng khoảng ngày trước khi xuất báo cáo. Phiếu thu học phí, hoàn tiền hoặc nhập kho tự sinh phiếu thu/chi ở đây (nhãn \"Tự động\") và chỉ sửa được từ đúng nghiệp vụ gốc, không sửa trực tiếp tại Sổ quỹ.",
     placement: "top",
   },
 ];
@@ -77,7 +70,16 @@ function toYmd(date: Date) {
 export default async function CashbookPage({
   searchParams,
 }: {
-  searchParams?: { fromDate?: string; toDate?: string; type?: string; search?: string; categoryId?: string; page?: string };
+  searchParams?: {
+    fromDate?: string;
+    toDate?: string;
+    type?: string;
+    search?: string;
+    categoryId?: string;
+    amountFrom?: string;
+    amountTo?: string;
+    page?: string;
+  };
 }) {
   const user = await getCurrentUser();
   const role = user ? await getUserRole(user.id) : null;
@@ -101,6 +103,11 @@ export default async function CashbookPage({
   const typeFilter = searchParams?.type?.trim() ?? "";
   const searchQuery = searchParams?.search?.trim() ?? "";
   const categoryIdFilter = searchParams?.categoryId?.trim() ?? "";
+  // amount là field thô (Int) trên CashTransaction — lọc trực tiếp bằng gte/lte,
+  // không cần kỹ thuật computed-filter (tính hết rồi lọc JS) như outstanding bên
+  // Students.
+  const amountFromFilter = searchParams?.amountFrom?.trim() ?? "";
+  const amountToFilter = searchParams?.amountTo?.trim() ?? "";
   const currentPage = Number(searchParams?.page) || 1;
   const itemsPerPage = 20;
 
@@ -116,6 +123,12 @@ export default async function CashbookPage({
       { detail: { contains: searchQuery, mode: "insensitive" } },
       { notes: { contains: searchQuery, mode: "insensitive" } },
     ];
+  }
+  if (amountFromFilter || amountToFilter) {
+    where.amount = {
+      ...(amountFromFilter ? { gte: Number(amountFromFilter) } : {}),
+      ...(amountToFilter ? { lte: Number(amountToFilter) } : {}),
+    };
   }
 
   const [totalCount, transactions, categories, transactionsForTotals] = await Promise.all([
@@ -222,18 +235,6 @@ export default async function CashbookPage({
         </div>
       </div>
 
-      <div data-tour="cashbook-filters">
-        <CashbookFilters
-          key={`${fromDateStr}|${toDateStr}|${typeFilter}|${searchQuery}|${categoryIdFilter}`}
-          initialFromDate={fromDateStr}
-          initialToDate={toDateStr}
-          initialType={typeFilter}
-          initialSearch={searchQuery}
-          initialCategoryId={categoryIdFilter}
-          categories={categories}
-        />
-      </div>
-
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3" data-tour="cashbook-kpi">
         <div className="rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Tổng thu vào</p>
@@ -270,6 +271,8 @@ export default async function CashbookPage({
             currentPage={currentPage}
             totalCount={totalCount}
             itemsPerPage={itemsPerPage}
+            fromDate={fromDateStr}
+            toDate={toDateStr}
           />
         </div>
       </div>

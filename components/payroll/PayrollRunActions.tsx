@@ -186,7 +186,7 @@ export default function PayrollRunActions({
             <button
               onClick={generate}
               disabled={loading === "GENERATE"}
-              className="inline-flex items-center justify-center rounded-2xl bg-[#f97316] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#ea580c] disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-primary"
             >
               {loading === "GENERATE"
                 ? "Đang tính lại..."

@@ -102,6 +102,14 @@ export default async function InventoryPage({
     paymentStatus?: string;
     month?: string;
     issuePage?: string;
+    // Lọc theo từng cột (hàng cố định dưới header) của bảng "Danh mục sách" —
+    // độc lập với các param của sổ xuất giáo trình phía trên.
+    bookName?: string;
+    bookCategory?: string;
+    stockFrom?: string;
+    stockTo?: string;
+    page?: string;
+    pageSize?: string;
   };
 }) {
   const user = await getCurrentUser();
@@ -114,6 +122,13 @@ export default async function InventoryPage({
   const selectedPaymentStatus = searchParams?.paymentStatus?.trim() ?? "";
   const selectedMonth = searchParams?.month?.trim() ?? "";
   const issuePage = Math.max(1, Number(searchParams?.issuePage ?? 1));
+  // Lọc theo từng cột (hàng cố định dưới header) của bảng "Danh mục sách".
+  const bookNameFilter = searchParams?.bookName?.trim() ?? "";
+  const bookCategoryFilter = searchParams?.bookCategory?.trim() ?? "";
+  const stockFrom = searchParams?.stockFrom?.trim() ?? "";
+  const stockTo = searchParams?.stockTo?.trim() ?? "";
+  const bookPage = Math.max(1, Number(searchParams?.page ?? 1));
+  const bookPageSize = Number(searchParams?.pageSize ?? PAGE_SIZE);
   const currentParams = new URLSearchParams({
     ...(q ? { q } : {}),
     ...(selectedBookId ? { bookId: selectedBookId } : {}),
@@ -141,6 +156,32 @@ export default async function InventoryPage({
   });
 
   const categoryOptions = Array.from(new Set(stockRows.map((book) => book.categoryLabel))).sort((left, right) => left.localeCompare(right, "vi"));
+
+  // Lọc bảng "Danh mục sách" theo từng cột (hàng cố định dưới header) — tên/mã sách và
+  // danh mục là field thật trên Book, nhưng "Tồn" (onHand) là số TÍNH ĐỘNG từ
+  // computeStockBalance (không phải cột thô), giống outstanding của trang Học viên:
+  // đã phải tính đủ cho toàn bộ danh sách (stockRows ở trên) để dựng categoryOptions +
+  // dropdown "Sách" của sổ xuất bên dưới, nên lọc tên/danh mục/tồn kho luôn trên chính
+  // tập đã tính đó (không query Prisma riêng lần 2, tránh tính lại computeStockBalance)
+  // rồi mới cắt trang — vẫn là lọc backend đúng nghĩa, dữ liệu chưa lọc không gửi ra browser.
+  let filteredBookRows = stockRows;
+  if (bookNameFilter) {
+    const term = bookNameFilter.toLowerCase();
+    filteredBookRows = filteredBookRows.filter(
+      (book) => book.name.toLowerCase().includes(term) || (book.bookCode ?? "").toLowerCase().includes(term),
+    );
+  }
+  if (bookCategoryFilter) {
+    filteredBookRows = filteredBookRows.filter((book) => book.categoryLabel === bookCategoryFilter);
+  }
+  if (stockFrom) {
+    filteredBookRows = filteredBookRows.filter((book) => book.onHand >= Number(stockFrom));
+  }
+  if (stockTo) {
+    filteredBookRows = filteredBookRows.filter((book) => book.onHand <= Number(stockTo));
+  }
+  const bookTotal = filteredBookRows.length;
+  const pagedBookRows = filteredBookRows.slice((bookPage - 1) * bookPageSize, (bookPage - 1) * bookPageSize + bookPageSize);
 
   const issueWhere = {
     ...(activeBranchId ? { book: { branchId: activeBranchId } } : {}),
@@ -238,7 +279,10 @@ export default async function InventoryPage({
         </div>
         <div>
           <BooksTable
-            initialData={stockRows}
+            initialData={pagedBookRows}
+            total={bookTotal}
+            page={bookPage}
+            pageSize={bookPageSize}
             categoryOptions={categoryOptions}
             userRole={role || "TEACHER"}
             totalOnHand={totalOnHand}

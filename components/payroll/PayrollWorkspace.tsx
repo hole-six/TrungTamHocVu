@@ -39,6 +39,7 @@ function getRunTone(status: string) {
 
 export default function PayrollWorkspace({
   rows,
+  tableRows,
   period,
   run,
   branches,
@@ -47,8 +48,15 @@ export default function PayrollWorkspace({
   initialEmployeeId,
   initialFilter,
   permissions,
+  positionOptions,
+  search,
+  position,
 }: {
   rows: PayrollEmployeeRow[];
+  /** Danh sách nhân sự đã lọc theo `search`/`position` ở server (Prisma `where`) — dùng để
+   * hiển thị bảng. `rows` (đầy đủ, không lọc search/position) vẫn giữ nguyên để tính
+   * totals/badge/eligibleEmployees cho đúng toàn chi nhánh, không co lại theo ô tìm kiếm. */
+  tableRows: PayrollEmployeeRow[];
   period: string;
   run: RunSummary;
   branches: { id: string; name: string }[];
@@ -57,11 +65,12 @@ export default function PayrollWorkspace({
   initialEmployeeId: string | null;
   initialFilter: FilterMode;
   permissions: { canManageEmployees: boolean; canManagePayrollRuns: boolean; canCreateTimesheet: boolean };
+  positionOptions: string[];
+  search: string;
+  position: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [query, setQuery] = useState("");
-  const [positionFilter, setPositionFilter] = useState("");
   const [page, setPage] = useState(1);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(initialEmployeeId);
   const [drawerOpen, setDrawerOpen] = useState(Boolean(initialEmployeeId));
@@ -87,44 +96,31 @@ export default function PayrollWorkspace({
     router.replace(pageHref({ employeeId: null }), { scroll: false });
   }
 
-  const positionOptions = useMemo(
-    () => Array.from(new Set(rows.map((row) => row.position).filter((value): value is string => Boolean(value)))).sort((a, b) => a.localeCompare(b, "vi")),
-    [rows],
-  );
-
-  const filteredRows = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    return rows.filter((row) => {
+  // `search`/`position` đã được lọc ở server (Prisma `where` trong buildPayrollEmployeeRows)
+  // — chỉ còn chip trạng thái (`initialFilter`) là lọc thêm ở client, giữ nguyên hành vi cũ.
+  const chipFilteredRows = useMemo(() => {
+    return tableRows.filter((row) => {
       if (initialFilter === "missing-bank" && row.hasBankInfo) return false;
       if (initialFilter === "ready-bank" && !row.hasBankInfo) return false;
       if (initialFilter === "missing-rate" && !row.hasRateIssue) return false;
-      if (positionFilter && row.position !== positionFilter) return false;
-      if (!normalizedQuery) return true;
-      return (
-        row.fullName.toLowerCase().includes(normalizedQuery) ||
-        row.employeeCode.toLowerCase().includes(normalizedQuery) ||
-        (row.position ?? "").toLowerCase().includes(normalizedQuery)
-      );
+      return true;
     });
-  }, [rows, query, initialFilter, positionFilter]);
+  }, [tableRows, initialFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(chipFilteredRows.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
-  const pagedRows = filteredRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pagedRows = chipFilteredRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  function updateSearch(value: string) {
-    setQuery(value);
-    setPage(1);
+  function updateParams(patch: Record<string, string | null>) {
+    router.push(pageHref(patch));
   }
 
-  function updatePositionFilter(value: string) {
-    setPositionFilter(value);
-    setPage(1);
-  }
+  const handleSearch = (value: string) => updateParams({ search: value || null });
+  const handleFilterChange = (key: string, value: string | null) => updateParams({ [key]: value });
 
   useEffect(() => {
     setPage(1);
-  }, [period, initialFilter]);
+  }, [period, initialFilter, tableRows]);
 
   const totals = useMemo(() => {
     return rows.reduce(
@@ -170,6 +166,12 @@ export default function PayrollWorkspace({
     {
       key: "fullName",
       label: "Nhân sự",
+      filter: {
+        type: "select",
+        paramKey: "position",
+        placeholder: "Tất cả vai trò",
+        options: positionOptions.map((value) => ({ label: value, value })),
+      },
       render: (_value, row) => (
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#f97316] to-[#ea580c] text-sm font-black text-white">
@@ -366,17 +368,6 @@ export default function PayrollWorkspace({
             Thiếu chuyển khoản ({formatNumber(totals.missingBankCount)})
           </Link>
         </div>
-        <div className="ml-auto flex flex-wrap gap-2">
-          <input className="input w-48 text-sm" placeholder="Tìm theo mã, tên..." value={query} onChange={(event) => updateSearch(event.target.value)} />
-          <select className="input w-40 text-sm" value={positionFilter} onChange={(event) => updatePositionFilter(event.target.value)}>
-            <option value="">Tất cả vai trò</option>
-            {positionOptions.map((position) => (
-              <option key={position} value={position}>
-                {position}
-              </option>
-            ))}
-          </select>
-        </div>
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-sm">
@@ -385,14 +376,19 @@ export default function PayrollWorkspace({
           columns={columns}
           actions={actions}
           rowKey="id"
-          searchable={false}
+          searchable
+          searchPlaceholder="Tìm theo mã, tên..."
+          onSearch={handleSearch}
+          defaultSearchValue={search}
+          filterValues={{ position }}
+          onFilterChange={handleFilterChange}
           selectable={false}
           showCountBadge={false}
           primaryColumn="fullName"
           secondaryColumns={["totalAmount", "hasRateIssue"]}
           emptyState={{ title: "Không có nhân sự nào", description: `Không có nhân sự nào khớp bộ lọc trong tháng ${period}.` }}
           pagination={{
-            total: filteredRows.length,
+            total: chipFilteredRows.length,
             page: currentPage,
             pageSize: PAGE_SIZE,
             onPageChange: (nextPage) => setPage(nextPage),

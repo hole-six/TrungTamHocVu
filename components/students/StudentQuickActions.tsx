@@ -47,10 +47,10 @@ export default function StudentQuickActions({
         
         {/* Gán lớp */}
         {canEditStudent && onAssignEnrollment && (
-          <button 
+          <button
             type="button"
             onClick={onAssignEnrollment}
-            className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-5 py-3 text-base font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] hover:-translate-y-0.5 transition-all"
+            className="btn-quickaction btn-quickaction--orange"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -66,7 +66,7 @@ export default function StudentQuickActions({
         {currentEnrollment && (
           <Link
             href={`/classes/${currentEnrollment.classId}`}
-            className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-5 py-3 text-base font-semibold text-[#0f1729] shadow-sm hover:border-[#3b82f6] hover:text-[#3b82f6] hover:-translate-y-0.5 transition-all"
+            className="btn-quickaction btn-quickaction--blue"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
@@ -81,7 +81,7 @@ export default function StudentQuickActions({
           <button
             type="button"
             onClick={onSelectBooks}
-            className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-5 py-3 text-base font-semibold text-[#0f1729] shadow-sm hover:border-[#8b5cf6] hover:text-[#8b5cf6] hover:-translate-y-0.5 transition-all"
+            className="btn-quickaction btn-quickaction--purple"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
@@ -97,7 +97,7 @@ export default function StudentQuickActions({
           onClick={() => {
             navigator.clipboard.writeText(studentCode);
           }}
-          className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-5 py-3 text-base font-semibold text-[#6b7280] shadow-sm hover:border-[#9ca3af] hover:text-[#111827] hover:-translate-y-0.5 transition-all"
+          className="btn-quickaction btn-quickaction--neutral"
           title={`Copy mã học viên: ${studentCode}`}
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

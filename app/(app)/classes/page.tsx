@@ -73,7 +73,16 @@ function addDays(base: Date, days: number) {
 export default async function ClassesPage({
   searchParams,
 }: {
-  searchParams: { q?: string; status?: string; classGroup?: string; page?: string; pageSize?: string };
+  searchParams: {
+    q?: string;
+    status?: string;
+    classGroup?: string;
+    page?: string;
+    pageSize?: string;
+    classCode?: string;
+    className?: string;
+    courseId?: string;
+  };
 }) {
   const user = await getCurrentUser();
   const userRole = user ? await getUserRole(user.id) : null;
@@ -84,12 +93,19 @@ export default async function ClassesPage({
   const classGroup = searchParams.classGroup?.trim() ?? "";
   const page = Math.max(1, Number(searchParams.page ?? 1));
   const pageSize = Number(searchParams.pageSize ?? PAGE_SIZE);
+  // Lọc theo từng cột (hàng cố định dưới header bảng) — độc lập với ô tìm chung `q`.
+  const classCodeFilter = searchParams.classCode?.trim() ?? "";
+  const classNameFilter = searchParams.className?.trim() ?? "";
+  const courseIdFilter = searchParams.courseId?.trim() ?? "";
 
   const branchWhere = activeBranchId ? { branchId: activeBranchId } : {};
   const where = {
     ...branchWhere,
     ...(status ? { status } : {}),
     ...(classGroup ? { classGroup } : {}),
+    ...(classCodeFilter ? { classCode: { contains: classCodeFilter } } : {}),
+    ...(classNameFilter ? { className: { contains: classNameFilter } } : {}),
+    ...(courseIdFilter ? { courseId: courseIdFilter } : {}),
     ...(q ? { OR: [{ className: { contains: q } }, { classCode: { contains: q } }] } : {}),
   };
 
@@ -342,6 +358,7 @@ export default async function ClassesPage({
         searchQuery={q}
         statusFilter={status}
         statusOptions={statusPills}
+        courseOptions={courses.map((course) => ({ label: course.name, value: course.id }))}
       />
 
       {canCreate("schedule", userRole) ? <CourseManager courses={courses} books={books} /> : null}

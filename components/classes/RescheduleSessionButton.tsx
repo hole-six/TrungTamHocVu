@@ -88,7 +88,7 @@ export default function RescheduleSessionButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:border-amber-300 hover:bg-amber-100"
+        className="status-action"
       >
         Dời lịch
       </button>

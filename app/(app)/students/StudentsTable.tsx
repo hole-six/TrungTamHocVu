@@ -208,6 +208,7 @@ export default function StudentsTable({
       label: "Mã HV",
       sortable: true,
       width: "130px",
+      filter: { type: "text", paramKey: "code", placeholder: "Mã HV..." },
       render: (value) => <span className="font-mono text-sm font-semibold text-primary">{value}</span>,
     },
     {
@@ -215,6 +216,7 @@ export default function StudentsTable({
       label: "Học viên",
       sortable: true,
       width: "260px",
+      filter: { type: "text", paramKey: "name", placeholder: "Tên học viên..." },
       render: (value, row) => (
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-violet-600 text-sm font-bold text-white shadow-md">
@@ -233,6 +235,7 @@ export default function StudentsTable({
       label: "Nhập học / Lớp hiện tại",
       sortable: true,
       width: "300px",
+      filter: { type: "text", paramKey: "className", placeholder: "Tìm lớp..." },
       render: (value, row) => (
         <div className="space-y-2">
           <p className="text-sm font-medium text-ink">{formatDate(value)}</p>
@@ -273,6 +276,7 @@ export default function StudentsTable({
       key: "primaryGuardian",
       label: "Phụ huynh",
       width: "220px",
+      filter: { type: "text", paramKey: "guardian", placeholder: "Tên phụ huynh..." },
       render: (value) =>
         value ? (
           <div>
@@ -287,6 +291,16 @@ export default function StudentsTable({
       key: "continuationStatus",
       label: "Hành trình",
       width: "230px",
+      filter: {
+        type: "select",
+        paramKey: "continuationStatus",
+        placeholder: "Tất cả",
+        options: [
+          { label: "Cần chuyển lớp", value: "NEED_TRANSFER" },
+          { label: "Đã học đủ", value: "COMPLETED" },
+          { label: "Đang ổn", value: "ON_TRACK" },
+        ],
+      },
       render: (_value, row) => {
         const remaining = row.learningRemainingSessions ?? null;
         const completed = row.learningCompletedSessions ?? null;
@@ -348,6 +362,7 @@ export default function StudentsTable({
       label: "Tài chính",
       sortable: true,
       width: "230px",
+      filter: { type: "numberRange", paramKeyFrom: "outstandingFrom", paramKeyTo: "outstandingTo", placeholder: "đ" },
       render: (value, row) => (
         <div className="space-y-1">
           <p className={`text-sm font-bold ${(value ?? 0) > 0 ? "text-rose-700" : "text-emerald-700"}`}>{formatVnd(value)}</p>
@@ -365,6 +380,15 @@ export default function StudentsTable({
       label: "Trạng thái",
       align: "center",
       width: "140px",
+      filter: {
+        type: "select",
+        paramKey: "status",
+        placeholder: "Tất cả",
+        options: [
+          { label: "Đang học", value: "ACTIVE" },
+          { label: "Đã nghỉ", value: "LEFT" },
+        ],
+      },
       render: (value, row) => {
         const missingClass = !row.currentClassName;
         const config =
@@ -429,6 +453,18 @@ export default function StudentsTable({
     updateParams({ q: query || null, page: "1" });
   };
 
+  const filterValues = {
+    code: searchParams.get("code") ?? "",
+    name: searchParams.get("name") ?? "",
+    className: searchParams.get("className") ?? "",
+    guardian: searchParams.get("guardian") ?? "",
+    status,
+    continuationStatus: searchParams.get("continuationStatus") ?? "",
+    outstandingFrom: searchParams.get("outstandingFrom") ?? "",
+    outstandingTo: searchParams.get("outstandingTo") ?? "",
+  };
+  const handleFilterChange = (key: string, value: string | null) => updateParams({ [key]: value, page: "1" });
+
   const headerActions = stats ? (
     <div className="flex flex-wrap gap-2">
       {[
@@ -478,6 +514,8 @@ export default function StudentsTable({
         searchPlaceholder="Tìm theo tên, mã học viên, lead, phụ huynh, số điện thoại..."
         onSearch={handleSearch}
         defaultSearchValue={searchQuery}
+        filterValues={filterValues}
+        onFilterChange={handleFilterChange}
         showCountBadge={false}
         sortable
         selectable={canUpdate("students", userRole) || canDelete("students", userRole)}

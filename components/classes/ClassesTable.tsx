@@ -57,6 +57,7 @@ type ClassesTableProps = {
   searchQuery?: string;
   statusFilter?: string;
   statusOptions?: { key: string; label: string; count: number }[];
+  courseOptions?: { label: string; value: string }[];
 };
 
 const WEEKDAY_LABEL = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -110,6 +111,7 @@ export default function ClassesTable({
   searchQuery = "",
   statusFilter = "",
   statusOptions = [],
+  courseOptions = [],
 }: ClassesTableProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -123,7 +125,16 @@ export default function ClassesTable({
     setData(initialData);
   }, [initialData]);
 
-  function buildParams(next: { q?: string; page?: number; pageSize?: number; status?: string }) {
+  function buildParams(next: {
+    q?: string;
+    page?: number;
+    pageSize?: number;
+    status?: string;
+    // Lọc theo từng cột (hàng cố định dưới header) — patch trực tiếp các paramKey bất
+    // kỳ qua URL, tái dùng đúng buildParams()/router.push() sẵn có thay vì luồng fetch
+    // riêng (xem DataTable.tsx ColumnFilter/onFilterChange).
+    filters?: Record<string, string | null>;
+  }) {
     const params = new URLSearchParams(searchParams.toString());
 
     const query = next.q ?? searchQuery;
@@ -139,8 +150,29 @@ export default function ClassesTable({
 
     params.set("page", String(nextPage));
     params.set("pageSize", String(nextPageSize));
+
+    if (next.filters) {
+      for (const [key, value] of Object.entries(next.filters)) {
+        if (value === null || value === "") params.delete(key);
+        else params.set(key, value);
+      }
+    }
     return params;
   }
+
+  const handleFilterChange = (key: string, value: string | null) => {
+    const params = buildParams({ page: 1, filters: { [key]: value } });
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
+  };
+
+  const filterValues = {
+    classCode: searchParams.get("classCode") ?? "",
+    className: searchParams.get("className") ?? "",
+    courseId: searchParams.get("courseId") ?? "",
+    status: statusFilter,
+  };
 
   const exportRows = (rows: Class[]) => {
     exportToExcel(
@@ -181,6 +213,7 @@ export default function ClassesTable({
       key: "classCode",
       label: "MÃ LỚP",
       sortable: true,
+      filter: { type: "text", paramKey: "classCode", placeholder: "Mã lớp..." },
       render: (value, row) => (
         <div className="min-w-[120px]">
           <span className="inline-block rounded-lg bg-primary/10 px-3 py-1.5 text-sm font-bold text-primary">{value}</span>
@@ -194,6 +227,7 @@ export default function ClassesTable({
       key: "className",
       label: "TÊN LỚP",
       sortable: true,
+      filter: { type: "text", paramKey: "className", placeholder: "Tên lớp..." },
       render: (value, row) => (
         <div className="min-w-[200px]">
           <p className="text-sm font-bold text-[#0f172a]">{value}</p>
@@ -206,6 +240,9 @@ export default function ClassesTable({
     {
       key: "course",
       label: "KHÓA HỌC",
+      filter: courseOptions.length
+        ? { type: "select", paramKey: "courseId", placeholder: "Tất cả", options: courseOptions }
+        : undefined,
       render: (value, row) => (
         <div className="min-w-[180px]">
           <p className="text-sm font-semibold text-[#0f172a]">{value?.name ?? "—"}</p>
@@ -283,6 +320,16 @@ export default function ClassesTable({
       key: "status",
       label: "TRẠNG THÁI",
       align: "center",
+      filter: {
+        type: "select",
+        paramKey: "status",
+        placeholder: "Tất cả",
+        options: [
+          { label: "Đang chạy", value: "ACTIVE" },
+          { label: "Đã kết thúc", value: "COMPLETED" },
+          { label: "Đã hủy", value: "CANCELLED" },
+        ],
+      },
       render: (value, row) => {
         const config = statusConfig(value);
         return (
@@ -470,6 +517,8 @@ export default function ClassesTable({
       defaultSearchValue={searchQuery}
       showCountBadge={false}
       filterChips={filterChips}
+      filterValues={filterValues}
+      onFilterChange={handleFilterChange}
       sortable
       selectable={canUpdate("schedule", userRole)}
       pagination={{

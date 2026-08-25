@@ -20,10 +20,9 @@ import EnrollStudentForm from "@/components/classes/EnrollStudentForm";
 import EnrollmentRowActions from "@/components/classes/EnrollmentRowActions";
 import TransferEnrollmentButton from "@/components/classes/TransferEnrollmentButton";
 import AddEnrollmentSessionsButton from "@/components/classes/AddEnrollmentSessionsButton";
-import CompleteClassButton from "@/components/classes/CompleteClassButton";
 import ClassTaskManager from "@/components/classes/ClassTaskManager";
 import ClassRecurringTaskManager from "@/components/classes/ClassRecurringTaskManager";
-import ClassEditForm from "@/components/classes/ClassEditForm";
+import ClassQuickActions from "@/components/classes/ClassQuickActions";
 import RescheduleSessionButton from "@/components/classes/RescheduleSessionButton";
 import ClassDefaultAssignmentManager from "@/components/classes/ClassDefaultAssignmentManager";
 import RemedialBulkAssignPanel from "@/components/classes/RemedialBulkAssignPanel";
@@ -469,65 +468,48 @@ export default async function ClassDetailPage({ params }: { params: { id: string
           </>
         }
         actions={
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3" data-tour="class-actions">
-            <SpotlightTour steps={CLASS_DETAIL_TOUR_STEPS} />
-            {latestSession && (
-              <SessionLinkWithDrawer
-                sessionId={latestSession.id}
-                classId={cls.id}
-                returnPath={`/classes/${cls.id}`}
-                className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl bg-gradient-to-r from-[#f97316] to-[#ea580c] px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm font-bold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sm:w-[18px] sm:h-[18px]"><circle cx="12" cy="12" r="10"/><polyline points="10 8 16 12 10 16"/></svg>
-                <span className="hidden sm:inline">Mở buổi học</span>
-                <span className="sm:hidden">Buổi học</span>
-              </SessionLinkWithDrawer>
-            )}
-            {canManageClass && (
-              <GenerateSessionsForm classId={cls.id} totalSessions={cls.totalSessions} existingSessionCount={cls.sessions.length} />
-            )}
-            {canManageClass && cls.status === "ACTIVE" && activeEnrollments.length > 0 ? (
-              <CompleteClassButton
-                classId={cls.id}
-                className={cls.className}
-                nextClassName={cls.nextClass?.className ?? null}
-                needTransferCount={completionNeedTransferCount}
-                completedCount={completionReadyCount}
-                transferValueAmount={completionTransferValueAmount}
-                freeExtraSessions={completionFreeExtraSessions}
-              />
-            ) : null}
-            <ClassEditForm
-              cls={{
-                id: cls.id,
-                classCode: cls.classCode,
-                className: cls.className,
-                classGroup: cls.classGroup,
-                courseId: cls.courseId,
-                tuitionPerSession: cls.tuitionPerSession,
-                sessionsPerWeek: cls.sessionsPerWeek,
-                totalSessions: cls.totalSessions,
-                startDate: cls.startDate ? cls.startDate.toISOString() : null,
-                expectedEndDate: cls.expectedEndDate ? cls.expectedEndDate.toISOString() : null,
-                nextClassId: cls.nextClassId,
-                notes: cls.notes,
-                roadmapItems: roadmapItems.map((item) => ({
-                  sessionNumber: item.sessionNumber,
-                  title: item.title ?? `Buổi ${item.sessionNumber}`,
-                  objective: item.objective ?? "",
-                  materials: item.materials ?? "",
-                  teacherGuide: item.teacherGuide ?? "",
-                  homeworkGuide: item.homeworkGuide ?? "",
-                  teacherRequirement: item.teacherRequirement ?? "",
-                })),
-              }}
-              courses={courses}
-              classOptions={continuationClassOptions}
-              renderSummary={false}
-              triggerLabel="Sửa"
-              triggerClassName="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] hover:-translate-y-0.5 transition-all"
-            />
-          </div>
+          <ClassQuickActions
+            classId={cls.id}
+            className={cls.className}
+            status={cls.status}
+            latestSessionId={latestSession?.id ?? null}
+            returnPath={`/classes/${cls.id}`}
+            canManageClass={canManageClass}
+            totalSessions={cls.totalSessions}
+            existingSessionCount={cls.sessions.length}
+            activeEnrollmentsCount={activeEnrollments.length}
+            nextClassName={cls.nextClass?.className ?? null}
+            needTransferCount={completionNeedTransferCount}
+            completedCount={completionReadyCount}
+            transferValueAmount={completionTransferValueAmount}
+            freeExtraSessions={completionFreeExtraSessions}
+            editCls={{
+              id: cls.id,
+              classCode: cls.classCode,
+              className: cls.className,
+              classGroup: cls.classGroup,
+              courseId: cls.courseId,
+              tuitionPerSession: cls.tuitionPerSession,
+              sessionsPerWeek: cls.sessionsPerWeek,
+              totalSessions: cls.totalSessions,
+              startDate: cls.startDate ? cls.startDate.toISOString() : null,
+              expectedEndDate: cls.expectedEndDate ? cls.expectedEndDate.toISOString() : null,
+              nextClassId: cls.nextClassId,
+              notes: cls.notes,
+              roadmapItems: roadmapItems.map((item) => ({
+                sessionNumber: item.sessionNumber,
+                title: item.title ?? `Buổi ${item.sessionNumber}`,
+                objective: item.objective ?? "",
+                materials: item.materials ?? "",
+                teacherGuide: item.teacherGuide ?? "",
+                homeworkGuide: item.homeworkGuide ?? "",
+                teacherRequirement: item.teacherRequirement ?? "",
+              })),
+            }}
+            courses={courses}
+            classOptions={continuationClassOptions}
+            extraSlot={<SpotlightTour steps={CLASS_DETAIL_TOUR_STEPS} />}
+          />
         }
       />
 
@@ -1326,35 +1308,6 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
                         <ClassRecurringTaskManager classId={cls.id} tasks={classTasks} />
                         <ClassTaskManager classId={cls.id} tasks={tasks} />
-                        <ClassEditForm
-                          cls={{
-                            id: cls.id,
-                            classCode: cls.classCode,
-                            className: cls.className,
-                            classGroup: cls.classGroup,
-                            courseId: cls.courseId,
-                            tuitionPerSession: cls.tuitionPerSession,
-                            sessionsPerWeek: cls.sessionsPerWeek,
-                            totalSessions: cls.totalSessions,
-                            startDate: cls.startDate ? cls.startDate.toISOString() : null,
-                            expectedEndDate: cls.expectedEndDate ? cls.expectedEndDate.toISOString() : null,
-                            nextClassId: cls.nextClassId,
-                            notes: cls.notes,
-                            roadmapItems: roadmapItems.map((item) => ({
-                              sessionNumber: item.sessionNumber,
-                              title: item.title ?? `Buổi ${item.sessionNumber}`,
-                              objective: item.objective ?? "",
-                              materials: item.materials ?? "",
-                              teacherGuide: item.teacherGuide ?? "",
-                              homeworkGuide: item.homeworkGuide ?? "",
-                              teacherRequirement: item.teacherRequirement ?? "",
-                            })),
-                          }}
-                          courses={courses}
-                          classOptions={continuationClassOptions}
-                          renderSummary={false}
-                          triggerClassName="hidden"
-                        />
                       </div>
                     </div>
                   ),

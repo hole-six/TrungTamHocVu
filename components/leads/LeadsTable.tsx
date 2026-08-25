@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Column, BulkAction } from "@/components/ui/DataTable";
 import { canView, canUpdate, canDelete } from "@/lib/server/role-matrix";
@@ -138,6 +138,7 @@ export default function LeadsTable({
   classOptions = [],
 }: LeadsTableProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { openDrawer } = useStudentDrawer();
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
@@ -239,12 +240,14 @@ export default function LeadsTable({
       label: "Mã lead",
       sortable: true,
       width: "110px",
+      filter: { type: "text", paramKey: "leadCode", placeholder: "Mã lead..." },
       render: (value) => <span className="font-mono text-sm font-semibold text-primary">{value}</span>,
     },
     {
       key: "fullName",
       label: "Lead / phụ huynh",
       sortable: true,
+      filter: { type: "text", paramKey: "name", placeholder: "Tên lead..." },
       render: (value, row) => (
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-rose-600 text-sm font-bold text-white shadow-md">
@@ -283,6 +286,13 @@ export default function LeadsTable({
           {row.zaloContact ? <p className="text-sky-700">Zalo {row.zaloContact}</p> : null}
         </div>
       ),
+    },
+    {
+      key: "source",
+      label: "Nguồn",
+      width: "110px",
+      filter: { type: "text", paramKey: "source", placeholder: "Nguồn..." },
+      render: (value) => <span className="text-xs text-ink-muted80">{value ?? "—"}</span>,
     },
     {
       key: "meetDate",
@@ -327,6 +337,12 @@ export default function LeadsTable({
       key: "status",
       label: "Trạng thái",
       align: "center",
+      filter: {
+        type: "select",
+        paramKey: "status",
+        placeholder: "Tất cả",
+        options: LEAD_STATUS_FILTER_GROUPS.map((group) => ({ label: group.label, value: group.key })),
+      },
       render: (value, row) => {
         const isConverted = Boolean(row.hasStudent || row.convertedStudentCode || value === "ENROLLED");
         // Chỉ cho chọn 4 nhóm gộp (đúng như thanh lọc phía trên) thay vì 7 trạng thái
@@ -515,6 +531,20 @@ export default function LeadsTable({
     router.push(`/leads?${buildQuery({ q: query || null })}`);
   };
 
+  // Lọc theo từng cột (hàng cố định dưới header) — patch 1 paramKey qua buildQuery(),
+  // tái dùng đúng cơ chế điều hướng URL sẵn có (không phát minh luồng fetch thứ 2).
+  const handleFilterChange = (key: string, value: string | null) => {
+    setLoading(true);
+    router.push(`/leads?${buildQuery({ [key]: value })}`);
+  };
+
+  const filterValues = {
+    leadCode: searchParams.get("leadCode") ?? "",
+    name: searchParams.get("name") ?? "",
+    source: searchParams.get("source") ?? "",
+    status: statusFilter,
+  };
+
   const testChips: { key: string; label: string; count: number; active: boolean; query: Record<string, string | null> }[] = [
     { key: "NONE", label: "Chưa hẹn", count: missingTestCount, active: testStatusFilter === "NONE", query: { testStatus: "NONE", urgent: null } },
     { key: "soon", label: "Sắp tới", count: soonCount, active: urgentFilter === "soon", query: { urgent: "soon", testStatus: null } },
@@ -661,6 +691,8 @@ export default function LeadsTable({
       onSearch={handleSearch}
       defaultSearchValue={searchQuery}
       filterChips={filterChips}
+      filterValues={filterValues}
+      onFilterChange={handleFilterChange}
       showCountBadge={false}
       sortable
       selectable

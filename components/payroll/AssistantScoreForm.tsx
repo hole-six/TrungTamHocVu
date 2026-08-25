@@ -139,7 +139,7 @@ function BranchBonusRow({
       <button
         type="submit"
         disabled={loading}
-        className="flex h-10 items-center gap-2 rounded-lg bg-[#f97316] px-4 font-bold text-white transition-all hover:bg-[#ea580c] disabled:opacity-50"
+        className="btn-primary-sm"
       >
         <Save className="h-4 w-4" strokeWidth={2.5} />
         {loading ? "..." : "Lưu"}
@@ -293,7 +293,7 @@ export default function AssistantScoreForm({
           <button
             type="submit"
             disabled={loading}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#f97316] font-bold text-white transition-all hover:bg-[#ea580c] disabled:opacity-50"
+            className="btn-primary w-full"
           >
             <Plus className="h-5 w-5" strokeWidth={2.5} />
             {loading ? "Đang lưu..." : "Ghi nhận điểm"}
