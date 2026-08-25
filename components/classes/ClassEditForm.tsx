@@ -108,6 +108,16 @@ export default function ClassEditForm({
   const [error, setError] = useState<string | null>(null);
   const [importSummary, setImportSummary] = useState<string | null>(null);
   const [visibleRoadmapCount, setVisibleRoadmapCount] = useState(12);
+  // Gợi ý autocomplete cho "Nhóm lớp" — chọn lại đúng ngăn cũ hoặc gõ tên ngăn mới nếu
+  // chưa có, tránh gõ lệch chính tả sinh ra ngăn trùng nghĩa.
+  const [classGroupOptions, setClassGroupOptions] = useState<string[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    fetch("/api/classes/class-groups")
+      .then((res) => res.json())
+      .then((data) => setClassGroupOptions(data.items ?? []))
+      .catch(() => {});
+  }, [open]);
   const [form, setForm] = useState({
     className: cls.className,
     classGroup: cls.classGroup ?? "",
@@ -353,7 +363,18 @@ export default function ClassEditForm({
           <div className="grid gap-4 md:grid-cols-2">
             <label className="form-group">
               <span className="label">Nhóm lớp</span>
-              <input className="input" value={form.classGroup} onChange={(event) => setForm((current) => ({ ...current, classGroup: event.target.value }))} />
+              <input
+                className="input"
+                list="class-group-options"
+                placeholder="Chọn ngăn có sẵn hoặc gõ tên ngăn mới..."
+                value={form.classGroup}
+                onChange={(event) => setForm((current) => ({ ...current, classGroup: event.target.value }))}
+              />
+              <datalist id="class-group-options">
+                {classGroupOptions.map((group) => (
+                  <option key={group} value={group} />
+                ))}
+              </datalist>
             </label>
 
             <label className="form-group">

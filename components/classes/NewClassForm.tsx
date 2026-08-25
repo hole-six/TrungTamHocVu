@@ -245,6 +245,15 @@ export default function NewClassForm({
     notes: "",
     isRemedial: false,
   });
+  // Gợi ý autocomplete cho "Nhóm lớp" — chọn lại đúng ngăn cũ hoặc gõ tên ngăn mới nếu
+  // chưa có, tránh gõ lệch chính tả sinh ra ngăn trùng nghĩa.
+  const [classGroupOptions, setClassGroupOptions] = useState<string[]>([]);
+  useEffect(() => {
+    fetch("/api/classes/class-groups")
+      .then((res) => res.json())
+      .then((data) => setClassGroupOptions(data.items ?? []))
+      .catch(() => {});
+  }, []);
   const [scheduleRules, setScheduleRules] = useState<ScheduleRuleDraft[]>([buildEmptyRule()]);
   const [roadmapItems, setRoadmapItems] = useState<RoadmapDraft[]>([]);
   const [visibleRoadmapCount, setVisibleRoadmapCount] = useState(12);
@@ -636,7 +645,18 @@ export default function NewClassForm({
                 </label>
                 <label className="form-group">
                   <span className="label">Nhóm lớp</span>
-                  <input className="input" value={form.classGroup} onChange={(event) => patchForm("classGroup", event.target.value)} placeholder="Thiếu nhi, THCS, IELTS..." />
+                  <input
+                    className="input"
+                    list="class-group-options"
+                    value={form.classGroup}
+                    onChange={(event) => patchForm("classGroup", event.target.value)}
+                    placeholder="Chọn ngăn có sẵn hoặc gõ tên ngăn mới..."
+                  />
+                  <datalist id="class-group-options">
+                    {classGroupOptions.map((group) => (
+                      <option key={group} value={group} />
+                    ))}
+                  </datalist>
                 </label>
                 {!form.isRemedial ? (
                   <label className="form-group">
