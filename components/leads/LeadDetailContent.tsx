@@ -142,109 +142,122 @@ export default function LeadDetailContent({ data, onChanged }: { data: LeadDetai
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1.7fr)_340px]">
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {tabs.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setTab(t.key)}
-                className={`rounded-lg px-4 py-2.5 text-sm font-bold transition ${
-                  tab === t.key ? "bg-primary text-white shadow-sm" : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:border-[#d1d5db]"
-                }`}
-              >
-                {t.label}
-                {t.count !== undefined ? ` (${t.count})` : ""}
-              </button>
-            ))}
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`rounded-lg px-4 py-2.5 text-sm font-bold transition ${
+                tab === t.key ? "bg-primary text-white shadow-sm" : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:border-[#d1d5db]"
+              }`}
+            >
+              {t.label}
+              {t.count !== undefined ? ` (${t.count})` : ""}
+            </button>
+          ))}
+        </div>
+
+        {tab === "profile" ? (
+          // 4 ô bằng nhau (2x2, grid tự giãn chiều cao theo hàng) thay vì cột trái rộng
+          // + sidebar hẹp trước đây — Thông tin hồ sơ/Liên kết vận hành/Trạng thái lead/
+          // Ghi nhận hoạt động đều quan trọng như nhau, không nên có cái bị bó hẹp lại.
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <section className="card">
+              <h2 className="text-base font-bold tracking-tight text-[#12304a]">Thông tin hồ sơ</h2>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <InfoItem label="Phụ huynh" value={lead.guardian?.fullName ?? "Chưa có"} hint={lead.phone ?? "Chưa có số điện thoại"} />
+                <InfoItem label="Ngày gặp" value={formatDate(lead.meetDate)} hint={`Ngày dự kiến học: ${formatDate(lead.expectedStartDate)}`} />
+                <InfoItem label="Nguồn lead" value={lead.source ?? "Chưa ghi"} />
+                <InfoItem label="Địa chỉ" value={lead.address ?? "Chưa ghi"} />
+                <InfoItem label="Facebook phụ huynh" value={lead.facebookParentName ?? "Chưa ghi"} />
+                <InfoItem
+                  label="Link Facebook"
+                  value={
+                    lead.facebookLink ? (
+                      <a href={lead.facebookLink} target="_blank" rel="noreferrer" className="text-[#2563eb] hover:underline">
+                        {lead.facebookLink}
+                      </a>
+                    ) : (
+                      "Chưa có"
+                    )
+                  }
+                />
+                <InfoItem label="Đánh giá đầu vào" value={lead.initialAssessment ?? "Chưa ghi"} />
+                <InfoItem label="Lớp quan tâm" value={lead.interestedClass?.className ?? "Chưa gắn"} hint={lead.interestedClass?.classCode ?? undefined} />
+              </div>
+              {lead.notes ? (
+                <div className="mt-3 rounded-xl border border-[#e8eef8] bg-[#f8fbff] px-3 py-3 sm:px-4 sm:py-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8aa0ba]">Ghi chú CRM</p>
+                  <p className="mt-1.5 text-xs sm:text-sm leading-6 text-[#51657a]">{lead.notes}</p>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="card">
+              <h2 className="text-base font-bold tracking-tight text-[#12304a]">Liên kết vận hành</h2>
+              <p className="mt-1 text-xs text-[#6b7a8c]">Phụ huynh, portal, học viên và lớp hiện tại nếu lead đã chuyển đổi.</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <InfoItem
+                  label="Phụ huynh chính"
+                  value={
+                    linkedGuardian ? (
+                      <Link href={`/guardians/${linkedGuardian.id}`} className="text-[#2563eb] hover:underline">
+                        {linkedGuardian.fullName}
+                      </Link>
+                    ) : (
+                      "Chưa gắn"
+                    )
+                  }
+                  hint={linkedGuardian?.phone ?? "Chưa có số điện thoại"}
+                />
+                <InfoItem
+                  label="Portal phụ huynh"
+                  value={linkedGuardian?.user?.email ?? "Chưa cấp tài khoản"}
+                  hint={linkedGuardian?.user ? (linkedGuardian.user.isActive ? "Đang hoạt động" : "Đã thu hồi") : "Nên cấp khi nhập học"}
+                />
+                <InfoItem
+                  label="Học viên"
+                  value={
+                    lead.student ? (
+                      <Link href={`/students/${lead.student.id}`} className="text-[#2563eb] hover:underline">
+                        {lead.student.fullName}
+                      </Link>
+                    ) : (
+                      "Chưa chuyển thành học viên"
+                    )
+                  }
+                  hint={currentEnrollment?.class ? `Đang học ${currentEnrollment.class.className}` : "Chưa có enrollment"}
+                />
+                <InfoItem
+                  label="Học phí / công nợ"
+                  value={formatMoney(outstanding)}
+                  hint={
+                    currentClassTuition
+                      ? `Tạm tính toàn khóa ${currentClassTuition.toLocaleString("vi-VN")}đ`
+                      : currentEnrollment?.class.tuitionPerSession
+                        ? `${currentEnrollment.class.tuitionPerSession.toLocaleString("vi-VN")}đ / buổi`
+                        : "Chưa có cấu hình học phí"
+                  }
+                />
+              </div>
+            </section>
+
+            {editable ? (
+              <>
+                <LeadStatusPanel leadId={lead.id} status={lead.status} hasStudent={!!lead.student} onSuccess={onChanged} />
+                <LeadActivityForms leadId={lead.id} onSuccess={onChanged} />
+              </>
+            ) : (
+              <section className="card md:col-span-2">
+                <p className="text-sm leading-6 text-[#6b7a8c]">Vai trò hiện tại chỉ được xem chi tiết lead này. Không thể đổi trạng thái hoặc thêm hoạt động mới.</p>
+              </section>
+            )}
           </div>
+        ) : null}
 
-          {tab === "profile" ? (
-            <div className="space-y-4">
-              <section className="rounded-[22px] border border-[#dbe7ff] bg-white p-4 sm:p-5">
-                <h2 className="text-base font-bold tracking-tight text-[#12304a]">Thông tin hồ sơ</h2>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <InfoItem label="Phụ huynh" value={lead.guardian?.fullName ?? "Chưa có"} hint={lead.phone ?? "Chưa có số điện thoại"} />
-                  <InfoItem label="Ngày gặp" value={formatDate(lead.meetDate)} hint={`Ngày dự kiến học: ${formatDate(lead.expectedStartDate)}`} />
-                  <InfoItem label="Nguồn lead" value={lead.source ?? "Chưa ghi"} />
-                  <InfoItem label="Địa chỉ" value={lead.address ?? "Chưa ghi"} />
-                  <InfoItem label="Facebook phụ huynh" value={lead.facebookParentName ?? "Chưa ghi"} />
-                  <InfoItem
-                    label="Link Facebook"
-                    value={
-                      lead.facebookLink ? (
-                        <a href={lead.facebookLink} target="_blank" rel="noreferrer" className="text-[#2563eb] hover:underline">
-                          {lead.facebookLink}
-                        </a>
-                      ) : (
-                        "Chưa có"
-                      )
-                    }
-                  />
-                  <InfoItem label="Đánh giá đầu vào" value={lead.initialAssessment ?? "Chưa ghi"} />
-                  <InfoItem label="Lớp quan tâm" value={lead.interestedClass?.className ?? "Chưa gắn"} hint={lead.interestedClass?.classCode ?? undefined} />
-                </div>
-                {lead.notes ? (
-                  <div className="mt-3 rounded-xl border border-[#e8eef8] bg-[#f8fbff] px-3 py-3 sm:px-4 sm:py-4">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8aa0ba]">Ghi chú CRM</p>
-                    <p className="mt-1.5 text-xs sm:text-sm leading-6 text-[#51657a]">{lead.notes}</p>
-                  </div>
-                ) : null}
-              </section>
-
-              <section className="rounded-[22px] border border-[#dbe7ff] bg-white p-4 sm:p-5">
-                <h2 className="text-base font-bold tracking-tight text-[#12304a]">Liên kết vận hành</h2>
-                <p className="mt-1 text-xs text-[#6b7a8c]">Phụ huynh, portal, học viên và lớp hiện tại nếu lead đã chuyển đổi.</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <InfoItem
-                    label="Phụ huynh chính"
-                    value={
-                      linkedGuardian ? (
-                        <Link href={`/guardians/${linkedGuardian.id}`} className="text-[#2563eb] hover:underline">
-                          {linkedGuardian.fullName}
-                        </Link>
-                      ) : (
-                        "Chưa gắn"
-                      )
-                    }
-                    hint={linkedGuardian?.phone ?? "Chưa có số điện thoại"}
-                  />
-                  <InfoItem
-                    label="Portal phụ huynh"
-                    value={linkedGuardian?.user?.email ?? "Chưa cấp tài khoản"}
-                    hint={linkedGuardian?.user ? (linkedGuardian.user.isActive ? "Đang hoạt động" : "Đã thu hồi") : "Nên cấp khi nhập học"}
-                  />
-                  <InfoItem
-                    label="Học viên"
-                    value={
-                      lead.student ? (
-                        <Link href={`/students/${lead.student.id}`} className="text-[#2563eb] hover:underline">
-                          {lead.student.fullName}
-                        </Link>
-                      ) : (
-                        "Chưa chuyển thành học viên"
-                      )
-                    }
-                    hint={currentEnrollment?.class ? `Đang học ${currentEnrollment.class.className}` : "Chưa có enrollment"}
-                  />
-                  <InfoItem
-                    label="Học phí / công nợ"
-                    value={formatMoney(outstanding)}
-                    hint={
-                      currentClassTuition
-                        ? `Tạm tính toàn khóa ${currentClassTuition.toLocaleString("vi-VN")}đ`
-                        : currentEnrollment?.class.tuitionPerSession
-                          ? `${currentEnrollment.class.tuitionPerSession.toLocaleString("vi-VN")}đ / buổi`
-                          : "Chưa có cấu hình học phí"
-                    }
-                  />
-                </div>
-              </section>
-            </div>
-          ) : null}
-
-          {tab === "schedule" ? (
+        {tab === "schedule" ? (
             <div className="space-y-4">
               <section className="rounded-[22px] border border-[#dbe7ff] bg-white p-4 sm:p-5">
                 <h2 className="text-base font-bold tracking-tight text-[#12304a]">Lịch hẹn</h2>
@@ -319,20 +332,6 @@ export default function LeadDetailContent({ data, onChanged }: { data: LeadDetai
               </div>
             </section>
           ) : null}
-        </div>
-
-        <aside className="space-y-4">
-          {editable ? (
-            <>
-              <LeadStatusPanel leadId={lead.id} status={lead.status} hasStudent={!!lead.student} onSuccess={onChanged} />
-              <LeadActivityForms leadId={lead.id} onSuccess={onChanged} />
-            </>
-          ) : (
-            <section className="rounded-[22px] border border-[#dbe7ff] bg-white p-4 sm:p-5">
-              <p className="text-sm leading-6 text-[#6b7a8c]">Vai trò hiện tại chỉ được xem chi tiết lead này. Không thể đổi trạng thái hoặc thêm hoạt động mới.</p>
-            </section>
-          )}
-        </aside>
       </div>
     </div>
   );

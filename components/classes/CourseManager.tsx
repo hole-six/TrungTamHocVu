@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import NumberRangeFilterPopover from "@/components/ui/NumberRangeFilterPopover";
 import { formatVnd } from "@/lib/export-utils";
 
 type BookOption = {
@@ -579,23 +580,15 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
                       </select>
                     </th>
                     <th className="px-2 py-2 align-top">
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          value={tuitionFrom}
-                          onChange={(event) => setTuitionFrom(event.target.value)}
-                          placeholder="Từ"
-                          className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2 py-1.5 text-sm font-normal normal-case text-[#111827] placeholder:text-[#9ca3af] focus:border-primary focus:outline-none"
-                        />
-                        <span className="text-[10px] text-[#9ca3af]">–</span>
-                        <input
-                          type="number"
-                          value={tuitionTo}
-                          onChange={(event) => setTuitionTo(event.target.value)}
-                          placeholder="Đến"
-                          className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2 py-1.5 text-sm font-normal normal-case text-[#111827] placeholder:text-[#9ca3af] focus:border-primary focus:outline-none"
-                        />
-                      </div>
+                      <NumberRangeFilterPopover
+                        valueFrom={tuitionFrom}
+                        valueTo={tuitionTo}
+                        unit="đ"
+                        onApply={(from, to) => {
+                          setTuitionFrom(from ?? "");
+                          setTuitionTo(to ?? "");
+                        }}
+                      />
                     </th>
                     <th className="px-2 py-2" />
                     <th className="px-2 py-2" />

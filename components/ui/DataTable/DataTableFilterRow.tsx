@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Column } from "./DataTable";
 import DateRangeCalendarPopover from "@/components/ui/DateRangeCalendarPopover";
+import NumberRangeFilterPopover from "@/components/ui/NumberRangeFilterPopover";
 
 type DataTableFilterRowProps<T> = {
   columns: Column<T>[];
@@ -110,7 +111,6 @@ function DateRangeFilterCell({
 function RangeFilterCell({
   paramKeyFrom,
   paramKeyTo,
-  type,
   placeholder,
   valueFrom,
   valueTo,
@@ -118,32 +118,20 @@ function RangeFilterCell({
 }: {
   paramKeyFrom: string;
   paramKeyTo: string;
-  type: "date" | "number";
   placeholder?: string;
   valueFrom: string;
   valueTo: string;
-  onChange?: (paramKey: string, value: string | null) => void;
+  onChange?: (paramKey: string, value: string | null, extra?: Record<string, string | null>) => void;
 }) {
   return (
-    <div className="flex items-center gap-1">
-      <input
-        type={type}
-        defaultValue={valueFrom}
-        placeholder={type === "number" ? placeholder ?? "Từ" : undefined}
-        onBlur={(event) => onChange?.(paramKeyFrom, event.target.value || null)}
-        onClick={(event) => event.stopPropagation()}
-        className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2 py-1.5 text-sm font-normal normal-case text-[#111827] focus:border-primary focus:outline-none"
-      />
-      <span className="text-[10px] text-[#9ca3af]">–</span>
-      <input
-        type={type}
-        defaultValue={valueTo}
-        placeholder={type === "number" ? placeholder ?? "Đến" : undefined}
-        onBlur={(event) => onChange?.(paramKeyTo, event.target.value || null)}
-        onClick={(event) => event.stopPropagation()}
-        className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2 py-1.5 text-sm font-normal normal-case text-[#111827] focus:border-primary focus:outline-none"
-      />
-    </div>
+    <NumberRangeFilterPopover
+      valueFrom={valueFrom}
+      valueTo={valueTo}
+      unit={placeholder}
+      // Cùng lý do với DateRangeFilterCell — gộp cả 2 đầu vào 1 lần gọi onChange thay vì
+      // gọi 2 lần liên tiếp (mỗi lần đọc lại searchParams cũ, lần sau ghi đè mất lần trước).
+      onApply={(from, to) => onChange?.(paramKeyFrom, from, { [paramKeyTo]: to })}
+    />
   );
 }
 
@@ -187,7 +175,6 @@ export default function DataTableFilterRow<T>({
             <RangeFilterCell
               paramKeyFrom={column.filter.paramKeyFrom}
               paramKeyTo={column.filter.paramKeyTo}
-              type="number"
               placeholder={column.filter.placeholder}
               valueFrom={values[column.filter.paramKeyFrom] ?? ""}
               valueTo={values[column.filter.paramKeyTo] ?? ""}

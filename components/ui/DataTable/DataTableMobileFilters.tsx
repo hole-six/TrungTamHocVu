@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Column } from "./DataTable";
 import DateRangeCalendarPopover from "@/components/ui/DateRangeCalendarPopover";
+import NumberRangeFilterPopover from "@/components/ui/NumberRangeFilterPopover";
 
 type DataTableMobileFiltersProps<T> = {
   columns: Column<T>[];
@@ -85,21 +86,13 @@ export default function DataTableMobileFilters<T>({ columns, values, onChange }:
                     triggerClassName="input flex items-center justify-between text-left"
                   />
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      defaultValue={values[f.paramKeyFrom] ?? ""}
-                      onBlur={(event) => onChange?.(f.paramKeyFrom, event.target.value || null)}
-                      className="input"
-                    />
-                    <span className="text-xs text-[#9ca3af]">–</span>
-                    <input
-                      type="number"
-                      defaultValue={values[f.paramKeyTo] ?? ""}
-                      onBlur={(event) => onChange?.(f.paramKeyTo, event.target.value || null)}
-                      className="input"
-                    />
-                  </div>
+                  <NumberRangeFilterPopover
+                    valueFrom={values[f.paramKeyFrom] ?? ""}
+                    valueTo={values[f.paramKeyTo] ?? ""}
+                    unit={f.placeholder}
+                    onApply={(from, to) => onChange?.(f.paramKeyFrom, from, { [f.paramKeyTo]: to })}
+                    triggerClassName="input flex items-center justify-between text-left"
+                  />
                 )}
               </label>
             );

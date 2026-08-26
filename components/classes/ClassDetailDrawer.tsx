@@ -282,40 +282,39 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
               )}
 
               {activeTab === "buoihoc" && (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {data.projectedSchedule.map((slot: any) => (
-                    <div key={slot.number} className="rounded-2xl border border-[#e5eaf7] bg-white p-4 shadow-sm">
-                      <div className="mb-3 flex justify-between gap-3 border-b border-[#e5eaf7] pb-3">
-                        <div className="flex-1">
-                          <div className="flex flex-wrap gap-1.5">
-                            <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-bold text-[#2563eb]">#{slot.number}/{data.projectedSchedule.length}</span>
-                            <span className="text-sm font-bold">{formatDate(slot.sessionDate)}</span>
-                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${timingClass(slot.timing)}`}>{timingLabel(slot.timing)}</span>
-                            <span className="rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-2 py-0.5 text-[10px] font-semibold text-[#4b6480]">{slot.startTime ?? "—"} – {slot.endTime ?? "—"}</span>
-                          </div>
-                          <p className="mt-2 text-sm font-bold">{slot.roadmapItem?.title?.trim() || `Buổi ${slot.number}`}</p>
-                          {slot.roadmapItem?.objective && <p className="mt-1 text-xs text-[#64748b] line-clamp-2">{slot.roadmapItem.objective}</p>}
+                    <div key={slot.number} className="rounded-2xl border border-[#e5eaf7] bg-white px-4 py-3 shadow-sm">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                          <span className="shrink-0 rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-bold text-[#2563eb]">#{slot.number}/{data.projectedSchedule.length}</span>
+                          <span className="shrink-0 text-sm font-bold">{formatDate(slot.sessionDate)}</span>
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${timingClass(slot.timing)}`}>{timingLabel(slot.timing)}</span>
+                          <span className="shrink-0 rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-2 py-0.5 text-[10px] font-semibold text-[#4b6480]">{slot.startTime ?? "—"} – {slot.endTime ?? "—"}</span>
+                          <span className="truncate text-sm font-bold text-[#0f1729]">{slot.roadmapItem?.title?.trim() || `Buổi ${slot.number}`}</span>
                         </div>
-                        {slot.session && (
-                          <SessionLinkWithDrawer
-                            sessionId={slot.session.id}
-                            classId={data.id}
-                            className="inline-flex h-fit items-center gap-1 rounded-xl bg-[#0ea5e9] px-3 py-1.5 text-xs font-bold text-white cursor-pointer"
-                          >
-                            Mở →
-                          </SessionLinkWithDrawer>
+
+                        {slot.session ? (
+                          <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px]">
+                            <span className={`rounded px-1.5 py-0.5 font-bold ${badgeClass(slot.session.status)}`}>{slot.session.status}</span>
+                            <span className="font-semibold text-[#64748b]">Điểm danh <strong className="text-[#0f1729]">{slot.session.attendances?.length || 0}</strong></span>
+                            <span className="font-semibold text-[#64748b]">Nhật ký <strong className="text-[#0f1729]">{slot.session.journal?.publishedAt ? "Gửi" : slot.session.journal ? "Nháp" : "Chưa"}</strong></span>
+                            {data.permissions.canManageClass && slot.session.status !== "CANCELLED" && (
+                              <RescheduleSessionButton sessionId={slot.session.id} sessionDateLabel={formatDate(slot.session.sessionDate)} />
+                            )}
+                            <SessionLinkWithDrawer
+                              sessionId={slot.session.id}
+                              classId={data.id}
+                              className="inline-flex items-center gap-1 rounded-xl bg-[#0ea5e9] px-3 py-1.5 text-xs font-bold text-white cursor-pointer"
+                            >
+                              Mở →
+                            </SessionLinkWithDrawer>
+                          </div>
+                        ) : (
+                          <p className="shrink-0 text-xs font-semibold text-[#f59e0b]">Chưa tạo buổi học</p>
                         )}
                       </div>
-                      {slot.session ? (
-                        <div className="grid gap-2 text-xs sm:grid-cols-4">
-                          <div><span className="font-semibold text-[#64748b]">Trạng thái:</span> <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] font-bold ${badgeClass(slot.session.status)}`}>{slot.session.status}</span></div>
-                          <div><span className="font-semibold text-[#64748b]">Điểm danh:</span> <span className="ml-1 font-bold">{slot.session.attendances?.length || 0}</span></div>
-                          <div><span className="font-semibold text-[#64748b]">Nhật ký:</span> <span className="ml-1 font-bold">{slot.session.journal?.publishedAt ? "Gửi" : slot.session.journal ? "Nháp" : "Chưa"}</span></div>
-                          {data.permissions.canManageClass && slot.session.status !== "CANCELLED" && <div><RescheduleSessionButton sessionId={slot.session.id} sessionDateLabel={formatDate(slot.session.sessionDate)} /></div>}
-                        </div>
-                      ) : (
-                        <p className="text-xs font-semibold text-[#f59e0b]">Chưa tạo buổi học</p>
-                      )}
+                      {slot.roadmapItem?.objective && <p className="mt-1.5 text-xs text-[#64748b] line-clamp-1">{slot.roadmapItem.objective}</p>}
                     </div>
                   ))}
                 </div>
@@ -357,7 +356,7 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                               </div>
                             </div>
                           </div>
-                          <div className="flex shrink-0 flex-col gap-1.5">
+                          <div className="flex shrink-0 flex-wrap items-start gap-1.5">
                             <Link href={`/students/${e.student.id}`} onClick={onClose} className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-1.5 text-center text-xs font-bold text-sky-700">Hồ sơ</Link>
                             {data.permissions.canManageClass && <EnrollmentRowActions enrollmentId={e.id} status={e.status} />}
                             {data.permissions.canManageClass && e.status === "ACTIVE" && <AddEnrollmentSessionsButton enrollmentId={e.id} studentName={e.student.fullName} />}
