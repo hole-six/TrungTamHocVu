@@ -255,24 +255,24 @@ export default async function CalendarPage({
               >
                 <div className="relative mb-3">
                   <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">{WEEKDAY_SHORT[day.date.getUTCDay()]}</p>
-                  <p className="mt-1 font-display text-xl font-semibold tracking-tight text-ink">{formatCompactDate(day.date)}</p>
-                  <p className="mt-1 text-xs text-ink-muted48">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-sky-700/80">{WEEKDAY_SHORT[day.date.getUTCDay()]}</p>
+                  <p className="mt-1 font-display text-2xl font-black tracking-tight text-ink">{formatCompactDate(day.date)}</p>
+                  <p className="mt-1 text-xs font-semibold text-ink-muted48">
                     {day.sessions.length} buổi · {day.totalStudents} lượt học viên
                   </p>
                 </div>
-                  {isToday ? <span className="absolute right-0 top-0 text-[11px] font-semibold text-sky-700">Hôm nay</span> : null}
-                  {isFocus && !isToday ? <span className="absolute right-0 top-0 text-[11px] font-semibold text-indigo-600">Đang xem</span> : null}
+                  {isToday ? <span className="absolute right-0 top-0 rounded-full bg-sky-600 px-2 py-0.5 text-[11px] font-bold text-white">Hôm nay</span> : null}
+                  {isFocus && !isToday ? <span className="absolute right-0 top-0 rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-700">Đang xem</span> : null}
                 </div>
 
                 <div className="mb-3 grid grid-cols-2 gap-[9px]">
-                  <div className="rounded-[11px] bg-[#f5f9fd] px-3 py-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">Đã xong</p>
-                    <p className="mt-2 text-lg font-semibold text-emerald-700">{day.completed}</p>
+                  <div className="rounded-[11px] bg-emerald-50 px-3 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700/70">Đã xong</p>
+                    <p className="mt-2 text-2xl font-black text-emerald-700">{day.completed}</p>
                   </div>
-                  <div className="rounded-[11px] bg-[#fff8ed] px-3 py-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-muted48">Thiếu phân công</p>
-                    <p className="mt-2 text-lg font-semibold text-amber-700">{day.missingAssignments}</p>
+                  <div className="rounded-[11px] bg-amber-50 px-3 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-700/70">Thiếu phân công</p>
+                    <p className="mt-2 text-2xl font-black text-amber-700">{day.missingAssignments}</p>
                   </div>
                 </div>
 
