@@ -431,16 +431,34 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
+  const [codeFilter, setCodeFilter] = useState("");
+  const [nameFilter, setNameFilter] = useState("");
+  const [sessionsFilter, setSessionsFilter] = useState("");
+  const [tuitionFrom, setTuitionFrom] = useState("");
+  const [tuitionTo, setTuitionTo] = useState("");
+
+  const sessionsPerWeekOptions = useMemo(() => {
+    return Array.from(new Set(courses.map((course) => course.sessionsPerWeek))).sort((a, b) => a - b);
+  }, [courses]);
 
   const filteredCourses = useMemo(() => {
     const keyword = search.trim().toLowerCase();
+    const code = codeFilter.trim().toLowerCase();
+    const name = nameFilter.trim().toLowerCase();
+    const from = tuitionFrom ? Number(tuitionFrom) : null;
+    const to = tuitionTo ? Number(tuitionTo) : null;
     return courses.filter((course) => {
       if (statusFilter === "ACTIVE" && !course.isActive) return false;
       if (statusFilter === "INACTIVE" && course.isActive) return false;
-      if (!keyword) return true;
-      return [course.code, course.name].some((item) => item.toLowerCase().includes(keyword));
+      if (keyword && ![course.code, course.name].some((item) => item.toLowerCase().includes(keyword))) return false;
+      if (code && !course.code.toLowerCase().includes(code)) return false;
+      if (name && !course.name.toLowerCase().includes(name)) return false;
+      if (sessionsFilter && String(course.sessionsPerWeek) !== sessionsFilter) return false;
+      if (from !== null && course.tuitionPerSession < from) return false;
+      if (to !== null && course.tuitionPerSession > to) return false;
+      return true;
     });
-  }, [courses, search, statusFilter]);
+  }, [courses, search, statusFilter, codeFilter, nameFilter, sessionsFilter, tuitionFrom, tuitionTo]);
 
   const stats = useMemo(() => {
     const active = courses.filter((course) => course.isActive).length;
@@ -526,6 +544,63 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
                     <th className="px-4 py-3 text-left text-xs font-bold uppercase text-[#111827]">BỘ SÁCH</th>
                     <th className="px-4 py-3 text-center text-xs font-bold uppercase text-[#111827]">TRẠNG THÁI</th>
                     <th className="px-4 py-3 text-right text-xs font-bold uppercase text-[#111827]">TÁC VỤ</th>
+                  </tr>
+                  <tr className="border-b border-[#e5e7eb] bg-[#fafbfc]">
+                    <th className="px-2 py-2 align-top">
+                      <input
+                        type="text"
+                        value={codeFilter}
+                        onChange={(event) => setCodeFilter(event.target.value)}
+                        placeholder="Lọc mã..."
+                        className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2.5 py-1.5 text-sm font-normal normal-case text-[#111827] placeholder:text-[#9ca3af] focus:border-primary focus:outline-none"
+                      />
+                    </th>
+                    <th className="px-2 py-2 align-top">
+                      <input
+                        type="text"
+                        value={nameFilter}
+                        onChange={(event) => setNameFilter(event.target.value)}
+                        placeholder="Lọc tên khóa..."
+                        className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2.5 py-1.5 text-sm font-normal normal-case text-[#111827] placeholder:text-[#9ca3af] focus:border-primary focus:outline-none"
+                      />
+                    </th>
+                    <th className="px-2 py-2 align-top">
+                      <select
+                        value={sessionsFilter}
+                        onChange={(event) => setSessionsFilter(event.target.value)}
+                        className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2.5 py-1.5 text-sm font-normal normal-case text-[#111827] focus:border-primary focus:outline-none"
+                      >
+                        <option value="">Tất cả</option>
+                        {sessionsPerWeekOptions.map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </th>
+                    <th className="px-2 py-2 align-top">
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={tuitionFrom}
+                          onChange={(event) => setTuitionFrom(event.target.value)}
+                          placeholder="Từ"
+                          className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2 py-1.5 text-sm font-normal normal-case text-[#111827] placeholder:text-[#9ca3af] focus:border-primary focus:outline-none"
+                        />
+                        <span className="text-[10px] text-[#9ca3af]">–</span>
+                        <input
+                          type="number"
+                          value={tuitionTo}
+                          onChange={(event) => setTuitionTo(event.target.value)}
+                          placeholder="Đến"
+                          className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2 py-1.5 text-sm font-normal normal-case text-[#111827] placeholder:text-[#9ca3af] focus:border-primary focus:outline-none"
+                        />
+                      </div>
+                    </th>
+                    <th className="px-2 py-2" />
+                    <th className="px-2 py-2" />
+                    <th className="px-2 py-2" />
+                    <th className="px-2 py-2" />
                   </tr>
                 </thead>
                 <tbody>
@@ -622,20 +697,22 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
         </div>
       </div>
 
-      <ResponsiveDrawer 
+      <ResponsiveDrawer
         open={openCreate}
         onClose={() => setOpenCreate(false)}
         title="Thêm khóa học chuẩn"
         description="Khai báo học phí và bộ sách chuẩn đi kèm khóa học."
+        widthClassName="max-w-6xl"
       >
         <CourseForm mode="create" books={books} onClose={() => setOpenCreate(false)} />
       </ResponsiveDrawer>
 
-      <ResponsiveDrawer 
+      <ResponsiveDrawer
         open={Boolean(editingCourse)}
         onClose={() => setEditingCourse(null)}
         title="Sửa khóa học"
         description="Cập nhật học phí, lịch chuẩn và bộ sách chuẩn của khóa học."
+        widthClassName="max-w-6xl"
       >
         {editingCourse ? <CourseForm mode="edit" course={editingCourse} books={books} onClose={() => setEditingCourse(null)} /> : null}
       </ResponsiveDrawer>

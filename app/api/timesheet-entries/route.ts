@@ -6,6 +6,17 @@ import { getUserRole } from "@/lib/permissions";
 import { canCreate } from "@/lib/server/role-matrix";
 import { ensureTimesheetPeriodForEntry } from "@/lib/server/database-sync";
 
+// Lý do bị từ chối khác nhau theo vai trò: Giáo viên/Trợ giảng không chấm công ngày vì
+// công dạy tính từ buổi học đã phân công — nhưng lý do đó vô nghĩa với các vai trò quản
+// lý (BRANCH_MANAGER/DIRECTOR chỉ được duyệt, không tự tạo; BOARD/ACCOUNTANT chỉ xem) —
+// họ không dạy học nên không có "buổi học đã phân công" nào cả, cần thông báo đúng lý do.
+function timesheetCreateDeniedMessage(role: string | null): string {
+  if (role === "TEACHER" || role === "TEACHING_ASSISTANT") {
+    return "Vai trò của bạn không dùng luồng chấm công ngày. Công dạy của giáo viên/trợ giảng lấy từ buổi học đã phân công.";
+  }
+  return "Vai trò của bạn chỉ được xem hoặc duyệt chấm công, không tự tạo/sửa bản ghi. Liên hệ Nhân sự hoặc Giáo vụ để ghi nhận công cho bạn.";
+}
+
 function computeTimesheetTotals(body: Record<string, unknown>) {
   const checkInAm = typeof body.checkInAm === "string" ? body.checkInAm : "";
   const checkOutAm = typeof body.checkOutAm === "string" ? body.checkOutAm : "";
@@ -24,10 +35,7 @@ export async function POST(req: NextRequest) {
 
   const role = await getUserRole(user.id);
   if (!canCreate("timesheet", role)) {
-    return NextResponse.json(
-      { error: "Vai trò của bạn không dùng luồng chấm công ngày. Công dạy của giáo viên/trợ giảng lấy từ buổi học đã phân công." },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: timesheetCreateDeniedMessage(role) }, { status: 403 });
   }
 
   const body = await req.json();
@@ -73,10 +81,7 @@ export async function PUT(req: NextRequest) {
 
   const role = await getUserRole(user.id);
   if (!canCreate("timesheet", role)) {
-    return NextResponse.json(
-      { error: "Vai trò của bạn không dùng luồng chấm công ngày. Công dạy của giáo viên/trợ giảng lấy từ buổi học đã phân công." },
-      { status: 403 },
-    );
+    return NextResponse.json({ error: timesheetCreateDeniedMessage(role) }, { status: 403 });
   }
 
   const body = await req.json();

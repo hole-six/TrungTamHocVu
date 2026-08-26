@@ -353,8 +353,8 @@ export default function ClassJournalForm({
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-          <label className="form-group">
+        <div className="space-y-3">
+          <label className="form-group max-w-[420px]">
             <span className="label">Unit / Lesson của buổi học</span>
             <input
               className="input"
