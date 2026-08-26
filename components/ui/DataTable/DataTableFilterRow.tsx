@@ -88,12 +88,16 @@ function DateRangeFilterCell({
   valueFrom,
   valueTo,
   onChange,
+  otherFilterParamKeys,
 }: {
   paramKeyFrom: string;
   paramKeyTo: string;
   valueFrom: string;
   valueTo: string;
   onChange?: (paramKey: string, value: string | null, extra?: Record<string, string | null>) => void;
+  /** Toàn bộ paramKey filter KHÁC đang có trên bảng (text/select/range) — cho nút "Xóa"
+   *  trong popover xóa sạch mọi filter cùng lúc, không chỉ riêng khoảng ngày này. */
+  otherFilterParamKeys?: string[];
 }) {
   return (
     <DateRangeCalendarPopover
@@ -104,6 +108,15 @@ function DateRangeFilterCell({
       // updateParams() đều đọc lại searchParams cũ (chưa kịp cập nhật từ lần gọi trước),
       // nên lần gọi thứ 2 ghi đè mất thay đổi của lần gọi thứ 1 trên URL.
       onApply={(from, to) => onChange?.(paramKeyFrom, from, { [paramKeyTo]: to })}
+      onClearAll={
+        otherFilterParamKeys
+          ? () => {
+              const extra: Record<string, string | null> = { [paramKeyTo]: null };
+              for (const key of otherFilterParamKeys) extra[key] = null;
+              onChange?.(paramKeyFrom, null, extra);
+            }
+          : undefined
+      }
     />
   );
 }
@@ -135,6 +148,12 @@ function RangeFilterCell({
   );
 }
 
+function filterParamKeysOf<T>(column: Column<T>): string[] {
+  if (!column.filter) return [];
+  if (column.filter.type === "text" || column.filter.type === "select") return [column.filter.paramKey];
+  return [column.filter.paramKeyFrom, column.filter.paramKeyTo];
+}
+
 export default function DataTableFilterRow<T>({
   columns,
   values,
@@ -142,6 +161,8 @@ export default function DataTableFilterRow<T>({
   selectable,
   hasActionsColumn,
 }: DataTableFilterRowProps<T>) {
+  const allFilterParamKeys = columns.flatMap(filterParamKeysOf);
+
   return (
     <tr className="border-b border-[#e5e7eb] bg-[#fafbfc]">
       {selectable ? <th className="px-6 py-2" /> : null}
@@ -164,13 +185,19 @@ export default function DataTableFilterRow<T>({
               onChange={onChange}
             />
           ) : column.filter.type === "dateRange" ? (
-            <DateRangeFilterCell
-              paramKeyFrom={column.filter.paramKeyFrom}
-              paramKeyTo={column.filter.paramKeyTo}
-              valueFrom={values[column.filter.paramKeyFrom] ?? ""}
-              valueTo={values[column.filter.paramKeyTo] ?? ""}
-              onChange={onChange}
-            />
+            (() => {
+              const { paramKeyFrom, paramKeyTo } = column.filter;
+              return (
+                <DateRangeFilterCell
+                  paramKeyFrom={paramKeyFrom}
+                  paramKeyTo={paramKeyTo}
+                  valueFrom={values[paramKeyFrom] ?? ""}
+                  valueTo={values[paramKeyTo] ?? ""}
+                  onChange={onChange}
+                  otherFilterParamKeys={allFilterParamKeys.filter((key) => key !== paramKeyFrom && key !== paramKeyTo)}
+                />
+              );
+            })()
           ) : (
             <RangeFilterCell
               paramKeyFrom={column.filter.paramKeyFrom}

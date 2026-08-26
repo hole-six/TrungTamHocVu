@@ -57,6 +57,11 @@ function CategoryRow({
     return (
       <tr className="border-b border-hairline last:border-0 bg-[#fbfdff]">
         <td className="px-4 py-2">
+          <span className={`badge ${type === "THU" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+            {CASH_TXN_TYPE_LABEL[type]}
+          </span>
+        </td>
+        <td className="px-4 py-2">
           <input className="input h-8 text-xs" value={name} onChange={(e) => setName(e.target.value)} />
         </td>
         <td className="px-4 py-2">
@@ -80,6 +85,11 @@ function CategoryRow({
 
   return (
     <tr className="border-b border-hairline last:border-0">
+      <td className="px-4 py-3">
+        <span className={`badge ${type === "THU" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+          {CASH_TXN_TYPE_LABEL[type]}
+        </span>
+      </td>
       <td className="px-4 py-3 font-medium text-ink">{category.name}</td>
       <td className="px-4 py-3 text-ink-muted80">{category.detail || "—"}</td>
       <td className={`px-4 py-3 text-right font-semibold ${type === "THU" ? "text-emerald-700" : "text-rose-700"}`}>
@@ -120,11 +130,15 @@ export default function CategoryManager({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const grouped = useMemo(
-    () => ({
-      THU: categories.filter((category) => category.type === "THU"),
-      CHI: categories.filter((category) => category.type === "CHI"),
-    }),
+  // Trước đây tách riêng 2 bảng THU/CHI cạnh nhau (2 tiêu đề + 2 khung riêng) — người
+  // dùng muốn gộp thành đúng 1 bảng, phân biệt loại bằng cột "Loại" thay vì tách khối.
+  // THU xếp trước CHI (đúng thứ tự "thu chi" quen thuộc), mỗi nhóm sắp theo tên.
+  const sortedCategories = useMemo(
+    () =>
+      [...categories].sort((a, b) => {
+        if (a.type !== b.type) return a.type === "THU" ? -1 : 1;
+        return a.name.localeCompare(b.name, "vi");
+      }),
     [categories],
   );
 
@@ -164,50 +178,36 @@ export default function CategoryManager({
         </button>
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-2">
-        {(["THU", "CHI"] as const).map((type) => (
-          <div key={type} className={`rounded-[24px] border p-4 ${type === "THU" ? "border-emerald-100 bg-emerald-50/60" : "border-rose-100 bg-rose-50/60"}`}>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${type === "THU" ? "text-emerald-700" : "text-rose-700"}`}>
-                  {CASH_TXN_TYPE_LABEL[type]}
-                </p>
-                <p className="mt-1 text-sm text-ink-muted48">{grouped[type].length} danh mục</p>
-              </div>
-            </div>
-
-            <div className="mt-4 overflow-hidden rounded-2xl border border-white/80 bg-white">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-hairline bg-[#f9fbff] text-xs uppercase tracking-wide text-ink-muted48">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Tên danh mục</th>
-                    <th className="px-4 py-3 font-medium">Chi tiết</th>
-                    <th className="px-4 py-3 text-right font-medium">Số tiền kỳ này</th>
-                    <th className="px-4 py-3 text-right font-medium">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {grouped[type].map((category) => (
-                    <CategoryRow
-                      key={category.id}
-                      category={category}
-                      type={type}
-                      amount={amountByCategory[category.name]}
-                      onSaved={() => router.refresh()}
-                    />
-                  ))}
-                  {grouped[type].length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-4 py-4 text-center text-ink-muted48">
-                        Chưa có danh mục nào.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
+      <div className="mt-5 overflow-hidden rounded-2xl border border-hairline bg-white">
+        <table className="w-full text-left text-sm">
+          <thead className="border-b border-hairline bg-[#f9fbff] text-xs uppercase tracking-wide text-ink-muted48">
+            <tr>
+              <th className="px-4 py-3 font-medium">Loại</th>
+              <th className="px-4 py-3 font-medium">Tên danh mục</th>
+              <th className="px-4 py-3 font-medium">Chi tiết</th>
+              <th className="px-4 py-3 text-right font-medium">Số tiền kỳ này</th>
+              <th className="px-4 py-3 text-right font-medium">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedCategories.map((category) => (
+              <CategoryRow
+                key={category.id}
+                category={category}
+                type={category.type as "THU" | "CHI"}
+                amount={amountByCategory[category.name]}
+                onSaved={() => router.refresh()}
+              />
+            ))}
+            {sortedCategories.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-4 text-center text-ink-muted48">
+                  Chưa có danh mục nào.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
       </div>
 
       {open ? (

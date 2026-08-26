@@ -23,7 +23,7 @@ const CASHBOOK_TOUR_STEPS: TourStep[] = [
     target: '[data-tour="cashbook-kpi"]',
     title: "Tổng thu, Tổng chi, Số dư",
     description: "Giao dịch đã hủy (VOIDED) không được cộng vào 3 số này, dù vẫn còn hiển thị trong bảng bên dưới để giữ dấu vết.",
-    placement: "bottom",
+    placement: "right",
   },
   {
     target: '[data-tour="cashbook-table"]',
@@ -217,7 +217,16 @@ export default async function CashbookPage({
       />
       <div className="flex flex-col gap-4 rounded-[28px] border border-hairline bg-white px-5 py-4 shadow-[0_18px_45px_rgba(15,23,41,0.06)] xl:flex-row xl:items-start xl:justify-between" data-tour="cashbook-header">
         <div>
-          <h1 className="page-title">Sổ quỹ</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="page-title">Sổ quỹ</h1>
+            {/* 3 tag KPI — trước đây là khối riêng to (px-4 py-4, số text-2xl) chiếm hẳn
+                1 hàng dưới tiêu đề, giờ thu nhỏ thành badge đặt ngay cạnh tiêu đề. */}
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700" data-tour="cashbook-kpi">
+              Thu {formatVnd(totalThu)}
+            </span>
+            <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">Chi {formatVnd(totalChi)}</span>
+            <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">Dư {formatVnd(balance)}</span>
+          </div>
           <p className="page-subtitle">Thu vào, chi ra và số dư thực tế của cơ sở.</p>
         </div>
 
@@ -232,21 +241,6 @@ export default async function CashbookPage({
             byCategory={byCategory}
             transactions={normalizedTransactions}
           />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3" data-tour="cashbook-kpi">
-        <div className="rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Tổng thu vào</p>
-          <p className="mt-2 font-display text-2xl font-semibold tracking-tight text-emerald-800">{formatVnd(totalThu)}</p>
-        </div>
-        <div className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">Tổng chi ra</p>
-          <p className="mt-2 font-display text-2xl font-semibold tracking-tight text-rose-800">{formatVnd(totalChi)}</p>
-        </div>
-        <div className="rounded-[22px] border border-sky-200 bg-sky-50 px-4 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Số dư</p>
-          <p className="mt-2 font-display text-2xl font-semibold tracking-tight text-sky-800">{formatVnd(balance)}</p>
         </div>
       </div>
 

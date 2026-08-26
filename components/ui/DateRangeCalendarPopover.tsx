@@ -137,12 +137,18 @@ export default function DateRangeCalendarPopover({
   valueFrom,
   valueTo,
   onApply,
+  onClearAll,
   placeholder = "Khoảng ngày...",
   triggerClassName,
 }: {
   valueFrom: string;
   valueTo: string;
   onApply: (from: string | null, to: string | null) => void;
+  /** Khi có, nút "Xóa" xóa TOÀN BỘ filter đang áp dụng (không chỉ khoảng ngày này) và
+   *  có tác dụng ngay, không cần bấm "Áp dụng" thêm — dùng cho trang có nhiều filter
+   *  cùng lúc (vd Sổ quỹ) muốn 1 nút "Xóa" reset sạch. Không truyền thì giữ hành vi cũ
+   *  (chỉ xóa draft ngày, vẫn cần "Áp dụng"). */
+  onClearAll?: () => void;
   placeholder?: string;
   triggerClassName?: string;
 }) {
@@ -319,6 +325,10 @@ export default function DateRangeCalendarPopover({
                       onClick={() => {
                         setDraftFrom(null);
                         setDraftTo(null);
+                        if (onClearAll) {
+                          onClearAll();
+                          setOpen(false);
+                        }
                       }}
                       className="rounded-lg border border-[#e5e7eb] px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
                     >

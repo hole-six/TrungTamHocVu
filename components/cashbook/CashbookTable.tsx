@@ -131,6 +131,44 @@ export default function CashbookTable({
   const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
     updateParams({ [key]: value, ...extra, page: "1" });
 
+  // Chip filter đang áp dụng, mỗi chip có nút "×" tắt riêng — chỉ hiện khi URL có filter
+  // THẬT SỰ do người dùng đặt (không tính fromDate/toDate mặc định do page.tsx tự tính
+  // khi URL trống, bấm "×" trên chip mặc định đó sẽ không thấy đổi gì vì lại quay về
+  // đúng mặc định cũ, gây khó hiểu).
+  const urlFromDate = searchParams.get("fromDate");
+  const urlToDate = searchParams.get("toDate");
+  const urlType = searchParams.get("type");
+  const urlCategoryId = searchParams.get("categoryId");
+  const urlSearch = searchParams.get("search");
+  const urlAmountFrom = searchParams.get("amountFrom");
+  const urlAmountTo = searchParams.get("amountTo");
+  const categoryName = categories.find((c) => c.id === urlCategoryId)?.name;
+
+  const chips: { key: string; label: string; onRemove: () => void }[] = [];
+  if (urlFromDate || urlToDate) {
+    chips.push({
+      key: "date",
+      label: `${urlFromDate ? formatDate(urlFromDate) : "…"} → ${urlToDate ? formatDate(urlToDate) : "…"}`,
+      onRemove: () => handleFilterChange("fromDate", null, { toDate: null }),
+    });
+  }
+  if (urlType) {
+    chips.push({ key: "type", label: urlType === "THU" ? "Thu" : "Chi", onRemove: () => handleFilterChange("type", null) });
+  }
+  if (urlCategoryId) {
+    chips.push({ key: "categoryId", label: categoryName ?? "Danh mục", onRemove: () => handleFilterChange("categoryId", null) });
+  }
+  if (urlSearch) {
+    chips.push({ key: "search", label: `"${urlSearch}"`, onRemove: () => handleFilterChange("search", null) });
+  }
+  if (urlAmountFrom || urlAmountTo) {
+    chips.push({
+      key: "amount",
+      label: `${urlAmountFrom ? formatVnd(Number(urlAmountFrom)) : "0"} - ${urlAmountTo ? formatVnd(Number(urlAmountTo)) : "∞"}`,
+      onRemove: () => handleFilterChange("amountFrom", null, { amountTo: null }),
+    });
+  }
+
   return (
     <DataTableResponsive
       data={transactions}
@@ -141,6 +179,20 @@ export default function CashbookTable({
       showCountBadge={false}
       filterValues={filterValues}
       onFilterChange={handleFilterChange}
+      filterChips={
+        chips.length > 0 ? (
+          <>
+            {chips.map((chip) => (
+              <span key={chip.key} className="inline-flex items-center gap-1.5 rounded-full bg-[#eef2ff] px-3 py-1 text-xs font-semibold text-[#4338ca]">
+                {chip.label}
+                <button type="button" onClick={chip.onRemove} className="text-[#4338ca] hover:text-[#312e81]" aria-label={`Bỏ lọc ${chip.label}`}>
+                  ×
+                </button>
+              </span>
+            ))}
+          </>
+        ) : undefined
+      }
       primaryColumn="description"
       secondaryColumns={["txnDate", "type", "thuAmount", "chiAmount", "status"]}
       renderExpanded={(row) => <CashTransactionExpandedDetail transaction={row} categories={categories} canManageCashbook={canManageCashbook} />}
