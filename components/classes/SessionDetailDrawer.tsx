@@ -44,6 +44,7 @@ interface SessionData {
     materials: string | null;
     teacherGuide: string | null;
     homeworkGuide: string | null;
+    teacherRequirement: string | null;
   } | null;
   roster: Array<{
     enrollmentId: string;
@@ -67,7 +68,14 @@ interface SessionData {
     publishedAt: string | Date | null;
     entries: any[];
   } | null;
-  requirementCheck: any;
+  requirementCheck: {
+    status: string;
+    initialStatus: string;
+    reason: string | null;
+    scoreDecision: string;
+    employee: { fullName: string };
+    checkedAt: string;
+  } | null;
   employees: Array<{ id: string; fullName: string; shortName: string | null }>;
   careAlertStudentIds: string[];
   permissions: {
@@ -286,6 +294,42 @@ export default function SessionDetailDrawer({
                     )}
                   </div>
                 )}
+
+                {/* Việc giáo viên cần làm — chỉ hiển thị đọc, thao tác thật ở trang buổi học đầy đủ */}
+                {sessionData.roadmapItem?.teacherRequirement?.trim() ? (
+                  <div className="rounded-xl border border-[#e5eaf7] bg-white p-4">
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">Việc giáo viên cần làm</h3>
+                    <p className="text-sm text-[#0f1729] leading-relaxed">{sessionData.roadmapItem.teacherRequirement}</p>
+                    {sessionData.requirementCheck ? (
+                      <div className="mt-2 pt-2 border-t border-[#f1f5f9] space-y-1.5">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${
+                            sessionData.requirementCheck.status === "SUBMITTED" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                          }`}
+                        >
+                          {sessionData.requirementCheck.status === "SUBMITTED" ? "Đã nộp" : "Chưa nộp"}
+                        </span>
+                        {sessionData.requirementCheck.initialStatus === "NOT_SUBMITTED" && sessionData.requirementCheck.status === "SUBMITTED" ? (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">Nộp muộn</span>
+                        ) : null}
+                        <p className="text-xs text-[#64748b]">
+                          Xác nhận bởi {sessionData.requirementCheck.employee.fullName} lúc {new Date(sessionData.requirementCheck.checkedAt).toLocaleString("vi-VN")}
+                        </p>
+                        {sessionData.requirementCheck.reason ? (
+                          <p className="text-xs text-[#64748b]"><span className="font-semibold text-[#0f1729]">Lý do:</span> {sessionData.requirementCheck.reason}</p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="mt-2 pt-2 border-t border-[#f1f5f9] text-xs font-semibold text-amber-700">Chưa xác nhận đã nộp/chưa nộp.</p>
+                    )}
+                    <a
+                      href={`/classes/${sessionData.class.id}/sessions/${sessionData.session.id}`}
+                      className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                    >
+                      Mở buổi đầy đủ để xác nhận →
+                    </a>
+                  </div>
+                ) : null}
 
                 {/* Teachers & Assistants */}
                 {sessionData.assignments.length > 0 && (

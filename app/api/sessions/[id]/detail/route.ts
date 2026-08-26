@@ -158,6 +158,7 @@ export async function GET(
         materials: roadmapItem.materials,
         teacherGuide: roadmapItem.teacherGuide,
         homeworkGuide: roadmapItem.homeworkGuide,
+        teacherRequirement: roadmapItem.teacherRequirement,
       } : null,
       roster,
       presentCount,

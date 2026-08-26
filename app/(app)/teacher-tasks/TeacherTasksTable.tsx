@@ -1,10 +1,11 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Column } from "@/components/ui/DataTable";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 type Employee = { id: string; fullName: string; employeeCode: string };
 
@@ -13,7 +14,10 @@ export type CheckRow = {
   employee: Employee;
   session: { id: string; classId: string; sessionDate: Date | string; class: { className: string } };
   requirementText: string;
+  initialStatus: string;
   status: string;
+  reason: string | null;
+  scoreDecision: string;
   scoreEvent: { points: number; type: string } | null;
   checkedAt: Date | string;
 };
@@ -23,17 +27,25 @@ type TeacherTasksTableProps = {
   employees: Employee[];
   status: string;
   employeeId: string;
+  canDecide: boolean;
 };
+
+const SCORE_DECISION_OPTIONS: { value: string; label: string }[] = [
+  { value: "PENDING", label: "Chờ quyết định" },
+  { value: "DEDUCTED", label: "Trừ điểm" },
+  { value: "WAIVED", label: "Bỏ qua" },
+];
 
 function formatDateTime(value: Date | string) {
   return new Date(value).toLocaleString("vi-VN");
 }
 
-export default function TeacherTasksTable({ initialData, employees, status, employeeId }: TeacherTasksTableProps) {
+export default function TeacherTasksTable({ initialData, employees, status, employeeId, canDecide }: TeacherTasksTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   function updateParams(patch: Record<string, string | null>) {
     const next = new URLSearchParams(searchParams.toString());
@@ -51,6 +63,17 @@ export default function TeacherTasksTable({ initialData, employees, status, empl
     status,
     employeeId,
   };
+
+  async function patchCheck(sessionId: string, body: Record<string, string>) {
+    setSavingId(sessionId);
+    await fetch(`/api/sessions/${sessionId}/requirement-check`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setSavingId(null);
+    router.refresh();
+  }
 
   const columns: Column<CheckRow>[] = [
     {
@@ -103,6 +126,15 @@ export default function TeacherTasksTable({ initialData, employees, status, empl
       ),
     },
     {
+      key: "reason",
+      label: "Ghi chú",
+      render: (value: string | null) => (
+        <div className="max-w-xs">
+          {value ? <p className="line-clamp-2 text-sm leading-relaxed text-[#64748b]">{value}</p> : <span className="text-[#94a3b8]">—</span>}
+        </div>
+      ),
+    },
+    {
       key: "status",
       label: "Trạng thái",
       filter: {
@@ -114,44 +146,77 @@ export default function TeacherTasksTable({ initialData, employees, status, empl
           { label: "Chưa nộp", value: "NOT_SUBMITTED" },
         ],
       },
-      render: (value: string) => (
-        <span
-          className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold shadow-sm ${
-            value === "SUBMITTED" ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white" : "bg-gradient-to-r from-red-500 to-rose-600 text-white"
-          }`}
-        >
-          {value === "SUBMITTED" ? (
-            <>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              Đã nộp
-            </>
-          ) : (
-            <>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-              Chưa nộp
-            </>
-          )}
-        </span>
+      render: (value: string, row) => (
+        <div className="space-y-1">
+          <span
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold shadow-sm ${
+              value === "SUBMITTED" ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white" : "bg-gradient-to-r from-red-500 to-rose-600 text-white"
+            }`}
+          >
+            {value === "SUBMITTED" ? (
+              <>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Đã nộp
+              </>
+            ) : (
+              <>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+                Chưa nộp
+              </>
+            )}
+          </span>
+          {row.initialStatus === "NOT_SUBMITTED" && row.status === "SUBMITTED" ? (
+            <span className="block w-fit rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">Nộp muộn</span>
+          ) : null}
+        </div>
       ),
     },
     {
-      key: "scoreEvent",
-      label: "Điểm trừ",
-      render: (value: CheckRow["scoreEvent"]) =>
-        value ? (
-          <span className="inline-flex items-center gap-1 rounded-lg bg-red-100 px-2.5 py-1.5 text-sm font-black text-red-700">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-            </svg>
-            -{value.points}
-          </span>
+      key: "scoreDecision",
+      label: "Quyết định điểm",
+      render: (value: string, row) =>
+        canDecide ? (
+          <div className="flex flex-wrap gap-1">
+            {SCORE_DECISION_OPTIONS.map((option) =>
+              option.value === "DEDUCTED" ? (
+                <ConfirmActionButton
+                  key={option.value}
+                  title="Xác nhận trừ điểm tích cực?"
+                  description={`Sẽ trừ 1 điểm tích cực của ${row.employee.fullName} cho buổi ${new Date(row.session.sessionDate).toLocaleDateString("vi-VN")}.`}
+                  confirmLabel="Trừ điểm"
+                  tone="danger"
+                  disabled={savingId === row.session.id || value === option.value}
+                  className={`rounded-lg border px-2 py-1 text-[11px] font-bold transition ${
+                    value === option.value ? "border-rose-400 bg-rose-100 text-rose-700" : "border-[#e5e7eb] bg-white text-[#64748b] hover:border-rose-300"
+                  }`}
+                  onConfirm={() => patchCheck(row.session.id, { scoreDecision: option.value })}
+                >
+                  {option.label}
+                </ConfirmActionButton>
+              ) : (
+                <button
+                  key={option.value}
+                  type="button"
+                  disabled={savingId === row.session.id || value === option.value}
+                  onClick={() => patchCheck(row.session.id, { scoreDecision: option.value })}
+                  className={`rounded-lg border px-2 py-1 text-[11px] font-bold transition disabled:cursor-default ${
+                    value === option.value ? "border-primary bg-primary/10 text-primary" : "border-[#e5e7eb] bg-white text-[#64748b] hover:border-primary/40"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ),
+            )}
+          </div>
+        ) : row.scoreEvent ? (
+          <span className="inline-flex items-center gap-1 rounded-lg bg-red-100 px-2.5 py-1.5 text-sm font-black text-red-700">-{row.scoreEvent.points}</span>
         ) : (
-          <span className="text-[#94a3b8]">—</span>
+          <span className="text-[#94a3b8]">{SCORE_DECISION_OPTIONS.find((o) => o.value === value)?.label ?? "—"}</span>
         ),
     },
     {
@@ -164,16 +229,30 @@ export default function TeacherTasksTable({ initialData, employees, status, empl
       label: "Tác vụ",
       align: "right",
       render: (_value, row) => (
-        <Link
-          href={`/payroll/employees/${row.employee.id}`}
-          className="inline-flex items-center gap-2 rounded-lg border border-[#e5eaf7] bg-white px-3 py-2 text-xs font-bold text-[#475569] transition hover:border-[#f97316] hover:text-[#f97316]"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
-          Lịch sử & điểm
-        </Link>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {canDecide && row.status === "NOT_SUBMITTED" ? (
+            <ConfirmActionButton
+              title="Chuyển thành đã nộp?"
+              description="Dùng khi nhân sự đã nộp bổ sung sau ngày buổi học. Hệ thống vẫn giữ dấu vết đây là nộp muộn."
+              confirmLabel="Chuyển thành Đã nộp"
+              disabled={savingId === row.session.id}
+              className="status-action"
+              onConfirm={() => patchCheck(row.session.id, { status: "SUBMITTED" })}
+            >
+              Chuyển thành Đã nộp
+            </ConfirmActionButton>
+          ) : null}
+          <Link
+            href={`/payroll/employees/${row.employee.id}`}
+            className="inline-flex items-center gap-2 rounded-lg border border-[#e5eaf7] bg-white px-3 py-2 text-xs font-bold text-[#475569] transition hover:border-[#f97316] hover:text-[#f97316]"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            Lịch sử & điểm
+          </Link>
+        </div>
       ),
     },
   ];
@@ -194,7 +273,7 @@ export default function TeacherTasksTable({ initialData, employees, status, empl
       }}
       loading={isPending}
       rowKey="id"
-      className="[&_table]:min-w-[900px]"
+      className="[&_table]:min-w-[1100px]"
       primaryColumn="employee"
       secondaryColumns={["status", "session"]}
     />

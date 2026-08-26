@@ -396,15 +396,19 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
         ) : null}
       </div>
 
-      {canTeachSession && session.status === "COMPLETED" && roadmapItem?.teacherRequirement?.trim() ? (
+      {canTeachSession && sessionHappened && roadmapItem?.teacherRequirement?.trim() ? (
         <SessionRequirementForm
           sessionId={session.id}
           requirementText={roadmapItem.teacherRequirement.trim()}
           employeeOptions={[...new Map(session.assignments.map((assignment) => [assignment.employeeId, { id: assignment.employeeId, fullName: assignment.employee.fullName }])).values()]}
+          editableToday={computeSessionTiming(session.sessionDate, getVietnamToday()) === "today"}
           existing={
             session.requirementCheck
               ? {
                   status: session.requirementCheck.status,
+                  initialStatus: session.requirementCheck.initialStatus,
+                  reason: session.requirementCheck.reason,
+                  scoreDecision: session.requirementCheck.scoreDecision,
                   employee: session.requirementCheck.employee,
                   checkedAt: session.requirementCheck.checkedAt,
                 }

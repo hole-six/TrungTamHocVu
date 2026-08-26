@@ -142,6 +142,7 @@ const CLASS_JOURNAL_GUIDE_SECTIONS = [
       "Điểm và nhận xét sẽ hiện trên bản PDF gửi phụ huynh.",
       "Bản nháp trên máy không thay cho việc bấm lưu.",
       "Chỉ chốt khi đã kiểm tra kỹ nội dung.",
+      "Bản PDF phụ huynh in theo khổ ngang A4, chỉ giữ nội dung cần gửi.",
     ],
     tone: "warning" as const,
   },
@@ -353,25 +354,18 @@ export default function ClassJournalForm({
           </div>
         </div>
 
-        <div className="space-y-3">
-          <label className="form-group max-w-[420px]">
-            <span className="label">Unit / Lesson của buổi học</span>
-            <input
-              className="input"
-              placeholder="VD: UNIT 1 - LESSON 1"
-              value={unitLesson}
-              onChange={(event) => {
-                setUnitLesson(event.target.value);
-                setSaved(false);
-              }}
-            />
-          </label>
-
-          <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-ink-muted80">
-            <p className="font-semibold text-ink">Bản PDF phụ huynh</p>
-            <p className="mt-1">In theo khổ ngang A4, chỉ giữ nội dung cần gửi.</p>
-          </div>
-        </div>
+        <label className="form-group max-w-[420px]">
+          <span className="label">Unit / Lesson của buổi học</span>
+          <input
+            className="input"
+            placeholder="VD: UNIT 1 - LESSON 1"
+            value={unitLesson}
+            onChange={(event) => {
+              setUnitLesson(event.target.value);
+              setSaved(false);
+            }}
+          />
+        </label>
 
         <label className="form-group">
           <span className="label">Ghi chú nội bộ</span>

@@ -527,12 +527,22 @@ model ClassRoadmapItem {
 }
 
 // Xác nhận "việc giáo viên cần làm" của 1 buổi học cụ thể (yêu cầu lấy từ
-// ClassRoadmapItem.teacherRequirement) — chỉ tạo được sau khi buổi đã điểm danh xong
-// (ClassSession.status = COMPLETED). Người xác nhận (trợ giảng chính hoặc bất kỳ ai
-// được gán buổi đó) phải TỰ CHỌN employeeId từ danh sách SessionAssignment của đúng
-// buổi này trước khi tick — không cố định theo 1 role, vì 1 buổi có thể có ≥2 trợ
-// giảng và cần biết rõ ai chịu trách nhiệm. Nếu NOT_SUBMITTED, tạo kèm 1
-// AssistantScoreEvent (DEDUCT) trừ điểm tích cực đúng người được chọn.
+// ClassRoadmapItem.teacherRequirement) — hiện được ngay khi buổi đã bắt đầu (xem
+// computeSessionTiming), không cần chờ điểm danh xong. Người xác nhận (trợ giảng
+// chính hoặc bất kỳ ai được gán buổi đó) phải TỰ CHỌN employeeId từ danh sách
+// SessionAssignment của đúng buổi này trước khi tick — không cố định theo 1 role,
+// vì 1 buổi có thể có ≥2 trợ giảng và cần biết rõ ai chịu trách nhiệm.
+//
+// initialStatus/status TÁCH RIÊNG có chủ đích: initialStatus là cái TA tự ghi trong
+// đúng ngày diễn ra buổi (khóa cứng sau đó, không ai sửa được nữa) — dùng để biết có
+// "nộp muộn" hay không (initialStatus=NOT_SUBMITTED nhưng status sau đó thành
+// SUBMITTED). status là trạng thái HIỆN TẠI, chỉ admin (canUpdate("hr")) sửa được,
+// dùng khi TA nộp bổ sung sau ngày hôm đó.
+//
+// scoreDecision TÁCH RIÊNG khỏi status/initialStatus có chủ đích: quyết định trừ
+// điểm KHÔNG được để chính TA tự chọn lúc khai báo (trước đây làm vậy là sai — để
+// người bị đánh giá tự quyết hình phạt của mình). Chỉ admin set qua PATCH, độc lập
+// hoàn toàn với việc TA khai đã nộp/chưa nộp.
 model SessionRequirementCheck {
   id              String    @id @default(uuid())
   sessionId       String    @unique @map("session_id")
@@ -540,10 +550,15 @@ model SessionRequirementCheck {
   // sau đó, lịch sử vẫn hiển thị đúng yêu cầu đã áp dụng lúc kiểm tra.
   requirementText String    @map("requirement_text")
   employeeId      String    @map("employee_id")
-  status          String    @map("status") // SUBMITTED | NOT_SUBMITTED
+  initialStatus   String    @map("initial_status") // SUBMITTED | NOT_SUBMITTED — TA tự ghi, chỉ sửa được trong ngày buổi học, sau đó đóng băng
+  status          String    @map("status") // SUBMITTED | NOT_SUBMITTED — trạng thái hiện tại, admin sửa được bất kỳ lúc nào
+  reason          String?   @map("reason") // Lý do chưa nộp, TA nhập — sửa cùng điều kiện initialStatus
+  scoreDecision   String    @default("PENDING") @map("score_decision") // PENDING | DEDUCTED | WAIVED — chỉ admin set, tách biệt khỏi status
   scoreEventId    String?   @unique @map("score_event_id")
   checkedById     String    @map("checked_by_id")
   checkedAt       DateTime  @default(now()) @map("checked_at")
+  decidedById     String?   @map("decided_by_id") // Ai set scoreDecision gần nhất
+  decidedAt       DateTime? @map("decided_at")
 
   session    ClassSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   employee   Employee             @relation(fields: [employeeId], references: [id])

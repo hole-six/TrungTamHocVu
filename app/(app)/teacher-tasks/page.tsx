@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
-import { canView } from "@/lib/server/role-matrix";
+import { canView, canUpdate } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import TeacherTasksTable from "./TeacherTasksTable";
@@ -161,7 +161,7 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
       </div>
 
       <div data-tour="teacher-tasks-table">
-        <TeacherTasksTable initialData={checks} employees={employees} status={status} employeeId={employeeId} />
+        <TeacherTasksTable initialData={checks} employees={employees} status={status} employeeId={employeeId} canDecide={canUpdate("hr", role)} />
       </div>
     </div>
   );
