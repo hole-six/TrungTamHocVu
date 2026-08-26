@@ -37,6 +37,7 @@ import { canUpdate } from "@/lib/server/role-matrix";
 import { ensureClassRoadmapItems } from "@/lib/server/class-roadmap";
 import { getClassAssignmentRoleType } from "@/lib/server/class-default-assignments";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
+import { buildEnrollmentPipeline } from "@/lib/server/enrollment-pipeline";
 import { formatVnd, formatDate } from "@/lib/export-utils";
 
 function weekdayLabel(weekday: number) {
@@ -221,6 +222,18 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                 orderBy: { issueDate: "desc" },
                 take: 2,
                 include: { book: true },
+              },
+              // Toàn bộ enrollment của học sinh (không chỉ lớp này) — để dựng chuỗi
+              // Lớp A → B → C → D, xem lib/server/enrollment-pipeline.ts.
+              enrollments: {
+                select: {
+                  id: true,
+                  classId: true,
+                  class: { select: { className: true } },
+                  transferredFromEnrollmentId: true,
+                  status: true,
+                  enrollDate: true,
+                },
               },
             },
           },
@@ -408,6 +421,24 @@ export default async function ClassDetailPage({ params }: { params: { id: string
     enrollment,
     snapshot: learningSnapshotByEnrollment.get(enrollment.id)!,
   }));
+  // Chuỗi Lớp A → B → C → D cho từng học viên trong tab "Học viên" — chỉ hiện khi có
+  // ≥ 2 lớp, xem lib/server/enrollment-pipeline.ts.
+  const chainByEnrollment = new Map(
+    cls.enrollments.map((enrollment) => [
+      enrollment.id,
+      buildEnrollmentPipeline(
+        enrollment.student.enrollments.map((e) => ({
+          id: e.id,
+          classId: e.classId,
+          className: e.class.className,
+          transferredFromEnrollmentId: e.transferredFromEnrollmentId,
+          status: e.status,
+          enrollDate: e.enrollDate,
+        })),
+        enrollment.id,
+      ),
+    ]),
+  );
   const completionReadyCount = activeLearningSnapshots.filter((item) => item.snapshot.remainingMainSessions <= 0).length;
   const completionNeedTransferStudents = activeLearningSnapshots
     .filter((item) => item.snapshot.remainingMainSessions > 0)
@@ -1044,6 +1075,20 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                       Có {snapshot.manualExtraSessions} buổi cộng linh động
                                     </p>
                                   ) : null}
+                                  {(() => {
+                                    const chain = chainByEnrollment.get(enrollment.id) ?? [];
+                                    if (chain.length <= 1) return null;
+                                    return (
+                                      <p className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px] text-[#64748b]">
+                                        {chain.map((node, i) => (
+                                          <span key={node.id} className="flex items-center gap-1">
+                                            {i > 0 ? <span className="text-[#cbd5e1]">→</span> : null}
+                                            <span className={node.isCurrent ? "font-bold text-[#2563eb]" : ""}>{node.className}</span>
+                                          </span>
+                                        ))}
+                                      </p>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             </td>
@@ -1173,6 +1218,20 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                 Có {snapshot.manualExtraSessions} buổi cộng linh động
                               </p>
                             ) : null}
+                            {(() => {
+                              const chain = chainByEnrollment.get(enrollment.id) ?? [];
+                              if (chain.length <= 1) return null;
+                              return (
+                                <p className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px] text-[#64748b]">
+                                  {chain.map((node, i) => (
+                                    <span key={node.id} className="flex items-center gap-1">
+                                      {i > 0 ? <span className="text-[#cbd5e1]">→</span> : null}
+                                      <span className={node.isCurrent ? "font-bold text-[#2563eb]" : ""}>{node.className}</span>
+                                    </span>
+                                  ))}
+                                </p>
+                              );
+                            })()}
                           </div>
                         </div>
 

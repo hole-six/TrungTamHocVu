@@ -5,6 +5,7 @@ import { getUserRole } from "@/lib/permissions";
 import CourseManager from "@/components/classes/CourseManager";
 import ClassesTable from "@/components/classes/ClassesTable";
 import ClassLink from "@/components/classes/ClassLink";
+import PipelineStackEditorTrigger from "@/components/classes/PipelineStackEditorTrigger";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { canCreate } from "@/lib/server/role-matrix";
 import { getVietnamToday } from "@/lib/server/class-rules";
@@ -292,7 +293,10 @@ export default async function ClassesPage({
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Pipeline lớp học</p>
               <h2 className="mt-1 text-lg font-black text-[#0f1729]">Ngăn xếp chuyển tiếp</h2>
             </div>
-            <p className="text-sm text-[#64748b]">Mỗi lớp nên có lớp tiếp theo để học viên vào giữa/cuối khóa không bị rơi hành trình.</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm text-[#64748b]">Mỗi lớp nên có lớp tiếp theo để học viên vào giữa/cuối khóa không bị rơi hành trình.</p>
+              <PipelineStackEditorTrigger />
+            </div>
           </div>
           
           {/* Class Group Pills */}

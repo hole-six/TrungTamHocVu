@@ -48,6 +48,21 @@ const ENROLLMENT_STATUS_LABEL: Record<string, string> = {
   TRANSFERRED: "Đã chuyển",
 };
 
+const ATTENDANCE_STATUS_LABEL: Record<string, string> = {
+  PRESENT: "Có mặt",
+  ABSENT: "Vắng",
+  MAKEUP: "Học bù",
+};
+
+// Local, thuần — tránh import lib/server/class-default-assignments.ts (kéo theo
+// @/lib/prisma vào bundle client), đúng cách ClassDefaultAssignmentManager.tsx đã làm.
+function assignmentRoleType(role: string): "TEACHER" | "ASSISTANT" | null {
+  const normalized = role.trim().toUpperCase();
+  if (normalized === "TEACHER" || /^TEACHER_\d+$/.test(normalized)) return "TEACHER";
+  if (normalized === "ASSISTANT" || normalized === "ASSISTANT2" || /^ASSISTANT_\d+$/.test(normalized)) return "ASSISTANT";
+  return null;
+}
+
 export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -179,12 +194,8 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                 }}
                 courses={data.courses}
                 classOptions={data.continuationClassOptions}
-                extraSlot={
-                  <button onClick={() => { onClose(); window.location.href = `/classes/${classId}`; }} className="btn-quickaction btn-quickaction--neutral">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
-                    Full
-                  </button>
-                }
+                onSuccess={handleRefresh}
+                onRequestConfigureNextClass={() => setActiveTab("cauhinh")}
               />
               </div>
 
@@ -277,6 +288,44 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                       </div>
                     )}
                   </div>
+
+                  <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm">
+                    <h3 className="text-base font-black">Việc hôm nay</h3>
+                    <p className="mt-1 text-xs text-[#64748b]">Những việc cần chạm tay trong ngày để lớp chạy ổn.</p>
+                    <div className="mt-3 space-y-2">
+                      {data.dueTodayTasks.map((task: any) => (
+                        <div key={task.id} className="flex items-center justify-between gap-3 rounded-xl border border-[#e5eaf7] bg-[#f8faff] px-4 py-3">
+                          <span className="font-semibold text-[#0f1729]">{task.title}</span>
+                          {task.todayStatus ? <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${badgeClass(task.todayStatus)}`}>{task.todayStatus}</span> : null}
+                        </div>
+                      ))}
+                      {data.dueTodayTasks.length === 0 && (
+                        <p className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-4 text-sm text-[#64748b]">Hôm nay chưa có việc tới hạn.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm">
+                    <h3 className="text-base font-black">Đi nhanh</h3>
+                    <p className="mt-1 text-xs text-[#64748b]">Mở đúng khu đang cần xử lý mà không vòng qua nhiều màn.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {data.latestSession && (
+                        <SessionLinkWithDrawer
+                          sessionId={data.latestSession.id}
+                          classId={data.id}
+                          className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm transition-all hover:border-[#f97316] hover:text-[#f97316] cursor-pointer"
+                        >
+                          Điểm danh buổi gần nhất
+                        </SessionLinkWithDrawer>
+                      )}
+                      <Link href="/tuition" onClick={onClose} className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm transition-all hover:border-[#f97316] hover:text-[#f97316]">
+                        Mở học phí
+                      </Link>
+                      <Link href="/inventory" onClick={onClose} className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm transition-all hover:border-[#f97316] hover:text-[#f97316]">
+                        Mở giáo trình
+                      </Link>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -299,7 +348,7 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                             <span className="font-semibold text-[#64748b]">Điểm danh <strong className="text-[#0f1729]">{slot.session.attendances?.length || 0}</strong></span>
                             <span className="font-semibold text-[#64748b]">Nhật ký <strong className="text-[#0f1729]">{slot.session.journal?.publishedAt ? "Gửi" : slot.session.journal ? "Nháp" : "Chưa"}</strong></span>
                             {data.permissions.canManageClass && slot.session.status !== "CANCELLED" && (
-                              <RescheduleSessionButton sessionId={slot.session.id} sessionDateLabel={formatDate(slot.session.sessionDate)} />
+                              <RescheduleSessionButton sessionId={slot.session.id} sessionDateLabel={formatDate(slot.session.sessionDate)} onSuccess={handleRefresh} />
                             )}
                             <SessionLinkWithDrawer
                               sessionId={slot.session.id}
@@ -313,6 +362,19 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                           <p className="shrink-0 text-xs font-semibold text-[#f59e0b]">Chưa tạo buổi học</p>
                         )}
                       </div>
+                      {slot.session?.assignments?.length > 0 && (
+                        <p className="mt-1.5 text-xs text-[#64748b]">
+                          {slot.session.assignments
+                            .filter((a: any) => assignmentRoleType(a.role) === "TEACHER")
+                            .map((a: any) => a.employee.fullName)
+                            .join(", ") || "Chưa phân công GV"}
+                          {" · "}
+                          {slot.session.assignments
+                            .filter((a: any) => assignmentRoleType(a.role) === "ASSISTANT")
+                            .map((a: any) => a.employee.shortName || a.employee.fullName)
+                            .join(", ") || "Chưa phân công TG"}
+                        </p>
+                      )}
                       {slot.roadmapItem?.objective && <p className="mt-1.5 text-xs text-[#64748b] line-clamp-1">{slot.roadmapItem.objective}</p>}
                     </div>
                   ))}
@@ -322,10 +384,10 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
               {activeTab === "hocvien" && (
                 <div className="space-y-3">
                   {data.isRemedial && data.permissions.canManageClass && data.remedialCandidates?.length > 0 && (
-                    <div className="rounded-2xl border border-[#e5eaf7] bg-white p-4 shadow-sm"><RemedialBulkAssignPanel classId={data.id} candidates={data.remedialCandidates} futureSessions={data.remedialFutureSessions} /></div>
+                    <div className="rounded-2xl border border-[#e5eaf7] bg-white p-4 shadow-sm"><RemedialBulkAssignPanel classId={data.id} candidates={data.remedialCandidates} futureSessions={data.remedialFutureSessions} onSuccess={handleRefresh} /></div>
                   )}
                   {data.permissions.canManageClass && (
-                    <div className="rounded-2xl border border-[#e5eaf7] bg-white p-4 shadow-sm"><EnrollStudentForm classId={data.id} courseTotalAmount={(data.tuitionPerSession ?? 0) * (data.totalSessions ?? 0)} defaultMainSessionCount={data.totalSessions ?? 0} defaultUnitPrice={data.tuitionPerSession ?? data.course?.tuitionPerSession ?? 0} /></div>
+                    <div className="rounded-2xl border border-[#e5eaf7] bg-white p-4 shadow-sm"><EnrollStudentForm classId={data.id} courseTotalAmount={(data.tuitionPerSession ?? 0) * (data.totalSessions ?? 0)} defaultMainSessionCount={data.totalSessions ?? 0} defaultUnitPrice={data.tuitionPerSession ?? data.course?.tuitionPerSession ?? 0} onSuccess={handleRefresh} /></div>
                   )}
                   {data.enrollments.map((e: any) => {
                     const s = e.learningSnapshot;
@@ -344,6 +406,16 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                                   {e.debt > 0 && <span className="rounded bg-[#f59e0b] px-1.5 py-0.5 text-[10px] font-bold text-white">Nợ {formatVnd(e.debt)}</span>}
                                   {e.activeScholarship && <span className="rounded bg-[#ecfdf5] px-1.5 py-0.5 text-[10px] font-bold text-[#047857]">HB {Math.round(e.activeScholarship.percentage * 100)}%</span>}
                                 </div>
+                                {e.chain ? (
+                                  <p className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px] text-[#64748b]">
+                                    {e.chain.map((node: any, i: number) => (
+                                      <span key={node.id} className="flex items-center gap-1">
+                                        {i > 0 ? <span className="text-[#cbd5e1]">→</span> : null}
+                                        <span className={node.isCurrent ? "font-bold text-[#2563eb]" : ""}>{node.className}</span>
+                                      </span>
+                                    ))}
+                                  </p>
+                                ) : null}
                                 {s && (
                                   <div className="mt-2 flex flex-wrap gap-1.5">
                                     <span className="rounded border border-[#e5eaf7] bg-[#f8faff] px-2 py-0.5 text-[10px] font-semibold">Đã: {s.completedMainSessions}/{s.entitledMainSessions}</span>
@@ -352,15 +424,29 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                                     {s.manualExtraSessions > 0 && <span className="rounded bg-[#ecfdf5] px-2 py-0.5 text-[10px] font-bold text-emerald-700">+{s.manualExtraSessions}</span>}
                                   </div>
                                 )}
+                                <div className="mt-2 grid grid-cols-1 gap-1 text-[11px] text-[#64748b] sm:grid-cols-2">
+                                  <span>
+                                    PH: {e.primaryGuardian ? `${e.primaryGuardian.fullName}${e.primaryGuardian.phone ? ` · ${e.primaryGuardian.phone}` : ""}` : "Chưa gắn"}
+                                  </span>
+                                  {e.latestCharge && (
+                                    <span>Kỳ {e.latestCharge.periodName}: còn {formatVnd(e.latestCharge.outstanding)}</span>
+                                  )}
+                                  {e.latestAttendance && (
+                                    <span>Điểm danh gần nhất: {ATTENDANCE_STATUS_LABEL[e.latestAttendance.status] ?? e.latestAttendance.status} ({formatDate(e.latestAttendance.sessionDate)})</span>
+                                  )}
+                                  {e.latestBookIssue && (
+                                    <span>Sách gần nhất: {e.latestBookIssue.bookName} x{e.latestBookIssue.quantity}</span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
                           <div className="flex shrink-0 flex-wrap items-start gap-1.5">
                             <Link href={`/students/${e.student.id}`} onClick={onClose} className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-1.5 text-center text-xs font-bold text-sky-700">Hồ sơ</Link>
-                            {data.permissions.canManageClass && <EnrollmentRowActions enrollmentId={e.id} status={e.status} />}
-                            {data.permissions.canManageClass && e.status === "ACTIVE" && <AddEnrollmentSessionsButton enrollmentId={e.id} studentName={e.student.fullName} />}
+                            {data.permissions.canManageClass && <EnrollmentRowActions enrollmentId={e.id} status={e.status} onSuccess={handleRefresh} />}
+                            {data.permissions.canManageClass && e.status === "ACTIVE" && <AddEnrollmentSessionsButton enrollmentId={e.id} studentName={e.student.fullName} onSuccess={handleRefresh} />}
                             {data.permissions.canManageClass && e.status === "ACTIVE" && s?.remainingMainSessions > 0 && (
-                              <TransferEnrollmentButton enrollmentId={e.id} currentClassName={data.className} currentCourseId={data.courseId} remainingSessions={s.remainingMainSessions} paidRemainingSessions={s.paidRemainingSessions} manualExtraRemainingSessions={s.manualExtraRemainingSessions} oldUnitPrice={s.unitPrice} scholarshipPct={s.scholarshipPct} defaultTargetClassId={data.nextClassId} classOptions={data.continuationClassOptions} />
+                              <TransferEnrollmentButton enrollmentId={e.id} currentClassName={data.className} currentCourseId={data.courseId} remainingSessions={s.remainingMainSessions} paidRemainingSessions={s.paidRemainingSessions} manualExtraRemainingSessions={s.manualExtraRemainingSessions} oldUnitPrice={s.unitPrice} scholarshipPct={s.scholarshipPct} defaultTargetClassId={data.nextClassId} classOptions={data.continuationClassOptions} onSuccess={handleRefresh} />
                             )}
                           </div>
                         </div>
@@ -386,12 +472,12 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                         </div>
                       ))}
                     </div>
-                    <div className="mt-4"><ClassDefaultAssignmentManager classId={data.id} employees={data.employees} assignments={data.defaultAssignments} /></div>
-                    <div className="mt-4"><ScheduleRuleManager classId={data.id} rules={data.scheduleRules} /></div>
+                    <div className="mt-4"><ClassDefaultAssignmentManager classId={data.id} employees={data.employees} assignments={data.defaultAssignments} onSuccess={handleRefresh} /></div>
+                    <div className="mt-4"><ScheduleRuleManager classId={data.id} rules={data.scheduleRules} onSuccess={handleRefresh} /></div>
                   </div>
                   <div className="grid gap-4 lg:grid-cols-3">
-                    <ClassRecurringTaskManager classId={data.id} tasks={data.classTasks} />
-                    <ClassTaskManager classId={data.id} tasks={data.tasks} />
+                    <ClassRecurringTaskManager classId={data.id} tasks={data.classTasks} onSuccess={handleRefresh} />
+                    <ClassTaskManager classId={data.id} tasks={data.tasks} onSuccess={handleRefresh} />
                   </div>
                 </div>
               )}

@@ -107,7 +107,15 @@ function TaskRow({ task, onChanged }: { task: Task; onChanged: () => void }) {
   );
 }
 
-export default function ClassTaskManager({ classId, tasks }: { classId: string; tasks: Task[] }) {
+export default function ClassTaskManager({
+  classId,
+  tasks,
+  onSuccess,
+}: {
+  classId: string;
+  tasks: Task[];
+  onSuccess?: () => void;
+}) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -132,6 +140,7 @@ export default function ClassTaskManager({ classId, tasks }: { classId: string; 
     setTitle("");
     setDueDate("");
     router.refresh();
+    onSuccess?.();
   }
 
   const openTasks = tasks.filter((t) => t.status === "OPEN");
@@ -142,7 +151,7 @@ export default function ClassTaskManager({ classId, tasks }: { classId: string; 
       <h2 className="font-display text-lg font-semibold tracking-tight">Việc cần làm</h2>
       <div className="mt-3 space-y-2">
         {openTasks.map((t) => (
-          <TaskRow key={t.id} task={t} onChanged={() => router.refresh()} />
+          <TaskRow key={t.id} task={t} onChanged={() => { router.refresh(); onSuccess?.(); }} />
         ))}
         {openTasks.length === 0 && <p className="text-sm text-ink-muted48">Không có việc cần làm.</p>}
         {doneTasks.length > 0 && (

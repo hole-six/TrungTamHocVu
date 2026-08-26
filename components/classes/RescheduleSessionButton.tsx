@@ -39,9 +39,11 @@ const RESCHEDULE_GUIDE_SECTIONS = [
 export default function RescheduleSessionButton({
   sessionId,
   sessionDateLabel,
+  onSuccess,
 }: {
   sessionId: string;
   sessionDateLabel: string;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -81,6 +83,7 @@ export default function RescheduleSessionButton({
 
     setOpen(false);
     router.refresh();
+    onSuccess?.();
   }
 
   return (

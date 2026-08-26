@@ -59,10 +59,12 @@ export default function ClassDefaultAssignmentManager({
   classId,
   employees,
   assignments,
+  onSuccess,
 }: {
   classId: string;
   employees: Employee[];
   assignments: DefaultAssignment[];
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -162,6 +164,7 @@ export default function ClassDefaultAssignmentManager({
 
     setMessage("Đã lưu nhân sự mặc định cho lớp.");
     router.refresh();
+    onSuccess?.();
   }
 
   async function applyToPlannedSessions() {
@@ -182,6 +185,7 @@ export default function ClassDefaultAssignmentManager({
 
     setMessage(`Đã bổ sung ${result.created ?? 0} phân công mặc định vào ${result.sessionsChecked ?? 0} buổi đã sinh.`);
     router.refresh();
+    onSuccess?.();
   }
 
   return (

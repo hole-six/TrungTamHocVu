@@ -352,22 +352,11 @@ export default function ClassesTable({
     },
   ];
 
+  // Trước đây "Xem" mở drawer và "Sửa" điều hướng sang trang đầy đủ riêng — 2 lối vào
+  // khác nhau cho cùng 1 lớp gây rối. Drawer giờ đã đầy đủ như trang riêng nên chỉ còn
+  // đúng 1 hành động, đổi nhãn "Sửa" vì xem/sửa giờ là cùng 1 chỗ.
   const actions: Action<Class>[] = [
     {
-      label: "Xem",
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-          <circle cx="12" cy="12" r="3" />
-        </svg>
-      ),
-      onClick: (row) => openDrawer(row.id),
-      variant: "primary",
-    },
-  ];
-
-  if (canUpdate("schedule", userRole)) {
-    actions.push({
       label: "Sửa",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -375,10 +364,10 @@ export default function ClassesTable({
           <path d="M18.5 2.5a2.121 2.121 2 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
         </svg>
       ),
-      onClick: (row) => router.push(`/classes/${row.id}`),
-      variant: "secondary",
-    });
-  }
+      onClick: (row) => openDrawer(row.id),
+      variant: "primary",
+    },
+  ];
 
   if (canDelete("schedule", userRole)) {
     actions.push({

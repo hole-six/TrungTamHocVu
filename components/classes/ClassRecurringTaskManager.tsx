@@ -38,7 +38,15 @@ function recurrenceDescription(t: ClassTask) {
   return t.recurrence;
 }
 
-export default function ClassRecurringTaskManager({ classId, tasks }: { classId: string; tasks: ClassTask[] }) {
+export default function ClassRecurringTaskManager({
+  classId,
+  tasks,
+  onSuccess,
+}: {
+  classId: string;
+  tasks: ClassTask[];
+  onSuccess?: () => void;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -72,6 +80,7 @@ export default function ClassRecurringTaskManager({ classId, tasks }: { classId:
     setTitle("");
     setOpen(false);
     router.refresh();
+    onSuccess?.();
   }
 
   async function toggleComplete(taskId: string, undo: boolean) {
@@ -81,6 +90,7 @@ export default function ClassRecurringTaskManager({ classId, tasks }: { classId:
       body: JSON.stringify({ undo }),
     });
     router.refresh();
+    onSuccess?.();
   }
 
   async function deactivate(taskId: string) {
@@ -90,6 +100,7 @@ export default function ClassRecurringTaskManager({ classId, tasks }: { classId:
       body: JSON.stringify({ isActive: false }),
     });
     router.refresh();
+    onSuccess?.();
   }
 
   return (

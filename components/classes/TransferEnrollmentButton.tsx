@@ -28,6 +28,7 @@ export default function TransferEnrollmentButton({
   defaultTargetClassId,
   classOptions,
   variant = "row",
+  onSuccess,
 }: {
   enrollmentId: string;
   currentClassName: string;
@@ -41,6 +42,9 @@ export default function TransferEnrollmentButton({
   classOptions: ClassOption[];
   /** "row" (mặc định) cho dòng bảng học viên trong lớp; "quickaction" cho thanh hành động nhanh ở hồ sơ học viên. */
   variant?: "row" | "quickaction";
+  /** Gọi thêm sau khi chuyển lớp thành công — dùng cho nơi giữ state riêng (vd
+   *  ClassDetailDrawer tự fetch dữ liệu, router.refresh() không đụng tới được). */
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -93,6 +97,7 @@ export default function TransferEnrollmentButton({
     setConfirmOpen(false);
     setOpen(false);
     router.refresh();
+    onSuccess?.();
   }
 
   return (

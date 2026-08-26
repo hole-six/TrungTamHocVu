@@ -31,6 +31,11 @@ type ClassQuickActionsProps = {
   classOptions?: ClassEditFormProps["classOptions"];
   /** Nút/khối riêng của từng nơi gọi, không thuộc bộ hành động dùng chung — vd. SpotlightTour ở trang đầy đủ, nút "Full" ở drawer. */
   extraSlot?: ReactNode;
+  /** Gọi thêm sau khi bất kỳ hành động nào ở đây thành công — dùng cho nơi giữ state
+   *  riêng (vd ClassDetailDrawer tự fetch dữ liệu, router.refresh() không đụng tới được). */
+  onSuccess?: () => void;
+  /** Khi "Kết thúc lớp" phát hiện chưa cấu hình lớp tiếp theo — xem CompleteClassButton. */
+  onRequestConfigureNextClass?: () => void;
 };
 
 export default function ClassQuickActions({
@@ -51,6 +56,8 @@ export default function ClassQuickActions({
   courses,
   classOptions,
   extraSlot,
+  onSuccess,
+  onRequestConfigureNextClass,
 }: ClassQuickActionsProps) {
   return (
     <div className="flex flex-wrap items-center gap-2 sm:gap-3" data-tour="class-actions">
@@ -65,7 +72,7 @@ export default function ClassQuickActions({
         </SessionLinkWithDrawer>
       )}
       {canManageClass && (
-        <GenerateSessionsForm classId={classId} totalSessions={totalSessions} existingSessionCount={existingSessionCount} />
+        <GenerateSessionsForm classId={classId} totalSessions={totalSessions} existingSessionCount={existingSessionCount} onSuccess={onSuccess} />
       )}
       {canManageClass && status === "ACTIVE" && activeEnrollmentsCount > 0 ? (
         <CompleteClassButton
@@ -75,6 +82,8 @@ export default function ClassQuickActions({
           needTransferStudents={needTransferStudents}
           completedCount={completedCount}
           newUnitPrice={nextClassUnitPrice}
+          onSuccess={onSuccess}
+          onRequestConfigureNextClass={onRequestConfigureNextClass}
         />
       ) : null}
       <ClassEditForm
@@ -84,6 +93,7 @@ export default function ClassQuickActions({
         renderSummary={false}
         triggerLabel="Sửa"
         triggerClassName="btn-quickaction btn-quickaction--neutral"
+        onSuccess={onSuccess}
       />
       {extraSlot}
     </div>

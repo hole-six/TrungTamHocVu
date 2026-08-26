@@ -7,9 +7,11 @@ import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 export default function AddEnrollmentSessionsButton({
   enrollmentId,
   studentName,
+  onSuccess,
 }: {
   enrollmentId: string;
   studentName: string;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -36,6 +38,7 @@ export default function AddEnrollmentSessionsButton({
     setReason("");
     setSessionCount(1);
     router.refresh();
+    onSuccess?.();
   }
 
   return (

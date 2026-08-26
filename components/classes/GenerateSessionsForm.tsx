@@ -30,12 +30,14 @@ export default function GenerateSessionsForm({
   classId,
   totalSessions,
   existingSessionCount = 0,
+  onSuccess,
 }: {
   classId: string;
   /** Tổng số buổi cam kết/học phí của lớp — để hiện so sánh cụ thể thay vì mô tả chung chung. */
   totalSessions?: number | null;
   /** Số buổi đã sinh sẵn tính đến thời điểm mở form. */
   existingSessionCount?: number;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -78,6 +80,7 @@ export default function GenerateSessionsForm({
 
     setResult(`Đã sinh ${resultData.created} buổi mới, bỏ qua ${resultData.skipped} buổi đã tồn tại.`);
     router.refresh();
+    onSuccess?.();
   }
 
   return (

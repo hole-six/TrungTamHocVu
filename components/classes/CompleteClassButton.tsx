@@ -23,6 +23,8 @@ export default function CompleteClassButton({
   needTransferStudents,
   completedCount,
   newUnitPrice,
+  onSuccess,
+  onRequestConfigureNextClass,
 }: {
   classId: string;
   className: string;
@@ -31,12 +33,20 @@ export default function CompleteClassButton({
   completedCount: number;
   /** Đơn giá/buổi ĐẦY ĐỦ (chưa trừ học bổng) của lớp tiếp theo — dùng để xem trước quy đổi. */
   newUnitPrice: number;
+  /** Gọi thêm sau khi kết thúc lớp thành công — dùng cho nơi giữ state riêng (vd
+   *  ClassDetailDrawer tự fetch dữ liệu, router.refresh() không đụng tới được). */
+  onSuccess?: () => void;
+  /** Khi CHƯA cấu hình lớp tiếp theo mà có học viên cần chuyển — thay vì để admin bấm
+   *  xác nhận rồi mới thấy lỗi im lặng, dẫn thẳng sang chỗ cấu hình (vd chuyển tab Cấu
+   *  hình trong cùng drawer đang mở) và không cho bấm "Kết thúc lớp" nữa cho tới khi có. */
+  onRequestConfigureNextClass?: () => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successSummary, setSuccessSummary] = useState<string | null>(null);
   // Mặc định để trống = chưa quyết định gì — admin phải chủ động bấm "Giữ nguyên" hoặc
   // nhập % khác cho từng học viên, đúng yêu cầu không tự động/im lặng giữ hay bỏ.
   const [scholarshipInputs, setScholarshipInputs] = useState<Record<string, string>>({});
@@ -49,6 +59,10 @@ export default function CompleteClassButton({
   const freeExtraSessions = needTransferStudents.reduce((sum, item) => sum + item.manualExtraRemainingSessions, 0);
   const withScholarship = needTransferStudents.filter((item) => item.scholarshipPct > 0);
   const missingDecision = withScholarship.filter((item) => !scholarshipInputs[item.enrollmentId]?.trim());
+  // Chưa cấu hình lớp tiếp theo mà có học viên cần chuyển — trước đây vẫn cho bấm xác
+  // nhận, API mới báo lỗi (không rõ ràng, "đứng im 1 chỗ"). Chặn thẳng từ đây, hướng đi
+  // cấu hình trước thay vì để admin đi hết luồng rồi mới biết bị chặn.
+  const missingNextClass = !nextClassName && needTransferCount > 0;
 
   function chosenPctFor(item: CompleteClassTransferStudent) {
     const raw = scholarshipInputs[item.enrollmentId]?.trim();
@@ -84,15 +98,25 @@ export default function CompleteClassButton({
       return;
     }
     setConfirmOpen(false);
-    setOpen(false);
+    // Không đóng im lặng — hiện rõ đã chuyển ai sang đâu trước khi admin tự đóng, đúng
+    // yêu cầu "phải hiển thị chuyển thành công các học viên sang lớp nào".
+    setSuccessSummary(
+      needTransferCount > 0
+        ? `Đã kết thúc lớp ${className}. Đã chuyển thành công ${needTransferCount} học viên sang ${nextClassName}.${completedCount > 0 ? ` ${completedCount} học viên đã đủ buổi được đánh dấu hoàn thành.` : ""}`
+        : `Đã kết thúc lớp ${className}.${completedCount > 0 ? ` ${completedCount} học viên đã đủ buổi được đánh dấu hoàn thành.` : ""}`,
+    );
     router.refresh();
+    onSuccess?.();
   }
 
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setSuccessSummary(null);
+          setOpen(true);
+        }}
         className="inline-flex items-center gap-1.5 rounded-xl border-2 border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 sm:px-4 sm:py-2.5 sm:text-sm"
       >
         Kết thúc lớp
@@ -104,7 +128,48 @@ export default function CompleteClassButton({
         title={`Kết thúc lớp ${className}`}
         description="Học viên đủ buổi sẽ được đánh dấu hoàn thành. Học viên còn buổi sẽ chuyển sang lớp tiếp theo — với học viên đang có học bổng, chọn rõ giữ nguyên/giảm/bỏ trước khi xác nhận."
       >
+        {successSummary ? (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+              <p className="font-bold">Thành công</p>
+              <p className="mt-1">{successSummary}</p>
+            </div>
+            <div className="flex gap-3 border-t border-[#e6eefc] pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  setSuccessSummary(null);
+                }}
+                className="btn-primary"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="space-y-4">
+          {missingNextClass ? (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+              <p className="font-bold">Chưa cấu hình lớp tiếp theo</p>
+              <p className="mt-1">
+                Lớp chưa có lớp tiếp theo — {needTransferCount} học viên còn buổi sẽ KHÔNG có nơi chuyển đến. Cấu hình lớp tiếp
+                theo trước khi kết thúc lớp.
+              </p>
+              {onRequestConfigureNextClass ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    onRequestConfigureNextClass();
+                  }}
+                  className="mt-2 rounded-lg border-2 border-amber-400 bg-white px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100"
+                >
+                  Cấu hình lớp tiếp theo
+                </button>
+              ) : null}
+            </div>
+          ) : (
           <div className="rounded-2xl border border-[#e5eaf7] bg-[#f8faff] p-4 text-sm text-[#334155]">
             <p>{completedCount} học viên đã đủ buổi sẽ được đánh dấu hoàn thành.</p>
             <p className="mt-1">
@@ -115,6 +180,7 @@ export default function CompleteClassButton({
             {transferValueAmount > 0 ? <p className="mt-1">Tổng giá trị học phí còn lại: {formatVnd(transferValueAmount)}.</p> : null}
             {freeExtraSessions > 0 ? <p className="mt-1 font-semibold text-emerald-700">Có {freeExtraSessions} buổi cộng linh động sẽ được mang theo.</p> : null}
           </div>
+          )}
 
           {needTransferStudents.length > 0 ? (
             <div className="space-y-3">
@@ -189,7 +255,7 @@ export default function CompleteClassButton({
           {error ? <div className="alert-danger">{error}</div> : null}
 
           <div className="flex gap-3 border-t border-[#e6eefc] pt-4">
-            <button type="button" onClick={() => setConfirmOpen(true)} disabled={missingDecision.length > 0} className="btn-primary">
+            <button type="button" onClick={() => setConfirmOpen(true)} disabled={missingDecision.length > 0 || missingNextClass} className="btn-primary">
               Kết thúc lớp
             </button>
             <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
@@ -202,6 +268,7 @@ export default function CompleteClassButton({
             </p>
           ) : null}
         </div>
+        )}
       </ResponsiveDrawer>
 
       <ConfirmDialog

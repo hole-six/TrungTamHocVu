@@ -27,10 +27,12 @@ export default function RemedialBulkAssignPanel({
   classId,
   candidates,
   futureSessions,
+  onSuccess,
 }: {
   classId: string;
   candidates: Candidate[];
   futureSessions: FutureSession[];
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -141,6 +143,7 @@ export default function RemedialBulkAssignPanel({
     setSelectedIds((current) => new Set([...current].filter((id) => !okIds.has(id))));
     setNoCreditEntries((current) => current.filter((entry) => !okIds.has(entry.student.id)));
     router.refresh();
+    onSuccess?.();
   }
 
   return (

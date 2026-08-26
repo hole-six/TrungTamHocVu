@@ -15,6 +15,7 @@ import {
 import { getHolidayDateSet } from "@/lib/server/holidays";
 import { ensureClassRoadmapItems } from "@/lib/server/class-roadmap";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
+import { buildEnrollmentPipeline } from "@/lib/server/enrollment-pipeline";
 import { isTaskDueOn, computeTaskLogStatus } from "@/lib/server/class-task-rules";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -82,6 +83,18 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
                 include: { book: true },
                 orderBy: { issueDate: "desc" },
                 take: 1,
+              },
+              // Toàn bộ enrollment của học sinh (không chỉ lớp này) — để dựng chuỗi
+              // Lớp A → B → C → D trong bộ nhớ, xem lib/server/enrollment-pipeline.ts.
+              enrollments: {
+                select: {
+                  id: true,
+                  classId: true,
+                  class: { select: { className: true } },
+                  transferredFromEnrollmentId: true,
+                  status: true,
+                  enrollDate: true,
+                },
               },
             }
           },
@@ -199,7 +212,18 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       const activeScholarship = enrollment.scholarships.find((sc: any) => sc.effectiveFrom <= now && (!sc.effectiveTo || sc.effectiveTo >= now));
       const latestAttendance = enrollment.student.attendances?.[0] ?? null;
       const latestBookIssue = enrollment.student.bookIssues?.[0] ?? null;
-      
+      const chain = buildEnrollmentPipeline(
+        enrollment.student.enrollments.map((e) => ({
+          id: e.id,
+          classId: e.classId,
+          className: e.class.className,
+          transferredFromEnrollmentId: e.transferredFromEnrollmentId,
+          status: e.status,
+          enrollDate: e.enrollDate,
+        })),
+        enrollment.id,
+      );
+
       return {
         id: enrollment.id,
         enrollDate: enrollment.enrollDate.toISOString(),
@@ -233,6 +257,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
           quantity: latestBookIssue.quantity,
         } : null,
         learningSnapshot: snapshot,
+        chain: chain.length > 1 ? chain.map((node) => ({ id: node.id, className: node.className, isCurrent: node.isCurrent })) : null,
       };
     })
   );

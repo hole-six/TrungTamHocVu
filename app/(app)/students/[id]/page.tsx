@@ -18,6 +18,7 @@ import { computeOutstandingBalance } from "@/lib/server/balance";
 import { chargeOwnDueAmount, overlapsWindow } from "@/lib/server/tuition-rules";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { getVietnamToday } from "@/lib/server/class-rules";
+import { buildEnrollmentPipeline } from "@/lib/server/enrollment-pipeline";
 import EditableDateField from "@/components/ui/EditableDateField";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
@@ -464,6 +465,24 @@ export default async function StudentDetailPage({
   );
   const enrollmentOutstanding = Math.max(0, enrollmentFinance.total - enrollmentFinance.paid);
 
+  // Chuỗi đầy đủ Lớp A → Lớp B → Lớp C → Lớp D — trước đây chỉ hiện đúng 1 bước liền
+  // kề quanh enrollment hiện tại, không thấy được cả hành trình nếu học sinh đã chuyển
+  // qua ≥ 2 lần. Dựng từ toàn bộ student.enrollments đã fetch sẵn (không cần query
+  // thêm) — xem lib/server/enrollment-pipeline.ts.
+  const enrollmentChain = currentEnrollment
+    ? buildEnrollmentPipeline(
+        student.enrollments.map((e) => ({
+          id: e.id,
+          classId: e.classId,
+          className: e.class.className,
+          transferredFromEnrollmentId: e.transferredFromEnrollmentId,
+          status: e.status,
+          enrollDate: e.enrollDate,
+        })),
+        currentEnrollment.id,
+      )
+    : [];
+
   // Lịch sử chuyển/nâng lớp — chỉ hiện khi enrollment hiện tại thực sự có liên quan
   // tới 1 lần chuyển lớp (đến từ lớp cũ hoặc đã từng chuyển tiếp sang lớp khác).
   const transferHistory = currentEnrollment
@@ -782,6 +801,24 @@ export default async function StudentDetailPage({
       {transferHistory.length > 0 ? (
         <div className="rounded-xl sm:rounded-2xl border border-[#e5eaf7] bg-white p-4 sm:p-5 shadow-sm">
           <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Lịch sử chuyển/nâng lớp</p>
+          {enrollmentChain.length > 1 ? (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {enrollmentChain.map((node, index) => (
+                <span key={node.id} className="flex items-center gap-1.5">
+                  {index > 0 ? <span className="text-[#94a3b8]">→</span> : null}
+                  <span
+                    className={
+                      node.isCurrent
+                        ? "rounded-lg bg-[#2563eb] px-2.5 py-1 text-xs font-bold text-white"
+                        : "rounded-lg border border-[#e5eaf7] bg-[#f8faff] px-2.5 py-1 text-xs font-semibold text-[#0f1729]"
+                    }
+                  >
+                    {node.className}
+                  </span>
+                </span>
+              ))}
+            </div>
+          ) : null}
           <div className="mt-3 space-y-2">
             {transferHistory.map((item, index) => (
               <div key={index} className="rounded-lg border border-[#e5eaf7] bg-[#f8faff] px-3 py-2 text-sm">

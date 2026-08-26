@@ -7,7 +7,15 @@ import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 type Rule = { id: string; weekday: number; startTime: string; endTime: string; room: string | null };
 
-export default function ScheduleRuleManager({ classId, rules }: { classId: string; rules: Rule[] }) {
+export default function ScheduleRuleManager({
+  classId,
+  rules,
+  onSuccess,
+}: {
+  classId: string;
+  rules: Rule[];
+  onSuccess?: () => void;
+}) {
   const router = useRouter();
   const [form, setForm] = useState({ weekday: "1", startTime: "", endTime: "", room: "" });
   const [error, setError] = useState<string | null>(null);
@@ -46,11 +54,13 @@ export default function ScheduleRuleManager({ classId, rules }: { classId: strin
 
     setForm({ weekday: "1", startTime: "", endTime: "", room: "" });
     router.refresh();
+    onSuccess?.();
   }
 
   async function removeRule(id: string) {
     await fetch(`/api/schedule-rules/${id}`, { method: "DELETE" });
     router.refresh();
+    onSuccess?.();
   }
 
   return (

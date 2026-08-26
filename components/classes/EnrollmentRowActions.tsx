@@ -6,7 +6,15 @@ import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
 const WITHDRAWABLE_STATUSES = new Set(["ACTIVE", "PAUSED"]);
 
-export default function EnrollmentRowActions({ enrollmentId, status }: { enrollmentId: string; status: string }) {
+export default function EnrollmentRowActions({
+  enrollmentId,
+  status,
+  onSuccess,
+}: {
+  enrollmentId: string;
+  status: string;
+  onSuccess?: () => void;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -32,6 +40,7 @@ export default function EnrollmentRowActions({ enrollmentId, status }: { enrollm
     }
 
     router.refresh();
+    onSuccess?.();
   }
 
   if (!WITHDRAWABLE_STATUSES.has(status)) return null;

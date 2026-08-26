@@ -60,11 +60,13 @@ export default function EnrollStudentForm({
   courseTotalAmount = 0,
   defaultMainSessionCount = 0,
   defaultUnitPrice = 0,
+  onSuccess,
 }: {
   classId: string;
   courseTotalAmount?: number;
   defaultMainSessionCount?: number;
   defaultUnitPrice?: number;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -141,6 +143,7 @@ export default function EnrollStudentForm({
     setResults([]);
     setQ("");
     router.refresh();
+    onSuccess?.();
   }
 
   const mainTuitionAmount = (Number(mainSessionCount) || 0) * (Number(unitPrice) || 0);

@@ -94,6 +94,7 @@ export default function ClassEditForm({
   triggerLabel = "Sửa thông tin lớp",
   renderSummary = true,
   classOptions = [],
+  onSuccess,
 }: {
   cls: ClassProfile;
   courses: Course[];
@@ -101,6 +102,7 @@ export default function ClassEditForm({
   triggerClassName?: string;
   triggerLabel?: string;
   renderSummary?: boolean;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -278,6 +280,7 @@ export default function ClassEditForm({
 
     setOpen(false);
     router.refresh();
+    onSuccess?.();
   }
 
   const course = courses.find((item) => item.id === cls.courseId);
