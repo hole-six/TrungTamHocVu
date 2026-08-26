@@ -532,9 +532,9 @@ export default function LeadsTable({
 
   // Lọc theo từng cột (hàng cố định dưới header) — patch 1 paramKey qua buildQuery(),
   // tái dùng đúng cơ chế điều hướng URL sẵn có (không phát minh luồng fetch thứ 2).
-  const handleFilterChange = (key: string, value: string | null) => {
+  const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) => {
     setLoading(true);
-    router.push(`/leads?${buildQuery({ [key]: value })}`);
+    router.push(`/leads?${buildQuery({ [key]: value, ...extra })}`);
   };
 
   const filterValues = {

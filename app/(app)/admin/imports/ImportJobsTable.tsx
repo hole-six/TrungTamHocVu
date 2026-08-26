@@ -45,7 +45,8 @@ export default function ImportJobsTable({ initialData, total, page, pageSize, st
     startTransition(() => router.push(`${pathname}?${next.toString()}`));
   }
 
-  const handleFilterChange = (key: string, value: string | null) => updateParams({ [key]: value, page: "1" });
+  const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
+    updateParams({ [key]: value, ...extra, page: "1" });
 
   const filterValues = { status: statusFilter };
 

@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import type { Column } from "./DataTable";
+import DateRangeCalendarPopover from "@/components/ui/DateRangeCalendarPopover";
 
 type DataTableMobileFiltersProps<T> = {
   columns: Column<T>[];
   values: Record<string, string>;
-  onChange?: (paramKey: string, value: string | null) => void;
+  onChange?: (paramKey: string, value: string | null, extra?: Record<string, string | null>) => void;
 };
 
 // Mobile không có <thead> để gắn hàng lọc như bản desktop (DataTableFilterRow) — dùng
@@ -76,17 +77,24 @@ export default function DataTableMobileFilters<T>({ columns, values, onChange }:
                       </option>
                     ))}
                   </select>
+                ) : f.type === "dateRange" ? (
+                  <DateRangeCalendarPopover
+                    valueFrom={values[f.paramKeyFrom] ?? ""}
+                    valueTo={values[f.paramKeyTo] ?? ""}
+                    onApply={(from, to) => onChange?.(f.paramKeyFrom, from, { [f.paramKeyTo]: to })}
+                    triggerClassName="input flex items-center justify-between text-left"
+                  />
                 ) : (
                   <div className="flex items-center gap-2">
                     <input
-                      type={f.type === "dateRange" ? "date" : "number"}
+                      type="number"
                       defaultValue={values[f.paramKeyFrom] ?? ""}
                       onBlur={(event) => onChange?.(f.paramKeyFrom, event.target.value || null)}
                       className="input"
                     />
                     <span className="text-xs text-[#9ca3af]">–</span>
                     <input
-                      type={f.type === "dateRange" ? "date" : "number"}
+                      type="number"
                       defaultValue={values[f.paramKeyTo] ?? ""}
                       onBlur={(event) => onChange?.(f.paramKeyTo, event.target.value || null)}
                       className="input"

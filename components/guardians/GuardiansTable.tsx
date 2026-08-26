@@ -251,7 +251,8 @@ export default function GuardiansTable({
     contact: searchParams.get("contact") ?? "",
     portalStatus: searchParams.get("portalStatus") ?? "",
   };
-  const handleFilterChange = (key: string, value: string | null) => updateParams({ [key]: value, page: "1" });
+  const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
+    updateParams({ [key]: value, ...extra, page: "1" });
 
   const filterChips = (
     <>

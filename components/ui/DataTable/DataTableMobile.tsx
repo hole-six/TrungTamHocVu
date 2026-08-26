@@ -34,7 +34,7 @@ type DataTableMobileProps<T> = {
   className?: string;
   defaultSearchValue?: string;
   filterValues?: Record<string, string>;
-  onFilterChange?: (paramKey: string, value: string | null) => void;
+  onFilterChange?: (paramKey: string, value: string | null, extra?: Record<string, string | null>) => void;
   /** Xem mô tả ở DataTable.tsx — cùng 1 nội dung được dùng cho cả bản desktop lẫn mobile. */
   renderExpanded?: (row: T) => ReactNode;
 };

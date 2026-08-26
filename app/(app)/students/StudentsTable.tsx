@@ -463,7 +463,8 @@ export default function StudentsTable({
     outstandingFrom: searchParams.get("outstandingFrom") ?? "",
     outstandingTo: searchParams.get("outstandingTo") ?? "",
   };
-  const handleFilterChange = (key: string, value: string | null) => updateParams({ [key]: value, page: "1" });
+  const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
+    updateParams({ [key]: value, ...extra, page: "1" });
 
   const headerActions = stats ? (
     <div className="flex flex-wrap gap-2">

@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Column } from "./DataTable";
+import DateRangeCalendarPopover from "@/components/ui/DateRangeCalendarPopover";
 
 type DataTableFilterRowProps<T> = {
   columns: Column<T>[];
   values: Record<string, string>;
-  onChange?: (paramKey: string, value: string | null) => void;
+  onChange?: (paramKey: string, value: string | null, extra?: Record<string, string | null>) => void;
   selectable?: boolean;
   hasActionsColumn?: boolean;
 };
@@ -80,17 +81,6 @@ function SelectFilterCell({
   );
 }
 
-function formatShortDate(iso: string) {
-  if (!iso) return "";
-  const parts = iso.split("-");
-  if (parts.length !== 3) return iso;
-  const [, month, day] = parts;
-  return `${day}/${month}`;
-}
-
-// Gộp 2 ô ngày rời thành 1 nút gọn, chỉ mở rộng thành 2 ô "Từ/Đến" khi bấm vào —
-// đỡ chiếm diện tích cột so với luôn hiện sẵn 2 input date cạnh nhau. Mở rộng NGAY
-// TRONG ô (không dùng popover nổi) để tránh bị `overflow-x-auto` của bảng cha cắt mất.
 function DateRangeFilterCell({
   paramKeyFrom,
   paramKeyTo,
@@ -102,72 +92,18 @@ function DateRangeFilterCell({
   paramKeyTo: string;
   valueFrom: string;
   valueTo: string;
-  onChange?: (paramKey: string, value: string | null) => void;
+  onChange?: (paramKey: string, value: string | null, extra?: Record<string, string | null>) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const hasValue = Boolean(valueFrom || valueTo);
-
-  if (!expanded) {
-    return (
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          setExpanded(true);
-        }}
-        className="flex w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border border-[#d1d5db] bg-white px-2.5 py-1.5 text-left text-sm normal-case focus:border-primary focus:outline-none"
-      >
-        <span className={`truncate ${hasValue ? "font-medium text-[#111827]" : "text-[#9ca3af]"}`}>
-          {hasValue ? `${formatShortDate(valueFrom) || "…"} – ${formatShortDate(valueTo) || "…"}` : "Khoảng ngày..."}
-        </span>
-        <span className="shrink-0 text-[#9ca3af]">📅</span>
-      </button>
-    );
-  }
-
   return (
-    <div className="space-y-1.5 rounded-lg border border-primary/40 bg-white p-1.5 shadow-sm">
-      <div className="flex items-center gap-1">
-        <input
-          type="date"
-          defaultValue={valueFrom}
-          onBlur={(event) => onChange?.(paramKeyFrom, event.target.value || null)}
-          onClick={(event) => event.stopPropagation()}
-          className="w-full min-w-0 rounded-md border border-[#d1d5db] bg-white px-1.5 py-1 text-xs normal-case text-[#111827] focus:border-primary focus:outline-none"
-        />
-        <span className="shrink-0 text-[10px] text-[#9ca3af]">–</span>
-        <input
-          type="date"
-          defaultValue={valueTo}
-          onBlur={(event) => onChange?.(paramKeyTo, event.target.value || null)}
-          onClick={(event) => event.stopPropagation()}
-          className="w-full min-w-0 rounded-md border border-[#d1d5db] bg-white px-1.5 py-1 text-xs normal-case text-[#111827] focus:border-primary focus:outline-none"
-        />
-      </div>
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onChange?.(paramKeyFrom, null);
-            onChange?.(paramKeyTo, null);
-          }}
-          className="text-[11px] font-semibold text-rose-600 hover:text-rose-700"
-        >
-          Xóa
-        </button>
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            setExpanded(false);
-          }}
-          className="text-[11px] font-semibold text-primary hover:underline"
-        >
-          Xong
-        </button>
-      </div>
-    </div>
+    <DateRangeCalendarPopover
+      valueFrom={valueFrom}
+      valueTo={valueTo}
+      // Áp dụng cả 2 đầu ngày trong 1 lần gọi onChange duy nhất (kèm `extra`) — gọi
+      // onChange 2 lần liên tiếp cho paramKeyFrom rồi paramKeyTo sẽ đua nhau: mỗi lần
+      // updateParams() đều đọc lại searchParams cũ (chưa kịp cập nhật từ lần gọi trước),
+      // nên lần gọi thứ 2 ghi đè mất thay đổi của lần gọi thứ 1 trên URL.
+      onApply={(from, to) => onChange?.(paramKeyFrom, from, { [paramKeyTo]: to })}
+    />
   );
 }
 

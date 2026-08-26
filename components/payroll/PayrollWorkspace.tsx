@@ -116,7 +116,8 @@ export default function PayrollWorkspace({
   }
 
   const handleSearch = (value: string) => updateParams({ search: value || null });
-  const handleFilterChange = (key: string, value: string | null) => updateParams({ [key]: value });
+  const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
+    updateParams({ [key]: value, ...extra });
 
   useEffect(() => {
     setPage(1);

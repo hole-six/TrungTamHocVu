@@ -160,8 +160,8 @@ export default function ClassesTable({
     return params;
   }
 
-  const handleFilterChange = (key: string, value: string | null) => {
-    const params = buildParams({ page: 1, filters: { [key]: value } });
+  const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) => {
+    const params = buildParams({ page: 1, filters: { [key]: value, ...extra } });
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
     });

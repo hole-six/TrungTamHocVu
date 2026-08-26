@@ -202,7 +202,8 @@ export default function BooksTable({
     stockFrom: searchParams.get("stockFrom") ?? "",
     stockTo: searchParams.get("stockTo") ?? "",
   };
-  const handleFilterChange = (key: string, value: string | null) => updateParams({ [key]: value, page: "1" });
+  const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
+    updateParams({ [key]: value, ...extra, page: "1" });
 
   async function confirmDeleteBook() {
     if (!deletingBook) return;

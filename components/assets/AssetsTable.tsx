@@ -90,7 +90,8 @@ export default function AssetsTable({
     totalValueTo: searchParams.get("totalValueTo") ?? "",
     maintenanceStatus: searchParams.get("maintenanceStatus") ?? "",
   };
-  const handleFilterChange = (key: string, value: string | null) => updateParams({ [key]: value, page: "1" });
+  const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
+    updateParams({ [key]: value, ...extra, page: "1" });
 
   const columns: Column<AssetRow>[] = [
     {

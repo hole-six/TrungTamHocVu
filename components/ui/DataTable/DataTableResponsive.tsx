@@ -39,7 +39,7 @@ type DataTableResponsiveProps<T> = {
   filterChips?: ReactNode;
   defaultSearchValue?: string;
   filterValues?: Record<string, string>;
-  onFilterChange?: (paramKey: string, value: string | null) => void;
+  onFilterChange?: (paramKey: string, value: string | null, extra?: Record<string, string | null>) => void;
   renderExpanded?: (row: T) => ReactNode;
   // Mobile-specific props
   primaryColumn: string;

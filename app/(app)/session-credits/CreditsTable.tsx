@@ -127,7 +127,8 @@ export default function CreditsTable({ initialData, statusParam, typeParam, stud
     startTransition(() => router.push(`${pathname}?${next.toString()}`));
   }
 
-  const handleFilterChange = (key: string, value: string | null) => updateParams({ [key]: value });
+  const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
+    updateParams({ [key]: value, ...extra });
 
   const filterValues = {
     status: statusParam,

@@ -44,7 +44,8 @@ export default function TeacherTasksTable({ initialData, employees, status, empl
     startTransition(() => router.push(`${pathname}?${next.toString()}`));
   }
 
-  const handleFilterChange = (key: string, value: string | null) => updateParams({ [key]: value });
+  const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
+    updateParams({ [key]: value, ...extra });
 
   const filterValues = {
     status,

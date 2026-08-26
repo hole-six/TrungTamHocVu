@@ -86,7 +86,7 @@ type DataTableProps<T> = {
   /** Giá trị lọc theo cột hiện tại, keyed theo paramKey/paramKeyFrom/paramKeyTo của Column.filter. */
   filterValues?: Record<string, string>;
   /** Bắn ra khi 1 ô lọc cột đổi giá trị — value=null nghĩa là xóa param đó. */
-  onFilterChange?: (paramKey: string, value: string | null) => void;
+  onFilterChange?: (paramKey: string, value: string | null, extra?: Record<string, string | null>) => void;
   /**
    * Nếu có, mỗi dòng có nút "Xem thêm" mở ra 1 dòng phụ bên dưới chứa nội dung này
    * (dùng cho các bảng cần hiện chi tiết/sửa-tại-chỗ mà không hợp để tách thành cột,

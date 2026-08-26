@@ -78,7 +78,8 @@ export default function BookIssuesTable({
     amountTo: searchParams.get("amountTo") ?? "",
     paymentStatus: searchParams.get("paymentStatus") ?? "",
   };
-  const handleFilterChange = (key: string, value: string | null) => updateParams({ [key]: value, issuePage: "1" });
+  const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
+    updateParams({ [key]: value, ...extra, issuePage: "1" });
 
   const columns: Column<IssueRow>[] = [
     {
