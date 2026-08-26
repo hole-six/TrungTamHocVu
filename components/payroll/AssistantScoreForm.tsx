@@ -13,6 +13,7 @@ type ScoreEvent = {
   type: string;
   points: number;
   reason: string | null;
+  branchId: string;
   branch: { name: string };
 };
 
@@ -20,11 +21,80 @@ function formatVnDate(value: string) {
   return new Date(value).toLocaleDateString("vi-VN");
 }
 
-function ScoreEventsList({ employeeId, month, refreshKey }: { employeeId: string; month: string; refreshKey: number }) {
+function EditScoreEventForm({
+  employeeId,
+  event,
+  branches,
+  onDone,
+  onSaved,
+}: {
+  employeeId: string;
+  event: ScoreEvent;
+  branches: Branch[];
+  onDone: () => void;
+  onSaved: () => void;
+}) {
+  const [branchId, setBranchId] = useState(event.branchId);
+  const [type, setType] = useState(event.type);
+  const [points, setPoints] = useState(String(event.points));
+  const [eventDate, setEventDate] = useState(event.eventDate.slice(0, 10));
+  const [reason, setReason] = useState(event.reason ?? "");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setLoading(true);
+    setError(null);
+    const res = await fetch(`/api/employees/${employeeId}/score-events/${event.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ branchId, type, points: Number(points), eventDate, reason }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setLoading(false);
+    if (!res.ok) {
+      setError(data.error ?? "Không thể sửa điểm.");
+      return;
+    }
+    onSaved();
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border-2 border-[#f97316] bg-[#fff7ed] px-4 py-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <select className="h-9 rounded-lg border border-[#e5e7eb] bg-white px-2 text-sm" value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+          {branches.map((b) => (
+            <option key={b.id} value={b.id}>{b.name}</option>
+          ))}
+        </select>
+        <select className="h-9 rounded-lg border border-[#e5e7eb] bg-white px-2 text-sm" value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="DEDUCT">❌ Điểm trừ</option>
+          <option value="ADD">✅ Điểm cộng</option>
+        </select>
+        <input type="number" min="0.5" step="0.5" className="h-9 rounded-lg border border-[#e5e7eb] bg-white px-2 text-sm" value={points} onChange={(e) => setPoints(e.target.value)} />
+        <input type="date" className="h-9 rounded-lg border border-[#e5e7eb] bg-white px-2 text-sm" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+      </div>
+      <input className="h-9 w-full rounded-lg border border-[#e5e7eb] bg-white px-2 text-sm" placeholder="Lý do (tùy chọn)" value={reason} onChange={(e) => setReason(e.target.value)} />
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      <div className="flex gap-2">
+        <button type="button" onClick={save} disabled={loading} className="btn-primary-sm">
+          {loading ? "Đang lưu..." : "Lưu"}
+        </button>
+        <button type="button" onClick={onDone} className="btn-ghost-sm">
+          Hủy
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ScoreEventsList({ employeeId, month, branches, refreshKey }: { employeeId: string; month: string; branches: Branch[]; refreshKey: number }) {
   const router = useRouter();
   const [events, setEvents] = useState<ScoreEvent[] | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [localRefreshKey, setLocalRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,7 +109,7 @@ function ScoreEventsList({ employeeId, month, refreshKey }: { employeeId: string
     return () => {
       cancelled = true;
     };
-  }, [employeeId, month, refreshKey]);
+  }, [employeeId, month, refreshKey, localRefreshKey]);
 
   async function remove(eventId: string) {
     setDeletingId(eventId);
@@ -60,33 +130,53 @@ function ScoreEventsList({ employeeId, month, refreshKey }: { employeeId: string
 
   return (
     <div className="space-y-2 px-6 pb-5">
-      {events.map((event) => (
-        <div key={event.id} className="flex items-center justify-between gap-3 rounded-lg border-2 border-[#f3f4f6] bg-white px-4 py-2.5">
-          <div className="flex items-center gap-3">
-            <span className={`text-sm font-bold ${event.type === "DEDUCT" ? "text-red-600" : "text-emerald-600"}`}>
-              {event.type === "DEDUCT" ? "−" : "+"}
-              {event.points}
-            </span>
-            <div>
-              <p className="text-sm font-medium text-[#111827]">
-                {formatVnDate(event.eventDate)} · {event.branch.name}
-              </p>
-              {event.reason ? <p className="text-xs text-[#6b7280]">{event.reason}</p> : null}
+      {events.map((event) =>
+        editingId === event.id ? (
+          <EditScoreEventForm
+            key={event.id}
+            employeeId={employeeId}
+            event={event}
+            branches={branches}
+            onDone={() => setEditingId(null)}
+            onSaved={() => {
+              setEditingId(null);
+              setLocalRefreshKey((k) => k + 1);
+              router.refresh();
+            }}
+          />
+        ) : (
+          <div key={event.id} className="flex items-center justify-between gap-3 rounded-lg border-2 border-[#f3f4f6] bg-white px-4 py-2.5">
+            <div className="flex items-center gap-3">
+              <span className={`text-sm font-bold ${event.type === "DEDUCT" ? "text-red-600" : "text-emerald-600"}`}>
+                {event.type === "DEDUCT" ? "−" : "+"}
+                {event.points}
+              </span>
+              <div>
+                <p className="text-sm font-medium text-[#111827]">
+                  {formatVnDate(event.eventDate)} · {event.branch.name}
+                </p>
+                {event.reason ? <p className="text-xs text-[#6b7280]">{event.reason}</p> : null}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setEditingId(event.id)} className="text-xs font-semibold text-[#2563eb]">
+                Sửa
+              </button>
+              <ConfirmActionButton
+                title="Xác nhận xóa điểm?"
+                description={`Xóa ${event.type === "DEDUCT" ? "điểm trừ" : "điểm cộng"} ${event.points} ngày ${formatVnDate(event.eventDate)}${event.reason ? ` (${event.reason})` : ""}.`}
+                confirmLabel="Xóa"
+                tone="danger"
+                disabled={deletingId === event.id}
+                className="text-xs text-red-600"
+                onConfirm={() => remove(event.id)}
+              >
+                {deletingId === event.id ? "..." : "Xóa"}
+              </ConfirmActionButton>
             </div>
           </div>
-          <ConfirmActionButton
-            title="Xác nhận xóa điểm?"
-            description={`Xóa ${event.type === "DEDUCT" ? "điểm trừ" : "điểm cộng"} ${event.points} ngày ${formatVnDate(event.eventDate)}${event.reason ? ` (${event.reason})` : ""}.`}
-            confirmLabel="Xóa"
-            tone="danger"
-            disabled={deletingId === event.id}
-            className="text-xs text-red-600"
-            onConfirm={() => remove(event.id)}
-          >
-            {deletingId === event.id ? "..." : "Xóa"}
-          </ConfirmActionButton>
-        </div>
-      ))}
+        )
+      )}
       {error ? <p className="text-xs text-red-600">{error}</p> : null}
     </div>
   );
@@ -148,7 +238,9 @@ function BranchBonusRow({
   );
 }
 
-export default function AssistantScoreForm({
+// Tách riêng khỏi form ghi nhận điểm — dùng cho tab "Cơ sở" (đúng nghĩa đen người
+// dùng yêu cầu), trong khi form ghi nhận điểm trừ/cộng ở dưới thuộc tab "Cơ chế điểm".
+export function BranchBonusForm({
   employeeId,
   month,
   branches,
@@ -158,6 +250,44 @@ export default function AssistantScoreForm({
   month: string;
   branches: Branch[];
   bonusByBranch: Record<string, number | null>;
+}) {
+  return (
+    <div className="rounded-2xl border-2 border-[#e5e7eb] bg-white overflow-hidden">
+      <div className="border-b-2 border-[#f3f4f6] bg-gradient-to-r from-[#fafafa] to-white px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600">
+            <DollarSign className="h-5 w-5 text-white" strokeWidth={2.5} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-[#111827]">Mức thưởng tháng {month}</h3>
+            <p className="text-sm text-[#6b7280]">Nhập % thưởng theo từng cơ sở</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3 px-6 py-5">
+        <div className="rounded-lg border-2 border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-900">
+            💡 Nhập tay sau khi xem tỉ lệ A của từng cơ sở — hệ thống không tự suy ra mức thưởng.
+          </p>
+        </div>
+
+        {branches.map((b) => (
+          <BranchBonusRow key={b.id} employeeId={employeeId} month={month} branch={b} currentBonus={bonusByBranch[b.id] ?? null} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function AssistantScoreForm({
+  employeeId,
+  month,
+  branches,
+}: {
+  employeeId: string;
+  month: string;
+  branches: Branch[];
 }) {
   const router = useRouter();
   const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
@@ -303,40 +433,7 @@ export default function AssistantScoreForm({
         <div className="border-t-2 border-[#f3f4f6] px-6 pt-4">
           <p className="pb-3 text-xs font-bold uppercase tracking-wider text-[#6b7280]">Điểm đã ghi nhận tháng {month}</p>
         </div>
-        <ScoreEventsList employeeId={employeeId} month={month} refreshKey={eventsRefreshKey} />
-      </div>
-
-      {/* Form Mức thưởng */}
-      <div className="rounded-2xl border-2 border-[#e5e7eb] bg-white overflow-hidden">
-        <div className="border-b-2 border-[#f3f4f6] bg-gradient-to-r from-[#fafafa] to-white px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600">
-              <DollarSign className="h-5 w-5 text-white" strokeWidth={2.5} />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-[#111827]">Mức thưởng tháng {month}</h3>
-              <p className="text-sm text-[#6b7280]">Nhập % thưởng theo từng cơ sở</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-3 px-6 py-5">
-          <div className="rounded-lg border-2 border-amber-200 bg-amber-50 px-4 py-3">
-            <p className="text-sm text-amber-900">
-              💡 Nhập tay sau khi xem tỉ lệ A của từng cơ sở — hệ thống không tự suy ra mức thưởng.
-            </p>
-          </div>
-
-          {branches.map((b) => (
-            <BranchBonusRow
-              key={b.id}
-              employeeId={employeeId}
-              month={month}
-              branch={b}
-              currentBonus={bonusByBranch[b.id] ?? null}
-            />
-          ))}
-        </div>
+        <ScoreEventsList employeeId={employeeId} month={month} branches={branches} refreshKey={eventsRefreshKey} />
       </div>
     </div>
   );

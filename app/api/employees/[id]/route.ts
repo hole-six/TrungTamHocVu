@@ -2,12 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
-import { canUpdateWithOverride } from "@/lib/server/role-matrix";
+import { canUpdateWithOverride, canViewFullWithOverride } from "@/lib/server/role-matrix";
 import { computeContractStatus } from "@/lib/server/payroll-rules";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+
+  // Trước đây route này không kiểm tra quyền "hr" (chỉ check đã đăng nhập) — bất kỳ
+  // user nào cũng gọi được để xem toàn bộ hồ sơ/lương/lịch sử của người khác. Gate
+  // đúng như trang /payroll/employees/[id] đã tự làm: chính chủ hoặc có quyền xem
+  // đầy đủ "hr".
+  const { role, override } = await getUserRoleAndOverride(user.id, "hr");
+  const isSelf = user.employeeId === params.id;
+  if (!isSelf && !canViewFullWithOverride("hr", role, override)) {
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền xem hồ sơ nhân viên này" }, { status: 403 });
+  }
 
   const employee = await prisma.employee.findUnique({
     where: { id: params.id },
@@ -23,7 +33,19 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   // nhân sự chủ động gia hạn thay vì phát hiện khi hợp đồng đã hết hạn từ lâu.
   const contractStatus = computeContractStatus(employee.resignDate, employee.contracts[0]?.expiryDate ?? null);
 
-  return NextResponse.json({ item: employee, contractStatus });
+  // Cùng shape truy vấn với /teacher-tasks và trang /payroll/employees/[id] — gộp vào
+  // đây để tab "Lịch sử" ở drawer nhân sự lấy đủ dữ liệu qua đúng 1 lần gọi API.
+  const requirementChecks = await prisma.sessionRequirementCheck.findMany({
+    where: { employeeId: params.id },
+    include: {
+      session: { select: { id: true, classId: true, sessionDate: true, class: { select: { className: true } } } },
+      scoreEvent: { select: { points: true, type: true } },
+    },
+    orderBy: { checkedAt: "desc" },
+    take: 100,
+  });
+
+  return NextResponse.json({ item: employee, contractStatus, requirementChecks });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
