@@ -313,7 +313,7 @@ export default function PayrollWorkspace({
               ) : null}
             </div>
             {permissions.canManagePayrollRuns ? (
-              <button type="button" onClick={() => setShowRunPanel((current) => !current)} className="btn-ghost-sm">
+              <button type="button" onClick={() => setShowRunPanel((current) => !current)} className="btn-ghost">
                 {showRunPanel ? "Thu gọn" : "Xử lý kỳ lương"}
               </button>
             ) : null}
@@ -348,27 +348,31 @@ export default function PayrollWorkspace({
         </section>
       )}
 
-      <section className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-1.5">
-          <Link
-            href={pageHref({ filter: "all" })}
-            className={`rounded-full border px-3 py-1.5 text-xs font-bold ${initialFilter === "all" ? "border-[#fed7aa] bg-[#fff7ed] text-[#ea580c]" : "border-[#e5e7eb] bg-white text-[#6b7280]"}`}
-          >
-            Tất cả ({formatNumber(rows.length)})
-          </Link>
-          <Link
-            href={pageHref({ filter: "missing-rate" })}
-            className={`rounded-full border px-3 py-1.5 text-xs font-bold ${initialFilter === "missing-rate" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-[#e5e7eb] bg-white text-[#6b7280]"}`}
-          >
-            Thiếu đơn giá ({formatNumber(totals.missingRateCount)})
-          </Link>
-          <Link
-            href={pageHref({ filter: "missing-bank" })}
-            className={`rounded-full border px-3 py-1.5 text-xs font-bold ${initialFilter === "missing-bank" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-[#e5e7eb] bg-white text-[#6b7280]"}`}
-          >
-            Thiếu chuyển khoản ({formatNumber(totals.missingBankCount)})
-          </Link>
-        </div>
+      <section className="flex flex-wrap items-center gap-2">
+        <Link
+          href={pageHref({ filter: "all" })}
+          className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${
+            initialFilter === "all" ? "bg-[#ea580c] text-white shadow-sm" : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:border-[#d1d5db]"
+          }`}
+        >
+          Tất cả ({formatNumber(rows.length)})
+        </Link>
+        <Link
+          href={pageHref({ filter: "missing-rate" })}
+          className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${
+            initialFilter === "missing-rate" ? "bg-rose-600 text-white shadow-sm" : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:border-[#d1d5db]"
+          }`}
+        >
+          Thiếu đơn giá ({formatNumber(totals.missingRateCount)})
+        </Link>
+        <Link
+          href={pageHref({ filter: "missing-bank" })}
+          className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${
+            initialFilter === "missing-bank" ? "bg-amber-600 text-white shadow-sm" : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:border-[#d1d5db]"
+          }`}
+        >
+          Thiếu chuyển khoản ({formatNumber(totals.missingBankCount)})
+        </Link>
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-sm">
