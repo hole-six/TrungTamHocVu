@@ -2,6 +2,7 @@
 
 import LogoutButton from "./LogoutButton";
 import BranchSelector from "./branches/BranchSelector";
+import NotificationBell from "./NotificationBell";
 
 type Branch = {
   id: string;
@@ -53,8 +54,10 @@ export default function Topbar({
         )}
       </div>
 
-      {/* Right: user + logout */}
+      {/* Right: notifications + user + logout */}
       <div className="flex items-center gap-3">
+        <NotificationBell />
+        <div className="h-5 w-px bg-[#e2e8f0]" />
         {/* Avatar */}
         <div className="flex h-8 w-8 items-center justify-center rounded-full
                         bg-gradient-to-br from-primary to-primary-focus
