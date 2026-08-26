@@ -77,6 +77,18 @@ export default function AssetsTable({
     name: searchParams.get("name") ?? "",
     category: searchParams.get("category") ?? "",
     status: searchParams.get("status") ?? "",
+    room: searchParams.get("room") ?? "",
+    qtyFrom: searchParams.get("qtyFrom") ?? "",
+    qtyTo: searchParams.get("qtyTo") ?? "",
+    unitValueFrom: searchParams.get("unitValueFrom") ?? "",
+    unitValueTo: searchParams.get("unitValueTo") ?? "",
+    baseValueFrom: searchParams.get("baseValueFrom") ?? "",
+    baseValueTo: searchParams.get("baseValueTo") ?? "",
+    maintenanceFrom: searchParams.get("maintenanceFrom") ?? "",
+    maintenanceTo: searchParams.get("maintenanceTo") ?? "",
+    totalValueFrom: searchParams.get("totalValueFrom") ?? "",
+    totalValueTo: searchParams.get("totalValueTo") ?? "",
+    maintenanceStatus: searchParams.get("maintenanceStatus") ?? "",
   };
   const handleFilterChange = (key: string, value: string | null) => updateParams({ [key]: value, page: "1" });
 
@@ -105,17 +117,38 @@ export default function AssetsTable({
       },
       render: (value) => value ?? "Chưa phân nhóm",
     },
-    { key: "room", label: "Phòng", render: (value) => value ?? "Chưa gắn phòng" },
-    { key: "quantity", label: "SL" },
+    {
+      key: "room",
+      label: "Phòng",
+      filter: { type: "text", paramKey: "room", placeholder: "Tên phòng..." },
+      render: (value) => value ?? "Chưa gắn phòng",
+    },
+    { key: "quantity", label: "SL", filter: { type: "numberRange", paramKeyFrom: "qtyFrom", paramKeyTo: "qtyTo" } },
     { key: "unitName", label: "ĐVT" },
-    { key: "unitValue", label: "Đơn giá", render: (value) => (value != null ? formatVnd(value) : "—") },
-    { key: "baseValue", label: "Giá gốc", render: (value) => <span className="font-medium text-slate-700">{formatVnd(value)}</span> },
+    {
+      key: "unitValue",
+      label: "Đơn giá",
+      filter: { type: "numberRange", paramKeyFrom: "unitValueFrom", paramKeyTo: "unitValueTo", placeholder: "đ" },
+      render: (value) => (value != null ? formatVnd(value) : "—"),
+    },
+    {
+      key: "baseValue",
+      label: "Giá gốc",
+      filter: { type: "numberRange", paramKeyFrom: "baseValueFrom", paramKeyTo: "baseValueTo", placeholder: "đ" },
+      render: (value) => <span className="font-medium text-slate-700">{formatVnd(value)}</span>,
+    },
     {
       key: "maintenanceValue",
       label: "Bảo dưỡng",
+      filter: { type: "numberRange", paramKeyFrom: "maintenanceFrom", paramKeyTo: "maintenanceTo", placeholder: "đ" },
       render: (value) => <span className={value > 0 ? "font-medium text-amber-700" : "text-ink-muted48"}>{formatVnd(value)}</span>,
     },
-    { key: "totalValue", label: "Tổng giá trị", render: (value) => <span className="font-medium">{formatVnd(value)}</span> },
+    {
+      key: "totalValue",
+      label: "Tổng giá trị",
+      filter: { type: "numberRange", paramKeyFrom: "totalValueFrom", paramKeyTo: "totalValueTo", placeholder: "đ" },
+      render: (value) => <span className="font-medium">{formatVnd(value)}</span>,
+    },
     {
       key: "status",
       label: "Trạng thái",
@@ -130,6 +163,17 @@ export default function AssetsTable({
     {
       key: "maintenanceStatus",
       label: "Lịch bảo dưỡng",
+      filter: {
+        type: "select",
+        paramKey: "maintenanceStatus",
+        placeholder: "Tất cả",
+        options: [
+          { label: "Quá hạn", value: "OVERDUE" },
+          { label: "Sắp đến hạn", value: "DUE_SOON" },
+          { label: "Đang ổn", value: "OK" },
+          { label: "Chưa đặt lịch", value: "NOT_SCHEDULED" },
+        ],
+      },
       render: (_value, row) => (
         <AssetMaintenanceCell
           assetId={row.id}

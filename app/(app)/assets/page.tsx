@@ -72,7 +72,25 @@ function normalizeUnit(unitName: string | null) {
 export default async function AssetsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; page?: string; name?: string; category?: string; status?: string };
+  searchParams: {
+    q?: string;
+    page?: string;
+    name?: string;
+    category?: string;
+    status?: string;
+    room?: string;
+    unitValueFrom?: string;
+    unitValueTo?: string;
+    qtyFrom?: string;
+    qtyTo?: string;
+    baseValueFrom?: string;
+    baseValueTo?: string;
+    maintenanceFrom?: string;
+    maintenanceTo?: string;
+    totalValueFrom?: string;
+    totalValueTo?: string;
+    maintenanceStatus?: string;
+  };
 }) {
   const user = await getCurrentUser();
   const role = user ? await getUserRole(user.id) : null;
@@ -85,6 +103,21 @@ export default async function AssetsPage({
   const nameFilter = searchParams.name?.trim() ?? "";
   const categoryFilter = searchParams.category?.trim() ?? "";
   const statusFilter = searchParams.status?.trim() ?? "";
+  const roomFilter = searchParams.room?.trim() ?? "";
+  const unitValueFrom = searchParams.unitValueFrom?.trim() ?? "";
+  const unitValueTo = searchParams.unitValueTo?.trim() ?? "";
+  // Số lượng/Giá gốc/Bảo dưỡng/Tổng giá trị/Lịch bảo dưỡng là số TÍNH ĐỘNG từ lịch sử
+  // giao dịch (không phải cột thô) — không lọc được trực tiếp bằng Prisma where, phải
+  // tính đủ cho toàn bộ danh sách rồi lọc bằng JS trước khi cắt trang (xem allRows bên dưới).
+  const qtyFrom = searchParams.qtyFrom?.trim() ?? "";
+  const qtyTo = searchParams.qtyTo?.trim() ?? "";
+  const baseValueFrom = searchParams.baseValueFrom?.trim() ?? "";
+  const baseValueTo = searchParams.baseValueTo?.trim() ?? "";
+  const maintenanceFrom = searchParams.maintenanceFrom?.trim() ?? "";
+  const maintenanceTo = searchParams.maintenanceTo?.trim() ?? "";
+  const totalValueFrom = searchParams.totalValueFrom?.trim() ?? "";
+  const totalValueTo = searchParams.totalValueTo?.trim() ?? "";
+  const maintenanceStatusFilter = searchParams.maintenanceStatus?.trim() ?? "";
 
   const branchWhere = activeBranchId ? { branchId: activeBranchId } : {};
   const andConditions: Prisma.AssetWhereInput[] = [];
@@ -103,34 +136,25 @@ export default async function AssetsPage({
   }
   if (categoryFilter) andConditions.push({ category: categoryFilter });
   if (statusFilter) andConditions.push({ status: statusFilter });
+  if (roomFilter) andConditions.push({ room: { contains: roomFilter } });
+  if (unitValueFrom) andConditions.push({ unitValue: { gte: Number(unitValueFrom) } });
+  if (unitValueTo) andConditions.push({ unitValue: { lte: Number(unitValueTo) } });
   const where: Prisma.AssetWhereInput = {
     ...branchWhere,
     ...(andConditions.length ? { AND: andConditions } : {}),
   };
 
-  const [assets, total, assetsForTotals, categoryRows] = await Promise.all([
+  const [allMatchingAssets, categoryRows] = await Promise.all([
+    // Số lượng/Giá gốc/Bảo dưỡng/Tổng giá trị/Lịch bảo dưỡng chỉ tính được sau khi có
+    // đủ transactions của TOÀN BỘ danh sách đã lọc (không phải chỉ trang hiện tại) — nên
+    // phải fetch hết rồi mới lọc + cắt trang bằng JS, không dùng skip/take của Prisma ở đây.
     prisma.asset.findMany({
       where,
       orderBy: [{ category: "asc" }, { name: "asc" }],
-      skip: (page - 1) * pageSize,
-      take: pageSize,
       include: {
         transactions: {
           select: { id: true, type: true, quantity: true, amount: true, txnDate: true, notes: true, voidedAt: true, voidReason: true },
         },
-      },
-    }),
-    prisma.asset.count({ where }),
-    // Tổng số lượng/giá trị/số thiết bị quá hạn phải tính trên TOÀN BỘ danh sách đã
-    // lọc, không chỉ trang hiện tại — dùng truy vấn riêng không phân trang cho việc này.
-    prisma.asset.findMany({
-      where,
-      select: {
-        status: true,
-        unitValue: true,
-        maintenanceIntervalMonths: true,
-        createdAt: true,
-        transactions: { select: { type: true, quantity: true, amount: true, txnDate: true, voidedAt: true } },
       },
     }),
     // Danh sách tùy chọn cho bộ lọc "Danh mục" — lấy trên toàn bộ tài sản của cơ sở
@@ -147,7 +171,7 @@ export default async function AssetsPage({
     new Set(categoryRows.map((row) => row.category?.trim()).filter((value): value is string => Boolean(value))),
   ).sort((left, right) => left.localeCompare(right, "vi"));
 
-  const rows = assets.map((asset) => {
+  const allRows = allMatchingAssets.map((asset) => {
     const quantity = asset.transactions.reduce((sum, transaction) => sum + transaction.quantity, 0);
     const unitName = normalizeUnit(asset.unitName);
     const baseValue = quantity * (asset.unitValue ?? 0);
@@ -179,33 +203,33 @@ export default async function AssetsPage({
     };
   });
 
-  const summaryRows = assetsForTotals.map((asset) => {
-    const quantity = asset.transactions.reduce((sum, transaction) => sum + transaction.quantity, 0);
-    const baseValue = quantity * (asset.unitValue ?? 0);
-    const maintenanceTxns = asset.transactions.filter((transaction) => transaction.type === "MAINTENANCE" && !transaction.voidedAt);
-    const maintenanceValue = maintenanceTxns.reduce((sum, transaction) => sum + transaction.amount, 0);
-    const lastMaintenanceDate = maintenanceTxns.reduce<Date | null>(
-      (latest, t) => (!latest || t.txnDate.getTime() > latest.getTime() ? t.txnDate : latest),
-      null,
-    );
-    const nextMaintenanceDue = computeNextMaintenanceDue(asset.maintenanceIntervalMonths, lastMaintenanceDate, asset.createdAt);
-    return {
-      status: asset.status,
-      quantity,
-      baseValue,
-      maintenanceValue,
-      maintenanceStatus: computeMaintenanceStatus(nextMaintenanceDue),
-      totalValue: computeAssetTotalValue(asset.unitValue, quantity, asset.transactions),
-    };
+  // Lọc theo cột tính động (Số lượng/Giá gốc/Bảo dưỡng/Tổng giá trị/Lịch bảo dưỡng) trên
+  // TOÀN BỘ danh sách đã tính (allRows) rồi mới cắt trang — cùng cách làm với cột "Tồn"
+  // của Kho giáo trình, vì các cột này không phải field thô nên Prisma where không lọc được.
+  const filteredRows = allRows.filter((row) => {
+    if (qtyFrom && row.quantity < Number(qtyFrom)) return false;
+    if (qtyTo && row.quantity > Number(qtyTo)) return false;
+    if (baseValueFrom && row.baseValue < Number(baseValueFrom)) return false;
+    if (baseValueTo && row.baseValue > Number(baseValueTo)) return false;
+    if (maintenanceFrom && row.maintenanceValue < Number(maintenanceFrom)) return false;
+    if (maintenanceTo && row.maintenanceValue > Number(maintenanceTo)) return false;
+    if (totalValueFrom && row.totalValue < Number(totalValueFrom)) return false;
+    if (totalValueTo && row.totalValue > Number(totalValueTo)) return false;
+    if (maintenanceStatusFilter && row.maintenanceStatus !== maintenanceStatusFilter) return false;
+    return true;
   });
-  const totalQuantity = summaryRows.reduce((sum, row) => sum + row.quantity, 0);
-  const totalBaseValue = summaryRows.reduce((sum, row) => sum + row.baseValue, 0);
-  const totalMaintenanceValue = summaryRows.reduce((sum, row) => sum + row.maintenanceValue, 0);
-  const totalValue = summaryRows.reduce((sum, row) => sum + row.totalValue, 0);
-  const maintenanceCount = summaryRows.filter((row) => row.status === "MAINTENANCE").length;
-  const brokenCount = summaryRows.filter((row) => row.status === "BROKEN").length;
-  const overdueMaintenanceCount = summaryRows.filter((row) => row.maintenanceStatus === "OVERDUE").length;
-  const dueSoonMaintenanceCount = summaryRows.filter((row) => row.maintenanceStatus === "DUE_SOON").length;
+
+  const total = filteredRows.length;
+  const rows = filteredRows.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
+
+  const totalQuantity = filteredRows.reduce((sum, row) => sum + row.quantity, 0);
+  const totalBaseValue = filteredRows.reduce((sum, row) => sum + row.baseValue, 0);
+  const totalMaintenanceValue = filteredRows.reduce((sum, row) => sum + row.maintenanceValue, 0);
+  const totalValue = filteredRows.reduce((sum, row) => sum + row.totalValue, 0);
+  const maintenanceCount = filteredRows.filter((row) => row.status === "MAINTENANCE").length;
+  const brokenCount = filteredRows.filter((row) => row.status === "BROKEN").length;
+  const overdueMaintenanceCount = filteredRows.filter((row) => row.maintenanceStatus === "OVERDUE").length;
+  const dueSoonMaintenanceCount = filteredRows.filter((row) => row.maintenanceStatus === "DUE_SOON").length;
   const canManageAssets = canUpdate("assets", role);
   const canRemoveAssets = canDelete("assets", role);
   const canCreateAsset = canCreate("assets", role);
