@@ -176,11 +176,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     cls.enrollments.map(async (enrollment) => {
       const snapshot = await getEnrollmentLearningSnapshot(prisma, {
         ...enrollment,
-        class: { 
-          totalSessions: cls.totalSessions, 
-          tuitionPerSession: cls.tuitionPerSession, 
-          nextClassId: cls.nextClassId, 
-          course: cls.course 
+        class: {
+          totalSessions: cls.totalSessions,
+          tuitionPerSession: cls.tuitionPerSession,
+          nextClassId: cls.nextClassId,
+          course: cls.course,
+          scheduleRules: cls.scheduleRules,
+          branchId: cls.branchId,
         },
       });
       
@@ -350,15 +352,17 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   // Completion stats for CompleteClassButton
   const activeLearningSnapshots = enrollmentsWithLearning.filter(e => e.status === "ACTIVE");
   const completionReadyCount = activeLearningSnapshots.filter((item) => item.learningSnapshot.remainingMainSessions <= 0).length;
-  const completionNeedTransferCount = activeLearningSnapshots.filter((item) => item.learningSnapshot.remainingMainSessions > 0).length;
-  const completionTransferValueAmount = activeLearningSnapshots.reduce(
-    (sum, item) => sum + (item.learningSnapshot.remainingMainSessions > 0 ? item.learningSnapshot.remainingValue : 0),
-    0,
-  );
-  const completionFreeExtraSessions = activeLearningSnapshots.reduce(
-    (sum, item) => sum + (item.learningSnapshot.remainingMainSessions > 0 ? item.learningSnapshot.manualExtraRemainingSessions : 0),
-    0,
-  );
+  const completionNeedTransferStudents = activeLearningSnapshots
+    .filter((item) => item.learningSnapshot.remainingMainSessions > 0)
+    .map((item) => ({
+      enrollmentId: item.id,
+      studentName: item.student.fullName,
+      paidRemainingSessions: item.learningSnapshot.paidRemainingSessions,
+      manualExtraRemainingSessions: item.learningSnapshot.manualExtraRemainingSessions,
+      oldUnitPrice: item.learningSnapshot.unitPrice,
+      scholarshipPct: item.learningSnapshot.scholarshipPct,
+    }));
+  const completionNextClassUnitPrice = cls.nextClass?.tuitionPerSession ?? cls.nextClass?.course?.tuitionPerSession ?? 0;
 
   const estimatedClassTuition = cls.tuitionPerSession && cls.totalSessions ? cls.tuitionPerSession * cls.totalSessions : null;
 
@@ -453,9 +457,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     remedialFutureSessions,
     completionStats: {
       readyCount: completionReadyCount,
-      needTransferCount: completionNeedTransferCount,
-      transferValueAmount: completionTransferValueAmount,
-      freeExtraSessions: completionFreeExtraSessions,
+      needTransferStudents: completionNeedTransferStudents,
+      nextClassUnitPrice: completionNextClassUnitPrice,
     },
     permissions: {
       canManageClass,

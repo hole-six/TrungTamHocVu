@@ -57,6 +57,8 @@ type PendingChargeDraft =
         unitPrice: number;
         mainTuitionAmount?: number;
         paidCatchupAmount?: number;
+        transferCreditAmount?: number;
+        transferCreditSessionCount?: number;
         tuitionAmount: number;
         materialsAmount: number;
         billingModel: "PERIOD";
@@ -400,7 +402,39 @@ export async function generateChargesForPeriod(periodId: string) {
     const adjustmentPct = adjustments.reduce((sum, item) => sum + item.percentage, 0);
     const unitPrice = computeEffectiveUnitPrice(basePrice, scholarshipPct, adjustmentPct);
     const deductedCount = chargeToUpdate?.deductedCount ?? 0;
-    const tuitionAmount = computeTuitionAmount(sessionCount, 0, deductedCount, unitPrice);
+
+    // Buổi đã quy đổi khi chuyển lớp (enrollment.transferredConvertedSessionCount) là
+    // buổi ĐÃ TRẢ TIỀN rồi ở lớp cũ — phải trừ khỏi sessionCount trước khi tính tiền,
+    // nếu không PERIOD sẽ thu tiền buổi đó LẦN NỮA (khác COURSE đã trừ đúng qua
+    // generateCourseCharge). "Đã dùng bao nhiêu" tính ĐỘNG bằng SUM từ các charge PERIOD
+    // KHÁC của chính enrollment này (loại trừ charge đang sửa lại) — không dùng biến đếm
+    // lũy kế lưu sẵn, để không lệch khi 1 kỳ bị sinh lại nhiều lần trước khi POSTED,
+    // đúng triết lý "không Cong don" đã ghi ở đầu tuition-rules.ts.
+    let transferCreditSessionCount = 0;
+    let transferCreditAmount = 0;
+    if (enrollment.transferredConvertedSessionCount > 0) {
+      const alreadyCredited = await prisma.charge.aggregate({
+        where: {
+          enrollmentId: enrollment.id,
+          billingModel: "PERIOD",
+          id: chargeToUpdate ? { not: chargeToUpdate.id } : undefined,
+        },
+        _sum: { transferCreditSessionCount: true },
+      });
+      const remainingTransferSessions = Math.max(
+        0,
+        enrollment.transferredConvertedSessionCount - (alreadyCredited._sum.transferCreditSessionCount ?? 0),
+      );
+      // Khớp đúng công thức computeTuitionAmount(sessionCount, 0, deductedCount, unitPrice)
+      // đang dùng bên dưới — absentCount KHÔNG trừ (chính sách "vắng vẫn tính tiền, được
+      // buổi bổ trợ riêng" đã có sẵn, xem enrollment-learning.ts).
+      const billableBeforeCredit = Math.max(0, sessionCount - deductedCount);
+      transferCreditSessionCount = Math.min(billableBeforeCredit, remainingTransferSessions);
+      transferCreditAmount = transferCreditSessionCount * unitPrice;
+    }
+
+    const grossTuitionAmount = computeTuitionAmount(sessionCount, 0, deductedCount, unitPrice);
+    const tuitionAmount = grossTuitionAmount - transferCreditAmount;
     const materialsAmount = materials._sum.amount ?? 0;
 
     pendingDrafts.push({
@@ -418,8 +452,10 @@ export async function generateChargesForPeriod(periodId: string) {
         absentCount,
         deductedCount,
         unitPrice,
-        mainTuitionAmount: tuitionAmount,
+        mainTuitionAmount: grossTuitionAmount,
         paidCatchupAmount: 0,
+        transferCreditAmount,
+        transferCreditSessionCount,
         tuitionAmount,
         materialsAmount,
         billingModel: "PERIOD",

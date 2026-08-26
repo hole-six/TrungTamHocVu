@@ -503,7 +503,7 @@ export default function StudentFinanceDesk({
 
           <div className="flex flex-wrap items-center gap-2">
             {canManageInventory ? (
-              <button type="button" onClick={() => void openBookPicker()} className="btn-ghost-sm">
+              <button type="button" onClick={() => void openBookPicker()} className="btn-ghost">
                 Chọn sách phát sinh
               </button>
             ) : null}
@@ -522,14 +522,14 @@ export default function StudentFinanceDesk({
         </div>
 
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[560px] border-separate border-spacing-y-2 text-sm">
+          <table className="w-full min-w-[560px] border-separate border-spacing-y-2 text-base">
             <tbody>
               {activeEnrollmentOptions.map((enrollment) => {
                 const openCharge = openChargeByClassId.get(enrollment.classId);
                 return (
                   <tr key={enrollment.enrollmentId} className="bg-[#fbfdff]">
                     <td className="rounded-l-2xl px-4 py-3 align-middle">
-                      <p className="text-sm font-semibold text-ink">{enrollment.className}</p>
+                      <p className="font-semibold text-ink">{enrollment.className}</p>
                       <p className="mt-0.5 text-xs text-ink-muted48">Đang thu: {billingModeLabel(enrollment.billingModel)}</p>
                     </td>
                     <td className="px-4 py-3 align-middle">
@@ -548,7 +548,7 @@ export default function StudentFinanceDesk({
                           type="button"
                           onClick={() => switchBillingMode(enrollment.enrollmentId, enrollment.classId, "PERIOD", enrollment.className)}
                           disabled={switchingEnrollmentId === enrollment.enrollmentId || enrollment.billingModel === "PERIOD"}
-                          className={`rounded-full px-3 py-2 text-xs font-semibold transition ${
+                          className={`rounded-full px-4 py-2.5 text-sm font-semibold transition ${
                             enrollment.billingModel === "PERIOD"
                               ? "bg-sky-100 text-sky-700"
                               : "border border-sky-200 bg-white text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -560,7 +560,7 @@ export default function StudentFinanceDesk({
                           type="button"
                           onClick={() => switchBillingMode(enrollment.enrollmentId, enrollment.classId, "COURSE", enrollment.className)}
                           disabled={switchingEnrollmentId === enrollment.enrollmentId || enrollment.billingModel === "COURSE"}
-                          className={`rounded-full px-3 py-2 text-xs font-semibold transition ${
+                          className={`rounded-full px-4 py-2.5 text-sm font-semibold transition ${
                             enrollment.billingModel === "COURSE"
                               ? "bg-violet-100 text-violet-700"
                               : "border border-violet-200 bg-white text-violet-700 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -594,7 +594,7 @@ export default function StudentFinanceDesk({
         </div>
 
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[760px] border-separate border-spacing-y-2 text-sm">
+          <table className="w-full min-w-[760px] border-separate border-spacing-y-2 text-base">
             <thead>
               <tr className="text-left text-xs font-semibold uppercase tracking-wide text-ink-muted48">
                 <th className="px-3 pb-1">Kỳ · Lớp · Trạng thái</th>
@@ -669,7 +669,7 @@ export default function StudentFinanceDesk({
             <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Chờ xác nhận {requirementStats.pending}</span>
             <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Đã mua {requirementStats.confirmed}</span>
             {canManageInventory ? (
-              <button type="button" onClick={() => setShowIssueComposer((current) => !current)} className="btn-ghost-sm">
+              <button type="button" onClick={() => setShowIssueComposer((current) => !current)} className="btn-ghost">
                 {showIssueComposer ? "Ẩn form phát sinh" : "Thêm sách phát sinh"}
               </button>
             ) : null}
@@ -766,7 +766,7 @@ export default function StudentFinanceDesk({
         ) : null}
 
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-sm">
+          <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-base">
             <thead>
               <tr className="text-left text-xs font-semibold uppercase tracking-wide text-ink-muted48">
                 <th className="px-3 pb-1">Đầu sách</th>
@@ -781,7 +781,7 @@ export default function StudentFinanceDesk({
               {bookTableRows.map((row) => (
                 <tr key={row.key} className="bg-[#fbfdff]">
                   <td className="rounded-l-2xl px-3 py-3 align-top">
-                    <p className="text-sm font-semibold text-ink">{row.bookName}</p>
+                    <p className="font-semibold text-ink">{row.bookName}</p>
                     <p className="mt-0.5 text-xs text-ink-muted48">{row.kind === "requirement" ? "Sách chuẩn" : "Phát sinh"}</p>
                   </td>
                   <td className="px-3 py-3 align-top text-ink-muted80">{row.className}</td>

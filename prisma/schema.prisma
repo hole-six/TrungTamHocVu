@@ -921,6 +921,12 @@ model Charge {
   paidCatchupAmount Int    @default(0) @map("paid_catchup_amount")
   transferCreditAmount Int @default(0) @map("transfer_credit_amount")
   transferRemainderAmount Int @default(0) @map("transfer_remainder_amount")
+  // Số buổi ĐÃ trừ khỏi charge PERIOD này nhờ credit chuyển lớp (khác
+  // transferCreditAmount ở Charge của COURSE) — tính ĐỘNG mỗi lần sinh charge bằng SUM
+  // cột này qua các charge PERIOD khác của cùng enrollment, không lưu biến đếm lũy kế
+  // riêng, để tránh lệch khi 1 kỳ bị sinh lại nhiều lần trước khi POSTED — xem
+  // generateChargesForPeriod trong billing-generation.ts.
+  transferCreditSessionCount Int @default(0) @map("transfer_credit_session_count")
   tuitionAmount   Int      @map("tuition_amount") // HP thang hien tai
   materialsAmount Int      @default(0) @map("materials_amount") // TienGiaoTrinh
   openingBalance  Int      @default(0) @map("opening_balance") // HP dau ky

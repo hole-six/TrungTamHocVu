@@ -3,7 +3,7 @@
 import type { ComponentProps, ReactNode } from "react";
 import SessionLinkWithDrawer from "./SessionLinkWithDrawer";
 import GenerateSessionsForm from "./GenerateSessionsForm";
-import CompleteClassButton from "./CompleteClassButton";
+import CompleteClassButton, { type CompleteClassTransferStudent } from "./CompleteClassButton";
 import ClassEditForm from "./ClassEditForm";
 
 type ClassEditFormProps = ComponentProps<typeof ClassEditForm>;
@@ -22,10 +22,9 @@ type ClassQuickActionsProps = {
   activeEnrollmentsCount: number;
   // Props cho CompleteClassButton — chỉ hiện khi canManageClass && status === "ACTIVE" && activeEnrollmentsCount > 0.
   nextClassName?: string | null;
-  needTransferCount: number;
+  needTransferStudents: CompleteClassTransferStudent[];
   completedCount: number;
-  transferValueAmount: number;
-  freeExtraSessions: number;
+  nextClassUnitPrice: number;
   // Props cho ClassEditForm — tái dùng nguyên type của chính component đó để không lệch hình dạng.
   editCls: ClassEditFormProps["cls"];
   courses: ClassEditFormProps["courses"];
@@ -45,10 +44,9 @@ export default function ClassQuickActions({
   existingSessionCount,
   activeEnrollmentsCount,
   nextClassName,
-  needTransferCount,
+  needTransferStudents,
   completedCount,
-  transferValueAmount,
-  freeExtraSessions,
+  nextClassUnitPrice,
   editCls,
   courses,
   classOptions,
@@ -74,10 +72,9 @@ export default function ClassQuickActions({
           classId={classId}
           className={className}
           nextClassName={nextClassName ?? null}
-          needTransferCount={needTransferCount}
+          needTransferStudents={needTransferStudents}
           completedCount={completedCount}
-          transferValueAmount={transferValueAmount}
-          freeExtraSessions={freeExtraSessions}
+          newUnitPrice={nextClassUnitPrice}
         />
       ) : null}
       <ClassEditForm

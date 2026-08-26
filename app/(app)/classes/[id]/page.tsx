@@ -399,7 +399,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
         enrollment.id,
         await getEnrollmentLearningSnapshot(prisma, {
           ...enrollment,
-          class: { totalSessions: cls.totalSessions, tuitionPerSession: cls.tuitionPerSession, nextClassId: cls.nextClassId, course: cls.course },
+          class: { totalSessions: cls.totalSessions, tuitionPerSession: cls.tuitionPerSession, nextClassId: cls.nextClassId, course: cls.course, scheduleRules: cls.scheduleRules, branchId: cls.branchId },
         }),
       ] as const)
     )
@@ -409,15 +409,17 @@ export default async function ClassDetailPage({ params }: { params: { id: string
     snapshot: learningSnapshotByEnrollment.get(enrollment.id)!,
   }));
   const completionReadyCount = activeLearningSnapshots.filter((item) => item.snapshot.remainingMainSessions <= 0).length;
-  const completionNeedTransferCount = activeLearningSnapshots.filter((item) => item.snapshot.remainingMainSessions > 0).length;
-  const completionTransferValueAmount = activeLearningSnapshots.reduce(
-    (sum, item) => sum + (item.snapshot.remainingMainSessions > 0 ? item.snapshot.remainingValue : 0),
-    0,
-  );
-  const completionFreeExtraSessions = activeLearningSnapshots.reduce(
-    (sum, item) => sum + (item.snapshot.remainingMainSessions > 0 ? item.snapshot.manualExtraRemainingSessions : 0),
-    0,
-  );
+  const completionNeedTransferStudents = activeLearningSnapshots
+    .filter((item) => item.snapshot.remainingMainSessions > 0)
+    .map((item) => ({
+      enrollmentId: item.enrollment.id,
+      studentName: item.enrollment.student.fullName,
+      paidRemainingSessions: item.snapshot.paidRemainingSessions,
+      manualExtraRemainingSessions: item.snapshot.manualExtraRemainingSessions,
+      oldUnitPrice: item.snapshot.unitPrice,
+      scholarshipPct: item.snapshot.scholarshipPct,
+    }));
+  const completionNextClassUnitPrice = cls.nextClass?.tuitionPerSession ?? cls.nextClass?.course?.tuitionPerSession ?? 0;
 
   return (
     <div className="space-y-3 sm:space-y-5 pb-16 sm:pb-20">
@@ -479,10 +481,9 @@ export default async function ClassDetailPage({ params }: { params: { id: string
             existingSessionCount={cls.sessions.length}
             activeEnrollmentsCount={activeEnrollments.length}
             nextClassName={cls.nextClass?.className ?? null}
-            needTransferCount={completionNeedTransferCount}
+            needTransferStudents={completionNeedTransferStudents}
             completedCount={completionReadyCount}
-            transferValueAmount={completionTransferValueAmount}
-            freeExtraSessions={completionFreeExtraSessions}
+            nextClassUnitPrice={completionNextClassUnitPrice}
             editCls={{
               id: cls.id,
               classCode: cls.classCode,

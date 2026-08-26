@@ -46,19 +46,29 @@ export default function TransferEnrollmentButton({
   const [open, setOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [targetClassId, setTargetClassId] = useState(defaultTargetClassId ?? "");
-  const [carryScholarship, setCarryScholarship] = useState(scholarshipPct > 0);
+  // Để trống = chưa quyết định gì = không giữ học bổng (quy hết thành giá đầy đủ).
+  // Admin phải chủ động bấm "Giữ nguyên" hoặc tự gõ 1 mức % khác — không tự ý mặc
+  // định giữ hay bỏ, đúng yêu cầu "chính admin quyết định, không tự động/im lặng".
+  const [scholarshipInput, setScholarshipInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const sameCourseOptions = classOptions.filter((item) => currentCourseId && item.courseId === currentCourseId);
   const otherCourseOptions = classOptions.filter((item) => !currentCourseId || item.courseId !== currentCourseId);
 
+  const currentScholarshipPercent = Math.round(scholarshipPct * 100);
+  // Không cho nhập cao hơn % hiện tại qua thao tác chuyển lớp — chuyển lớp không phải
+  // chỗ cấp thêm ưu đãi mới, việc đó có form học bổng riêng (ScholarshipAdjustmentForm).
+  const chosenScholarshipPct = scholarshipInput.trim()
+    ? Math.min(scholarshipPct, Math.max(0, Number(scholarshipInput) / 100))
+    : 0;
+
   const targetClass = classOptions.find((item) => item.id === targetClassId) ?? null;
   const rawNewUnitPrice = targetClass?.tuitionPerSession ?? targetClass?.course?.tuitionPerSession ?? 0;
   // Xem trước phải khớp đúng công thức server dùng (xem app/api/enrollments/[id]/transfer/route.ts):
-  // nếu giữ học bổng, giá quy đổi là giá ĐÃ trừ %, không phải giá gốc — nếu không, số xem
-  // trước ở đây và số thật sau khi xác nhận sẽ lệch nhau.
-  const newUnitPrice = carryScholarship ? computeEffectiveUnitPrice(rawNewUnitPrice, scholarshipPct, 0) : rawNewUnitPrice;
+  // giá quy đổi lấy đúng % học bổng admin vừa chọn (0 nếu để trống), không phải giá gốc — nếu
+  // không, số xem trước ở đây và số thật sau khi xác nhận sẽ lệch nhau.
+  const newUnitPrice = chosenScholarshipPct > 0 ? computeEffectiveUnitPrice(rawNewUnitPrice, chosenScholarshipPct, 0) : rawNewUnitPrice;
   const paidSessionsForValue = Math.max(0, paidRemainingSessions ?? remainingSessions);
   const remainingValue = paidSessionsForValue * Math.max(0, oldUnitPrice);
   const convertedSessions = newUnitPrice > 0 ? Math.floor(remainingValue / newUnitPrice) : 0;
@@ -71,7 +81,7 @@ export default function TransferEnrollmentButton({
     const response = await fetch(`/api/enrollments/${enrollmentId}/transfer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetClassId, carryScholarship }),
+      body: JSON.stringify({ targetClassId, scholarshipPct: chosenScholarshipPct }),
     });
     const result = await response.json().catch(() => ({}));
     setLoading(false);
@@ -142,22 +152,40 @@ export default function TransferEnrollmentButton({
           </label>
 
           {scholarshipPct > 0 ? (
-            <label className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3">
-              <input
-                type="checkbox"
-                checked={carryScholarship}
-                onChange={(event) => setCarryScholarship(event.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-emerald-300 text-emerald-600"
-              />
-              <span className="text-sm">
-                <span className="block font-semibold text-emerald-900">
-                  Giữ nguyên học bổng {Math.round(scholarshipPct * 100)}% cho lớp mới
-                </span>
-                <span className="mt-0.5 block text-xs leading-5 text-emerald-700">
-                  Học viên đang có học bổng {Math.round(scholarshipPct * 100)}% ở lớp hiện tại. Bỏ tick nếu lớp mới không áp dụng ưu đãi này nữa.
-                </span>
-              </span>
-            </label>
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Học bổng hiện tại ở lớp này</p>
+              <p className="mt-1 text-lg font-black text-emerald-900">{currentScholarshipPercent}%</p>
+              <p className="mt-2 text-sm">Học bổng cho lớp mới:</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setScholarshipInput(String(currentScholarshipPercent))}
+                  className={`rounded-lg border-2 px-3 py-1.5 text-xs font-bold transition ${
+                    scholarshipInput === String(currentScholarshipPercent)
+                      ? "border-emerald-500 bg-emerald-500 text-white"
+                      : "border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50"
+                  }`}
+                >
+                  Giữ nguyên {currentScholarshipPercent}%
+                </button>
+                <span className="text-xs text-emerald-700">hoặc nhập % khác</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={0}
+                    max={currentScholarshipPercent}
+                    value={scholarshipInput}
+                    onChange={(event) => setScholarshipInput(event.target.value)}
+                    placeholder="0"
+                    className="input w-20 py-1.5 text-sm"
+                  />
+                  <span className="text-sm text-emerald-700">%</span>
+                </div>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-emerald-700">
+                Để trống hoặc để 0 = không mang học bổng sang lớp mới, quy hết thành giá đầy đủ. Không nhập được cao hơn {currentScholarshipPercent}%.
+              </p>
+            </div>
           ) : null}
 
           <div className="grid gap-3 sm:grid-cols-3">
@@ -201,9 +229,9 @@ export default function TransferEnrollmentButton({
           remainingCash > 0 ? ` và ghi dư ${formatVnd(remainingCash)}` : ""
         }${manualExtraRemainingSessions > 0 ? `, mang theo ${manualExtraRemainingSessions} buổi cộng linh động` : ""}${
           scholarshipPct > 0
-            ? carryScholarship
-              ? `, giữ nguyên học bổng ${Math.round(scholarshipPct * 100)}%`
-              : `, KHÔNG mang học bổng ${Math.round(scholarshipPct * 100)}% sang lớp mới`
+            ? chosenScholarshipPct > 0
+              ? `, mang học bổng ${Math.round(chosenScholarshipPct * 100)}% sang lớp mới`
+              : `, KHÔNG mang học bổng ${currentScholarshipPercent}% sang lớp mới`
             : ""
         }. Thao tác này không thể hoàn tác.`}
         confirmLabel={loading ? "Đang chuyển..." : "Chuyển lớp"}

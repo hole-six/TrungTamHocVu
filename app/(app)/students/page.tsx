@@ -156,7 +156,14 @@ export default async function StudentsPage({
           orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
         },
         enrollments: {
-          include: { class: { include: { nextClass: true } } },
+          include: {
+            class: {
+              include: {
+                nextClass: true,
+                scheduleRules: { where: { isActive: true }, orderBy: { weekday: "asc" } },
+              },
+            },
+          },
           orderBy: [{ status: "asc" }, { enrollDate: "desc" }],
         },
       },

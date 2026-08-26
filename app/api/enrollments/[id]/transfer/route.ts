@@ -49,23 +49,30 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // giá gốc, nếu không số xem trước và số thực tế chuyển lớp sẽ lệch nhau.
   const oldUnitPrice = snapshot.unitPrice;
 
-  // Học bổng gắn theo TỪNG enrollment (không tự động theo học viên) — khi chuyển
-  // lớp phải hỏi rõ có giữ nguyên % học bổng cho enrollment MỚI hay không, không tự
-  // động giữ (có thể lớp mới không còn áp dụng ưu đãi đó) và cũng không âm thầm mất
-  // đi nếu người xử lý thực sự muốn giữ. Mặc định giữ nếu đang có học bổng, trừ khi
-  // body nói rõ carryScholarship=false.
-  const carryScholarship = body.carryScholarship !== false && snapshot.scholarshipPct > 0;
+  // Học bổng gắn theo TỪNG enrollment (không tự động theo học viên) — admin phải
+  // CHỦ ĐỘNG chọn % mang sang cho enrollment MỚI (0..% hiện tại), không tự động giữ
+  // 100% và cũng không tự động bỏ 100% — vì chuyển sang lớp nâng cao có thể cần GIẢM
+  // % chứ không phải giữ nguyên hay mất trắng. Không cho vượt quá % hiện tại qua
+  // thao tác chuyển lớp này (cấp thêm ưu đãi mới là việc của ScholarshipAdjustmentForm).
+  const rawScholarshipPct = Number(body.scholarshipPct ?? 0);
+  if (!Number.isFinite(rawScholarshipPct) || rawScholarshipPct < 0 || rawScholarshipPct > snapshot.scholarshipPct) {
+    return NextResponse.json({ error: "Phan tram hoc bong khong hop le." }, { status: 400 });
+  }
+  const chosenScholarshipPct = rawScholarshipPct;
   const rawNewUnitPrice = Number(body.newUnitPrice ?? targetClass.tuitionPerSession ?? targetClass.course?.tuitionPerSession ?? 0);
   if (!Number.isInteger(rawNewUnitPrice) || rawNewUnitPrice <= 0) {
     return NextResponse.json({ error: "Lop moi chua co don gia/buoi hop le." }, { status: 400 });
   }
 
-  // Neu giu hoc bong, gia dung de quy doi (va gia snapshot cho enrollment moi) phai
-  // la gia DA AP DUNG %, khong phai gia goc — neu khong, tien vao bao nhieu se khong
-  // con quy dung ra tung do buoi o lop moi (2 lop cung "ngan xep" thuong gia bang
-  // nhau, nen khi giu dung % thi so buoi quy doi phai ~ bang so buoi con lai, khong
-  // bi lech do vo tinh dung gia goc lam mau so).
-  const newUnitPrice = carryScholarship ? computeEffectiveUnitPrice(rawNewUnitPrice, snapshot.scholarshipPct, 0) : rawNewUnitPrice;
+  // Gia dung de quy doi (va gia snapshot cho enrollment moi) phai la gia DA AP DUNG %
+  // admin vua chon, khong phai gia goc — neu khong, tien vao bao nhieu se khong con
+  // quy dung ra tung do buoi o lop moi (2 lop cung "ngan xep" thuong gia bang nhau,
+  // nen khi giu dung % thi so buoi quy doi phai ~ bang so buoi con lai, khong bi lech
+  // do vo tinh dung gia goc lam mau so). Dung dung adjustmentPct that cua snapshot,
+  // khong hardcode 0.
+  const newUnitPrice = chosenScholarshipPct > 0
+    ? computeEffectiveUnitPrice(rawNewUnitPrice, chosenScholarshipPct, snapshot.adjustmentPct)
+    : rawNewUnitPrice;
 
   const conversion = computeTransferConversion(snapshot.paidRemainingSessions, oldUnitPrice, newUnitPrice);
   if (conversion.convertedSessionCount <= 0 && snapshot.manualExtraRemainingSessions <= 0) {
@@ -80,8 +87,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     snapshot.manualExtraRemainingSessions > 0 ? `Mang theo ${snapshot.manualExtraRemainingSessions} buoi cong linh dong` : null,
     conversion.remainingCashAmount > 0 ? `Du ${conversion.remainingCashAmount.toLocaleString("vi-VN")}d` : null,
     snapshot.scholarshipPct > 0
-      ? carryScholarship
-        ? `Giu hoc bong ${Math.round(snapshot.scholarshipPct * 100)}% sang lop moi`
+      ? chosenScholarshipPct > 0
+        ? `Mang hoc bong ${Math.round(chosenScholarshipPct * 100)}% sang lop moi (truoc do ${Math.round(snapshot.scholarshipPct * 100)}%)`
         : `Khong mang hoc bong ${Math.round(snapshot.scholarshipPct * 100)}% sang lop moi`
       : null,
     body.reason ? `Ly do: ${String(body.reason).trim()}` : null,
@@ -125,13 +132,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       },
     });
 
-    if (carryScholarship) {
+    if (chosenScholarshipPct > 0) {
       await tx.scholarship.create({
         data: {
           studentId: existing.studentId,
           enrollmentId: nextEnrollment.id,
-          percentage: snapshot.scholarshipPct,
-          reason: `Giu nguyen tu enrollment cu khi chuyen lop: ${existing.class.className} -> ${targetClass.className}`,
+          percentage: chosenScholarshipPct,
+          reason: `Admin chon giu ${Math.round(chosenScholarshipPct * 100)}% tu enrollment cu khi chuyen lop: ${existing.class.className} -> ${targetClass.className}`,
           effectiveFrom: now,
           effectiveTo: null,
         },

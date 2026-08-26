@@ -159,10 +159,9 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                 existingSessionCount={data.projectedSchedule.filter((s: any) => s.session).length}
                 activeEnrollmentsCount={data.activeEnrollments}
                 nextClassName={data.nextClass?.className ?? null}
-                needTransferCount={data.completionStats.needTransferCount}
+                needTransferStudents={data.completionStats.needTransferStudents}
                 completedCount={data.completionStats.readyCount}
-                transferValueAmount={data.completionStats.transferValueAmount}
-                freeExtraSessions={data.completionStats.freeExtraSessions}
+                nextClassUnitPrice={data.completionStats.nextClassUnitPrice}
                 editCls={{
                   id: data.id,
                   classCode: data.classCode,

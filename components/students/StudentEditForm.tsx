@@ -106,28 +106,17 @@ export default function StudentEditForm({ studentId, initial }: Props) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Status toggle */}
+        {/* Status selector */}
         <div className="form-group">
           <label className="label">Trạng thái học</label>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { value: "ACTIVE", label: "✅ Đang học", color: "border-emerald-400 bg-emerald-50 text-emerald-700" },
-              { value: "LEFT",   label: "🚫 Đã nghỉ",  color: "border-red-400 bg-red-50 text-red-700" },
-            ].map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => update("status", opt.value)}
-                className={`rounded-xl border-2 px-4 py-2.5 text-sm font-semibold transition-all duration-150 ${
-                  form.status === opt.value
-                    ? opt.color + " shadow-sm"
-                    : "border-[#e2e8f0] bg-white text-ink-muted80"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          <select
+            className={`input font-semibold ${form.status === "LEFT" ? "text-red-700" : "text-emerald-700"}`}
+            value={form.status}
+            onChange={(e) => update("status", e.target.value)}
+          >
+            <option value="ACTIVE">✅ Đang học</option>
+            <option value="LEFT">🚫 Đã nghỉ</option>
+          </select>
         </div>
 
         {/* Gender + DOB */}

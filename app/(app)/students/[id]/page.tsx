@@ -15,7 +15,7 @@ import PageGuide from "@/components/ui/PageGuide";
 import PageHero from "@/components/ui/PageHero/PageHero";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { computeOutstandingBalance } from "@/lib/server/balance";
-import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
+import { chargeOwnDueAmount, overlapsWindow } from "@/lib/server/tuition-rules";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import EditableDateField from "@/components/ui/EditableDateField";
@@ -197,8 +197,9 @@ export default async function StudentDetailPage({
       enrollments: {
         include: {
           class: { include: { course: true, nextClass: true, scheduleRules: { where: { isActive: true }, orderBy: { weekday: "asc" } } } },
-          transferredFrom: { include: { class: true } },
-          transferredTo: { include: { class: true }, orderBy: { enrollDate: "asc" } },
+          scholarships: { orderBy: { effectiveFrom: "desc" } },
+          transferredFrom: { include: { class: true, scholarships: { orderBy: { effectiveFrom: "desc" } } } },
+          transferredTo: { include: { class: true, scholarships: { orderBy: { effectiveFrom: "desc" } } }, orderBy: { enrollDate: "asc" } },
         },
         orderBy: [{ enrollDate: "desc" }, { createdAt: "desc" }],
       },
@@ -473,6 +474,15 @@ export default async function StudentDetailPage({
         ...currentEnrollment.transferredTo.map((next) => ({ direction: "to" as const, other: next, self: currentEnrollment })),
       ]
     : [];
+  // % học bổng đang hiệu lực NGAY TẠI THỜI ĐIỂM chuyển của mỗi enrollment (không phải
+  // % hiện tại của học viên) — để hiển thị đúng "khóa nào từng có học bổng bao nhiêu"
+  // trong lịch sử chuyển lớp, kể cả enrollment đã kết thúc từ lâu.
+  const activeScholarshipPct = (scholarships: { percentage: number; effectiveFrom: Date; effectiveTo: Date | null }[]) => {
+    const now = new Date();
+    return scholarships
+      .filter((s) => overlapsWindow(s.effectiveFrom, s.effectiveTo, now, now))
+      .reduce((sum, s) => sum + s.percentage, 0);
+  };
 
   // Cảnh báo vận hành gộp — MỘT danh sách duy nhất cho toàn trang (trước đây tin
   // "còn nợ"/"chưa có portal"/"cần chuyển lớp" bị lặp lại ở 3 khối khác nhau: khối
@@ -791,6 +801,18 @@ export default async function StudentDetailPage({
                     ? ` · dư ${formatVnd(item.direction === "from" ? item.self.transferredRemainingCashAmount : item.other.transferredRemainingCashAmount)}`
                     : ""}
                 </p>
+                {(() => {
+                  const fromEnrollment = item.direction === "from" ? item.other : item.self;
+                  const toEnrollment = item.direction === "from" ? item.self : item.other;
+                  const fromPct = activeScholarshipPct(fromEnrollment.scholarships);
+                  const toPct = activeScholarshipPct(toEnrollment.scholarships);
+                  if (fromPct <= 0 && toPct <= 0) return null;
+                  return (
+                    <p className="mt-1 text-xs font-semibold text-emerald-700">
+                      Học bổng {fromEnrollment.class.className}: {Math.round(fromPct * 100)}% → {toEnrollment.class.className}: {Math.round(toPct * 100)}%
+                    </p>
+                  );
+                })()}
               </div>
             ))}
           </div>

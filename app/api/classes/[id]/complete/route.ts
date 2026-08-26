@@ -9,6 +9,7 @@ import {
   computeTransferConversion,
   getEnrollmentLearningSnapshot,
 } from "@/lib/server/enrollment-learning";
+import { computeEffectiveUnitPrice } from "@/lib/server/tuition-rules";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -82,6 +83,35 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
   }
 
+  // Học bổng gắn theo TỪNG enrollment — không tự động giữ hay bỏ khi chuyển hàng loạt.
+  // Admin phải chọn rõ % cho MỖI học viên đang có học bổng (giữ nguyên/giảm/bỏ), 400
+  // nếu thiếu quyết định cho ai đó, để không lỡ tay tính sai giá cho ai.
+  const decisionsRaw: unknown[] = Array.isArray(body.decisions) ? body.decisions : [];
+  const decisionByEnrollmentId = new Map<string, number>(
+    decisionsRaw
+      .filter((item): item is { enrollmentId: string; scholarshipPct: unknown } =>
+        Boolean(item) && typeof (item as { enrollmentId?: unknown }).enrollmentId === "string")
+      .map((item) => [item.enrollmentId, Number(item.scholarshipPct)]),
+  );
+  const scholarshipPctByEnrollmentId = new Map<string, number>();
+  for (const { enrollment, snapshot } of needTransfer) {
+    if (snapshot.scholarshipPct <= 0) continue;
+    if (!decisionByEnrollmentId.has(enrollment.id)) {
+      return NextResponse.json(
+        { error: `Học viên ${enrollment.studentId} đang có học bổng ${Math.round(snapshot.scholarshipPct * 100)}% — cần chọn giữ nguyên, giảm hay bỏ trước khi kết thúc lớp.` },
+        { status: 400 },
+      );
+    }
+    const chosen = decisionByEnrollmentId.get(enrollment.id)!;
+    if (!Number.isFinite(chosen) || chosen < 0 || chosen > snapshot.scholarshipPct) {
+      return NextResponse.json(
+        { error: `Phần trăm học bổng không hợp lệ cho học viên ${enrollment.studentId}.` },
+        { status: 400 },
+      );
+    }
+    scholarshipPctByEnrollmentId.set(enrollment.id, chosen);
+  }
+
   const now = new Date();
   const createdEnrollmentIds: string[] = [];
   const result = await prisma.$transaction(async (tx) => {
@@ -115,7 +145,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       // này — mỗi học viên trong danh sách needTransfer có thể có mức giảm khác nhau,
       // nên không dùng lại resolveEnrollmentUnitPrice() (giá gốc) ở đây.
       const oldUnitPrice = snapshot.unitPrice;
-      const newUnitPrice = targetClass.tuitionPerSession ?? targetClass.course?.tuitionPerSession ?? 0;
+      const chosenScholarshipPct = scholarshipPctByEnrollmentId.get(enrollment.id) ?? 0;
+      const rawNewUnitPrice = targetClass.tuitionPerSession ?? targetClass.course?.tuitionPerSession ?? 0;
+      // Dùng đúng % học bổng admin vừa chọn cho học viên NÀY (không hardcode 0, không
+      // dùng lại % của người khác) — mỗi học viên trong needTransfer có thể chọn khác
+      // nhau, kể cả bỏ hẳn học bổng khi chuyển sang lớp nâng cao.
+      const newUnitPrice = chosenScholarshipPct > 0
+        ? computeEffectiveUnitPrice(rawNewUnitPrice, chosenScholarshipPct, snapshot.adjustmentPct)
+        : rawNewUnitPrice;
       if (!Number.isInteger(newUnitPrice) || newUnitPrice <= 0) {
         throw new Error(`Lớp tiếp theo "${targetClass.className}" chưa có đơn giá/buổi hợp lệ.`);
       }
@@ -131,6 +168,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         conversion.convertedSessionCount > 0 ? `Quy đổi ${conversion.convertedSessionCount} buổi ở lớp mới` : null,
         snapshot.manualExtraRemainingSessions > 0 ? `Mang theo ${snapshot.manualExtraRemainingSessions} buổi cộng linh động` : null,
         conversion.remainingCashAmount > 0 ? `Dư ${conversion.remainingCashAmount.toLocaleString("vi-VN")}đ` : null,
+        snapshot.scholarshipPct > 0
+          ? chosenScholarshipPct > 0
+            ? `Admin chọn mang học bổng ${Math.round(chosenScholarshipPct * 100)}% sang lớp mới (trước đó ${Math.round(snapshot.scholarshipPct * 100)}%)`
+            : `Admin chọn không mang học bổng ${Math.round(snapshot.scholarshipPct * 100)}% sang lớp mới`
+          : null,
         `Lý do: ${reason}`,
       ].filter(Boolean).join(" · ");
 
@@ -176,6 +218,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         },
       });
       createdEnrollmentIds.push(nextEnrollment.id);
+
+      if (chosenScholarshipPct > 0) {
+        await tx.scholarship.create({
+          data: {
+            studentId: enrollment.studentId,
+            enrollmentId: nextEnrollment.id,
+            percentage: chosenScholarshipPct,
+            reason: `Admin chọn giữ ${Math.round(chosenScholarshipPct * 100)}% khi kết thúc lớp: ${cls.className} -> ${targetClass.className}`,
+            effectiveFrom: now,
+            effectiveTo: null,
+          },
+        });
+      }
 
       if (conversion.remainingCashAmount > 0) {
         await tx.creditBalance.create({

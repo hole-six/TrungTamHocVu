@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { computeEffectiveUnitPrice, overlapsWindow } from "./tuition-rules";
+import { type ScheduleRuleLike, estimateEndDateFromRules, getVietnamToday } from "./class-rules";
+import { getHolidayDateSet } from "./holidays";
 
 type EnrollmentWithClass = {
   id: string;
@@ -17,6 +19,11 @@ type EnrollmentWithClass = {
     tuitionPerSession: number | null;
     nextClassId?: string | null;
     course?: { tuitionPerSession: number } | null;
+    // Optional — chỉ có khi caller truyền kèm (xem getEnrollmentLearningSnapshot) — dùng
+    // để chiếu tiếp "dự kiến kết thúc" khi buổi đã sinh sẵn trong DB không đủ, xem
+    // computeExpectedStudentEndDate bên dưới.
+    scheduleRules?: ScheduleRuleLike[];
+    branchId?: string;
   };
 };
 
@@ -29,6 +36,35 @@ type ClassSessionLite = {
 
 function startOfUtcDay(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function addOneUtcDay(date: Date) {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next;
+}
+
+// futureMainSessions chỉ chứa ClassSession ĐÃ SINH SẴN trong DB — sweep tự động chỉ sinh
+// trước một khoảng ngắn (xem computeAutoSessionWindow trong class-generation.ts), nên học
+// viên còn nhiều buổi hơn số đã sinh sẵn sẽ không có đủ dữ liệu để lấy ngày thật. Trường
+// hợp đó, chiếu tiếp lịch từ ScheduleRule (không cần ClassSession tồn tại) — cùng cách
+// app/(app)/classes/[id]/page.tsx đã dùng ở cấp lớp — thay vì để null.
+function computeExpectedStudentEndDate(
+  enrollment: EnrollmentWithClass,
+  remainingMainSessions: number,
+  futureMainSessions: ClassSessionLite[],
+  holidayDates?: Set<string>,
+): Date | null {
+  if (remainingMainSessions <= 0) return null;
+  if (futureMainSessions.length >= remainingMainSessions) {
+    return futureMainSessions[remainingMainSessions - 1].sessionDate;
+  }
+  if (!enrollment.class.scheduleRules || enrollment.class.scheduleRules.length === 0) return null;
+  const shortage = remainingMainSessions - futureMainSessions.length;
+  const cursor = futureMainSessions.length
+    ? addOneUtcDay(futureMainSessions[futureMainSessions.length - 1].sessionDate)
+    : getVietnamToday();
+  return estimateEndDateFromRules(cursor, shortage, enrollment.class.scheduleRules, holidayDates ?? new Set());
 }
 
 export function resolveEnrollmentUnitPrice(enrollment: EnrollmentWithClass) {
@@ -65,6 +101,7 @@ export function computeLearningSnapshot(
   completedMainSessions: number,
   futureMainSessions: ClassSessionLite[],
   unitPriceOverride?: number,
+  holidayDates?: Set<string>,
 ) {
   const plan = computeEnrollmentTuitionPlan(enrollment, unitPriceOverride);
   const manualExtraSessions = resolveManualExtraSessions(enrollment);
@@ -73,10 +110,7 @@ export function computeLearningSnapshot(
   const paidRemainingSessions = Math.max(0, plan.purchasedMainSessions - completedMainSessions);
   const manualExtraRemainingSessions = Math.max(0, remainingMainSessions - paidRemainingSessions);
   const remainingValue = paidRemainingSessions * plan.unitPrice;
-  const expectedStudentEndDate =
-    remainingMainSessions > 0 && futureMainSessions.length >= remainingMainSessions
-      ? futureMainSessions[remainingMainSessions - 1].sessionDate
-      : null;
+  const expectedStudentEndDate = computeExpectedStudentEndDate(enrollment, remainingMainSessions, futureMainSessions, holidayDates);
   const continuationStatus =
     remainingMainSessions <= 0
       ? "COMPLETED"
@@ -149,11 +183,15 @@ export async function getEnrollmentLearningSnapshot(
     .reduce((sum, item) => sum + item.percentage, 0);
   const effectiveUnitPrice = computeEffectiveUnitPrice(resolveEnrollmentUnitPrice(enrollment), scholarshipPct, adjustmentPct);
 
+  // Chỉ cần lấy ngày lễ khi caller có truyền branchId — dùng để chiếu tiếp "dự kiến kết
+  // thúc" qua ScheduleRule khi buổi đã sinh sẵn không đủ (xem computeExpectedStudentEndDate).
+  const holidayDates = enrollment.class.branchId ? await getHolidayDateSet(enrollment.class.branchId) : undefined;
+
   // Trả kèm % học bổng/điều chỉnh đang hiệu lực (không chỉ đơn giá đã áp dụng) để
   // luồng chuyển lớp biết CÓ học bổng hay không mà mở tuỳ chọn giữ nguyên/không giữ
   // khi ghi danh vào lớp mới — thay vì âm thầm mất học bổng sau khi chuyển.
   return {
-    ...computeLearningSnapshot(enrollment, completedMainSessions, futureMainSessions, effectiveUnitPrice),
+    ...computeLearningSnapshot(enrollment, completedMainSessions, futureMainSessions, effectiveUnitPrice, holidayDates),
     scholarshipPct,
     adjustmentPct,
   };

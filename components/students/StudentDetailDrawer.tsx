@@ -716,7 +716,7 @@ export default function StudentDetailDrawer({
                 key: "phuhuynh",
                 label: "Phụ huynh & Portal",
                 content: (
-                  <div className="space-y-5">
+                  <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                     <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
                       <div className="mb-5 flex items-center justify-between gap-3">
                         <div>
@@ -822,14 +822,6 @@ export default function StudentDetailDrawer({
                 label: "Hồ sơ & Lịch sử",
                 content: data.permissions.canEditStudent ? (
                   <div className="space-y-5">
-                    <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
-                      <h2 className="text-lg font-black tracking-tight text-[#0f1729]">
-                        Cập nhật hồ sơ
-                      </h2>
-                      <p className="mt-1 text-sm text-[#64748b]">
-                        Sửa thông tin cá nhân, trạng thái và ghi chú nội bộ.
-                      </p>
-                    </div>
                     <StudentEditForm
                       studentId={data.id}
                       initial={{
