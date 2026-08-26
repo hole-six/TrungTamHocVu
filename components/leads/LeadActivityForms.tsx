@@ -75,7 +75,7 @@ const LEAD_ACTIVITY_GUIDE_SECTIONS = [
   },
 ];
 
-export default function LeadActivityForms({ leadId }: { leadId: string }) {
+export default function LeadActivityForms({ leadId, onSuccess }: { leadId: string; onSuccess?: () => void }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("interaction");
   const [loading, setLoading] = useState(false);
@@ -123,6 +123,7 @@ export default function LeadActivityForms({ leadId }: { leadId: string }) {
     setTestForm({ scheduledDate: "", testDate: "", status: "SCHEDULED", result: "", notes: "" });
     setTimeout(() => setSuccess(null), 3000);
     router.refresh();
+    onSuccess?.();
   }
 
   return (

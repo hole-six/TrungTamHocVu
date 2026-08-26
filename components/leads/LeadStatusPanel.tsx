@@ -58,10 +58,12 @@ export default function LeadStatusPanel({
   leadId,
   status,
   hasStudent,
+  onSuccess,
 }: {
   leadId: string;
   status: string;
   hasStudent: boolean;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
   const { openDrawer } = useStudentDrawer();
@@ -83,6 +85,7 @@ export default function LeadStatusPanel({
       return;
     }
     router.refresh();
+    onSuccess?.();
   }
 
   async function convert() {
@@ -97,6 +100,7 @@ export default function LeadStatusPanel({
     }
     openDrawer(data.item.id);
     router.refresh();
+    onSuccess?.();
   }
 
   const isConverted = hasStudent || status === "ENROLLED";

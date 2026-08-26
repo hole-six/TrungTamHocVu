@@ -4,7 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 
-export default function AppointmentStatusButtons({ appointmentId, status }: { appointmentId: string; status: string }) {
+export default function AppointmentStatusButtons({
+  appointmentId,
+  status,
+  onSuccess,
+}: {
+  appointmentId: string;
+  status: string;
+  onSuccess?: () => void;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -17,6 +25,7 @@ export default function AppointmentStatusButtons({ appointmentId, status }: { ap
     });
     setLoading(null);
     router.refresh();
+    onSuccess?.();
   }
 
   if (status !== "SCHEDULED") return null;
