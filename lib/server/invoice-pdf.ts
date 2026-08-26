@@ -8,6 +8,26 @@ import { getBatchInvoiceViewData } from "@/lib/server/batch-invoice-view";
 
 const execFileAsync = promisify(execFile);
 let reportlabAvailablePromise: Promise<boolean> | null = null;
+let pythonCommandPromise: Promise<string | null> | null = null;
+
+// VPS Linux chỉ có "python3" (không có "python"), trong khi máy dev Windows thường chỉ
+// có "python". Thử lần lượt cả 2 tên lệnh, cache lại kết quả đầu tiên chạy được — thay
+// vì hardcode "python" như trước (khiến canUseReportlabRenderer() luôn báo false trên
+// VPS dù đã cài reportlab, và invoice rơi vào renderer JS thô sơ mất dấu tiếng Việt).
+function resolvePythonCommand() {
+  pythonCommandPromise ??= (async () => {
+    for (const candidate of ["python3", "python"]) {
+      try {
+        await execFileAsync(candidate, ["--version"], { timeout: 5000, maxBuffer: 1024 * 1024 });
+        return candidate;
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  })();
+  return pythonCommandPromise;
+}
 
 export type InvoicePdfCharge = {
   id: string;
@@ -325,13 +345,17 @@ function buildZip(files: { name: string; data: Buffer }[]) {
 }
 
 function canUseReportlabRenderer() {
-  reportlabAvailablePromise ??= execFileAsync("python", ["-c", "import reportlab"], {
-    cwd: process.cwd(),
-    timeout: 5000,
-    maxBuffer: 1024 * 1024,
-  })
-    .then(() => true)
-    .catch(() => false);
+  reportlabAvailablePromise ??= (async () => {
+    const python = await resolvePythonCommand();
+    if (!python) return false;
+    return execFileAsync(python, ["-c", "import reportlab"], {
+      cwd: process.cwd(),
+      timeout: 5000,
+      maxBuffer: 1024 * 1024,
+    })
+      .then(() => true)
+      .catch(() => false);
+  })();
   return reportlabAvailablePromise;
 }
 
@@ -409,7 +433,8 @@ async function renderArtifact(payload: InvoicePdfPayload, extension: "pdf" | "zi
   if (await canUseReportlabRenderer()) {
     await fs.writeFile(inputPath, JSON.stringify(payload), "utf8");
     try {
-      await execFileAsync("python", [scriptPath, inputPath, outputPath], {
+      const python = await resolvePythonCommand();
+      await execFileAsync(python ?? "python", [scriptPath, inputPath, outputPath], {
         cwd: process.cwd(),
         timeout: 120000,
         maxBuffer: 10 * 1024 * 1024,

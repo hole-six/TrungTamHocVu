@@ -23,12 +23,23 @@ CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN_X
 
 
 def register_fonts():
-    font_candidates = [
-        ("AppSans", "C:/Windows/Fonts/arial.ttf"),
-        ("AppSansBold", "C:/Windows/Fonts/arialbd.ttf"),
+    # Helvetica builtin cua reportlab dung WinAnsiEncoding, thieu nhieu dau tieng Viet
+    # (vd "ệ", "ố", "ọ") -> chu bi mat dau hoac ra o vuong khi in hoa don that. Phai nap
+    # 1 font TTF Unicode day du. Duong dan Windows (may dev) va Linux (VPS, thuong san co
+    # goi fonts-dejavu-core) khac nhau nen liet ke ca 2, lay font dau tien ton tai.
+    regular_candidates = [
+        "C:/Windows/Fonts/arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
     ]
-    for name, font_path in font_candidates:
-        if os.path.exists(font_path):
+    bold_candidates = [
+        "C:/Windows/Fonts/arialbd.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    ]
+    for name, candidates in (("AppSans", regular_candidates), ("AppSansBold", bold_candidates)):
+        font_path = next((path for path in candidates if os.path.exists(path)), None)
+        if font_path:
             pdfmetrics.registerFont(TTFont(name, font_path))
     return {
         "regular": "AppSans" if "AppSans" in pdfmetrics.getRegisteredFontNames() else "Helvetica",
