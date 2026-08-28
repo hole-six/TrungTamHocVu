@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BackButton from "@/components/ui/BackButton";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { computeStockBalance, STOCK_TXN_TYPE_LABEL } from "@/lib/server/inventory-rules";
@@ -46,9 +47,9 @@ export default async function BookDetailPage({ params }: { params: { id: string 
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        <Link href="/inventory" className="text-sm text-primary">
+        <BackButton href="/inventory" className="text-sm text-primary">
           ← Quay lại kho giáo trình
-        </Link>
+        </BackButton>
 
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-2">

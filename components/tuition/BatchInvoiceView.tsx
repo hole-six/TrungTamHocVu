@@ -10,6 +10,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import { formatVnd } from "@/lib/export-utils";
 import StudentLink from "@/components/students/StudentLink";
+import BackButton from "@/components/ui/BackButton";
 
 type BatchCharge = InvoiceChargeData & {
   enrollmentId: string | null;
@@ -622,9 +623,9 @@ export default function BatchInvoiceView({
               <p className="mt-1 text-sm text-ink-muted80">{stats.visibleCount} phiếu đang hiển thị · tổng {formatVnd(stats.totalAmount)}</p>
             </div>
             {!embedded ? (
-              <Link href="/tuition" className="text-sm font-medium text-primary hover:underline">
+              <BackButton href="/tuition" className="text-sm font-medium text-primary hover:underline">
                 ← Quay lại workspace học phí
-              </Link>
+              </BackButton>
             ) : null}
           </div>
 

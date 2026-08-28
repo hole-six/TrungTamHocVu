@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatVnd as formatVndBase } from "@/lib/export-utils";
+import BackButton from "@/components/ui/BackButton";
 
 type CourseOption = {
   id: string;
@@ -258,12 +258,12 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
   return (
     <div className="page-shell page-shell-wide">
       <div className="space-y-4">
-        <Link href="/leads" className="inline-flex items-center gap-2 text-sm font-medium text-ink-muted48 transition hover:text-primary">
+        <BackButton href="/leads" className="inline-flex items-center gap-2 text-sm font-medium text-ink-muted48 transition hover:text-primary">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
           Quay lại CRM tuyển sinh
-        </Link>
+        </BackButton>
 
         <div className="overflow-hidden rounded-[32px] border-2 border-[#fed7aa] bg-gradient-to-r from-[#fff7ed] via-[#ffedd5] to-[#fed7aa] p-6 shadow-lg">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">

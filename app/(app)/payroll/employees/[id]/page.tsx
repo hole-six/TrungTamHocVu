@@ -1,4 +1,4 @@
-import Link from "next/link";
+import BackButton from "@/components/ui/BackButton";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { computeContractStatus } from "@/lib/server/payroll-rules";
@@ -128,9 +128,9 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
       />
       <div className="flex items-start justify-between gap-3" data-tour="employee-header">
         <div>
-          <Link href="/payroll" className="text-sm text-primary">
+          <BackButton href="/payroll" className="text-sm text-primary">
             ← Quay lại Nhân sự & Lương
-          </Link>
+          </BackButton>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">{employee.fullName}</h1>
           <p className="mt-1 text-sm text-ink-muted48">
             Mã NV: {employee.employeeCode} · Tên ngắn: {employee.shortName} · {employee.position ?? "—"}

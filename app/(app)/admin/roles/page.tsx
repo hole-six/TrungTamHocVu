@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
+import BackButton from "@/components/ui/BackButton";
 
 export const metadata: Metadata = {
   title: "Quản lý Vai trò",
@@ -33,12 +34,12 @@ export default async function RolesPage() {
           <h1 className="font-display text-2xl font-bold tracking-tight text-ink">Quản lý Vai trò</h1>
           <p className="mt-1 text-sm text-ink-muted48">Quản lý roles và permissions trong hệ thống</p>
         </div>
-        <Link href="/admin" className="btn-ghost">
+        <BackButton href="/admin" className="btn-ghost">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
           Quay lại Admin
-        </Link>
+        </BackButton>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

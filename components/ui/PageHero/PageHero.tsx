@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
 import StatTile, { type StatTileProps } from "@/components/ui/StatTile/StatTile";
+import BackButton from "@/components/ui/BackButton";
 
 export type PageHeroProps = {
   /** Link "quay lại danh sách" phía trên tiêu đề — bỏ trống nếu trang không cần. */
@@ -49,7 +49,7 @@ export default function PageHero({
   return (
     <div className="rounded-xl sm:rounded-2xl border border-hairline bg-gradient-to-b from-white to-canvas-pearl p-4 sm:p-6 md:p-8 shadow-sm">
       {backHref ? (
-        <Link
+        <BackButton
           href={backHref}
           className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-semibold text-primary hover:bg-primary/10 transition-colors"
         >
@@ -57,7 +57,7 @@ export default function PageHero({
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
           <span>{backLabel}</span>
-        </Link>
+        </BackButton>
       ) : null}
 
       <div className={`flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:justify-between ${backHref ? "mt-4 sm:mt-6" : ""}`}>

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import BranchForm from "@/components/branches/BranchForm";
+import BackButton from "@/components/ui/BackButton";
 
 export const metadata: Metadata = {
   title: "Sửa cơ sở",
@@ -25,14 +26,14 @@ export default async function EditBranchPage({ params }: { params: { id: string 
   return (
     <div className="page-shell page-shell-form">
       <div className="flex items-center gap-3">
-        <a
+        <BackButton
           href="/admin/branches"
           className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-[#e8edf5] bg-white transition-all hover:border-primary/50 hover:shadow-md"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
-        </a>
+        </BackButton>
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-ink">
             Sửa cơ sở

@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import BackButton from "@/components/ui/BackButton";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
@@ -133,9 +133,9 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         buttonLabel="Guide lead"
       />
 
-      <Link href="/leads" className="inline-flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-[#3b82f6] hover:underline">
+      <BackButton href="/leads" className="inline-flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-[#3b82f6] hover:underline">
         ← <span className="sm:hidden">CRM</span><span className="hidden sm:inline">Về CRM tuyển sinh</span>
-      </Link>
+      </BackButton>
 
       <LeadDetailContent data={data} />
     </div>

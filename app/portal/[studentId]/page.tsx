@@ -1,4 +1,4 @@
-import Link from "next/link";
+import BackButton from "@/components/ui/BackButton";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -76,9 +76,9 @@ export default async function PortalStudentPage({ params }: { params: { studentI
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/portal" className="text-sm text-primary">
+        <BackButton href="/portal" className="text-sm text-primary">
           ← Quay lại danh sách con
-        </Link>
+        </BackButton>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">{student.fullName}</h1>
         <p className="mt-1 text-sm text-ink-muted48">
           Mã HV: {student.studentCode}

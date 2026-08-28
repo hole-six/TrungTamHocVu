@@ -6,6 +6,7 @@ import path from "node:path";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import RemediationFilesTable from "./RemediationFilesTable";
+import BackButton from "@/components/ui/BackButton";
 import ImportJobsTable from "./ImportJobsTable";
 import BlockedTablesTable from "./BlockedTablesTable";
 
@@ -200,12 +201,12 @@ export default async function AdminImportsPage({
           <Link href="/admin/imports/remediation" className="btn-primary">
             Mở Remediation
           </Link>
-          <Link href="/admin" className="btn-ghost">
+          <BackButton href="/admin" className="btn-ghost">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6"/>
             </svg>
             Quay lại Admin
-          </Link>
+          </BackButton>
         </div>
       </div>
 

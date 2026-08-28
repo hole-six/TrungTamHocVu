@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import FormGuide from "@/components/ui/FormGuide";
 import CurrencyInput from "@/components/ui/CurrencyInput";
+import BackButton from "@/components/ui/BackButton";
 import { formatVnd as formatVndBase } from "@/lib/export-utils";
 
 type Course = {
@@ -563,7 +563,7 @@ export default function NewClassForm({
   return (
     <div className="page-shell mx-auto w-full max-w-[1700px] px-4 pb-10 sm:px-6 2xl:max-w-[1840px]">
       <div className="space-y-5">
-        <Link
+        <BackButton
           href="/classes"
           className="inline-flex items-center gap-2 text-sm font-medium text-[#6b7280] transition-colors hover:text-[#f97316]"
         >
@@ -571,7 +571,7 @@ export default function NewClassForm({
             <polyline points="15 18 9 12 15 6" />
           </svg>
           Quay lại quản lý lớp học
-        </Link>
+        </BackButton>
 
         <div className="rounded-2xl border-2 border-[#e5e7eb] bg-white overflow-hidden">
           <div className="flex flex-col gap-5 px-6 py-6 lg:flex-row lg:items-end lg:justify-between">

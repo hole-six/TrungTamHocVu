@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BackButton from "@/components/ui/BackButton";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import GuardianEditForm from "@/components/guardians/GuardianEditForm";
@@ -72,9 +73,9 @@ export default async function GuardianDetailPage({ params }: { params: { id: str
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="space-y-3 sm:space-y-4">
-        <Link href="/guardians" className="text-xs sm:text-sm text-primary">
+        <BackButton href="/guardians" className="text-xs sm:text-sm text-primary">
           ← Quay lại Phụ huynh
-        </Link>
+        </BackButton>
         <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-start xl:justify-between" data-tour="guardian-header">
           <div className="space-y-2 sm:space-y-3">
             <div>

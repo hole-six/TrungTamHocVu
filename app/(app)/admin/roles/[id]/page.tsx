@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
+import BackButton from "@/components/ui/BackButton";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import PermissionToggle from "@/components/admin/PermissionToggle";
@@ -46,9 +46,9 @@ export default async function RoleDetailPage({ params }: { params: { id: string 
           </h1>
           {role.description && <p className="mt-1 text-sm text-ink-muted48">{role.description}</p>}
         </div>
-        <Link href="/admin/roles" className="btn-ghost">
+        <BackButton href="/admin/roles" className="btn-ghost">
           ← Quay lại danh sách vai trò
-        </Link>
+        </BackButton>
       </div>
 
       {isSuperAdmin && (

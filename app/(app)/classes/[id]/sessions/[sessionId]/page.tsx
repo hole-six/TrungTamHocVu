@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import BackButton from "@/components/ui/BackButton";
 import AttendanceForm from "@/components/classes/AttendanceForm";
 import RemedialSessionRoster from "@/components/classes/RemedialSessionRoster";
 import ClassJournalForm from "@/components/classes/ClassJournalForm";
@@ -215,12 +215,12 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
         buttonLabel="Guide"
       />
       <div className="space-y-4">
-        <Link href={`/classes/${session.classId}`} className="inline-flex items-center gap-2 text-sm font-medium text-primary">
+        <BackButton href={`/classes/${session.classId}`} className="inline-flex items-center gap-2 text-sm font-medium text-primary">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
           Quay lại {session.class.className}
-        </Link>
+        </BackButton>
 
         <div className="flex justify-end">
           <SpotlightTour

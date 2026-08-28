@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { RemediationTableDetail, RemediationTableSummary } from "@/lib/workbook-remediation";
+import BackButton from "@/components/ui/BackButton";
 
 type RemediationWorkbenchProps = {
   tables: RemediationTableSummary[];
@@ -118,9 +118,9 @@ export default function RemediationWorkbench({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/admin/imports" className="btn-ghost">
+          <BackButton href="/admin/imports" className="btn-ghost">
             Quay lại Import ERP
-          </Link>
+          </BackButton>
           <button
             type="button"
             onClick={() => void loadTable(selectedTableName)}

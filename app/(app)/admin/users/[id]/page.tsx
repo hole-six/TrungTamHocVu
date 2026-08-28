@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
+import BackButton from "@/components/ui/BackButton";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import UserRoleEditor from "@/components/admin/UserRoleEditor";
@@ -46,9 +46,9 @@ export default async function UserDetailPage({ params }: { params: { id: string 
             {target.email} · {target.roleRef?.name ?? "Chưa gán vai trò"}
           </p>
         </div>
-        <Link href="/admin" className="btn-ghost">
+        <BackButton href="/admin" className="btn-ghost">
           ← Quay lại danh sách người dùng
-        </Link>
+        </BackButton>
       </div>
 
       <div className="card">

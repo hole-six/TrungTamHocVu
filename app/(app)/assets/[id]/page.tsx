@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BackButton from "@/components/ui/BackButton";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import {
@@ -90,9 +91,9 @@ export default async function AssetDetailPage({ params }: { params: { id: string
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        <Link href="/assets" className="text-sm text-primary">
+        <BackButton href="/assets" className="text-sm text-primary">
           ← Quay lại Tài sản & Trang thiết bị
-        </Link>
+        </BackButton>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between" data-tour="asset-header">
           <div className="space-y-2">
             <div>

@@ -12,6 +12,7 @@ import { canUpdate } from "@/lib/server/role-matrix";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { formatVnd } from "@/lib/export-utils";
 import StudentLink from "@/components/students/StudentLink";
+import BackButton from "@/components/ui/BackButton";
 
 const TUITION_TOUR_STEPS: TourStep[] = [
   {
@@ -82,9 +83,9 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/tuition" className="text-sm text-primary">
+        <BackButton href="/tuition" className="text-sm text-primary">
           ← Quay lại Học phí
-        </Link>
+        </BackButton>
         <div className="mt-2 flex items-center justify-between" data-tour="tuition-header">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Kỳ thu {period.periodName}</h1>

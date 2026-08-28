@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BackButton from "@/components/ui/BackButton";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
@@ -62,9 +63,9 @@ export default async function HolidaysAdminPage({
             Ngày trùng lịch học sẽ tự động bỏ qua khi sinh buổi học và khi tính ngày kết thúc dự kiến của lớp.
           </p>
         </div>
-        <Link href="/admin" className="btn-ghost">
+        <BackButton href="/admin" className="btn-ghost">
           ← Quay lại Quản trị
-        </Link>
+        </BackButton>
       </div>
 
       {canSee ? (
