@@ -207,6 +207,8 @@ export default function BatchInvoiceView({
   const [search, setSearch] = useState("");
   const [billingModelFilter, setBillingModelFilter] = useState<"ALL" | "PERIOD" | "COURSE">("ALL");
   const [visibilityFilter, setVisibilityFilter] = useState<"ALL" | "UNPAID" | "SELECTED">("ALL");
+  const [amountFrom, setAmountFrom] = useState("");
+  const [amountTo, setAmountTo] = useState("");
   const [exportMode, setExportMode] = useState<"MERGED" | "SEPARATE">("MERGED");
   const [paymentProfile, setPaymentProfile] = useState<PaymentProfileData>({
     bankName: initialPaymentProfile?.bankName ?? null,
@@ -235,6 +237,9 @@ export default function BatchInvoiceView({
       if (visibilityFilter === "UNPAID" && remaining <= 0) return false;
       if (visibilityFilter === "SELECTED" && !selected.has(charge.id)) return false;
 
+      if (amountFrom && charge.totalAmount < Number(amountFrom)) return false;
+      if (amountTo && charge.totalAmount > Number(amountTo)) return false;
+
       if (!keyword) return true;
       return (
         charge.student.fullName.toLowerCase().includes(keyword) ||
@@ -242,7 +247,7 @@ export default function BatchInvoiceView({
         charge.class.className.toLowerCase().includes(keyword)
       );
     });
-  }, [billingModelFilter, charges, onlyEndedCourses, search, selected, visibilityFilter]);
+  }, [amountFrom, amountTo, billingModelFilter, charges, onlyEndedCourses, search, selected, visibilityFilter]);
 
   const selectedCharges = visibleCharges.filter((charge) => selected.has(charge.id));
   const allVisibleSelected = visibleCharges.length > 0 && visibleCharges.every((charge) => selected.has(charge.id));
@@ -476,6 +481,17 @@ export default function BatchInvoiceView({
                               <option value="UNPAID">Chỉ còn nợ</option>
                               <option value="SELECTED">Chỉ mục đã chọn</option>
                             </select>
+                          </label>
+                        </div>
+
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          <label className="block">
+                            <span className="text-xs font-medium text-ink-muted48">Số tiền từ</span>
+                            <input type="number" min={0} className="input mt-1" value={amountFrom} onChange={(event) => setAmountFrom(event.target.value)} placeholder="0" />
+                          </label>
+                          <label className="block">
+                            <span className="text-xs font-medium text-ink-muted48">Số tiền đến</span>
+                            <input type="number" min={0} className="input mt-1" value={amountTo} onChange={(event) => setAmountTo(event.target.value)} placeholder="Không giới hạn" />
                           </label>
                         </div>
 

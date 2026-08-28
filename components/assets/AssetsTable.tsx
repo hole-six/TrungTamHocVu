@@ -46,6 +46,7 @@ export default function AssetsTable({
   totalCount,
   pageSize,
   categoryOptions,
+  unitOptions,
 }: {
   rows: AssetRow[];
   canManageAssets: boolean;
@@ -54,6 +55,7 @@ export default function AssetsTable({
   totalCount: number;
   pageSize: number;
   categoryOptions: string[];
+  unitOptions: string[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -78,6 +80,7 @@ export default function AssetsTable({
     category: searchParams.get("category") ?? "",
     status: searchParams.get("status") ?? "",
     room: searchParams.get("room") ?? "",
+    unit: searchParams.get("unit") ?? "",
     qtyFrom: searchParams.get("qtyFrom") ?? "",
     qtyTo: searchParams.get("qtyTo") ?? "",
     unitValueFrom: searchParams.get("unitValueFrom") ?? "",
@@ -125,7 +128,16 @@ export default function AssetsTable({
       render: (value) => value ?? "Chưa gắn phòng",
     },
     { key: "quantity", label: "SL", filter: { type: "numberRange", paramKeyFrom: "qtyFrom", paramKeyTo: "qtyTo" } },
-    { key: "unitName", label: "ĐVT" },
+    {
+      key: "unitName",
+      label: "ĐVT",
+      filter: {
+        type: "select",
+        paramKey: "unit",
+        placeholder: "Tất cả",
+        options: unitOptions.map((unit) => ({ label: unit, value: unit })),
+      },
+    },
     {
       key: "unitValue",
       label: "Đơn giá",

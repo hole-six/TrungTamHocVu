@@ -79,6 +79,7 @@ export default async function AssetsPage({
     category?: string;
     status?: string;
     room?: string;
+    unit?: string;
     unitValueFrom?: string;
     unitValueTo?: string;
     qtyFrom?: string;
@@ -104,6 +105,7 @@ export default async function AssetsPage({
   const categoryFilter = searchParams.category?.trim() ?? "";
   const statusFilter = searchParams.status?.trim() ?? "";
   const roomFilter = searchParams.room?.trim() ?? "";
+  const unitFilter = searchParams.unit?.trim() ?? "";
   const unitValueFrom = searchParams.unitValueFrom?.trim() ?? "";
   const unitValueTo = searchParams.unitValueTo?.trim() ?? "";
   // Số lượng/Giá gốc/Bảo dưỡng/Tổng giá trị/Lịch bảo dưỡng là số TÍNH ĐỘNG từ lịch sử
@@ -137,6 +139,9 @@ export default async function AssetsPage({
   if (categoryFilter) andConditions.push({ category: categoryFilter });
   if (statusFilter) andConditions.push({ status: statusFilter });
   if (roomFilter) andConditions.push({ room: { contains: roomFilter } });
+  // "cái" là đơn vị mặc định khi unitName rỗng/null (xem normalizeUnit) — lọc theo "cái"
+  // phải khớp cả 2 trường hợp, giống cách issueCategoryFilter xử lý "Sách khác" ở Kho giáo trình.
+  if (unitFilter) andConditions.push(unitFilter === "cái" ? { OR: [{ unitName: null }, { unitName: "cái" }] } : { unitName: unitFilter });
   if (unitValueFrom) andConditions.push({ unitValue: { gte: Number(unitValueFrom) } });
   if (unitValueTo) andConditions.push({ unitValue: { lte: Number(unitValueTo) } });
   const where: Prisma.AssetWhereInput = {
@@ -144,7 +149,7 @@ export default async function AssetsPage({
     ...(andConditions.length ? { AND: andConditions } : {}),
   };
 
-  const [allMatchingAssets, categoryRows] = await Promise.all([
+  const [allMatchingAssets, categoryRows, unitRows] = await Promise.all([
     // Số lượng/Giá gốc/Bảo dưỡng/Tổng giá trị/Lịch bảo dưỡng chỉ tính được sau khi có
     // đủ transactions của TOÀN BỘ danh sách đã lọc (không phải chỉ trang hiện tại) — nên
     // phải fetch hết rồi mới lọc + cắt trang bằng JS, không dùng skip/take của Prisma ở đây.
@@ -165,11 +170,20 @@ export default async function AssetsPage({
       select: { category: true },
       distinct: ["category"],
     }),
+    // Danh sách tùy chọn cho bộ lọc "ĐVT" — cùng nguyên tắc với categoryOptions ở trên:
+    // lấy trên toàn bộ tài sản của cơ sở, không theo filter cột hiện tại.
+    prisma.asset.findMany({
+      where: branchWhere,
+      select: { unitName: true },
+      distinct: ["unitName"],
+    }),
   ]);
 
   const categoryOptions = Array.from(
     new Set(categoryRows.map((row) => row.category?.trim()).filter((value): value is string => Boolean(value))),
   ).sort((left, right) => left.localeCompare(right, "vi"));
+
+  const unitOptions = Array.from(new Set(unitRows.map((row) => normalizeUnit(row.unitName)))).sort((left, right) => left.localeCompare(right, "vi"));
 
   const allRows = allMatchingAssets.map((asset) => {
     const quantity = asset.transactions.reduce((sum, transaction) => sum + transaction.quantity, 0);
@@ -296,6 +310,7 @@ export default async function AssetsPage({
           totalCount={total}
           pageSize={pageSize}
           categoryOptions={categoryOptions}
+          unitOptions={unitOptions}
         />
       </div>
     </div>

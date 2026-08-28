@@ -129,6 +129,11 @@ export default function CategoryManager({
   const [form, setForm] = useState({ type: "CHI", name: "", detail: "" });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<"ALL" | "THU" | "CHI">("ALL");
+  const [nameFilter, setNameFilter] = useState("");
+  const [detailFilter, setDetailFilter] = useState("");
+  const [amountFrom, setAmountFrom] = useState("");
+  const [amountTo, setAmountTo] = useState("");
 
   // Trước đây tách riêng 2 bảng THU/CHI cạnh nhau (2 tiêu đề + 2 khung riêng) — người
   // dùng muốn gộp thành đúng 1 bảng, phân biệt loại bằng cột "Loại" thay vì tách khối.
@@ -141,6 +146,20 @@ export default function CategoryManager({
       }),
     [categories],
   );
+
+  const filteredCategories = useMemo(() => {
+    const name = nameFilter.trim().toLowerCase();
+    const detail = detailFilter.trim().toLowerCase();
+    return sortedCategories.filter((category) => {
+      if (typeFilter !== "ALL" && category.type !== typeFilter) return false;
+      if (name && !category.name.toLowerCase().includes(name)) return false;
+      if (detail && !(category.detail ?? "").toLowerCase().includes(detail)) return false;
+      const amount = amountByCategory[category.name] ?? 0;
+      if (amountFrom && amount < Number(amountFrom)) return false;
+      if (amountTo && amount > Number(amountTo)) return false;
+      return true;
+    });
+  }, [sortedCategories, typeFilter, nameFilter, detailFilter, amountFrom, amountTo, amountByCategory]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -188,9 +207,59 @@ export default function CategoryManager({
               <th className="px-4 py-3 text-right font-medium">Số tiền kỳ này</th>
               <th className="px-4 py-3 text-right font-medium">Thao tác</th>
             </tr>
+            <tr className="border-b border-hairline bg-[#f9fbff]">
+              <th className="px-2 py-2 align-top">
+                <select
+                  value={typeFilter}
+                  onChange={(event) => setTypeFilter(event.target.value as "ALL" | "THU" | "CHI")}
+                  className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2.5 py-1.5 text-xs font-normal normal-case text-ink focus:border-primary focus:outline-none"
+                >
+                  <option value="ALL">Tất cả</option>
+                  <option value="THU">Thu</option>
+                  <option value="CHI">Chi</option>
+                </select>
+              </th>
+              <th className="px-2 py-2 align-top">
+                <input
+                  type="text"
+                  value={nameFilter}
+                  onChange={(event) => setNameFilter(event.target.value)}
+                  placeholder="Lọc tên..."
+                  className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2.5 py-1.5 text-xs font-normal normal-case text-ink placeholder:text-[#9ca3af] focus:border-primary focus:outline-none"
+                />
+              </th>
+              <th className="px-2 py-2 align-top">
+                <input
+                  type="text"
+                  value={detailFilter}
+                  onChange={(event) => setDetailFilter(event.target.value)}
+                  placeholder="Lọc chi tiết..."
+                  className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2.5 py-1.5 text-xs font-normal normal-case text-ink placeholder:text-[#9ca3af] focus:border-primary focus:outline-none"
+                />
+              </th>
+              <th className="px-2 py-2 align-top">
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={amountFrom}
+                    onChange={(event) => setAmountFrom(event.target.value)}
+                    placeholder="Từ"
+                    className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2 py-1.5 text-xs text-ink focus:border-primary focus:outline-none"
+                  />
+                  <input
+                    type="number"
+                    value={amountTo}
+                    onChange={(event) => setAmountTo(event.target.value)}
+                    placeholder="Đến"
+                    className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2 py-1.5 text-xs text-ink focus:border-primary focus:outline-none"
+                  />
+                </div>
+              </th>
+              <th className="px-2 py-2" />
+            </tr>
           </thead>
           <tbody>
-            {sortedCategories.map((category) => (
+            {filteredCategories.map((category) => (
               <CategoryRow
                 key={category.id}
                 category={category}
@@ -199,10 +268,10 @@ export default function CategoryManager({
                 onSaved={() => router.refresh()}
               />
             ))}
-            {sortedCategories.length === 0 ? (
+            {filteredCategories.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-4 text-center text-ink-muted48">
-                  Chưa có danh mục nào.
+                  Không có danh mục nào khớp bộ lọc hiện tại.
                 </td>
               </tr>
             ) : null}
