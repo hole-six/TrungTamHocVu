@@ -81,21 +81,40 @@ export default function NumberRangeFilterPopover({
 
   return (
     <>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          setOpen((current) => !current);
-        }}
+      <div
         className={
           triggerClassName ??
-          "flex w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border border-[#d1d5db] bg-white px-2.5 py-1.5 text-left text-sm normal-case focus:border-primary focus:outline-none"
+          "flex w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border border-[#d1d5db] bg-white px-2.5 py-1.5 text-left text-sm normal-case focus-within:border-primary"
         }
       >
-        <span className={`truncate ${hasValue ? "font-medium text-[#111827]" : "text-[#9ca3af]"}`}>{label}</span>
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            setOpen((current) => !current);
+          }}
+          className="flex min-w-0 flex-1 items-center text-left focus:outline-none"
+        >
+          <span className={`truncate ${hasValue ? "font-medium text-[#111827]" : "text-[#9ca3af]"}`}>{label}</span>
+        </button>
+        {hasValue ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setDraftFrom("");
+              setDraftTo("");
+              onApply(null, null);
+            }}
+            aria-label="Xóa khoảng lọc"
+            className="shrink-0 rounded p-0.5 text-[#9ca3af] transition hover:bg-[#f1f4fa] hover:text-rose-600"
+          >
+            ✕
+          </button>
+        ) : null}
         <span className="shrink-0 text-[#9ca3af]">⇅</span>
-      </button>
+      </div>
 
       {mounted && open && position
         ? createPortal(
