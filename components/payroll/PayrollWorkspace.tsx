@@ -210,6 +210,7 @@ export default function PayrollWorkspace({
       key: "bonus",
       label: "Thưởng / Phạt",
       align: "center",
+      filter: { type: "numberRange", paramKeyFrom: "bonusFrom", paramKeyTo: "bonusTo", placeholder: "đ thưởng" },
       render: (_value, row) =>
         row.bonus > 0 || row.penalty > 0 ? (
           <div className="text-xs">
@@ -224,6 +225,7 @@ export default function PayrollWorkspace({
       key: "totalAmount",
       label: "Tổng lương",
       align: "right",
+      filter: { type: "numberRange", paramKeyFrom: "totalAmountFrom", paramKeyTo: "totalAmountTo", placeholder: "đ" },
       render: (_value, row) => (
         <div>
           <div className="text-lg font-black text-[#ea580c]">{formatVnd(row.totalAmount)}</div>
@@ -234,6 +236,15 @@ export default function PayrollWorkspace({
     {
       key: "hasRateIssue",
       label: "Cần xử lý",
+      filter: {
+        type: "select",
+        paramKey: "hasRateIssue",
+        placeholder: "Tất cả",
+        options: [
+          { label: "Thiếu đơn giá/thông tin", value: "YES" },
+          { label: "Đủ dữ liệu", value: "NO" },
+        ],
+      },
       render: (_value, row) => (
         <div className="flex flex-col items-start gap-1.5">
           {row.hasRateIssue ? <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700">Thiếu đơn giá</span> : null}
@@ -385,7 +396,14 @@ export default function PayrollWorkspace({
           searchPlaceholder="Tìm theo mã, tên..."
           onSearch={handleSearch}
           defaultSearchValue={search}
-          filterValues={{ position }}
+          filterValues={{
+            position,
+            bonusFrom: searchParams.get("bonusFrom") ?? "",
+            bonusTo: searchParams.get("bonusTo") ?? "",
+            totalAmountFrom: searchParams.get("totalAmountFrom") ?? "",
+            totalAmountTo: searchParams.get("totalAmountTo") ?? "",
+            hasRateIssue: searchParams.get("hasRateIssue") ?? "",
+          }}
           onFilterChange={handleFilterChange}
           selectable={false}
           showCountBadge={false}

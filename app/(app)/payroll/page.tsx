@@ -19,7 +19,18 @@ const VALID_FILTERS = new Set(["all", "missing-bank", "ready-bank", "missing-rat
 export default async function PayrollPage({
   searchParams,
 }: {
-  searchParams?: { period?: string; employeeId?: string; filter?: string; search?: string; position?: string };
+  searchParams?: {
+    period?: string;
+    employeeId?: string;
+    filter?: string;
+    search?: string;
+    position?: string;
+    bonusFrom?: string;
+    bonusTo?: string;
+    totalAmountFrom?: string;
+    totalAmountTo?: string;
+    hasRateIssue?: string;
+  };
 }) {
   const user = await getCurrentUser();
   const role = user ? await getUserRole(user.id) : null;
@@ -38,6 +49,11 @@ export default async function PayrollPage({
   const filter = searchParams?.filter && VALID_FILTERS.has(searchParams.filter) ? searchParams.filter : "all";
   const search = searchParams?.search?.trim() ?? "";
   const position = searchParams?.position?.trim() ?? "";
+  const bonusFrom = searchParams?.bonusFrom?.trim() ?? "";
+  const bonusTo = searchParams?.bonusTo?.trim() ?? "";
+  const totalAmountFrom = searchParams?.totalAmountFrom?.trim() ?? "";
+  const totalAmountTo = searchParams?.totalAmountTo?.trim() ?? "";
+  const hasRateIssueFilter = searchParams?.hasRateIssue?.trim() ?? "";
   const activeBranchId = await getCurrentBranchId();
 
   const run = await prisma.payrollRun.findFirst({
@@ -84,12 +100,20 @@ export default async function PayrollPage({
   );
   // Danh sách để HIỂN THỊ trong bảng — cùng dữ liệu tính sẵn trong `rows`, chỉ giữ lại
   // những nhân sự có id khớp câu query where ở trên (không tính lại từ đầu).
-  const tableRows = matchingEmployeeIds
+  let tableRows = matchingEmployeeIds
     ? (() => {
         const idSet = new Set(matchingEmployeeIds.map((item) => item.id));
         return rows.filter((row) => idSet.has(row.id) || row.id === searchParams?.employeeId);
       })()
     : rows;
+  // bonus/totalAmount/hasRateIssue chỉ tồn tại SAU KHI buildPayrollEmployeeRows tính
+  // xong (không phải cột thô trên Employee) — lọc bằng JS ở server, cùng cách
+  // "computed-filter" đã dùng ở /students, sau bước khớp search/position ở trên.
+  if (bonusFrom) tableRows = tableRows.filter((row) => row.bonus >= Number(bonusFrom));
+  if (bonusTo) tableRows = tableRows.filter((row) => row.bonus <= Number(bonusTo));
+  if (totalAmountFrom) tableRows = tableRows.filter((row) => row.totalAmount >= Number(totalAmountFrom));
+  if (totalAmountTo) tableRows = tableRows.filter((row) => row.totalAmount <= Number(totalAmountTo));
+  if (hasRateIssueFilter) tableRows = tableRows.filter((row) => (hasRateIssueFilter === "YES" ? row.hasRateIssue : !row.hasRateIssue));
 
   const eligibleEmployees =
     run && canEditPayroll(run.status)

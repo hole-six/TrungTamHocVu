@@ -342,6 +342,7 @@ export default function StudentsTable({
       label: "Buổi bổ trợ",
       sortable: true,
       width: "130px",
+      filter: { type: "numberRange", paramKeyFrom: "sessionCreditFrom", paramKeyTo: "sessionCreditTo", placeholder: "buổi" },
       render: (value, row) => {
         const count = value ?? 0;
         if (count <= 0) return <span className="text-sm text-ink-muted48">—</span>;
@@ -462,6 +463,8 @@ export default function StudentsTable({
     continuationStatus: searchParams.get("continuationStatus") ?? "",
     outstandingFrom: searchParams.get("outstandingFrom") ?? "",
     outstandingTo: searchParams.get("outstandingTo") ?? "",
+    sessionCreditFrom: searchParams.get("sessionCreditFrom") ?? "",
+    sessionCreditTo: searchParams.get("sessionCreditTo") ?? "",
   };
   const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
     updateParams({ [key]: value, ...extra, page: "1" });

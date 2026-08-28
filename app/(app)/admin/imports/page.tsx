@@ -94,7 +94,19 @@ const IMPORT_JOBS_PAGE_SIZE = 30;
 export default async function AdminImportsPage({
   searchParams,
 }: {
-  searchParams: { page?: string; pageSize?: string; status?: string };
+  searchParams: {
+    page?: string;
+    pageSize?: string;
+    status?: string;
+    createdAtFrom?: string;
+    createdAtTo?: string;
+    targetEntity?: string;
+    branchId?: string;
+    successRowsFrom?: string;
+    successRowsTo?: string;
+    errorRowsFrom?: string;
+    errorRowsTo?: string;
+  };
 }) {
   const session = await auth();
 
@@ -112,11 +124,37 @@ export default async function AdminImportsPage({
   const remediationIndexPath = path.join(process.cwd(), "docs", "generated", "workbook_2026", "remediation", "_index.json");
 
   const statusFilter = searchParams.status?.trim() ?? "";
+  const createdAtFrom = searchParams.createdAtFrom?.trim() ?? "";
+  const createdAtTo = searchParams.createdAtTo?.trim() ?? "";
+  const targetEntityFilter = searchParams.targetEntity?.trim() ?? "";
+  const branchIdFilter = searchParams.branchId?.trim() ?? "";
+  const successRowsFrom = searchParams.successRowsFrom?.trim() ?? "";
+  const successRowsTo = searchParams.successRowsTo?.trim() ?? "";
+  const errorRowsFrom = searchParams.errorRowsFrom?.trim() ?? "";
+  const errorRowsTo = searchParams.errorRowsTo?.trim() ?? "";
   const importJobPage = Math.max(1, Number(searchParams.page) || 1);
   const importJobPageSize = Math.max(1, Number(searchParams.pageSize) || IMPORT_JOBS_PAGE_SIZE);
-  const importJobWhere = statusFilter ? { status: statusFilter } : {};
+  const importJobWhere = {
+    ...(statusFilter ? { status: statusFilter } : {}),
+    ...(targetEntityFilter ? { targetEntity: { contains: targetEntityFilter } } : {}),
+    ...(branchIdFilter ? { branchId: branchIdFilter } : {}),
+    ...(createdAtFrom || createdAtTo
+      ? {
+          createdAt: {
+            ...(createdAtFrom ? { gte: new Date(`${createdAtFrom}T00:00:00`) } : {}),
+            ...(createdAtTo ? { lte: new Date(`${createdAtTo}T23:59:59`) } : {}),
+          },
+        }
+      : {}),
+    ...(successRowsFrom || successRowsTo
+      ? { successRows: { ...(successRowsFrom ? { gte: Number(successRowsFrom) } : {}), ...(successRowsTo ? { lte: Number(successRowsTo) } : {}) } }
+      : {}),
+    ...(errorRowsFrom || errorRowsTo
+      ? { errorRows: { ...(errorRowsFrom ? { gte: Number(errorRowsFrom) } : {}), ...(errorRowsTo ? { lte: Number(errorRowsTo) } : {}) } }
+      : {}),
+  };
 
-  const [readiness, manifest, overrideSummary, remediationIndex, importJobTotal, importJobStatusCounts, importJobs] = await Promise.all([
+  const [readiness, manifest, overrideSummary, remediationIndex, importJobTotal, importJobStatusCounts, importJobs, branches] = await Promise.all([
     readJsonIfExists<ImportReadiness>(readinessPath),
     readJsonIfExists<ImportManifest>(manifestPath),
     readJsonIfExists<OverrideSummary>(overrideSummaryPath),
@@ -139,6 +177,7 @@ export default async function AdminImportsPage({
       skip: (importJobPage - 1) * importJobPageSize,
       take: importJobPageSize,
     }),
+    prisma.branch.findMany({ select: { id: true, code: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   const countByStatus = (status: string) => importJobStatusCounts.find((row) => row.status === status)?._count._all ?? 0;
@@ -328,6 +367,7 @@ export default async function AdminImportsPage({
             pageSize={importJobPageSize}
             statusFilter={statusFilter}
             statusLabels={IMPORT_JOB_STATUS_LABEL}
+            branches={branches}
           />
         </div>
       </div>

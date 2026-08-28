@@ -23,6 +23,7 @@ type ImportJobsTableProps = {
   pageSize: number;
   statusFilter: string;
   statusLabels: Record<string, string>;
+  branches: { id: string; code: string; name: string }[];
 };
 
 function formatDateTime(value: Date | string | null) {
@@ -30,7 +31,7 @@ function formatDateTime(value: Date | string | null) {
   return new Date(value).toLocaleString("vi-VN");
 }
 
-export default function ImportJobsTable({ initialData, total, page, pageSize, statusFilter, statusLabels }: ImportJobsTableProps) {
+export default function ImportJobsTable({ initialData, total, page, pageSize, statusFilter, statusLabels, branches }: ImportJobsTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -48,22 +49,40 @@ export default function ImportJobsTable({ initialData, total, page, pageSize, st
   const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
     updateParams({ [key]: value, ...extra, page: "1" });
 
-  const filterValues = { status: statusFilter };
+  const filterValues = {
+    status: statusFilter,
+    createdAtFrom: searchParams.get("createdAtFrom") ?? "",
+    createdAtTo: searchParams.get("createdAtTo") ?? "",
+    targetEntity: searchParams.get("targetEntity") ?? "",
+    branchId: searchParams.get("branchId") ?? "",
+    successRowsFrom: searchParams.get("successRowsFrom") ?? "",
+    successRowsTo: searchParams.get("successRowsTo") ?? "",
+    errorRowsFrom: searchParams.get("errorRowsFrom") ?? "",
+    errorRowsTo: searchParams.get("errorRowsTo") ?? "",
+  };
 
   const columns: Column<ImportJobRow>[] = [
     {
       key: "createdAt",
       label: "Thời gian",
+      filter: { type: "dateRange", paramKeyFrom: "createdAtFrom", paramKeyTo: "createdAtTo" },
       render: (value: Date | string) => <span className="text-ink-muted80">{formatDateTime(value)}</span>,
     },
     {
       key: "targetEntity",
       label: "Đối tượng",
+      filter: { type: "text", paramKey: "targetEntity", placeholder: "Tìm đối tượng..." },
       render: (value: string) => <span className="font-medium text-ink">{value}</span>,
     },
     {
       key: "branch",
       label: "Chi nhánh",
+      filter: {
+        type: "select",
+        paramKey: "branchId",
+        placeholder: "Tất cả chi nhánh",
+        options: branches.map((item) => ({ label: `${item.code} · ${item.name}`, value: item.id })),
+      },
       render: (value: ImportJobRow["branch"]) => (
         <span className="text-ink-muted80">
           {value?.code} · {value?.name}
@@ -91,12 +110,19 @@ export default function ImportJobsTable({ initialData, total, page, pageSize, st
     },
     {
       key: "successRows",
-      label: "Kết quả",
+      label: "Đã nhập OK",
+      filter: { type: "numberRange", paramKeyFrom: "successRowsFrom", paramKeyTo: "successRowsTo", placeholder: "dòng" },
       render: (_value, row) => (
         <span className="text-ink-muted80">
-          {row.successRows}/{row.totalRows} OK · {row.errorRows} lỗi
+          {row.successRows}/{row.totalRows} OK
         </span>
       ),
+    },
+    {
+      key: "errorRows",
+      label: "Lỗi",
+      filter: { type: "numberRange", paramKeyFrom: "errorRowsFrom", paramKeyTo: "errorRowsTo", placeholder: "dòng" },
+      render: (value: number) => <span className="text-ink-muted80">{value} lỗi</span>,
     },
   ];
 

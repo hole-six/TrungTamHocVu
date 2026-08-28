@@ -8,7 +8,17 @@ import { getCurrentBranchId } from "@/lib/branch-filter";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import TeacherTasksTable from "./TeacherTasksTable";
 
-type SearchParams = { status?: string; employeeId?: string };
+type SearchParams = {
+  status?: string;
+  employeeId?: string;
+  sessionFrom?: string;
+  sessionTo?: string;
+  requirementText?: string;
+  reason?: string;
+  scoreDecision?: string;
+  checkedAtFrom?: string;
+  checkedAtTo?: string;
+};
 
 const STATUS_FILTERS = [
   { key: "", label: "Tất cả", icon: "📋", color: "border-[#e5eaf7] bg-white text-[#475569]", activeColor: "border-[#0f1729] bg-[#0f1729] text-white" },
@@ -45,11 +55,39 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
   const activeBranchId = await getCurrentBranchId();
   const status = searchParams.status ?? "";
   const employeeId = searchParams.employeeId ?? "";
+  const sessionFrom = searchParams.sessionFrom?.trim() ?? "";
+  const sessionTo = searchParams.sessionTo?.trim() ?? "";
+  const requirementTextFilter = searchParams.requirementText?.trim() ?? "";
+  const reasonFilter = searchParams.reason?.trim() ?? "";
+  const scoreDecisionFilter = searchParams.scoreDecision?.trim() ?? "";
+  const checkedAtFrom = searchParams.checkedAtFrom?.trim() ?? "";
+  const checkedAtTo = searchParams.checkedAtTo?.trim() ?? "";
 
   const checks = await prisma.sessionRequirementCheck.findMany({
     where: {
       ...(status ? { status } : {}),
       ...(employeeId ? { employeeId } : {}),
+      ...(scoreDecisionFilter ? { scoreDecision: scoreDecisionFilter } : {}),
+      ...(requirementTextFilter ? { requirementText: { contains: requirementTextFilter } } : {}),
+      ...(reasonFilter ? { reason: { contains: reasonFilter } } : {}),
+      ...(sessionFrom || sessionTo
+        ? {
+            session: {
+              sessionDate: {
+                ...(sessionFrom ? { gte: new Date(`${sessionFrom}T00:00:00`) } : {}),
+                ...(sessionTo ? { lte: new Date(`${sessionTo}T23:59:59`) } : {}),
+              },
+            },
+          }
+        : {}),
+      ...(checkedAtFrom || checkedAtTo
+        ? {
+            checkedAt: {
+              ...(checkedAtFrom ? { gte: new Date(`${checkedAtFrom}T00:00:00`) } : {}),
+              ...(checkedAtTo ? { lte: new Date(`${checkedAtTo}T23:59:59`) } : {}),
+            },
+          }
+        : {}),
       employee: activeBranchId ? { branchId: activeBranchId } : {},
     },
     include: {
@@ -161,7 +199,13 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
       </div>
 
       <div data-tour="teacher-tasks-table">
-        <TeacherTasksTable initialData={checks} employees={employees} status={status} employeeId={employeeId} canDecide={canUpdate("hr", role)} />
+        <TeacherTasksTable
+          initialData={checks}
+          employees={employees}
+          status={status}
+          employeeId={employeeId}
+          canDecide={canUpdate("hr", role)}
+        />
       </div>
     </div>
   );

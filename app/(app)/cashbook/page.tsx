@@ -78,6 +78,7 @@ export default async function CashbookPage({
     categoryId?: string;
     amountFrom?: string;
     amountTo?: string;
+    status?: string;
     page?: string;
   };
 }) {
@@ -108,6 +109,7 @@ export default async function CashbookPage({
   // Students.
   const amountFromFilter = searchParams?.amountFrom?.trim() ?? "";
   const amountToFilter = searchParams?.amountTo?.trim() ?? "";
+  const statusFilter = searchParams?.status?.trim() ?? "";
   const currentPage = Number(searchParams?.page) || 1;
   const itemsPerPage = 20;
 
@@ -117,6 +119,7 @@ export default async function CashbookPage({
   if (activeBranchId) where.branchId = activeBranchId;
   if (typeFilter) where.type = typeFilter;
   if (categoryIdFilter) where.categoryId = categoryIdFilter;
+  if (statusFilter) where.status = statusFilter;
   if (searchQuery) {
     where.OR = [
       { description: { contains: searchQuery, mode: "insensitive" } },

@@ -96,6 +96,12 @@ export default async function InventoryPage({
     bookCategory?: string;
     stockFrom?: string;
     stockTo?: string;
+    purchasePriceFrom?: string;
+    purchasePriceTo?: string;
+    unitPriceFrom?: string;
+    unitPriceTo?: string;
+    issuedFrom?: string;
+    issuedTo?: string;
     page?: string;
     pageSize?: string;
   };
@@ -126,6 +132,12 @@ export default async function InventoryPage({
   const bookCategoryFilter = searchParams?.bookCategory?.trim() ?? "";
   const stockFrom = searchParams?.stockFrom?.trim() ?? "";
   const stockTo = searchParams?.stockTo?.trim() ?? "";
+  const purchasePriceFrom = searchParams?.purchasePriceFrom?.trim() ?? "";
+  const purchasePriceTo = searchParams?.purchasePriceTo?.trim() ?? "";
+  const unitPriceFrom = searchParams?.unitPriceFrom?.trim() ?? "";
+  const unitPriceTo = searchParams?.unitPriceTo?.trim() ?? "";
+  const issuedFrom = searchParams?.issuedFrom?.trim() ?? "";
+  const issuedTo = searchParams?.issuedTo?.trim() ?? "";
   const bookPage = Math.max(1, Number(searchParams?.page ?? 1));
   const bookPageSize = Number(searchParams?.pageSize ?? PAGE_SIZE);
 
@@ -170,6 +182,24 @@ export default async function InventoryPage({
   }
   if (stockTo) {
     filteredBookRows = filteredBookRows.filter((book) => book.onHand <= Number(stockTo));
+  }
+  if (purchasePriceFrom) {
+    filteredBookRows = filteredBookRows.filter((book) => book.purchasePrice >= Number(purchasePriceFrom));
+  }
+  if (purchasePriceTo) {
+    filteredBookRows = filteredBookRows.filter((book) => book.purchasePrice <= Number(purchasePriceTo));
+  }
+  if (unitPriceFrom) {
+    filteredBookRows = filteredBookRows.filter((book) => book.unitPrice >= Number(unitPriceFrom));
+  }
+  if (unitPriceTo) {
+    filteredBookRows = filteredBookRows.filter((book) => book.unitPrice <= Number(unitPriceTo));
+  }
+  if (issuedFrom) {
+    filteredBookRows = filteredBookRows.filter((book) => book.issuedTotal >= Number(issuedFrom));
+  }
+  if (issuedTo) {
+    filteredBookRows = filteredBookRows.filter((book) => book.issuedTotal <= Number(issuedTo));
   }
   const bookTotal = filteredBookRows.length;
   const pagedBookRows = filteredBookRows.slice((bookPage - 1) * bookPageSize, (bookPage - 1) * bookPageSize + bookPageSize);

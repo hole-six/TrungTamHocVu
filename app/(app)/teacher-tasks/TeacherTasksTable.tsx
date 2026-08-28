@@ -62,6 +62,13 @@ export default function TeacherTasksTable({ initialData, employees, status, empl
   const filterValues = {
     status,
     employeeId,
+    sessionFrom: searchParams.get("sessionFrom") ?? "",
+    sessionTo: searchParams.get("sessionTo") ?? "",
+    requirementText: searchParams.get("requirementText") ?? "",
+    reason: searchParams.get("reason") ?? "",
+    scoreDecision: searchParams.get("scoreDecision") ?? "",
+    checkedAtFrom: searchParams.get("checkedAtFrom") ?? "",
+    checkedAtTo: searchParams.get("checkedAtTo") ?? "",
   };
 
   async function patchCheck(sessionId: string, body: Record<string, string>) {
@@ -101,6 +108,7 @@ export default function TeacherTasksTable({ initialData, employees, status, empl
     {
       key: "session",
       label: "Buổi học",
+      filter: { type: "dateRange", paramKeyFrom: "sessionFrom", paramKeyTo: "sessionTo" },
       render: (value: CheckRow["session"]) => (
         <div>
           <Link href={`/classes/${value.classId}/sessions/${value.id}`} className="inline-flex items-center gap-2 rounded-lg border border-[#dbeafe] bg-[#eff6ff] px-3 py-2 text-sm font-bold text-[#1d4ed8] transition hover:border-[#3b82f6] hover:bg-[#dbeafe]">
@@ -119,6 +127,7 @@ export default function TeacherTasksTable({ initialData, employees, status, empl
     {
       key: "requirementText",
       label: "Yêu cầu",
+      filter: { type: "text", paramKey: "requirementText", placeholder: "Tìm yêu cầu..." },
       render: (value: string) => (
         <div className="max-w-xs">
           <p className="line-clamp-2 text-sm leading-relaxed text-[#0f1729]">{value}</p>
@@ -128,6 +137,7 @@ export default function TeacherTasksTable({ initialData, employees, status, empl
     {
       key: "reason",
       label: "Ghi chú",
+      filter: { type: "text", paramKey: "reason", placeholder: "Tìm ghi chú..." },
       render: (value: string | null) => (
         <div className="max-w-xs">
           {value ? <p className="line-clamp-2 text-sm leading-relaxed text-[#64748b]">{value}</p> : <span className="text-[#94a3b8]">—</span>}
@@ -179,6 +189,7 @@ export default function TeacherTasksTable({ initialData, employees, status, empl
     {
       key: "scoreDecision",
       label: "Quyết định điểm",
+      filter: { type: "select", paramKey: "scoreDecision", placeholder: "Tất cả", options: SCORE_DECISION_OPTIONS.map((o) => ({ label: o.label, value: o.value })) },
       render: (value: string, row) =>
         canDecide ? (
           <div className="flex flex-wrap gap-1">
@@ -222,6 +233,7 @@ export default function TeacherTasksTable({ initialData, employees, status, empl
     {
       key: "checkedAt",
       label: "Thời gian",
+      filter: { type: "dateRange", paramKeyFrom: "checkedAtFrom", paramKeyTo: "checkedAtTo" },
       render: (value: Date | string) => <p className="text-xs text-[#64748b]">{formatDateTime(value)}</p>,
     },
     {

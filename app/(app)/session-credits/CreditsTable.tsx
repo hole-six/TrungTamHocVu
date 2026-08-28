@@ -134,6 +134,8 @@ export default function CreditsTable({ initialData, statusParam, typeParam, stud
     status: statusParam,
     type: typeParam,
     student: studentParam,
+    availableFrom: searchParams.get("availableFrom") ?? "",
+    availableTo: searchParams.get("availableTo") ?? "",
   };
 
   const columns: Column<CreditRow>[] = [
@@ -202,6 +204,7 @@ export default function CreditsTable({ initialData, statusParam, typeParam, stud
       label: "Còn lại",
       align: "center",
       width: "100px",
+      filter: { type: "numberRange", paramKeyFrom: "availableFrom", paramKeyTo: "availableTo", placeholder: "buổi" },
       render: (value, row) => (
         <div>
           <p className={`text-lg font-black ${value > 0 ? "text-[#dc2626]" : "text-[#059669]"}`}>{value}</p>

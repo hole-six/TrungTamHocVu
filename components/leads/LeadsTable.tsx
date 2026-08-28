@@ -10,6 +10,7 @@ import {
   LEAD_STATUS_LABEL,
   LEAD_STATUS_FILTER_GROUPS,
   leadStatusGroupKey,
+  PLACEMENT_TEST_STATUSES,
   PLACEMENT_TEST_STATUS_LABEL,
   PLACEMENT_TEST_BADGE_CLASS,
   DATE_URGENCY_CLASS,
@@ -301,6 +302,15 @@ export default function LeadsTable({
     {
       key: "latestTest",
       label: "Lịch test",
+      filter: {
+        type: "select",
+        paramKey: "testStatus",
+        placeholder: "Tất cả",
+        options: [
+          { label: "Chưa hẹn", value: "NONE" },
+          ...PLACEMENT_TEST_STATUSES.map((s) => ({ label: PLACEMENT_TEST_STATUS_LABEL[s], value: s })),
+        ],
+      },
       render: (_value, row) => {
         const test = row.latestTest;
         return (
@@ -550,6 +560,7 @@ export default function LeadsTable({
     startFrom: searchParams.get("startFrom") ?? "",
     startTo: searchParams.get("startTo") ?? "",
     notes: searchParams.get("notes") ?? "",
+    testStatus: testStatusFilter,
   };
 
   const testChips: { key: string; label: string; count: number; active: boolean; query: Record<string, string | null> }[] = [

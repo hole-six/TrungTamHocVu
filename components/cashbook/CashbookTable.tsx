@@ -110,6 +110,16 @@ export default function CashbookTable({
     {
       key: "status",
       label: "Trạng thái",
+      filter: {
+        type: "select",
+        paramKey: "status",
+        placeholder: "Tất cả",
+        options: [
+          { label: "Nháp", value: "DRAFT" },
+          { label: "Đã xác nhận", value: "CONFIRMED" },
+          { label: "Đã hủy", value: "VOIDED" },
+        ],
+      },
       render: (value, row) => (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="badge-gray">{value === "CONFIRMED" ? "Đã xác nhận" : value === "VOIDED" ? "Đã hủy" : "Nháp"}</span>
@@ -127,6 +137,7 @@ export default function CashbookTable({
     search: searchParams.get("search") ?? "",
     amountFrom: searchParams.get("amountFrom") ?? "",
     amountTo: searchParams.get("amountTo") ?? "",
+    status: searchParams.get("status") ?? "",
   };
   const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
     updateParams({ [key]: value, ...extra, page: "1" });
@@ -142,7 +153,9 @@ export default function CashbookTable({
   const urlSearch = searchParams.get("search");
   const urlAmountFrom = searchParams.get("amountFrom");
   const urlAmountTo = searchParams.get("amountTo");
+  const urlStatus = searchParams.get("status");
   const categoryName = categories.find((c) => c.id === urlCategoryId)?.name;
+  const STATUS_LABEL: Record<string, string> = { DRAFT: "Nháp", CONFIRMED: "Đã xác nhận", VOIDED: "Đã hủy" };
 
   const chips: { key: string; label: string; onRemove: () => void }[] = [];
   if (urlFromDate || urlToDate) {
@@ -160,6 +173,9 @@ export default function CashbookTable({
   }
   if (urlSearch) {
     chips.push({ key: "search", label: `"${urlSearch}"`, onRemove: () => handleFilterChange("search", null) });
+  }
+  if (urlStatus) {
+    chips.push({ key: "status", label: STATUS_LABEL[urlStatus] ?? urlStatus, onRemove: () => handleFilterChange("status", null) });
   }
   if (urlAmountFrom || urlAmountTo) {
     chips.push({

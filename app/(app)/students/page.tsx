@@ -57,6 +57,8 @@ export default async function StudentsPage({
     continuationStatus?: string;
     outstandingFrom?: string;
     outstandingTo?: string;
+    sessionCreditFrom?: string;
+    sessionCreditTo?: string;
   };
 }) {
   const user = await getCurrentUser();
@@ -86,6 +88,8 @@ export default async function StudentsPage({
   const continuationStatusFilter = searchParams.continuationStatus?.trim() ?? "";
   const outstandingFrom = searchParams.outstandingFrom?.trim() ?? "";
   const outstandingTo = searchParams.outstandingTo?.trim() ?? "";
+  const sessionCreditFrom = searchParams.sessionCreditFrom?.trim() ?? "";
+  const sessionCreditTo = searchParams.sessionCreditTo?.trim() ?? "";
 
   const assignmentScope: Prisma.StudentWhereInput = limitedToAssignedStudents
     ? user.employeeId
@@ -139,7 +143,7 @@ export default async function StudentsPage({
       : {}),
   };
 
-  const needsComputedFilter = Boolean(continuationStatusFilter || outstandingFrom || outstandingTo);
+  const needsComputedFilter = Boolean(continuationStatusFilter || outstandingFrom || outstandingTo || sessionCreditFrom || sessionCreditTo);
 
   const [items, grouped, countResult] = await Promise.all([
     prisma.student.findMany({
@@ -365,6 +369,12 @@ export default async function StudentsPage({
   }
   if (outstandingTo) {
     filteredItems = filteredItems.filter((item) => (item.outstanding ?? 0) <= Number(outstandingTo));
+  }
+  if (sessionCreditFrom) {
+    filteredItems = filteredItems.filter((item) => (item.sessionCreditCount ?? 0) >= Number(sessionCreditFrom));
+  }
+  if (sessionCreditTo) {
+    filteredItems = filteredItems.filter((item) => (item.sessionCreditCount ?? 0) <= Number(sessionCreditTo));
   }
 
   const total = needsComputedFilter ? filteredItems.length : countResult ?? 0;

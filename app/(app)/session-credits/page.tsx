@@ -14,6 +14,8 @@ type SearchParams = {
   status?: string;
   type?: string;
   student?: string;
+  availableFrom?: string;
+  availableTo?: string;
 };
 
 async function getCreditRows(activeBranchId: string | null, statusFilter: string, typeFilter: string, studentFilter: string) {
@@ -105,7 +107,13 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
   const status = statusParam === "ALL" ? "" : statusParam;
   const type = searchParams.type ?? "";
   const student = searchParams.student?.trim() ?? "";
-  const rows = await getCreditRows(activeBranchId, status, type, student);
+  const availableFrom = searchParams.availableFrom?.trim() ?? "";
+  const availableTo = searchParams.availableTo?.trim() ?? "";
+  let rows = await getCreditRows(activeBranchId, status, type, student);
+  // availableCount là số tính SAU khi gộp nhóm (không phải cột thô) — lọc bằng JS ở
+  // server sau khi đã có đủ rows, cùng cách "computed-filter" đang dùng ở /students.
+  if (availableFrom) rows = rows.filter((row) => row.availableCount >= Number(availableFrom));
+  if (availableTo) rows = rows.filter((row) => row.availableCount <= Number(availableTo));
   // Bộ lọc "Còn phải xếp" (mặc định) chỉ truy vấn credit AVAILABLE — với bộ lọc đó,
   // consumedSession không bao giờ tồn tại nên cột "Các ngày đã bổ trợ" chắc chắn luôn
   // rỗng ở mọi dòng. Ẩn hẳn cột này khi nó không thể có dữ liệu, thay vì hiện 1 cột

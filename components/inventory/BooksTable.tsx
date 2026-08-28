@@ -201,6 +201,12 @@ export default function BooksTable({
     bookCategory: searchParams.get("bookCategory") ?? "",
     stockFrom: searchParams.get("stockFrom") ?? "",
     stockTo: searchParams.get("stockTo") ?? "",
+    purchasePriceFrom: searchParams.get("purchasePriceFrom") ?? "",
+    purchasePriceTo: searchParams.get("purchasePriceTo") ?? "",
+    unitPriceFrom: searchParams.get("unitPriceFrom") ?? "",
+    unitPriceTo: searchParams.get("unitPriceTo") ?? "",
+    issuedFrom: searchParams.get("issuedFrom") ?? "",
+    issuedTo: searchParams.get("issuedTo") ?? "",
   };
   const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
     updateParams({ [key]: value, ...extra, page: "1" });
@@ -253,12 +259,14 @@ export default function BooksTable({
       key: "purchasePrice",
       label: "Giá nhập",
       sortable: true,
+      filter: { type: "numberRange", paramKeyFrom: "purchasePriceFrom", paramKeyTo: "purchasePriceTo", placeholder: "đ" },
       render: (value) => formatVnd(value),
     },
     {
       key: "unitPrice",
       label: "Giá bán",
       sortable: true,
+      filter: { type: "numberRange", paramKeyFrom: "unitPriceFrom", paramKeyTo: "unitPriceTo", placeholder: "đ" },
       render: (value) => formatVnd(value),
     },
     {
@@ -266,6 +274,7 @@ export default function BooksTable({
       label: "Đã xuất",
       sortable: true,
       align: "center",
+      filter: { type: "numberRange", paramKeyFrom: "issuedFrom", paramKeyTo: "issuedTo" },
     },
     {
       key: "onHand",

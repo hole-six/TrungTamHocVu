@@ -92,6 +92,13 @@ export default function TimesheetsWorkspace({
   const [selectedDate, setSelectedDate] = useState(defaultDate);
   const [notice, setNotice] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  // "Đã chấm ngày X"/"Công tháng" là giá trị tính SAU khi có dữ liệu (phụ thuộc
+  // selectedDate — state riêng ở client, server không biết) — lọc ngay ở client thay vì
+  // qua URL/server như position, đơn giản và đủ đúng vì toàn bộ `tableEmployees` đã có
+  // sẵn ở client (không phân trang phía server).
+  const [checkedFilter, setCheckedFilter] = useState("");
+  const [monthDaysFrom, setMonthDaysFrom] = useState("");
+  const [monthDaysTo, setMonthDaysTo] = useState("");
 
   const today = todayYmd();
 
@@ -127,13 +134,30 @@ export default function TimesheetsWorkspace({
     };
   }, [activeEmployees.length, employees, selectedDate]);
 
-  const totalPages = Math.max(1, Math.ceil(tableEmployees.length / PAGE_SIZE));
+  const clientFilteredEmployees = useMemo(() => {
+    return tableEmployees.filter((employee) => {
+      if (checkedFilter) {
+        const checked = Boolean(entryOnSelectedDate(employee));
+        if (checkedFilter === "YES" && !checked) return false;
+        if (checkedFilter === "NO" && checked) return false;
+      }
+      if (monthDaysFrom || monthDaysTo) {
+        const monthDays = employee.timesheetEntries.reduce((sum, entry) => sum + (entry.days ?? 0), 0);
+        if (monthDaysFrom && monthDays < Number(monthDaysFrom)) return false;
+        if (monthDaysTo && monthDays > Number(monthDaysTo)) return false;
+      }
+      return true;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableEmployees, checkedFilter, monthDaysFrom, monthDaysTo, selectedDate]);
+
+  const totalPages = Math.max(1, Math.ceil(clientFilteredEmployees.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
-  const pagedEmployees = tableEmployees.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pagedEmployees = clientFilteredEmployees.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   useEffect(() => {
     setPage(1);
-  }, [tableEmployees, selectedDate]);
+  }, [tableEmployees, selectedDate, checkedFilter, monthDaysFrom, monthDaysTo]);
 
   function loadDate(date: string) {
     setSelectedDate(date);
@@ -150,8 +174,21 @@ export default function TimesheetsWorkspace({
   }
 
   const handleSearch = (value: string) => updateParams({ search: value || null });
-  const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
+  const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) => {
+    if (key === "checked") {
+      setCheckedFilter(value ?? "");
+      return;
+    }
+    if (key === "monthDaysFrom") {
+      setMonthDaysFrom(value ?? "");
+      return;
+    }
+    if (key === "monthDaysTo") {
+      setMonthDaysTo(value ?? "");
+      return;
+    }
     updateParams({ [key]: value, ...extra });
+  };
 
   const columns: Column<EmployeeRow>[] = [
     {
@@ -178,6 +215,15 @@ export default function TimesheetsWorkspace({
     {
       key: "id",
       label: `Ngày ${formatVnDate(selectedDate)}`,
+      filter: {
+        type: "select",
+        paramKey: "checked",
+        placeholder: "Tất cả",
+        options: [
+          { label: "Đã chấm", value: "YES" },
+          { label: "Chưa chấm", value: "NO" },
+        ],
+      },
       render: (_value, row) => {
         const existing = entryOnSelectedDate(row);
         return existing ? (
@@ -190,6 +236,7 @@ export default function TimesheetsWorkspace({
     {
       key: "timesheetEntries",
       label: "Công tháng",
+      filter: { type: "numberRange", paramKeyFrom: "monthDaysFrom", paramKeyTo: "monthDaysTo", placeholder: "công" },
       render: (_value, row) => {
         const monthDays = row.timesheetEntries.reduce((sum, entry) => sum + (entry.days ?? 0), 0);
         const monthHours = row.timesheetEntries.reduce((sum, entry) => sum + (entry.hours ?? 0), 0);
@@ -254,7 +301,7 @@ export default function TimesheetsWorkspace({
           <div>
             <h2 className="font-display text-xl font-semibold tracking-tight">Danh sách chấm công</h2>
             <p className="mt-1 text-sm text-ink-muted48">
-              Ngày {formatVnDate(selectedDate)} · {tableEmployees.length} nhân viên đang hiển thị · cột &quot;Công tháng&quot; đã gồm cả công/giờ/lần chấm gần nhất
+              Ngày {formatVnDate(selectedDate)} · {clientFilteredEmployees.length} nhân viên đang hiển thị · cột &quot;Công tháng&quot; đã gồm cả công/giờ/lần chấm gần nhất
             </p>
           </div>
         </div>
@@ -271,7 +318,7 @@ export default function TimesheetsWorkspace({
             searchPlaceholder="Tìm theo tên hoặc mã nhân viên..."
             onSearch={handleSearch}
             defaultSearchValue={search}
-            filterValues={{ position }}
+            filterValues={{ position, checked: checkedFilter, monthDaysFrom, monthDaysTo }}
             onFilterChange={handleFilterChange}
             selectable={false}
             showCountBadge={false}
@@ -290,7 +337,7 @@ export default function TimesheetsWorkspace({
               />
             )}
             pagination={{
-              total: tableEmployees.length,
+              total: clientFilteredEmployees.length,
               page: currentPage,
               pageSize: PAGE_SIZE,
               onPageChange: (nextPage) => setPage(nextPage),
