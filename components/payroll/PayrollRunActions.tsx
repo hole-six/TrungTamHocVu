@@ -39,7 +39,17 @@ const NEXT: Record<
     confirm:
       "Đánh dấu kỳ lương này ĐÃ TRẢ? Chỉ xác nhận khi tiền lương đã thực sự được chi trả cho toàn bộ nhân sự trong kỳ.",
   },
-  PAID: null,
+  PAID: {
+    to: "REOPENED",
+    label: "Mở lại kỳ lương",
+    description: "Chỉ dùng khi phát hiện sai sót cần đính chính sau khi đã trả lương.",
+    confirm:
+      "Mở lại kỳ lương đã trả? Các dòng lương trong kỳ sẽ có thể tính/sửa lại — chỉ dùng khi thực sự cần đính chính, không dùng để làm lại từ đầu theo thói quen.",
+  },
+  // Không có nút "bước tiếp theo" riêng ở REOPENED — giống hệt DRAFT, việc bấm "Tính
+  // lại lương" (nút generate ở dưới) sẽ tự đưa trạng thái sang CALCULATED, từ đó đi
+  // tiếp REVIEWED→APPROVED→LOCKED→PAID theo đúng quy trình bình thường.
+  REOPENED: null,
 };
 
 const STATUS_HELP: Record<string, { title: string; description: string }> = {
@@ -71,6 +81,11 @@ const STATUS_HELP: Record<string, { title: string; description: string }> = {
   PAID: {
     title: "Đã hoàn tất",
     description: "Kỳ lương này đã được đánh dấu trả xong.",
+  },
+  REOPENED: {
+    title: "Đã mở lại",
+    description:
+      "Bấm tính lại lương để lấy lại dữ liệu buổi dạy, trợ giảng, chấm công mới nhất rồi đi lại các bước kiểm tra/duyệt/khóa/trả từ đầu.",
   },
 };
 
@@ -152,7 +167,7 @@ export default function PayrollRunActions({
     description: "Kiểm tra kỹ dữ liệu trước khi chuyển sang bước tiếp theo.",
   };
   const canGenerate =
-    status === "DRAFT" || status === "CALCULATED" || status === "REVIEWED";
+    status === "DRAFT" || status === "CALCULATED" || status === "REVIEWED" || status === "REOPENED";
   const canDelete = canGenerate;
 
   return (
@@ -175,9 +190,11 @@ export default function PayrollRunActions({
           <p className="mt-1 text-sm leading-6 text-[#6b7280]">
             {status === "DRAFT"
               ? "Bấm tính lương để tạo toàn bộ dữ liệu kỳ lương từ dữ liệu gốc."
-              : nextAction
-                ? nextAction.description
-                : "Kỳ lương đã hoàn tất. Bạn chỉ cần tra cứu hoặc xuất file nếu cần."}
+              : status === "REOPENED"
+                ? "Bấm tính lại lương để lấy lại dữ liệu mới nhất, sau đó đi lại các bước kiểm tra/duyệt/khóa/trả."
+                : nextAction
+                  ? nextAction.description
+                  : "Kỳ lương đã hoàn tất. Bạn chỉ cần tra cứu hoặc xuất file nếu cần."}
           </p>
         </div>
 

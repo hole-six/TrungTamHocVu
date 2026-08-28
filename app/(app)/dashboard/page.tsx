@@ -63,7 +63,7 @@ async function getStats(user: Awaited<ReturnType<typeof getCurrentUser>>, active
       prisma.classSession.count({ where: activeBranchId ? { class: { branchId: activeBranchId }, sessionDate: { gte: ts, lte: te } } : { sessionDate: { gte: ts, lte: te } } }),
       user?.employeeId ? prisma.sessionAssignment.count({ where: { employeeId: user.employeeId, session: { sessionDate: { gte: ts, lte: te } } } }) : Promise.resolve(0),
       prisma.billingPeriod.count({ where: { ...bw, status: { in: ["DRAFT", "GENERATED", "REVIEWED", "POSTED", "REOPENED"] } } }),
-      prisma.payrollRun.count({ where: { ...bw, status: { in: ["DRAFT", "CALCULATED", "REVIEWED", "APPROVED"] } } }),
+      prisma.payrollRun.count({ where: { ...bw, status: { in: ["DRAFT", "CALCULATED", "REVIEWED", "APPROVED", "REOPENED"] } } }),
       user?.id ? prisma.task.count({ where: { assignedToId: user.id, status: "OPEN" } }) : Promise.resolve(0),
     ]);
   return { activeStudents, totalStudents, activeClasses, openLeads,
@@ -84,7 +84,7 @@ async function getBranchBreakdown() {
         prisma.charge.aggregate({ where: { student: { branchId: b.id } }, _sum: { totalAmount: true } }),
         prisma.paymentAllocation.aggregate({ where: { charge: { student: { branchId: b.id } } }, _sum: { amount: true } }),
         prisma.billingPeriod.count({ where: { branchId: b.id, status: { in: ["DRAFT", "GENERATED", "REVIEWED", "POSTED", "REOPENED"] } } }),
-        prisma.payrollRun.count({ where: { branchId: b.id, status: { in: ["DRAFT", "CALCULATED", "REVIEWED", "APPROVED"] } } }),
+        prisma.payrollRun.count({ where: { branchId: b.id, status: { in: ["DRAFT", "CALCULATED", "REVIEWED", "APPROVED", "REOPENED"] } } }),
       ]);
     return { id: b.id, code: b.code, name: b.name, activeStudents, activeClasses, sessionsToday, openLeads,
       outstanding: (cs._sum.totalAmount ?? 0) - (ps._sum.amount ?? 0), openBillingPeriods, openPayrollRuns };

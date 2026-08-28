@@ -108,7 +108,9 @@ export async function generatePayrollForRun(runId: string) {
     }
   }
 
-  if (run.status === "DRAFT") {
+  // REOPENED xử lý giống hệt DRAFT ở đây — bấm "Tính lại lương" tự đưa kỳ lương quay
+  // về CALCULATED để đi lại đúng chuỗi bước REVIEWED→APPROVED→LOCKED→PAID bình thường.
+  if (run.status === "DRAFT" || run.status === "REOPENED") {
     await prisma.payrollRun.update({ where: { id: run.id }, data: { status: "CALCULATED", calculatedAt: new Date() } });
   }
 

@@ -34,6 +34,7 @@ function getRunTone(status: string) {
   if (status === "APPROVED") return "border-violet-200 bg-violet-50 text-violet-700";
   if (status === "REVIEWED") return "border-amber-200 bg-amber-50 text-amber-700";
   if (status === "CALCULATED") return "border-orange-200 bg-orange-50 text-orange-700";
+  if (status === "REOPENED") return "border-rose-200 bg-rose-50 text-rose-700";
   return "border-slate-200 bg-slate-50 text-slate-700";
 }
 
@@ -161,7 +162,7 @@ export default function PayrollWorkspace({
 
   const needsAttentionCount = totals.missingRateCount + totals.missingBankCount;
   const selectedRow = selectedEmployeeId ? rows.find((row) => row.id === selectedEmployeeId) ?? null : null;
-  const canEditPayrollLine = Boolean(run && permissions.canManagePayrollRuns && ["DRAFT", "CALCULATED", "REVIEWED"].includes(run.status));
+  const canEditPayrollLine = Boolean(run && permissions.canManagePayrollRuns && ["DRAFT", "CALCULATED", "REVIEWED", "REOPENED"].includes(run.status));
 
   const columns: Column<PayrollEmployeeRow>[] = [
     {

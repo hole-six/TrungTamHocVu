@@ -69,7 +69,7 @@ async function getNavBadges(
       where: { ...branchWhere, status: { in: ["DRAFT", "GENERATED", "REVIEWED", "POSTED", "REOPENED"] } },
     }),
     prisma.payrollRun.count({
-      where: { ...branchWhere, status: { in: ["DRAFT", "CALCULATED", "REVIEWED", "APPROVED"] } },
+      where: { ...branchWhere, status: { in: ["DRAFT", "CALCULATED", "REVIEWED", "APPROVED", "REOPENED"] } },
     }),
     prisma.sessionRequirementCheck.count({
       where: { status: "NOT_SUBMITTED", employee: activeBranchId ? { branchId: activeBranchId } : {} },

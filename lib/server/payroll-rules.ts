@@ -54,7 +54,7 @@ export const SESSION_ROLE_LABEL: Record<string, string> = {
   ASSISTANT2: "Trợ giảng 2",
 };
 
-export const PAYROLL_RUN_STATUSES = ["DRAFT", "CALCULATED", "REVIEWED", "APPROVED", "LOCKED", "PAID"] as const;
+export const PAYROLL_RUN_STATUSES = ["DRAFT", "CALCULATED", "REVIEWED", "APPROVED", "LOCKED", "PAID", "REOPENED"] as const;
 export type PayrollRunStatus = (typeof PAYROLL_RUN_STATUSES)[number];
 export const PAYROLL_RUN_STATUS_LABEL: Record<string, string> = {
   DRAFT: "Nháp",
@@ -63,15 +63,21 @@ export const PAYROLL_RUN_STATUS_LABEL: Record<string, string> = {
   APPROVED: "Đã duyệt",
   LOCKED: "Đã khóa",
   PAID: "Đã trả lương",
+  REOPENED: "Mở lại",
 };
 
+// PAID -> REOPENED -> CALCULATED: cùng mô hình với BillingPeriod (POSTED->CLOSED->
+// REOPENED->GENERATED) — chỉ mở lại được từ trạng thái cuối cùng (PAID), dùng khi phát
+// hiện sai sót sau khi đã trả lương và cần đính chính; REOPENED coi như CALCULATED để
+// tính/sửa lại từ đầu (canEditPayroll bên dưới), không có đường tắt trực tiếp PAID->CALCULATED.
 const PAYROLL_TRANSITIONS: Record<PayrollRunStatus, PayrollRunStatus[]> = {
   DRAFT: ["CALCULATED"],
   CALCULATED: ["REVIEWED", "CALCULATED"],
   REVIEWED: ["APPROVED", "CALCULATED"],
   APPROVED: ["LOCKED"],
   LOCKED: ["PAID"],
-  PAID: [],
+  PAID: ["REOPENED"],
+  REOPENED: ["CALCULATED"],
 };
 
 export function canTransitionPayrollRun(from: string, to: string): boolean {
@@ -79,7 +85,7 @@ export function canTransitionPayrollRun(from: string, to: string): boolean {
 }
 
 export function canEditPayroll(status: string): boolean {
-  return status === "DRAFT" || status === "CALCULATED" || status === "REVIEWED";
+  return status === "DRAFT" || status === "CALCULATED" || status === "REVIEWED" || status === "REOPENED";
 }
 
 // Dung sai so sánh giờ/công thực tế (SessionAssignment/TimesheetEntry) với số đã đóng băng

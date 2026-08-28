@@ -90,7 +90,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       status: body.status,
       approvedAt: body.status === "APPROVED" ? now : run.approvedAt,
       lockedAt: body.status === "LOCKED" ? now : run.lockedAt,
-      paidAt: body.status === "PAID" ? now : run.paidAt,
+      // Mở lại (REOPENED) chỉ đến từ PAID — xóa paidAt vì kỳ này không còn coi là đã
+      // trả xong nữa, giữ nguyên approvedAt/lockedAt làm dấu vết lịch sử (giống cách
+      // BillingPeriod giữ postedAt, chỉ xóa closedAt khi REOPENED).
+      paidAt: body.status === "PAID" ? now : body.status === "REOPENED" ? null : run.paidAt,
     },
   });
 

@@ -6,7 +6,7 @@ import { canUpdateWithOverride } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import { generatePayrollForRun } from "@/lib/server/payroll-generation";
 
-const EDITABLE_STATUSES = ["DRAFT", "CALCULATED", "REVIEWED"] as const;
+const EDITABLE_STATUSES = ["DRAFT", "CALCULATED", "REVIEWED", "REOPENED"] as const;
 
 export async function POST() {
   const user = await getCurrentUser();
