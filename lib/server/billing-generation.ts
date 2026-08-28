@@ -24,6 +24,9 @@ type PendingChargeDraft =
       className: string;
       baseAmount: number;
       existingChargeId: string | null;
+      // openingBalance đã chốt của charge cũ (nếu đang sinh lại) — giữ nguyên khi
+      // regenerate, không tính/trừ credit lại (xem giải thích ở vòng lặp finalize).
+      existingOpeningBalance: number | null;
       enrollmentId: string;
       installmentId: string;
       chargePayload: {
@@ -47,6 +50,7 @@ type PendingChargeDraft =
       className: string;
       baseAmount: number;
       existingChargeId: string | null;
+      existingOpeningBalance: number | null;
       enrollmentId: string;
       issueStart: Date;
       issueEnd: Date;
@@ -297,6 +301,7 @@ export async function generateChargesForPeriod(periodId: string) {
         className: enrollment.class.className,
         baseAmount: installment.amount,
         existingChargeId: existingCharge?.id ?? null,
+        existingOpeningBalance: existingCharge?.openingBalance ?? null,
         enrollmentId: enrollment.id,
         installmentId: installment.id,
         chargePayload: {
@@ -444,6 +449,7 @@ export async function generateChargesForPeriod(periodId: string) {
       className: enrollment.class.className,
       baseAmount: tuitionAmount + materialsAmount,
       existingChargeId: chargeToUpdate?.id ?? null,
+      existingOpeningBalance: chargeToUpdate?.openingBalance ?? null,
       enrollmentId: enrollment.id,
       issueStart: period.startDate,
       issueEnd: period.endDate,
@@ -474,28 +480,43 @@ export async function generateChargesForPeriod(periodId: string) {
       return left.className.localeCompare(right.className, "vi");
     });
 
+    // Nếu học viên ĐÃ có charge nào trong CHÍNH kỳ này (đang sinh lại, không phải lần
+    // đầu), quyết định "trừ bao nhiêu credit để bù nợ đầu kỳ" đã CHỐT ở lần sinh
+    // trước rồi. computeBalanceSnapshot chỉ nhìn charge/allocation để tính nợ, không
+    // hề biết credit đã được "coi như" dùng để bù ở lần chạy trước — nếu cứ tính và
+    // trừ credit lại mỗi lần, "Sinh học phí" (thao tác được phép bấm lại nhiều lần
+    // khi kỳ còn GENERATED, đúng quy trình sửa sai trước khi chốt sổ) sẽ trừ liên
+    // tục vào CreditBalance cho CÙNG một khoản nợ cũ chưa hề đổi, rút cạn tiền dư
+    // thật của phụ huynh dù nợ đó chỉ cần bù đúng 1 lần. Vì vậy: chỉ tính/trừ credit
+    // khi đây thật sự là charge MỚI (existingChargeId null) của học viên trong kỳ
+    // này; nếu đang cập nhật charge đã có, giữ nguyên đúng openingBalance đã chốt.
+    const isRegeneration = orderedDrafts.some((draft) => draft.existingChargeId !== null);
+
     await prisma.$transaction(async (tx) => {
-      const snapshot = await computeBalanceSnapshot(studentId, period.startDate, tx);
       const anchorDraft = orderedDrafts[0] ?? null;
 
       let anchorOpeningBalance = 0;
-      let anchorCreditToApply = 0;
-      if (anchorDraft) {
+      if (!isRegeneration && anchorDraft) {
+        const snapshot = await computeBalanceSnapshot(studentId, period.startDate, tx);
         // Credit is carried value from earlier periods; it may clear only the
         // carried debt, never the current period's newly generated tuition.
-        anchorCreditToApply = Math.min(
+        const anchorCreditToApply = Math.min(
           Math.max(snapshot.debtBeforeCredits, 0),
           snapshot.availableCreditAmount,
         );
         anchorOpeningBalance = Math.max(snapshot.debtBeforeCredits - anchorCreditToApply, 0);
-      }
 
-      if (anchorCreditToApply > 0) {
-        await consumeCreditBalances(snapshot.availableCredits, anchorCreditToApply, new Date(), tx);
+        if (anchorCreditToApply > 0) {
+          await consumeCreditBalances(snapshot.availableCredits, anchorCreditToApply, new Date(), tx);
+        }
       }
 
       for (const draft of orderedDrafts) {
-        const openingBalance = draft === anchorDraft ? anchorOpeningBalance : 0;
+        const openingBalance = draft.existingChargeId
+          ? draft.existingOpeningBalance ?? 0
+          : draft === anchorDraft
+            ? anchorOpeningBalance
+            : 0;
         const totalAmount = computeTotalAmount(
           draft.chargePayload.tuitionAmount,
           draft.chargePayload.materialsAmount,
@@ -594,11 +615,18 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
       OR: [{ enrollmentId: null }, { enrollmentId: enrollment.id }],
     },
   });
+  // Nếu ĐÃ có charge trọn khóa cho đúng lớp này (đang sinh lại charge COURSE, không
+  // phải chuyển từ mode khác sang) — giữ lại đúng openingBalance đã chốt của nó
+  // TRƯỚC KHI xoá, để không tính/trừ credit lại lần nữa cho cùng một khoản nợ cũ
+  // (cùng lỗi đã sửa ở generateChargesForPeriod: sinh lại charge nhiều lần không
+  // được phép rút thêm CreditBalance mỗi lần bấm).
+  let preservedOpeningBalance: number | null = null;
   if (existing) {
     const replacement = await replaceChargeIfUncollected(existing.id, "Học viên đã có charge trọn khóa cho lớp này.");
     if (replacement.blocked) {
       return { error: replacement.reason ?? "Charge trọn khóa này đã thu nên không thể sinh lại." };
     }
+    preservedOpeningBalance = existing.openingBalance;
   }
 
   const conflictingPeriodOrInstallment = await prisma.charge.findMany({
@@ -673,20 +701,26 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
 
   const charge = await prisma.$transaction(async (tx) => {
     const balanceAnchorDate = options?.billingPeriodId ? period.startDate : enrollment.enrollDate;
-    const snapshot = await computeBalanceSnapshot(enrollment.studentId, balanceAnchorDate, tx);
     const chargeBaseAmount = tuitionAmount + materialsAmount;
-    // A course charge follows the same rule as period billing: unused credit
-    // settles prior debt only, so a new charge can never be made negative.
-    const creditToApply = Math.min(
-      Math.max(snapshot.debtBeforeCredits, 0),
-      snapshot.availableCreditAmount,
-    );
-    const openingBalance = Math.max(snapshot.debtBeforeCredits - creditToApply, 0);
-    const totalAmount = computeTotalAmount(tuitionAmount, materialsAmount, openingBalance);
 
-    if (creditToApply > 0) {
-      await consumeCreditBalances(snapshot.availableCredits, creditToApply, new Date(), tx);
+    let openingBalance: number;
+    if (preservedOpeningBalance !== null) {
+      openingBalance = preservedOpeningBalance;
+    } else {
+      const snapshot = await computeBalanceSnapshot(enrollment.studentId, balanceAnchorDate, tx);
+      // A course charge follows the same rule as period billing: unused credit
+      // settles prior debt only, so a new charge can never be made negative.
+      const creditToApply = Math.min(
+        Math.max(snapshot.debtBeforeCredits, 0),
+        snapshot.availableCreditAmount,
+      );
+      openingBalance = Math.max(snapshot.debtBeforeCredits - creditToApply, 0);
+
+      if (creditToApply > 0) {
+        await consumeCreditBalances(snapshot.availableCredits, creditToApply, new Date(), tx);
+      }
     }
+    const totalAmount = computeTotalAmount(tuitionAmount, materialsAmount, openingBalance);
 
     const createdCharge = await tx.charge.create({
       data: {
