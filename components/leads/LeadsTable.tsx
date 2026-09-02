@@ -10,7 +10,6 @@ import {
   LEAD_STATUS_LABEL,
   LEAD_STATUS_FILTER_GROUPS,
   leadStatusGroupKey,
-  PLACEMENT_TEST_STATUSES,
   PLACEMENT_TEST_STATUS_LABEL,
   PLACEMENT_TEST_BADGE_CLASS,
   DATE_URGENCY_CLASS,
@@ -306,9 +305,13 @@ export default function LeadsTable({
         type: "select",
         paramKey: "testStatus",
         placeholder: "Tất cả",
+        // Chỉ lọc theo THỜI ĐIỂM (chưa hẹn / sắp tới hạn / đã quá hạn) — khớp đúng 3
+        // chip "Lịch test" phía trên thanh tìm kiếm, không liệt kê kết quả test
+        // (Đạt/Không đạt/...) vì đó không phải khái niệm "lịch" (thời điểm).
         options: [
           { label: "Chưa hẹn", value: "NONE" },
-          ...PLACEMENT_TEST_STATUSES.map((s) => ({ label: PLACEMENT_TEST_STATUS_LABEL[s], value: s })),
+          { label: "Sắp tới", value: "soon" },
+          { label: "Quá hạn", value: "overdue" },
         ],
       },
       render: (_value, row) => {
@@ -546,6 +549,17 @@ export default function LeadsTable({
   // tái dùng đúng cơ chế điều hướng URL sẵn có (không phát minh luồng fetch thứ 2).
   const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) => {
     setLoading(true);
+    // Dropdown lọc cột "Lịch test" gộp chung 1 ô chọn nhưng thật ra đi 2 param khác
+    // nhau ở URL — "Chưa hẹn" là testStatus=NONE, còn "Sắp tới"/"Quá hạn" là lát cắt
+    // theo ngày (urgent=soon|overdue), không phải giá trị testStatus thật.
+    if (key === "testStatus" && (value === "soon" || value === "overdue")) {
+      router.push(`/leads?${buildQuery({ urgent: value, testStatus: null, ...extra })}`);
+      return;
+    }
+    if (key === "testStatus") {
+      router.push(`/leads?${buildQuery({ [key]: value, urgent: null, ...extra })}`);
+      return;
+    }
     router.push(`/leads?${buildQuery({ [key]: value, ...extra })}`);
   };
 
@@ -560,7 +574,9 @@ export default function LeadsTable({
     startFrom: searchParams.get("startFrom") ?? "",
     startTo: searchParams.get("startTo") ?? "",
     notes: searchParams.get("notes") ?? "",
-    testStatus: testStatusFilter,
+    // Hiện đúng lựa chọn đang active trong dropdown dù trạng thái đó lưu ở param nào
+    // (testStatus=NONE hay urgent=soon|overdue) — xem handleFilterChange ở trên.
+    testStatus: urgentFilter === "soon" || urgentFilter === "overdue" ? urgentFilter : testStatusFilter,
   };
 
   // Chip "Lịch test" chỉ lọc theo THỜI ĐIỂM (chưa hẹn / sắp tới hạn / đã quá hạn) —
