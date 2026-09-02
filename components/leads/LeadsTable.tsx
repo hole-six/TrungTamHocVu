@@ -71,11 +71,6 @@ type LeadsTableProps = {
   missingTestCount?: number;
   soonCount?: number;
   overdueCount?: number;
-  scheduledTestCount?: number;
-  passedTestCount?: number;
-  failedTestCount?: number;
-  noNeedTestCount?: number;
-  cancelledTestCount?: number;
   classOptions?: { id: string; className: string }[];
 };
 
@@ -142,11 +137,6 @@ export default function LeadsTable({
   missingTestCount = 0,
   soonCount = 0,
   overdueCount = 0,
-  scheduledTestCount = 0,
-  passedTestCount = 0,
-  failedTestCount = 0,
-  noNeedTestCount = 0,
-  cancelledTestCount = 0,
   classOptions = [],
 }: LeadsTableProps) {
   const router = useRouter();
@@ -573,20 +563,12 @@ export default function LeadsTable({
     testStatus: testStatusFilter,
   };
 
-  // Chip "Lịch test" phải hiện ĐỦ đúng bộ trạng thái mà cột "Lịch test" cho lọc qua
-  // dropdown (xem cột `latestTest` phía trên, dùng chung PLACEMENT_TEST_STATUS_LABEL)
-  // — trước đây chỉ có 3 chip (Chưa hẹn/Sắp tới/Quá hạn, 2 chip sau là lọc theo NGÀY
-  // chứ không phải trạng thái) nên bấm vào dropdown thấy nhiều trạng thái hơn hẳn
-  // chip, gây cảm giác 2 bộ lọc lệch nhau. Giờ thêm đủ các trạng thái còn thiếu,
-  // "Sắp tới"/"Quá hạn" vẫn giữ lại vì là lát cắt theo ngày rất hữu ích riêng, xếp
-  // sau cùng để không lẫn với các trạng thái gốc.
+  // Chip "Lịch test" chỉ lọc theo THỜI ĐIỂM (chưa hẹn / sắp tới hạn / đã quá hạn) —
+  // khác với dropdown lọc cột "Lịch test" (lọc theo KẾT QUẢ: Đạt/Không đạt/...). Đây
+  // là 2 chiều lọc khác nhau có chủ đích, không phải cùng 1 bộ trạng thái nên không
+  // cần liệt kê đủ 6 trạng thái ở đây.
   const testChips: { key: string; label: string; count: number; active: boolean; query: Record<string, string | null> }[] = [
     { key: "NONE", label: "Chưa hẹn", count: missingTestCount, active: testStatusFilter === "NONE", query: { testStatus: "NONE", urgent: null } },
-    { key: "SCHEDULED", label: PLACEMENT_TEST_STATUS_LABEL.SCHEDULED, count: scheduledTestCount, active: testStatusFilter === "SCHEDULED", query: { testStatus: "SCHEDULED", urgent: null } },
-    { key: "PASSED", label: PLACEMENT_TEST_STATUS_LABEL.PASSED, count: passedTestCount, active: testStatusFilter === "PASSED", query: { testStatus: "PASSED", urgent: null } },
-    { key: "FAILED", label: PLACEMENT_TEST_STATUS_LABEL.FAILED, count: failedTestCount, active: testStatusFilter === "FAILED", query: { testStatus: "FAILED", urgent: null } },
-    { key: "NO_NEED", label: PLACEMENT_TEST_STATUS_LABEL.NO_NEED, count: noNeedTestCount, active: testStatusFilter === "NO_NEED", query: { testStatus: "NO_NEED", urgent: null } },
-    { key: "CANCELLED", label: PLACEMENT_TEST_STATUS_LABEL.CANCELLED, count: cancelledTestCount, active: testStatusFilter === "CANCELLED", query: { testStatus: "CANCELLED", urgent: null } },
     { key: "soon", label: "Sắp tới", count: soonCount, active: urgentFilter === "soon", query: { urgent: "soon", testStatus: null } },
     { key: "overdue", label: "Quá hạn", count: overdueCount, active: urgentFilter === "overdue", query: { urgent: "overdue", testStatus: null } },
   ];
