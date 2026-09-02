@@ -7,8 +7,10 @@ import type { Action, BulkAction, Column } from "@/components/ui/DataTable";
 import AssignEnrollmentForm from "@/components/students/AssignEnrollmentForm";
 import StudentDetailDrawer from "@/components/students/StudentDetailDrawer";
 import AddPaidCatchupForm from "@/components/session-credits/AddPaidCatchupForm";
+import StudentForm from "@/components/students/StudentForm";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import { exportToExcel, formatVnd } from "@/lib/export-utils";
-import { canDelete, canUpdate } from "@/lib/server/role-matrix";
+import { canCreate, canDelete, canUpdate } from "@/lib/server/role-matrix";
 
 type Student = {
   id: string;
@@ -111,6 +113,7 @@ export default function StudentsTable({
   const [assigningStudent, setAssigningStudent] = useState<Student | null>(null);
   const [drawerStudentId, setDrawerStudentId] = useState<string | null>(null);
   const [addingCreditsStudent, setAddingCreditsStudent] = useState<Student | null>(null);
+  const [addStudentOpen, setAddStudentOpen] = useState(false);
 
   function updateParams(patch: Record<string, string | null>) {
     const next = new URLSearchParams(searchParams.toString());
@@ -469,42 +472,57 @@ export default function StudentsTable({
   const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
     updateParams({ [key]: value, ...extra, page: "1" });
 
-  const headerActions = stats ? (
-    <div className="flex flex-wrap gap-2">
-      {[
-        { label: "Tất cả", value: stats.total, href: "/students", active: !status, activeClass: "bg-primary text-white", idleValueClass: "text-primary" },
-        { label: "Đang học", value: stats.active, href: "/students?status=ACTIVE", active: status === "ACTIVE", activeClass: "bg-emerald-500 text-white", idleValueClass: "text-emerald-700" },
-        { label: "Đã nghỉ", value: stats.left, href: "/students?status=LEFT", active: status === "LEFT", activeClass: "bg-rose-500 text-white", idleValueClass: "text-rose-700" },
-        { label: "Cần chuyển", value: stats.needTransfer, href: null, active: false, activeClass: "", idleValueClass: "text-amber-700" },
-        { label: "Sắp hết", value: stats.endingSoon, href: null, active: false, activeClass: "", idleValueClass: "text-sky-700" },
-        { label: "Portal", value: stats.portal, href: null, active: false, activeClass: "", idleValueClass: "text-sky-700" },
-        ...(canViewFinance
-          ? [{ label: "Công nợ", value: stats.debt, href: null, active: false, activeClass: "", idleValueClass: "text-amber-700" }]
-          : []),
-      ].map((item) => {
-        const className = `inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
-          item.active ? `${item.activeClass} border-transparent` : "border-[#dbe7ff] bg-white text-ink hover:border-primary/30"
-        }`;
+  const headerActions = (
+    <div className="flex flex-wrap items-center gap-2">
+      {canCreate("students", userRole) ? (
+        <button
+          type="button"
+          onClick={() => setAddStudentOpen(true)}
+          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary/90"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Thêm học viên
+        </button>
+      ) : null}
+      {stats
+        ? [
+            { label: "Tất cả", value: stats.total, href: "/students", active: !status, activeClass: "bg-primary text-white", idleValueClass: "text-primary" },
+            { label: "Đang học", value: stats.active, href: "/students?status=ACTIVE", active: status === "ACTIVE", activeClass: "bg-emerald-500 text-white", idleValueClass: "text-emerald-700" },
+            { label: "Đã nghỉ", value: stats.left, href: "/students?status=LEFT", active: status === "LEFT", activeClass: "bg-rose-500 text-white", idleValueClass: "text-rose-700" },
+            { label: "Cần chuyển", value: stats.needTransfer, href: null, active: false, activeClass: "", idleValueClass: "text-amber-700" },
+            { label: "Sắp hết", value: stats.endingSoon, href: null, active: false, activeClass: "", idleValueClass: "text-sky-700" },
+            { label: "Portal", value: stats.portal, href: null, active: false, activeClass: "", idleValueClass: "text-sky-700" },
+            ...(canViewFinance
+              ? [{ label: "Công nợ", value: stats.debt, href: null, active: false, activeClass: "", idleValueClass: "text-amber-700" }]
+              : []),
+          ].map((item) => {
+            const className = `inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+              item.active ? `${item.activeClass} border-transparent` : "border-[#dbe7ff] bg-white text-ink hover:border-primary/30"
+            }`;
 
-        const content = (
-          <>
-            <span>{item.label}</span>
-            <span className={item.active ? "text-white" : item.idleValueClass}>{item.value}</span>
-          </>
-        );
+            const content = (
+              <>
+                <span>{item.label}</span>
+                <span className={item.active ? "text-white" : item.idleValueClass}>{item.value}</span>
+              </>
+            );
 
-        return item.href ? (
-          <a key={item.label} href={item.href} className={className}>
-            {content}
-          </a>
-        ) : (
-          <span key={item.label} className={className}>
-            {content}
-          </span>
-        );
-      })}
+            return item.href ? (
+              <a key={item.label} href={item.href} className={className}>
+                {content}
+              </a>
+            ) : (
+              <span key={item.label} className={className}>
+                {content}
+              </span>
+            );
+          })
+        : null}
     </div>
-  ) : null;
+  );
 
   return (
     <>
@@ -535,7 +553,7 @@ export default function StudentsTable({
           description: "Bắt đầu bằng cách thêm học viên đầu tiên vào hệ thống.",
           action: {
             label: "Thêm học viên",
-            onClick: () => router.push("/students/new"),
+            onClick: () => setAddStudentOpen(true),
           },
         }}
         loading={isPending}
@@ -546,6 +564,11 @@ export default function StudentsTable({
         primaryColumn="fullName"
         secondaryColumns={["studentCode", "status", "outstanding"]}
       />
+
+      {/* Add Student Drawer */}
+      <ResponsiveDrawer open={addStudentOpen} onClose={() => setAddStudentOpen(false)} title="Thêm học viên mới" widthClassName="max-w-3xl">
+        <StudentForm onCancel={() => setAddStudentOpen(false)} onCreated={() => setAddStudentOpen(false)} />
+      </ResponsiveDrawer>
 
       {/* Student Detail Drawer */}
       {drawerStudentId && (

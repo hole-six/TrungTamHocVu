@@ -7,9 +7,13 @@ import { useStudentDrawer } from "@/contexts/StudentDrawerContext";
 type StudentFormProps = {
   initialData?: any;
   studentId?: string;
+  /** Dùng khi form được mở trong drawer (vd danh sách học viên) thay vì trang riêng —
+   *  đóng drawer thay vì điều hướng trang. */
+  onCancel?: () => void;
+  onCreated?: () => void;
 };
 
-export default function StudentForm({ initialData, studentId }: StudentFormProps) {
+export default function StudentForm({ initialData, studentId, onCancel, onCreated }: StudentFormProps) {
   const router = useRouter();
   const { openDrawer } = useStudentDrawer();
   const isEdit = !!studentId;
@@ -264,12 +268,15 @@ export default function StudentForm({ initialData, studentId }: StudentFormProps
     }
 
     const result = await res.json();
+    onCreated?.();
     openDrawer(result.item.id);
     router.refresh();
   };
 
   const handleCancel = () => {
-    if (isEdit) {
+    if (onCancel) {
+      onCancel();
+    } else if (isEdit) {
       router.push(`/students/${studentId}`);
     } else {
       router.push("/students");

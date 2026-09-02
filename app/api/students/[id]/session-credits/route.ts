@@ -26,6 +26,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const count = Math.max(1, Math.floor(Number(body.count) || 0));
   const isFree = Boolean(body.isFree);
   const unitPrice = isFree ? 0 : Math.max(0, Math.floor(Number(body.unitPrice) || 0));
+  // "Thời điểm học phí" — cho phép CSO chỉ rõ cộng tiền bổ trợ vào charge của kỳ nào,
+  // thay vì luôn tự đoán "kỳ đang mở hôm nay" (dễ sai khi thêm bổ trợ bù cho tháng
+  // trước/sau). Để trống thì vẫn tự động như cũ.
+  const billingPeriodId = String(body.billingPeriodId ?? "").trim() || null;
 
   if (!enrollmentId) return NextResponse.json({ error: "Thiếu lớp/ghi danh để gắn bổ trợ" }, { status: 400 });
   if (!count || count < 1) return NextResponse.json({ error: "Số buổi bổ trợ phải lớn hơn 0" }, { status: 400 });
@@ -80,10 +84,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       });
 
       if (!charge) {
-        const period = await tx.billingPeriod.findFirst({
-          where: { branchId: student.branchId, startDate: { lte: now }, endDate: { gte: now } },
-          orderBy: { startDate: "desc" },
-        });
+        const period = billingPeriodId
+          ? await tx.billingPeriod.findUnique({ where: { id: billingPeriodId } })
+          : await tx.billingPeriod.findFirst({
+              where: { branchId: student.branchId, startDate: { lte: now }, endDate: { gte: now } },
+              orderBy: { startDate: "desc" },
+            });
         if (period) {
           const periodCharge = await tx.charge.findUnique({
             where: { studentId_classId_billingPeriodId: { studentId: student.id, classId: enrollment.classId, billingPeriodId: period.id } },

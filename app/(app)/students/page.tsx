@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
-import { canCreate, canView, canViewFullWithOverride, canViewWithOverride } from "@/lib/server/role-matrix";
+import { canView, canViewFullWithOverride, canViewWithOverride } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
@@ -400,23 +399,9 @@ export default async function StudentsPage({
         sections={STUDENTS_PAGE_GUIDE_SECTIONS}
         buttonLabel="Guide học viên"
       />
-      <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-[#0f1729]">Quản lý học viên</h1>
-          <p className="mt-1 text-xs sm:text-sm text-[#64748b]">Theo dõi hồ sơ, học phí và lớp học của {total} học viên</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          {canCreate("students", userRole) ? (
-            <Link href="/students/new" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-3.5 sm:h-3.5">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              <span className="hidden sm:inline">Thêm học viên</span>
-              <span className="sm:hidden">Thêm</span>
-            </Link>
-          ) : null}
-        </div>
+      <div>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-[#0f1729]">Quản lý học viên</h1>
+        <p className="mt-1 text-xs sm:text-sm text-[#64748b]">Theo dõi hồ sơ, học phí và lớp học của {total} học viên</p>
       </div>
 
       <StudentsTable

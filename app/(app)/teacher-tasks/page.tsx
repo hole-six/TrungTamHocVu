@@ -9,8 +9,10 @@ import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/Spotlig
 import TeacherTasksTable from "./TeacherTasksTable";
 
 type SearchParams = {
+  q?: string;
   status?: string;
   employeeId?: string;
+  classId?: string;
   sessionFrom?: string;
   sessionTo?: string;
   requirementText?: string;
@@ -18,7 +20,11 @@ type SearchParams = {
   scoreDecision?: string;
   checkedAtFrom?: string;
   checkedAtTo?: string;
+  page?: string;
+  pageSize?: string;
 };
+
+const PAGE_SIZE = 20;
 
 const STATUS_FILTERS = [
   { key: "", label: "Tất cả", icon: "📋", color: "border-[#e5eaf7] bg-white text-[#475569]", activeColor: "border-[#0f1729] bg-[#0f1729] text-white" },
@@ -53,8 +59,10 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
   if (!canView("hr", role)) notFound();
 
   const activeBranchId = await getCurrentBranchId();
+  const q = searchParams.q?.trim() ?? "";
   const status = searchParams.status ?? "";
   const employeeId = searchParams.employeeId ?? "";
+  const classId = searchParams.classId ?? "";
   const sessionFrom = searchParams.sessionFrom?.trim() ?? "";
   const sessionTo = searchParams.sessionTo?.trim() ?? "";
   const requirementTextFilter = searchParams.requirementText?.trim() ?? "";
@@ -62,42 +70,67 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
   const scoreDecisionFilter = searchParams.scoreDecision?.trim() ?? "";
   const checkedAtFrom = searchParams.checkedAtFrom?.trim() ?? "";
   const checkedAtTo = searchParams.checkedAtTo?.trim() ?? "";
+  const page = Math.max(1, Number(searchParams.page ?? 1));
+  const pageSize = Number(searchParams.pageSize ?? PAGE_SIZE);
 
-  const checks = await prisma.sessionRequirementCheck.findMany({
-    where: {
-      ...(status ? { status } : {}),
-      ...(employeeId ? { employeeId } : {}),
-      ...(scoreDecisionFilter ? { scoreDecision: scoreDecisionFilter } : {}),
-      ...(requirementTextFilter ? { requirementText: { contains: requirementTextFilter } } : {}),
-      ...(reasonFilter ? { reason: { contains: reasonFilter } } : {}),
-      ...(sessionFrom || sessionTo
-        ? {
-            session: {
-              sessionDate: {
-                ...(sessionFrom ? { gte: new Date(`${sessionFrom}T00:00:00`) } : {}),
-                ...(sessionTo ? { lte: new Date(`${sessionTo}T23:59:59`) } : {}),
-              },
+  const where = {
+    ...(status ? { status } : {}),
+    ...(employeeId ? { employeeId } : {}),
+    ...(classId ? { session: { classId } } : {}),
+    ...(scoreDecisionFilter ? { scoreDecision: scoreDecisionFilter } : {}),
+    ...(requirementTextFilter ? { requirementText: { contains: requirementTextFilter } } : {}),
+    ...(reasonFilter ? { reason: { contains: reasonFilter } } : {}),
+    ...(sessionFrom || sessionTo
+      ? {
+          session: {
+            ...(classId ? { classId } : {}),
+            sessionDate: {
+              ...(sessionFrom ? { gte: new Date(`${sessionFrom}T00:00:00`) } : {}),
+              ...(sessionTo ? { lte: new Date(`${sessionTo}T23:59:59`) } : {}),
             },
-          }
-        : {}),
-      ...(checkedAtFrom || checkedAtTo
-        ? {
-            checkedAt: {
-              ...(checkedAtFrom ? { gte: new Date(`${checkedAtFrom}T00:00:00`) } : {}),
-              ...(checkedAtTo ? { lte: new Date(`${checkedAtTo}T23:59:59`) } : {}),
-            },
-          }
-        : {}),
-      employee: activeBranchId ? { branchId: activeBranchId } : {},
-    },
-    include: {
-      employee: { select: { id: true, fullName: true, employeeCode: true } },
-      session: { select: { id: true, classId: true, sessionDate: true, class: { select: { className: true } } } },
-      scoreEvent: { select: { points: true, type: true } },
-    },
-    orderBy: { checkedAt: "desc" },
-    take: 200,
-  });
+          },
+        }
+      : {}),
+    ...(checkedAtFrom || checkedAtTo
+      ? {
+          checkedAt: {
+            ...(checkedAtFrom ? { gte: new Date(`${checkedAtFrom}T00:00:00`) } : {}),
+            ...(checkedAtTo ? { lte: new Date(`${checkedAtTo}T23:59:59`) } : {}),
+          },
+        }
+      : {}),
+    employee: activeBranchId ? { branchId: activeBranchId } : {},
+    ...(q
+      ? {
+          OR: [
+            { requirementText: { contains: q } },
+            { employee: { fullName: { contains: q } } },
+            { employee: { employeeCode: { contains: q } } },
+            { session: { class: { className: { contains: q } } } },
+          ],
+        }
+      : {}),
+  };
+
+  const [checks, total, statusCounts] = await Promise.all([
+    prisma.sessionRequirementCheck.findMany({
+      where,
+      include: {
+        employee: { select: { id: true, fullName: true, employeeCode: true } },
+        session: { select: { id: true, classId: true, sessionDate: true, class: { select: { className: true } } } },
+        scoreEvent: { select: { points: true, type: true } },
+      },
+      orderBy: { checkedAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.sessionRequirementCheck.count({ where }),
+    prisma.sessionRequirementCheck.groupBy({
+      by: ["status"],
+      where: { employee: activeBranchId ? { branchId: activeBranchId } : {} },
+      _count: { _all: true },
+    }),
+  ]);
 
   const employees = await prisma.employee.findMany({
     where: { branchId: activeBranchId ?? undefined, workStatus: "ACTIVE" },
@@ -105,8 +138,17 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
     orderBy: { fullName: "asc" },
   });
 
-  const totalChecks = checks.length;
-  const notSubmittedCount = checks.filter((item) => item.status === "NOT_SUBMITTED").length;
+  // "Lọc theo danh mục" — danh mục ở đây là LỚP, vì nhân sự (employee) và trạng thái
+  // (status) đã có sẵn bộ lọc riêng; lớp là chiều lọc còn thiếu để tra theo đúng lớp
+  // cụ thể thay vì phải nhớ khoảng ngày buổi học.
+  const classes = await prisma.class.findMany({
+    where: { branchId: activeBranchId ?? undefined },
+    select: { id: true, className: true, classCode: true },
+    orderBy: { className: "asc" },
+  });
+
+  const totalChecks = statusCounts.reduce((sum, row) => sum + row._count._all, 0);
+  const notSubmittedCount = statusCounts.find((row) => row.status === "NOT_SUBMITTED")?._count._all ?? 0;
 
   return (
     <div className="space-y-5">
@@ -120,7 +162,7 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
         <SpotlightTour steps={TEACHER_TASKS_TOUR} />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-[#dbeafe] bg-gradient-to-br from-[#eff6ff] to-[#dbeafe]/30 p-4 shadow-sm">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#3b82f6] text-white">
@@ -157,23 +199,6 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
           </div>
           <p className="mt-3 text-3xl font-black text-[#0f1729]">{totalChecks - notSubmittedCount}</p>
         </div>
-        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-4 shadow-sm">
-          <form action="/teacher-tasks" method="get" className="space-y-2">
-            {status ? <input type="hidden" name="status" value={status} /> : null}
-            <label className="block text-xs font-bold uppercase tracking-wide text-[#64748b]">Lọc nhân sự</label>
-            <select name="employeeId" className="w-full rounded-lg border border-[#e5eaf7] px-3 py-2 text-sm font-semibold outline-none transition focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/20" defaultValue={employeeId}>
-              <option value="">Tất cả nhân sự</option>
-              {employees.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.fullName} ({item.employeeCode})
-                </option>
-              ))}
-            </select>
-            <button type="submit" className="btn-primary-sm w-full">
-              Áp dụng
-            </button>
-          </form>
-        </div>
       </div>
 
       <div className="flex flex-wrap gap-2" data-tour="teacher-tasks-filters">
@@ -181,6 +206,8 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
           const params = new URLSearchParams();
           if (item.key) params.set("status", item.key);
           if (employeeId) params.set("employeeId", employeeId);
+          if (classId) params.set("classId", classId);
+          if (q) params.set("q", q);
           const query = params.toString();
           const active = item.key === status;
           return (
@@ -202,8 +229,13 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
         <TeacherTasksTable
           initialData={checks}
           employees={employees}
+          classes={classes}
           status={status}
           employeeId={employeeId}
+          searchQuery={q}
+          total={total}
+          page={page}
+          pageSize={pageSize}
           canDecide={canUpdate("hr", role)}
         />
       </div>

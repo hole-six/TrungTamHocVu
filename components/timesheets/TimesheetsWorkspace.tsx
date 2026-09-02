@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
 import type { Column, Action } from "@/components/ui/DataTable/DataTable";
 import TimesheetEntryForm from "@/components/timesheets/TimesheetEntryForm";
@@ -14,27 +13,6 @@ function todayYmd() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-
-const TIMESHEET_TOUR_STEPS: TourStep[] = [
-  {
-    target: '[data-tour="timesheet-header"]',
-    title: "Chấm công dành cho công hành chính, không phải công dạy",
-    description: "Giáo viên/trợ giảng lấy công dạy tự động theo phân công lớp — chỉ chấm công thêm ở đây nếu họ có làm việc hành chính ngoài giờ dạy.",
-    placement: "bottom",
-  },
-  {
-    target: '[data-tour="timesheet-table"]',
-    title: "Bấm \"Xem thêm\" để mở form giờ của từng nhân viên",
-    description: "Chỉ dòng đang mở mới hiện 4 ô giờ — có thể mở nhiều dòng cùng lúc nếu cần đối chiếu vài người liền nhau.",
-    placement: "top",
-  },
-  {
-    target: '[data-tour="timesheet-summary"]',
-    title: "Cột \"Công tháng\" đã gộp cả công + giờ + lần chấm gần nhất",
-    description: "Không cần dò thêm bảng nào khác — mỗi dòng nhân viên đã có đủ tổng công tháng theo đúng bộ lọc đang áp dụng.",
-    placement: "top",
-  },
-];
 
 type Entry = {
   id: string;
@@ -65,40 +43,19 @@ function formatVnDate(value: string) {
 
 export default function TimesheetsWorkspace({
   employees,
-  tableEmployees,
-  monthLabel,
   defaultDate,
   canManageEmployees,
   canDeleteTimesheet,
-  positionOptions,
-  search,
-  position,
 }: {
   employees: EmployeeRow[];
-  /** Nhân sự ACTIVE đã lọc theo `search`/`position` ở server (Prisma `where`) — dùng để
-   * hiển thị bảng. `employees` (đầy đủ mọi workStatus, không lọc search/position) vẫn
-   * giữ nguyên để tính KPI/tổng và danh sách vị trí cho ô lọc. */
-  tableEmployees: EmployeeRow[];
-  monthLabel: string;
   defaultDate: string;
   canManageEmployees: boolean;
   canDeleteTimesheet: boolean;
-  positionOptions: string[];
-  search: string;
-  position: string;
 }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [selectedDate, setSelectedDate] = useState(defaultDate);
   const [notice, setNotice] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  // "Đã chấm ngày X"/"Công tháng" là giá trị tính SAU khi có dữ liệu (phụ thuộc
-  // selectedDate — state riêng ở client, server không biết) — lọc ngay ở client thay vì
-  // qua URL/server như position, đơn giản và đủ đúng vì toàn bộ `tableEmployees` đã có
-  // sẵn ở client (không phân trang phía server).
-  const [checkedFilter, setCheckedFilter] = useState("");
-  const [monthDaysFrom, setMonthDaysFrom] = useState("");
-  const [monthDaysTo, setMonthDaysTo] = useState("");
 
   const today = todayYmd();
 
@@ -118,77 +75,16 @@ export default function TimesheetsWorkspace({
     router.refresh();
   }
 
-  const activeEmployees = useMemo(() => employees.filter((item) => item.workStatus === "ACTIVE"), [employees]);
-
   const entryOnSelectedDate = (employee: EmployeeRow) => employee.timesheetEntries.find((entry) => entry.workDate.slice(0, 10) === selectedDate) ?? null;
 
-  const stats = useMemo(() => {
-    const entriesToday = employees.filter((employee) => employee.timesheetEntries.some((entry) => entry.workDate.slice(0, 10) === selectedDate));
-    const monthDays = employees.reduce((sum, employee) => sum + employee.timesheetEntries.reduce((entrySum, entry) => entrySum + (entry.days ?? 0), 0), 0);
-    const monthHours = employees.reduce((sum, employee) => sum + employee.timesheetEntries.reduce((entrySum, entry) => entrySum + (entry.hours ?? 0), 0), 0);
-    return {
-      activeCount: activeEmployees.length,
-      checkedTodayCount: entriesToday.length,
-      monthDays: Math.round(monthDays * 100) / 100,
-      monthHours: Math.round(monthHours * 100) / 100,
-    };
-  }, [activeEmployees.length, employees, selectedDate]);
-
-  const clientFilteredEmployees = useMemo(() => {
-    return tableEmployees.filter((employee) => {
-      if (checkedFilter) {
-        const checked = Boolean(entryOnSelectedDate(employee));
-        if (checkedFilter === "YES" && !checked) return false;
-        if (checkedFilter === "NO" && checked) return false;
-      }
-      if (monthDaysFrom || monthDaysTo) {
-        const monthDays = employee.timesheetEntries.reduce((sum, entry) => sum + (entry.days ?? 0), 0);
-        if (monthDaysFrom && monthDays < Number(monthDaysFrom)) return false;
-        if (monthDaysTo && monthDays > Number(monthDaysTo)) return false;
-      }
-      return true;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tableEmployees, checkedFilter, monthDaysFrom, monthDaysTo, selectedDate]);
-
-  const totalPages = Math.max(1, Math.ceil(clientFilteredEmployees.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(employees.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
-  const pagedEmployees = clientFilteredEmployees.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
-  useEffect(() => {
-    setPage(1);
-  }, [tableEmployees, selectedDate, checkedFilter, monthDaysFrom, monthDaysTo]);
+  const pagedEmployees = employees.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   function loadDate(date: string) {
     setSelectedDate(date);
     setNotice(null);
   }
-
-  function updateParams(patch: Record<string, string | null>) {
-    const params = new URLSearchParams(searchParams?.toString());
-    for (const [key, value] of Object.entries(patch)) {
-      if (value === null) params.delete(key);
-      else params.set(key, value);
-    }
-    router.push(`/timesheets?${params.toString()}`);
-  }
-
-  const handleSearch = (value: string) => updateParams({ search: value || null });
-  const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) => {
-    if (key === "checked") {
-      setCheckedFilter(value ?? "");
-      return;
-    }
-    if (key === "monthDaysFrom") {
-      setMonthDaysFrom(value ?? "");
-      return;
-    }
-    if (key === "monthDaysTo") {
-      setMonthDaysTo(value ?? "");
-      return;
-    }
-    updateParams({ [key]: value, ...extra });
-  };
 
   const columns: Column<EmployeeRow>[] = [
     {
@@ -201,29 +97,10 @@ export default function TimesheetsWorkspace({
         </div>
       ),
     },
-    {
-      key: "position",
-      label: "Vị trí",
-      filter: {
-        type: "select",
-        paramKey: "position",
-        placeholder: "Tất cả vị trí",
-        options: positionOptions.map((value) => ({ label: value, value })),
-      },
-      render: (value) => value ?? "—",
-    },
+    { key: "position", label: "Vị trí", render: (value) => value ?? "—" },
     {
       key: "id",
       label: `Ngày ${formatVnDate(selectedDate)}`,
-      filter: {
-        type: "select",
-        paramKey: "checked",
-        placeholder: "Tất cả",
-        options: [
-          { label: "Đã chấm", value: "YES" },
-          { label: "Chưa chấm", value: "NO" },
-        ],
-      },
       render: (_value, row) => {
         const existing = entryOnSelectedDate(row);
         return existing ? (
@@ -236,20 +113,13 @@ export default function TimesheetsWorkspace({
     {
       key: "timesheetEntries",
       label: "Công tháng",
-      filter: { type: "numberRange", paramKeyFrom: "monthDaysFrom", paramKeyTo: "monthDaysTo", placeholder: "công" },
       render: (_value, row) => {
         const monthDays = row.timesheetEntries.reduce((sum, entry) => sum + (entry.days ?? 0), 0);
         const monthHours = row.timesheetEntries.reduce((sum, entry) => sum + (entry.hours ?? 0), 0);
-        const latest = row.timesheetEntries[0] ?? null;
         return (
-          <div>
-            <p className="font-semibold text-ink">
-              {Math.round(monthDays * 100) / 100} công · {Math.round(monthHours * 100) / 100} giờ
-            </p>
-            <p className="mt-0.5 text-xs text-ink-muted48">
-              {latest ? `Gần nhất: ${formatVnDate(latest.workDate)} · ${latest.hours ?? 0}h` : "Chưa có chấm công tháng này"}
-            </p>
-          </div>
+          <p className="font-semibold text-ink">
+            {Math.round(monthDays * 100) / 100} công · {Math.round(monthHours * 100) / 100} giờ
+          </p>
         );
       },
     },
@@ -265,87 +135,54 @@ export default function TimesheetsWorkspace({
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="card space-y-5" data-tour="timesheet-header">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="space-y-2">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Chấm công ngày</h1>
-            </div>
-
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 font-medium text-sky-700">Tháng {monthLabel}</span>
-              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 font-medium text-emerald-700">Đang làm {stats.activeCount}</span>
-              <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 font-medium text-violet-700">Đã chấm hôm nay {stats.checkedTodayCount}</span>
-              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 font-medium text-amber-700">Công tháng {stats.monthDays}</span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <SpotlightTour steps={TIMESHEET_TOUR_STEPS} />
-            <label className="space-y-2">
-              <span className="label">Ngày chấm công</span>
-              <input type="date" className="input min-w-[220px]" value={selectedDate} onChange={(event) => loadDate(event.target.value)} />
-            </label>
-            {canManageEmployees ? (
-              <Link href="/payroll" className="btn-ghost">
-                Nhân sự
-              </Link>
-            ) : null}
-          </div>
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight">Chấm công ngày</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="space-y-2">
+            <span className="label">Ngày chấm công</span>
+            <input type="date" className="input min-w-[220px]" value={selectedDate} onChange={(event) => loadDate(event.target.value)} />
+          </label>
+          {canManageEmployees ? (
+            <Link href="/payroll" className="btn-ghost">
+              Nhân sự
+            </Link>
+          ) : null}
         </div>
       </div>
 
-      <div className="card space-y-4" data-tour="timesheet-summary">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="font-display text-xl font-semibold tracking-tight">Danh sách chấm công</h2>
-            <p className="mt-1 text-sm text-ink-muted48">
-              Ngày {formatVnDate(selectedDate)} · {clientFilteredEmployees.length} nhân viên đang hiển thị · cột &quot;Công tháng&quot; đã gồm cả công/giờ/lần chấm gần nhất
-            </p>
-          </div>
-        </div>
+      {notice ? <div className="alert-success">{notice}</div> : null}
 
-        {notice ? <div className="alert-success">{notice}</div> : null}
-
-        <div data-tour="timesheet-table">
-          <DataTableResponsive
-            data={pagedEmployees}
-            columns={columns}
-            actions={actions}
-            rowKey="id"
-            searchable
-            searchPlaceholder="Tìm theo tên hoặc mã nhân viên..."
-            onSearch={handleSearch}
-            defaultSearchValue={search}
-            filterValues={{ position, checked: checkedFilter, monthDaysFrom, monthDaysTo }}
-            onFilterChange={handleFilterChange}
-            selectable={false}
-            showCountBadge={false}
-            primaryColumn="fullName"
-            secondaryColumns={["position", "id", "timesheetEntries"]}
-            emptyState={{ title: "Không có nhân viên nào", description: "Không có nhân viên nào khớp bộ lọc hiện tại." }}
-            renderExpanded={(employee) => (
-              <TimesheetEntryForm
-                employeeId={employee.id}
-                employeeName={employee.fullName}
-                selectedDate={selectedDate}
-                selectedDateLabel={formatVnDate(selectedDate)}
-                existing={entryOnSelectedDate(employee)}
-                canDeleteTimesheet={canDeleteTimesheet}
-                onSaved={() => setNotice("Đã lưu chấm công.")}
-              />
-            )}
-            pagination={{
-              total: clientFilteredEmployees.length,
-              page: currentPage,
-              pageSize: PAGE_SIZE,
-              onPageChange: (nextPage) => setPage(nextPage),
-              onPageSizeChange: () => {},
-            }}
+      <DataTableResponsive
+        data={pagedEmployees}
+        columns={columns}
+        actions={actions}
+        rowKey="id"
+        searchable={false}
+        selectable={false}
+        showCountBadge={false}
+        primaryColumn="fullName"
+        secondaryColumns={["position", "id", "timesheetEntries"]}
+        emptyState={{ title: "Không có nhân viên nào", description: "Chưa có nhân sự đang làm việc." }}
+        renderExpanded={(employee) => (
+          <TimesheetEntryForm
+            employeeId={employee.id}
+            employeeName={employee.fullName}
+            selectedDate={selectedDate}
+            selectedDateLabel={formatVnDate(selectedDate)}
+            existing={entryOnSelectedDate(employee)}
+            canDeleteTimesheet={canDeleteTimesheet}
+            onSaved={() => setNotice("Đã lưu chấm công.")}
           />
-        </div>
-      </div>
+        )}
+        pagination={{
+          total: employees.length,
+          page: currentPage,
+          pageSize: PAGE_SIZE,
+          onPageChange: (nextPage) => setPage(nextPage),
+          onPageSizeChange: () => {},
+        }}
+      />
     </div>
   );
 }

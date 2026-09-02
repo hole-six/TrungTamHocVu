@@ -213,7 +213,7 @@ export default async function LeadsPage({
     }
   }
 
-  const [missingTestCount, overdueCount, soonCount, classOptions] = await Promise.all([
+  const [missingTestCount, overdueCount, soonCount, classOptions, scheduledTestCount, passedTestCount, failedTestCount, noNeedTestCount, cancelledTestCount] = await Promise.all([
     prisma.lead.count({
       where: {
         ...branchLeadFilter,
@@ -231,6 +231,24 @@ export default async function LeadsPage({
       where: { ...branchLeadFilter, status: "ACTIVE" },
       select: { id: true, className: true },
       orderBy: { className: "asc" },
+    }),
+    // Đếm theo đúng ngữ nghĩa "placementTests: { some: { status: X } }" mà bộ lọc
+    // testStatus thật sự dùng (xem where ở dưới) — để chip và dropdown lọc luôn khớp
+    // nhau về số lượng, không phải 2 cách đếm khác nhau cho cùng 1 trạng thái.
+    prisma.lead.count({
+      where: { ...branchLeadFilter, status: { notIn: ["ENROLLED", "LOST"] }, placementTests: { some: { status: "SCHEDULED" } } },
+    }),
+    prisma.lead.count({
+      where: { ...branchLeadFilter, placementTests: { some: { status: "PASSED" } } },
+    }),
+    prisma.lead.count({
+      where: { ...branchLeadFilter, placementTests: { some: { status: "FAILED" } } },
+    }),
+    prisma.lead.count({
+      where: { ...branchLeadFilter, placementTests: { some: { status: "NO_NEED" } } },
+    }),
+    prisma.lead.count({
+      where: { ...branchLeadFilter, placementTests: { some: { status: "CANCELLED" } } },
     }),
   ]);
 
@@ -317,6 +335,11 @@ export default async function LeadsPage({
         missingTestCount={missingTestCount}
         soonCount={soonCount}
         overdueCount={overdueCount}
+        scheduledTestCount={scheduledTestCount}
+        passedTestCount={passedTestCount}
+        failedTestCount={failedTestCount}
+        noNeedTestCount={noNeedTestCount}
+        cancelledTestCount={cancelledTestCount}
         classOptions={classOptions}
       />
     </div>

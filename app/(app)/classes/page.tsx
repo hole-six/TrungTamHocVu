@@ -21,13 +21,6 @@ const CLASSES_TOUR_STEPS: TourStep[] = [
     placement: "bottom",
   },
   {
-    target: '[data-tour="classes-summary"]',
-    title: "4 số cần nhìn mỗi ngày, nhất là số đỏ cuối",
-    description:
-      "\"Sĩ số đang học\" đếm theo enrollment còn ACTIVE trên toàn hệ thống, không chỉ trang đang xem. \"Buổi trong 7 ngày tới\" giúp ước lượng khối lượng công việc tuần này. \"Sắp kết thúc (30 ngày)\" là các lớp ACTIVE có ngày kết thúc dự kiến rơi trong 30 ngày tới — cần chủ động lên kế hoạch gia hạn hoặc chuyển lớp cho học viên trước khi lớp đóng. Badge đỏ \"Chưa có lịch chuẩn\" là điểm CẦN XỬ LÝ NGAY: đây là những lớp đang ở trạng thái Đang chạy nhưng không có scheduleRule nào đang bật — nghĩa là hệ thống sẽ KHÔNG tự sinh buổi học nào cho lớp đó mỗi ngày, và học phí cuối kỳ của các học viên trong lớp này sẽ tính ra 0 đồng nếu không phát hiện sớm.",
-    placement: "bottom",
-  },
-  {
     target: '[data-dt="search"]',
     title: "Tìm theo tên hoặc mã lớp",
     description: "Gõ tên lớp hoặc mã lớp rồi Enter — lọc chạy ở backend theo đúng nguyên tắc chung của hệ thống, không tải hết danh sách về máy rồi mới lọc.",
@@ -58,18 +51,6 @@ const CLASSES_TOUR_STEPS: TourStep[] = [
 
 const PAGE_SIZE = 20;
 
-function endOfUpcomingWeek(start: Date) {
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 6);
-  end.setUTCHours(23, 59, 59, 999);
-  return end;
-}
-
-function addDays(base: Date, days: number) {
-  const next = new Date(base);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-}
 
 export default async function ClassesPage({
   searchParams,
@@ -125,10 +106,8 @@ export default async function ClassesPage({
   };
 
   const today = getVietnamToday();
-  const nextWeekEnd = endOfUpcomingWeek(today);
-  const nextMonth = addDays(today, 30);
 
-  const [classes, courses, books, total, grouped, activeEnrollments, upcomingSessions, endingSoon, unscheduledClasses, classGroups] = await Promise.all([
+  const [classes, courses, books, total, grouped, classGroups] = await Promise.all([
     prisma.class.findMany({
       where,
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
@@ -176,33 +155,6 @@ export default async function ClassesPage({
       by: ["status"],
       where: branchWhere,
       _count: { _all: true },
-    }),
-    prisma.enrollment.count({
-      where: {
-        status: "ACTIVE",
-        ...(activeBranchId ? { class: { branchId: activeBranchId } } : {}),
-      },
-    }),
-    prisma.classSession.count({
-      where: {
-        sessionDate: { gte: today, lte: nextWeekEnd },
-        status: { not: "CANCELLED" },
-        class: branchWhere,
-      },
-    }),
-    prisma.class.count({
-      where: {
-        ...branchWhere,
-        status: "ACTIVE",
-        expectedEndDate: { gte: today, lte: nextMonth },
-      },
-    }),
-    prisma.class.count({
-      where: {
-        ...branchWhere,
-        status: "ACTIVE",
-        scheduleRules: { none: { isActive: true } },
-      },
     }),
     // Get distinct classGroups for filter
     prisma.class.findMany({
@@ -277,13 +229,6 @@ export default async function ClassesPage({
             </Link>
           ) : null}
         </div>
-      </div>
-
-      <div className="card flex flex-wrap items-center gap-3" data-tour="classes-summary">
-        <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-ink">Sĩ số đang học {activeEnrollments}</span>
-        <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-sky-700">Buổi trong 7 ngày tới {upcomingSessions}</span>
-        <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">Sắp kết thúc (30 ngày) {endingSoon}</span>
-        <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">Chưa có lịch chuẩn {unscheduledClasses}</span>
       </div>
 
       <section className="rounded-2xl border border-[#dbe7ff] bg-white p-4 shadow-sm">
