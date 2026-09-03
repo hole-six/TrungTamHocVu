@@ -12,6 +12,7 @@ import StudentSessionCredits from "./StudentSessionCredits";
 import GuardianAccountPanel from "@/components/guardians/GuardianAccountPanel";
 import AssignEnrollmentForm from "./AssignEnrollmentForm";
 import TransferEnrollmentButton from "@/components/classes/TransferEnrollmentButton";
+import ScholarshipAdjustmentForm from "./ScholarshipAdjustmentForm";
 import Link from "next/link";
 import { formatVnd, formatDate } from "@/lib/export-utils";
 
@@ -125,6 +126,31 @@ type StudentData = {
   charges: Array<any>;
   nextDueCharge?: any | null;
   bookIssues: Array<any>;
+  bookRequirements: Array<{
+    id: string;
+    className: string;
+    bookName: string;
+    quantity: number;
+    totalAmount: number;
+    status: string;
+  }>;
+  scholarships: Array<{
+    id: string;
+    percentage: number;
+    reason: string | null;
+    effectiveFrom: string | Date;
+    effectiveTo: string | Date | null;
+    enrollment: { id: string; class: { className: string } } | null;
+  }>;
+  adjustments: Array<{
+    id: string;
+    percentage: number;
+    reason: string | null;
+    effectiveFrom: string | Date;
+    effectiveTo: string | Date | null;
+    enrollment: { id: string; class: { className: string } } | null;
+  }>;
+  enrollments: Array<{ id: string; className: string; status: string }>;
   recentSessions: Array<any>;
   sessionCredits: Array<any>;
   makeupSessionOptions: Array<any>;
@@ -703,10 +729,18 @@ export default function StudentDetailDrawer({
                             nextDueCharge={data.nextDueCharge}
                             charges={data.charges}
                             bookIssues={data.bookIssues}
-                            bookRequirements={[]}
+                            bookRequirements={data.bookRequirements}
                             canManageFinance={data.permissions.canManageFinance}
                             canManageInventory={data.permissions.canManageInventory}
                           />
+                          {data.permissions.canEditStudent ? (
+                            <ScholarshipAdjustmentForm
+                              studentId={data.id}
+                              scholarships={data.scholarships}
+                              adjustments={data.adjustments}
+                              enrollments={data.enrollments}
+                            />
+                          ) : null}
                         </div>
                       ),
                     },

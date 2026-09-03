@@ -238,6 +238,10 @@ export default async function StudentDetailPage({
         orderBy: { issueDate: "desc" },
         take: 8,
       },
+      bookRequirements: {
+        include: { book: true, class: true },
+        orderBy: { createdAt: "desc" },
+      },
       attendances: {
         include: {
           session: {
@@ -1022,7 +1026,14 @@ export default async function StudentDetailPage({
                     className: issue.class?.className ?? null,
                     notes: issue.notes,
                   }))}
-                  bookRequirements={[]}
+                  bookRequirements={student.bookRequirements.map((item) => ({
+                    id: item.id,
+                    className: item.class.className,
+                    bookName: item.book.name,
+                    quantity: item.quantity,
+                    totalAmount: item.totalAmount,
+                    status: item.status,
+                  }))}
                   canManageFinance={canManageFinance}
                   canManageInventory={canManageInventory}
                 />

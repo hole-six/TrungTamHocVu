@@ -122,6 +122,10 @@ export async function GET(
           orderBy: { issueDate: "desc" },
           take: 8,
         },
+        bookRequirements: {
+          include: { book: true, class: true },
+          orderBy: { createdAt: "desc" },
+        },
         attendances: {
           include: {
             session: {
@@ -540,6 +544,31 @@ export async function GET(
         className: issue.class?.className ?? null,
         notes: issue.notes,
       })),
+      bookRequirements: student.bookRequirements.map((item) => ({
+        id: item.id,
+        className: item.class.className,
+        bookName: item.book.name,
+        quantity: item.quantity,
+        totalAmount: item.totalAmount,
+        status: item.status,
+      })),
+      scholarships: student.scholarships.map((item) => ({
+        id: item.id,
+        percentage: item.percentage,
+        reason: item.reason,
+        effectiveFrom: item.effectiveFrom,
+        effectiveTo: item.effectiveTo,
+        enrollment: item.enrollment ? { id: item.enrollment.id, class: { className: item.enrollment.class.className } } : null,
+      })),
+      adjustments: student.adjustments.map((item) => ({
+        id: item.id,
+        percentage: item.percentage,
+        reason: item.reason,
+        effectiveFrom: item.effectiveFrom,
+        effectiveTo: item.effectiveTo,
+        enrollment: item.enrollment ? { id: item.enrollment.id, class: { className: item.enrollment.class.className } } : null,
+      })),
+      enrollments: student.enrollments.map((e) => ({ id: e.id, className: e.class.className, status: e.status })),
       recentSessions,
       sessionCredits: student.sessionCredits.map((c) => ({
         id: c.id,

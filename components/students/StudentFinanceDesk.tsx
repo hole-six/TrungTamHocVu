@@ -546,32 +546,34 @@ export default function StudentFinanceDesk({
                         )}
                       </td>
                       <td className="rounded-r-2xl px-4 py-3 text-right align-middle">
-                        <div className="inline-flex flex-wrap justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => switchBillingMode(enrollment.enrollmentId, enrollment.classId, "PERIOD", enrollment.className)}
-                            disabled={switchingEnrollmentId === enrollment.enrollmentId || enrollment.billingModel === "PERIOD"}
-                            className={`rounded-full px-4 py-2.5 text-sm font-semibold transition ${
-                              enrollment.billingModel === "PERIOD"
-                                ? "bg-sky-100 text-sky-700"
-                                : "border border-sky-200 bg-white text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
-                            }`}
-                          >
-                            {switchingEnrollmentId === enrollment.enrollmentId && enrollment.billingModel !== "PERIOD" ? "Đang đổi..." : "Theo tháng"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => switchBillingMode(enrollment.enrollmentId, enrollment.classId, "COURSE", enrollment.className)}
-                            disabled={switchingEnrollmentId === enrollment.enrollmentId || enrollment.billingModel === "COURSE"}
-                            className={`rounded-full px-4 py-2.5 text-sm font-semibold transition ${
-                              enrollment.billingModel === "COURSE"
-                                ? "bg-violet-100 text-violet-700"
-                                : "border border-violet-200 bg-white text-violet-700 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
-                            }`}
-                          >
-                            {switchingEnrollmentId === enrollment.enrollmentId && enrollment.billingModel !== "COURSE" ? "Đang đổi..." : "Theo khóa"}
-                          </button>
-                        </div>
+                        {canManageFinance ? (
+                          <div className="inline-flex flex-wrap justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => switchBillingMode(enrollment.enrollmentId, enrollment.classId, "PERIOD", enrollment.className)}
+                              disabled={switchingEnrollmentId === enrollment.enrollmentId || enrollment.billingModel === "PERIOD"}
+                              className={`rounded-full px-4 py-2.5 text-sm font-semibold transition ${
+                                enrollment.billingModel === "PERIOD"
+                                  ? "bg-sky-100 text-sky-700"
+                                  : "border border-sky-200 bg-white text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              }`}
+                            >
+                              {switchingEnrollmentId === enrollment.enrollmentId && enrollment.billingModel !== "PERIOD" ? "Đang đổi..." : "Theo tháng"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => switchBillingMode(enrollment.enrollmentId, enrollment.classId, "COURSE", enrollment.className)}
+                              disabled={switchingEnrollmentId === enrollment.enrollmentId || enrollment.billingModel === "COURSE"}
+                              className={`rounded-full px-4 py-2.5 text-sm font-semibold transition ${
+                                enrollment.billingModel === "COURSE"
+                                  ? "bg-violet-100 text-violet-700"
+                                  : "border border-violet-200 bg-white text-violet-700 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              }`}
+                            >
+                              {switchingEnrollmentId === enrollment.enrollmentId && enrollment.billingModel !== "COURSE" ? "Đang đổi..." : "Theo khóa"}
+                            </button>
+                          </div>
+                        ) : null}
                       </td>
                     </tr>
                   );
