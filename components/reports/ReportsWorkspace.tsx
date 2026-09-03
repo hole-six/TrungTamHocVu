@@ -24,8 +24,8 @@ const REPORTS_TOUR_STEPS: TourStep[] = [
   },
   {
     target: '[data-tour="reports-pipeline-revenue"]',
-    title: "Phễu tuyển sinh & Doanh thu theo kỳ",
-    description: "Phễu đếm lead theo trạng thái hiện tại (không phải lịch sử). % doanh thu tính trên từng kỳ học phí độc lập, không cộng dồn giữa các kỳ.",
+    title: "Phễu tuyển sinh & Doanh thu theo tháng",
+    description: "Phễu đếm lead theo trạng thái hiện tại (không phải lịch sử). % doanh thu tính trên từng tháng học phí độc lập, không cộng dồn giữa các tháng.",
     placement: "top",
   },
   {
@@ -266,7 +266,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
               </div>
             </SectionCard>
 
-            <SectionCard title="Doanh thu theo kỳ" action={<Link href="/tuition" className="text-sm font-bold text-[#f97316]">Mở →</Link>}>
+            <SectionCard title="Doanh thu theo tháng" action={<Link href="/tuition" className="text-sm font-bold text-[#f97316]">Mở →</Link>}>
               <div className="space-y-3">
                 {data.dashboard.revenueByPeriod.map((row) => {
                   const p = pct(row.collected, row.billed);
@@ -286,7 +286,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
                     </div>
                   );
                 })}
-                {data.dashboard.revenueByPeriod.length === 0 && <p className="text-sm text-[#94a3b8]">Chưa có dữ liệu kỳ học phí.</p>}
+                {data.dashboard.revenueByPeriod.length === 0 && <p className="text-sm text-[#94a3b8]">Chưa có dữ liệu tháng học phí.</p>}
               </div>
             </SectionCard>
           </div>

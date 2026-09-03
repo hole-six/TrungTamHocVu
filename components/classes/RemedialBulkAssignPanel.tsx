@@ -288,6 +288,10 @@ export default function RemedialBulkAssignPanel({
 
           {results ? (
             <div className="space-y-1 rounded-xl border border-[#e5eaf7] bg-white p-3">
+              <p className={`text-xs font-bold ${results.every((r) => r.ok) ? "text-emerald-700" : "text-amber-700"}`}>
+                {results.filter((r) => r.ok).length}/{results.length} gán thành công
+                {results.some((r) => !r.ok) ? " — xem chi tiết bên dưới" : ""}
+              </p>
               {results.map((result) => (
                 <p key={result.studentId} className={`text-xs ${result.ok ? "text-emerald-700" : "text-red-600"}`}>
                   {result.ok ? "✓" : "✗"} {result.message}

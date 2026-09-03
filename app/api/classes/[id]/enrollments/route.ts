@@ -82,7 +82,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     installmentPlans = normalized.map((item, index) => ({ billingPeriodId: periods[index].id, sequence: item!.sequence, label: `Đợt ${item!.sequence}/${normalized.length}`, amount: item!.amount, dueDate: item!.dueDate }));
   }
 
-  const student = await prisma.student.findUnique({ where: { id: studentId } });
+  const student = await prisma.student.findUnique({ where: { id: studentId }, include: { lead: true } });
   if (!student) return NextResponse.json({ error: "Không tìm thấy học viên" }, { status: 404 });
   if (student.branchId !== cls.branchId) {
     return NextResponse.json(
@@ -110,6 +110,38 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Học viên đã ghi danh lớp này rồi" }, { status: 409 });
   }
 
+  // Lead đánh giá "mất gốc" có thể đã ghi sẵn số buổi bổ trợ dự kiến (xem
+  // components/leads/NewLeadDrawer.tsx) — cấp đúng 1 lần ở lần ghi danh đầu tiên
+  // (không áp dụng cho lớp bổ trợ, vốn dùng riêng cơ chế tiêu credit có sẵn), rồi xóa
+  // khỏi Lead để không bị cấp lại nếu học viên này ghi danh thêm lớp khác sau này.
+  const pendingRemedial = !cls.isRemedial ? Math.max(0, student.lead?.pendingRemedialSessions ?? 0) : 0;
+
+  const paidCatchupCredits =
+    !cls.isRemedial && paidCatchupSessionCount > 0
+      ? Array.from({ length: paidCatchupSessionCount }, (_, index) => ({
+          studentId,
+          sourceSessionId: null,
+          status: "AVAILABLE",
+          origin: "PAID_CATCHUP",
+          unitPriceSnapshot: paidCatchupUnitPrice,
+          paidAmount: paidCatchupUnitPrice,
+          notes: `Bo tro dau khoa co phi ${index + 1}/${paidCatchupSessionCount}`,
+        }))
+      : [];
+  const pendingRemedialCredits =
+    pendingRemedial > 0
+      ? Array.from({ length: pendingRemedial }, (_, index) => ({
+          studentId,
+          sourceSessionId: null,
+          status: "AVAILABLE",
+          origin: "MANUAL",
+          unitPriceSnapshot: 0,
+          paidAmount: 0,
+          notes: `Bổ trợ mất gốc từ lead ${index + 1}/${pendingRemedial}`,
+        }))
+      : [];
+  const newSessionCredits = [...paidCatchupCredits, ...pendingRemedialCredits];
+
   const enrollment = await prisma.$transaction(async (tx) => {
     const created = await tx.enrollment.create({
       data: {
@@ -125,20 +157,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         paidCatchupUnitPrice: cls.isRemedial ? null : paidCatchupUnitPrice,
         pricingBasis: cls.isRemedial ? "MANUAL" : "MID_CLASS_FULL_COURSE",
         installments: installmentPlans.length ? { create: installmentPlans } : undefined,
-        sessionCredits:
-          !cls.isRemedial && paidCatchupSessionCount > 0
-            ? {
-                create: Array.from({ length: paidCatchupSessionCount }, (_, index) => ({
-                  studentId,
-                  sourceSessionId: null,
-                  status: "AVAILABLE",
-                  origin: "PAID_CATCHUP",
-                  unitPriceSnapshot: paidCatchupUnitPrice,
-                  paidAmount: paidCatchupUnitPrice,
-                  notes: `Bo tro dau khoa co phi ${index + 1}/${paidCatchupSessionCount}`,
-                })),
-              }
-            : undefined,
+        sessionCredits: newSessionCredits.length ? { create: newSessionCredits } : undefined,
         bookRequirements:
           !cls.isRemedial && cls.course?.bookRequirements.length
             ? {
@@ -160,6 +179,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     await tx.enrollmentStatusHistory.create({
       data: { studentId, enrollmentId: created.id, toStatus: "ACTIVE", changedById: user.id },
     });
+    if (pendingRemedial > 0 && student.leadId) {
+      await tx.lead.update({ where: { id: student.leadId }, data: { pendingRemedialSessions: null } });
+    }
     await syncStudentDerivedFields(studentId, tx);
     return created;
   });

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canView, canCreate } from "@/lib/server/role-matrix";
-import { LEAD_STATUSES } from "@/lib/server/lead-rules";
+import { LEAD_STATUSES, normalizePendingRemedialSessions } from "@/lib/server/lead-rules";
 import { getBranchWhereClause, getValidBranchIdForCreation } from "@/lib/branch-filter";
 
 export async function GET(req: NextRequest) {
@@ -180,6 +180,7 @@ export async function POST(req: NextRequest) {
       facebookParentName: body.facebookParentName || null,
       facebookLink: body.facebookLink || null,
       initialAssessment: body.initialAssessment || null,
+      pendingRemedialSessions: normalizePendingRemedialSessions(body.pendingRemedialSessions),
       notes: body.notes || null,
       notes2: body.notes2 || null,
       expectedStartDate: body.expectedStartDate ? new Date(body.expectedStartDate) : null,

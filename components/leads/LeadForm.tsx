@@ -196,6 +196,14 @@ export default function LeadForm({ initialData, leadId, redirectTo, classes = []
           rows: 2,
         },
         {
+          name: "pendingRemedialSessions",
+          label: "Số buổi bổ trợ dự kiến (nếu mất gốc)",
+          type: "number",
+          placeholder: "VD: 4",
+          defaultValue: initialData?.pendingRemedialSessions ?? "",
+          description: "Sẽ tự cấp đúng số buổi bổ trợ này khi ghi danh lần đầu — không cần sang trang khác nhập.",
+        },
+        {
           name: "expectedStartDate",
           label: "Ngày dự kiến nhập học",
           type: "date",
@@ -217,9 +225,9 @@ export default function LeadForm({ initialData, leadId, redirectTo, classes = []
           : [
               {
                 name: "scheduledTestDate",
-                label: "Ngày hẹn test",
+                label: "Đặt lịch test ngay khi tạo lead (tùy chọn)",
                 type: "date" as const,
-                description: "Nếu đã hẹn ngày test, hệ thống sẽ tự tạo lịch trong danh sách test.",
+                description: "Điền ngày để tạo lịch hẹn test luôn — trạng thái lead sẽ chuyển sang \"Đã hẹn, chưa test\".",
               },
             ]),
       ],
@@ -261,11 +269,19 @@ export default function LeadForm({ initialData, leadId, redirectTo, classes = []
     const result = await res.json();
 
     if (!isEdit && scheduledTestDate) {
-      await fetch(`/api/leads/${result.item.id}/placement-test`, {
+      const testRes = await fetch(`/api/leads/${result.item.id}/placement-test`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scheduledDate: scheduledTestDate }),
       });
+      if (!testRes.ok) {
+        const testError = await testRes.json().catch(() => ({}));
+        // Lead ĐÃ tạo thành công ở bước trên — lỗi ở đây chỉ là lịch test không tạo
+        // được, không được để SmartForm hiện lỗi như thể cả lead chưa lưu.
+        throw new Error(
+          `Đã tạo lead "${result.item.fullName}" thành công, nhưng không tạo được lịch hẹn test (${testError.error ?? "có lỗi xảy ra"}). Vào lại hồ sơ lead để đặt lịch test thủ công.`,
+        );
+      }
     }
 
     router.push(redirectTo || `/leads/${result.item.id}`);

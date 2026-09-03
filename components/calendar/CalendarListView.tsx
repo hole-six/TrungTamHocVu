@@ -21,6 +21,7 @@ export type CalendarListRow = {
 };
 
 const WEEKDAY_SHORT = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+const TODAY_YMD = new Date().toISOString().slice(0, 10);
 
 function statusBadgeClass(status: string) {
   if (status === "COMPLETED") return "border-transparent bg-[#e9f9f1] text-[#18a96b]";
@@ -71,10 +72,18 @@ export default function CalendarListView({ rows }: { rows: CalendarListRow[] }) 
                 .filter((a) => a.role !== "TEACHER")
                 .map((a) => a.employee.shortName || a.employee.fullName);
               const enrollmentCount = row.class._count?.enrollments ?? 0;
+              const isToday = new Date(row.sessionDate).toISOString().slice(0, 10) === TODAY_YMD;
 
               return (
-                <tr key={row.id} className="align-top transition hover:bg-[#fafdff]">
-                  <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">{formatRowDate(row.sessionDate)}</td>
+                <tr key={row.id} className={`align-top transition hover:bg-[#fafdff] ${isToday ? "bg-sky-50" : ""}`}>
+                  <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">
+                    <div className="flex items-center gap-2">
+                      <span>{formatRowDate(row.sessionDate)}</span>
+                      {isToday ? (
+                        <span className="inline-flex rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-bold text-white">Hôm nay</span>
+                      ) : null}
+                    </div>
+                  </td>
                   <td className="whitespace-nowrap px-4 py-3 text-ink-muted80">
                     {row.startTime ?? "?"}-{row.endTime ?? "?"}
                   </td>

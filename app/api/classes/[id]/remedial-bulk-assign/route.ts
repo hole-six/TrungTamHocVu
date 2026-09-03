@@ -104,9 +104,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           where: { id: credit.id },
           data: { status: "CONSUMED", consumedSessionId: targetSessionId, consumedAt: new Date() },
         });
+
+        await syncStudentDerivedFields(studentId, tx);
       });
 
-      await syncStudentDerivedFields(studentId);
       results.push({ studentId, ok: true, message: `Đã gán ${student.fullName} vào buổi bổ trợ đã chọn` });
     } catch {
       results.push({ studentId, ok: false, message: "Có lỗi xảy ra khi xử lý học viên này" });

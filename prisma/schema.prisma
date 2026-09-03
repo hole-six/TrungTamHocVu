@@ -275,6 +275,7 @@ model Lead {
   facebookParentName String?   @map("facebook_parent_name") // Tên facebook bố mẹ (DSTest cột W)
   facebookLink       String?   @map("facebook_link") // Đường link facebook (DSTest cột X)
   initialAssessment  String?   @map("initial_assessment") // Đánh giá học lực ban đầu (DSTest cột U)
+  pendingRemedialSessions Int? @map("pending_remedial_sessions") // Số buổi bổ trợ dự kiến cấp khi ghi danh lần đầu (vd đánh giá "mất gốc") — tiêu thụ 1 lần ở app/api/classes/[id]/enrollments, sau đó set về null
   notes              String? // GhiChu
   notes2             String?   @map("notes_2") // GhiChu2
   createdAt          DateTime  @default(now()) @map("created_at")

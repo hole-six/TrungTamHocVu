@@ -14,7 +14,7 @@ type Entry = {
   notes: string | null;
 };
 
-const DEFAULT_TIMES = { checkInAm: "08:00", checkOutAm: "12:00", checkInPm: "13:30", checkOutPm: "17:30" };
+const DEFAULT_TIMES = { checkInAm: "", checkOutAm: "", checkInPm: "", checkOutPm: "" };
 
 function hoursFromRange(start: string, end: string) {
   if (!start || !end) return 0;
@@ -106,19 +106,19 @@ export default function TimesheetEntryForm({
     <div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
         <label className="space-y-1">
-          <span className="label text-xs">Đến sáng</span>
+          <span className="label text-xs">Giờ vào (ca 1)</span>
           <input type="time" className="input" value={draft.checkInAm} onChange={(event) => setDraft((d) => ({ ...d, checkInAm: event.target.value }))} />
         </label>
         <label className="space-y-1">
-          <span className="label text-xs">Về sáng</span>
+          <span className="label text-xs">Giờ ra (ca 1)</span>
           <input type="time" className="input" value={draft.checkOutAm} onChange={(event) => setDraft((d) => ({ ...d, checkOutAm: event.target.value }))} />
         </label>
         <label className="space-y-1">
-          <span className="label text-xs">Đến chiều</span>
+          <span className="label text-xs">Giờ vào (ca 2, nếu có)</span>
           <input type="time" className="input" value={draft.checkInPm} onChange={(event) => setDraft((d) => ({ ...d, checkInPm: event.target.value }))} />
         </label>
         <label className="space-y-1">
-          <span className="label text-xs">Về chiều</span>
+          <span className="label text-xs">Giờ ra (ca 2, nếu có)</span>
           <input type="time" className="input" value={draft.checkOutPm} onChange={(event) => setDraft((d) => ({ ...d, checkOutPm: event.target.value }))} />
         </label>
         <div className="space-y-1">

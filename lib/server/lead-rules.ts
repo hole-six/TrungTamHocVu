@@ -60,10 +60,6 @@ export function canTransition(from: string, to: string): boolean {
   return (TRANSITIONS[from as LeadStatus] ?? []).includes(to as LeadStatus);
 }
 
-export function nextStatuses(from: string): LeadStatus[] {
-  return TRANSITIONS[from as LeadStatus] ?? [];
-}
-
 // Nhân sự cần đổi trạng thái vượt bước (VD: NEW -> QUALIFIED thẳng) khi thực tế đã
 // biết trước kết quả, không phải đi tuần tự từng bước như TRANSITIONS gợi ý — đúng
 // tinh thần "gợi ý tự động hóa, không phải quyết định cứng" ở đầu file. Chỉ khóa
@@ -74,6 +70,24 @@ export function canManuallySetStatus(from: string, to: string): boolean {
   if (from === "ENROLLED") return false;
   if (to === "ENROLLED") return false;
   return true;
+}
+
+// Lọc qua canManuallySetStatus để UI KHÔNG BAO GIỜ hiện nút chuyển trạng thái mà
+// API chắc chắn từ chối — trước đây nextStatuses() trả thẳng TRANSITIONS[from],
+// nên QUALIFIED -> ENROLLED vẫn hiện thành nút bấm được dù canManuallySetStatus
+// luôn chặn ENROLLED qua đường PATCH thường (gây lỗi 409 dù đã điền đủ thông tin).
+export function nextStatuses(from: string): LeadStatus[] {
+  return (TRANSITIONS[from as LeadStatus] ?? []).filter((to) => canManuallySetStatus(from, to));
+}
+
+// Chuẩn hóa "số buổi bổ trợ dự kiến" nhập ở form lead (vd đánh giá "mất gốc") — chặn
+// số âm/NaN, và chặn trần hợp lý (60 buổi, tương đương nhiều tháng học) để lỗi nhập
+// liệu không vô tình cấp hàng trăm buổi bổ trợ miễn phí khi ghi danh.
+export function normalizePendingRemedialSessions(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === "") return null;
+  const num = Math.floor(Number(raw));
+  if (!Number.isFinite(num) || num <= 0) return null;
+  return Math.min(60, num);
 }
 
 // FR-0029: tuoi = YEAR(TODAY()) - YEAR(DoB)

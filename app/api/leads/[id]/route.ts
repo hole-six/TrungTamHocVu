@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canView, canUpdate, canDelete } from "@/lib/server/role-matrix";
-import { canManuallySetStatus } from "@/lib/server/lead-rules";
+import { canManuallySetStatus, normalizePendingRemedialSessions } from "@/lib/server/lead-rules";
 import { canAccessBranch } from "@/lib/branch-filter";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -60,6 +60,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
   for (const field of ["dob", "meetDate", "expectedStartDate", "actualEnrollDate"]) {
     if (field in body) data[field] = body[field] ? new Date(body[field]) : null;
+  }
+  if ("pendingRemedialSessions" in body) {
+    data.pendingRemedialSessions = normalizePendingRemedialSessions(body.pendingRemedialSessions);
   }
   if ("interestedClassId" in body) {
     const interestedClassId = body.interestedClassId ? String(body.interestedClassId) : null;

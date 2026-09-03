@@ -25,8 +25,8 @@ const DASHBOARD_TOUR_STEPS: TourStep[] = [
   },
   {
     target: '[data-tour="dashboard-revenue-pipeline"]',
-    title: "Doanh thu theo kỳ & Phễu tuyển sinh",
-    description: "% đã thu tính trên từng kỳ học phí. Phễu tuyển sinh đếm lead theo trạng thái hiện tại, không phải lịch sử — một lead ENROLLED sẽ rời khỏi phễu.",
+    title: "Doanh thu theo tháng & Phễu tuyển sinh",
+    description: "% đã thu tính trên từng tháng học phí. Phễu tuyển sinh đếm lead theo trạng thái hiện tại, không phải lịch sử — một lead ENROLLED sẽ rời khỏi phễu.",
     placement: "top",
   },
   {
@@ -280,7 +280,7 @@ export default async function DashboardPage() {
           {/* Revenue last 6 periods */}
           <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
             <SectionHeading action={<Link href="/tuition" className="text-sm font-bold text-[#f97316] hover:text-[#ea580c]">Mở học phí →</Link>}>
-              Doanh thu theo kỳ
+              Doanh thu theo tháng
             </SectionHeading>
             <div className="space-y-2.5">
               {operational.revenueByPeriod.slice(-6).map((row) => {
@@ -301,7 +301,7 @@ export default async function DashboardPage() {
                   </div>
                 );
               })}
-              {operational.revenueByPeriod.length === 0 && <p className="text-sm text-[#94a3b8] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">Chưa có kỳ học phí nào.</p>}
+              {operational.revenueByPeriod.length === 0 && <p className="text-sm text-[#94a3b8] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">Chưa có tháng học phí nào.</p>}
             </div>
           </div>
 

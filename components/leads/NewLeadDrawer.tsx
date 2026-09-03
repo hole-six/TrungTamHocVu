@@ -11,13 +11,15 @@ export default function NewLeadDrawer({ classOptions }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
+    setSubmitError(null);
 
     const formData = new FormData(e.currentTarget);
-    
+
     // Create lead
     const leadRes = await fetch("/api/leads", {
       method: "POST",
@@ -38,30 +40,46 @@ export default function NewLeadDrawer({ classOptions }: Props) {
         meetDate: formData.get("meetDate") || null,
         source: formData.get("source") || null,
         initialAssessment: formData.get("initialAssessment") || null,
+        pendingRemedialSessions: formData.get("pendingRemedialSessions") || null,
         expectedStartDate: formData.get("expectedStartDate") || null,
         interestedClassId: formData.get("interestedClassId") || null,
         notes: formData.get("notes") || null,
       }),
     });
 
-    if (leadRes.ok) {
-      const result = await leadRes.json();
-      
-      // If test date provided, create placement test
-      const scheduledTestDate = formData.get("scheduledTestDate");
-      if (scheduledTestDate) {
-        await fetch(`/api/leads/${result.item.id}/placement-test`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ scheduledDate: scheduledTestDate }),
-        });
-      }
-      
-      setOpen(false);
-      router.refresh();
-    } else {
-      alert("Lỗi khi tạo lead");
+    if (!leadRes.ok) {
+      const errData = await leadRes.json().catch(() => ({}));
+      setSubmitError(errData.error ?? "Lỗi khi tạo lead. Vui lòng thử lại.");
+      setLoading(false);
+      return;
     }
+
+    const result = await leadRes.json();
+
+    // Nếu có hẹn ngày test, tạo lịch test — lead ĐÃ tạo thành công ở bước trên rồi,
+    // nên lỗi ở bước này không được nói như thể cả thao tác thất bại, và KHÔNG đóng
+    // drawer để người dùng còn thấy cảnh báo (trước đây lỗi ở bước này bị nuốt hoàn
+    // toàn — drawer vẫn tự đóng như đã thành công, không ai biết lịch test bị hụt).
+    const scheduledTestDate = formData.get("scheduledTestDate");
+    if (scheduledTestDate) {
+      const testRes = await fetch(`/api/leads/${result.item.id}/placement-test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scheduledDate: scheduledTestDate }),
+      });
+      if (!testRes.ok) {
+        const testErrData = await testRes.json().catch(() => ({}));
+        setSubmitError(
+          `Đã tạo lead "${formData.get("fullName")}" thành công, nhưng không tạo được lịch hẹn test (${testErrData.error ?? "có lỗi xảy ra"}). Vào lại hồ sơ lead để đặt lịch test thủ công.`,
+        );
+        setLoading(false);
+        router.refresh();
+        return;
+      }
+    }
+
+    setOpen(false);
+    router.refresh();
     setLoading(false);
   }
 
@@ -111,6 +129,8 @@ export default function NewLeadDrawer({ classOptions }: Props) {
 
             {/* Body */}
             <form onSubmit={handleSubmit} className="slideover-body space-y-5">
+              {submitError ? <div className="alert-danger text-sm">{submitError}</div> : null}
+
               {/* Thông tin học viên tiềm năng */}
               <div className="card-sm">
                 <h3 className="text-base sm:text-lg font-bold text-[#0f172a] mb-4">Thông tin học viên tiềm năng</h3>
@@ -173,29 +193,17 @@ export default function NewLeadDrawer({ classOptions }: Props) {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="form-group">
-                      <label className="label">Số điện thoại <span className="text-red-600">*</span></label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        required
-                        className="input"
-                        placeholder="0912345678"
-                        pattern="[0-9]{10,11}"
-                        title="Số điện thoại 10-11 chữ số"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="label">SĐT thứ 2</label>
-                      <input
-                        type="tel"
-                        name="secondaryPhone"
-                        className="input"
-                        placeholder="0987654321"
-                      />
-                    </div>
+                  <div className="form-group">
+                    <label className="label">Số điện thoại <span className="text-red-600">*</span></label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      required
+                      className="input"
+                      placeholder="0912345678"
+                      pattern="[0-9]{10,11}"
+                      title="Số điện thoại 10-11 chữ số"
+                    />
                   </div>
 
                   <div className="form-group">
@@ -207,38 +215,6 @@ export default function NewLeadDrawer({ classOptions }: Props) {
                       placeholder="Số nhà, đường, phường/xã, quận/huyện"
                     />
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="form-group">
-                      <label className="label">Tên Facebook phụ huynh</label>
-                      <input
-                        type="text"
-                        name="facebookParentName"
-                        className="input"
-                        placeholder="Tên hiển thị FB"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="label">Zalo phụ huynh</label>
-                      <input
-                        type="text"
-                        name="zaloContact"
-                        className="input"
-                        placeholder="SĐT Zalo hoặc tên Zalo"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="label">Link Facebook</label>
-                    <input
-                      type="text"
-                      name="facebookLink"
-                      className="input"
-                      placeholder="https://facebook.com/..."
-                    />
-                  </div>
                 </div>
               </div>
 
@@ -246,24 +222,13 @@ export default function NewLeadDrawer({ classOptions }: Props) {
               <div className="card-sm">
                 <h3 className="text-base sm:text-lg font-bold text-[#0f172a] mb-4">Thông tin tuyển sinh</h3>
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="form-group">
-                      <label className="label">Ngày gặp/liên hệ</label>
-                      <input
-                        type="date"
-                        name="meetDate"
-                        className="input"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="label">Ngày dự kiến nhập học</label>
-                      <input
-                        type="date"
-                        name="expectedStartDate"
-                        className="input"
-                      />
-                    </div>
+                  <div className="form-group">
+                    <label className="label">Ngày dự kiến nhập học</label>
+                    <input
+                      type="date"
+                      name="expectedStartDate"
+                      className="input"
+                    />
                   </div>
 
                   <div className="form-group">
@@ -304,30 +269,100 @@ export default function NewLeadDrawer({ classOptions }: Props) {
                   </div>
 
                   <div className="form-group">
-                    <label className="label">Ngày hẹn test (nếu có)</label>
+                    <label className="label">Số buổi bổ trợ dự kiến (nếu mất gốc)</label>
+                    <input
+                      type="number"
+                      name="pendingRemedialSessions"
+                      min={0}
+                      max={60}
+                      className="input"
+                      placeholder="VD: 4"
+                    />
+                    <p className="form-hint">Sẽ tự cấp đúng số buổi bổ trợ này khi ghi danh lần đầu — không cần sang trang khác nhập.</p>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="label">Đặt lịch test ngay khi tạo lead (tùy chọn)</label>
                     <input
                       type="date"
                       name="scheduledTestDate"
                       className="input"
                     />
-                    <p className="form-hint">Hệ thống sẽ tự tạo lịch test nếu nhập ngày này</p>
+                    <p className="form-hint">Điền ngày để tạo lịch hẹn test luôn — trạng thái lead sẽ chuyển sang "Đã hẹn, chưa test".</p>
                   </div>
                 </div>
               </div>
 
-              {/* Ghi chú */}
-              <div className="card-sm">
-                <h3 className="text-base sm:text-lg font-bold text-[#0f172a] mb-4">Ghi chú</h3>
-                <div className="form-group">
-                  <label className="label">Ghi chú</label>
-                  <textarea
-                    name="notes"
-                    rows={4}
-                    className="input"
-                    placeholder="Nhu cầu học, tính cách, điều kiện thời gian, lưu ý phụ huynh..."
-                  />
+              {/* Thông tin bổ sung — tùy chọn, thu gọn mặc định để form gọn hơn */}
+              <details className="card-sm">
+                <summary className="cursor-pointer text-base sm:text-lg font-bold text-[#0f172a]">
+                  Thông tin bổ sung (tùy chọn)
+                </summary>
+                <div className="space-y-4 mt-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="form-group">
+                      <label className="label">SĐT thứ 2</label>
+                      <input
+                        type="tel"
+                        name="secondaryPhone"
+                        className="input"
+                        placeholder="0987654321"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="label">Ngày gặp/liên hệ</label>
+                      <input
+                        type="date"
+                        name="meetDate"
+                        className="input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="form-group">
+                      <label className="label">Tên Facebook phụ huynh</label>
+                      <input
+                        type="text"
+                        name="facebookParentName"
+                        className="input"
+                        placeholder="Tên hiển thị FB"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="label">Zalo phụ huynh</label>
+                      <input
+                        type="text"
+                        name="zaloContact"
+                        className="input"
+                        placeholder="SĐT Zalo hoặc tên Zalo"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="label">Link Facebook</label>
+                    <input
+                      type="text"
+                      name="facebookLink"
+                      className="input"
+                      placeholder="https://facebook.com/..."
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="label">Ghi chú</label>
+                    <textarea
+                      name="notes"
+                      rows={4}
+                      className="input"
+                      placeholder="Nhu cầu học, tính cách, điều kiện thời gian, lưu ý phụ huynh..."
+                    />
+                  </div>
                 </div>
-              </div>
+              </details>
 
               {/* Actions */}
               <div className="flex items-center justify-end gap-3 border-t border-[#e6eefc] pt-6">

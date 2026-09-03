@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type Candidate = { id: string; fullName: string; studentCode: string; availableCredits: number };
 type RemedialClassOption = {
@@ -164,11 +165,20 @@ export default function SessionCreditsBulkAssign({ candidates }: { candidates: C
 
           {results ? (
             <div className="space-y-1 rounded-xl border border-[#e5eaf7] bg-white p-3">
+              <p className={`text-xs font-bold ${results.every((r) => r.ok) ? "text-emerald-700" : "text-amber-700"}`}>
+                {results.filter((r) => r.ok).length}/{results.length} xếp thành công
+                {results.some((r) => !r.ok) ? " — xem chi tiết bên dưới" : ""}
+              </p>
               {results.map((result) => (
                 <p key={result.studentId} className={`text-xs ${result.ok ? "text-emerald-700" : "text-red-600"}`}>
                   {result.ok ? "✓" : "✗"} {result.message}
                 </p>
               ))}
+              {results.some((r) => r.ok) && classId ? (
+                <Link href={`/classes/${classId}`} className="mt-1 inline-block text-xs font-bold text-[#1d4ed8] hover:underline">
+                  Xem danh sách lớp bổ trợ →
+                </Link>
+              ) : null}
             </div>
           ) : null}
 

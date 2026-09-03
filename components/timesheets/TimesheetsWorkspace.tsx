@@ -2,17 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
-import type { Column, Action } from "@/components/ui/DataTable/DataTable";
+import type { Column } from "@/components/ui/DataTable/DataTable";
 import TimesheetEntryForm from "@/components/timesheets/TimesheetEntryForm";
-
-const DEFAULT_CHECKIN_TIMES = { checkInAm: "08:00", checkOutAm: "12:00", checkInPm: "13:30", checkOutPm: "17:30" };
-
-function todayYmd() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 type Entry = {
   id: string;
@@ -52,28 +44,9 @@ export default function TimesheetsWorkspace({
   canManageEmployees: boolean;
   canDeleteTimesheet: boolean;
 }) {
-  const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(defaultDate);
   const [notice, setNotice] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-
-  const today = todayYmd();
-
-  async function quickCheckInToday(employee: EmployeeRow) {
-    setNotice(null);
-    const response = await fetch("/api/timesheet-entries", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId: employee.id, workDate: today, ...DEFAULT_CHECKIN_TIMES, notes: "" }),
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      setNotice(result.error ?? "Không thể chấm công hôm nay.");
-      return;
-    }
-    setNotice(`Đã chấm công hôm nay cho ${employee.fullName}.`);
-    router.refresh();
-  }
 
   const entryOnSelectedDate = (employee: EmployeeRow) => employee.timesheetEntries.find((entry) => entry.workDate.slice(0, 10) === selectedDate) ?? null;
 
@@ -125,15 +98,6 @@ export default function TimesheetsWorkspace({
     },
   ];
 
-  const actions: Action<EmployeeRow>[] = [
-    {
-      label: "Chấm công hôm nay",
-      variant: "primary",
-      show: (row) => !row.timesheetEntries.some((entry) => entry.workDate.slice(0, 10) === today),
-      onClick: (row) => quickCheckInToday(row),
-    },
-  ];
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -156,7 +120,6 @@ export default function TimesheetsWorkspace({
       <DataTableResponsive
         data={pagedEmployees}
         columns={columns}
-        actions={actions}
         rowKey="id"
         searchable={false}
         selectable={false}
