@@ -52,10 +52,23 @@ async function getCreditRows(activeBranchId: string | null, statusFilter: string
     take: 500,
   });
 
-  const lessonDetailByCreditId = await resolveSourceLessonDetails(credits);
-  const grouped = new Map<string, typeof credits>();
+  // enrollment/student là quan hệ bắt buộc trong schema, nhưng Prisma include không
+  // tự kiểm tra khóa ngoại còn hợp lệ hay không ở tầng ứng dụng — dữ liệu cũ có thể có
+  // session_credits trỏ tới 1 enrollment_id/student_id đã không còn tồn tại (sửa dữ
+  // liệu tay ngoài Prisma trước đây, xem ghi chú migrations ở CLAUDE.md). Lọc bỏ và
+  // cảnh báo thay vì để 1 dòng hỏng làm sập toàn bộ trang cho các dòng còn lại.
+  const validCredits = credits.filter((credit) => credit.enrollment !== null && credit.student !== null);
+  if (validCredits.length !== credits.length) {
+    console.warn(
+      "[session-credits] Bỏ qua session credit có enrollment/student không hợp lệ:",
+      credits.filter((credit) => credit.enrollment === null || credit.student === null).map((credit) => credit.id),
+    );
+  }
 
-  for (const credit of credits) {
+  const lessonDetailByCreditId = await resolveSourceLessonDetails(validCredits);
+  const grouped = new Map<string, typeof validCredits>();
+
+  for (const credit of validCredits) {
     const key = `${credit.studentId}:${credit.enrollmentId}:${credit.origin}`;
     grouped.set(key, [...(grouped.get(key) ?? []), credit]);
   }
