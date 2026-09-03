@@ -112,12 +112,22 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if (effectiveBillingPeriodId) {
     const result = await generateChargesForPeriod(effectiveBillingPeriodId);
-    if ("error" in result) {
+    // generateChargesForPeriod sinh cho CẢ kỳ (nhiều học viên) — lỗi riêng của ĐÚNG
+    // enrollment này (vd charge COURSE cũ đã thu tiền nên không thay được) không nằm
+    // ở "error" cấp cao (chỉ dùng cho lỗi cấp kỳ như kỳ đã khóa sổ), mà nằm trong
+    // exceptions[] theo từng học viên/lớp — phải tự soi đúng enrollment đang đổi,
+    // nếu không sẽ đổi billingModel "thành công" trong khi charge thật sự chưa hề
+    // được sinh lại, để học viên treo lửng lơ ở kiểu thu mới không có charge nào.
+    const ownException = "error" in result
+      ? null
+      : result.exceptions.find((item) => item.studentId === enrollment.studentId && item.classId === enrollment.classId);
+    if ("error" in result || ownException) {
       await prisma.enrollment.update({
         where: { id: enrollment.id },
         data: { billingModel: enrollment.billingModel },
       });
-      return NextResponse.json({ error: result.error }, { status: 409 });
+      const message = "error" in result ? result.error : ownException!.reason;
+      return NextResponse.json({ error: message }, { status: 409 });
     }
   }
 

@@ -105,9 +105,18 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: "Vai trò của bạn không có quyền xóa học viên" }, { status: 403 });
   }
 
-  const existing = await prisma.student.findUnique({ where: { id: params.id }, select: { branchId: true } });
+  const existing = await prisma.student.findUnique({ where: { id: params.id }, select: { branchId: true, status: true } });
   if (!existing) return NextResponse.json({ error: "Khong tim thay hoc vien" }, { status: 404 });
   if (!(await canAccessBranch(existing.branchId))) return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
+
+  // UI chỉ hiện nút Xóa khi học viên KHÔNG còn ACTIVE — chặn lại đúng quy tắc này ở
+  // server để không thể xóa học viên đang học chỉ bằng cách gọi thẳng API (bỏ qua UI).
+  if (existing.status === "ACTIVE") {
+    return NextResponse.json(
+      { error: "Học viên đang ở trạng thái Đang học — chuyển sang 'Đã nghỉ' trước khi xóa." },
+      { status: 409 }
+    );
+  }
 
   const [chargeCount, paymentCount] = await Promise.all([
     prisma.charge.count({ where: { studentId: params.id } }),

@@ -4,6 +4,7 @@ import {
   getEnrollmentLearningSnapshot,
   resolveEnrollmentUnitPrice,
 } from "../lib/server/enrollment-learning";
+import { computeEffectiveUnitPrice, overlapsWindow } from "../lib/server/tuition-rules";
 
 const prisma = new PrismaClient();
 
@@ -41,24 +42,42 @@ async function main() {
 
   for (const enrollment of enrollments) {
     const snapshot = await getEnrollmentLearningSnapshot(prisma, enrollment);
-    const attendedMainSessions = await prisma.studentAttendance.count({
+    // completedMainSessions đếm theo LỊCH ĐÃ QUA (mọi ClassSession COMPLETED kể từ
+    // enrollDate), KHÔNG lọc theo attendance="PRESENT" — vắng có buổi bổ trợ bù riêng
+    // chứ không làm chậm tiến độ (xem comment trong getEnrollmentLearningSnapshot).
+    // Check này phải mô phỏng đúng cùng công thức, nếu không sẽ báo sai với mọi học
+    // viên có buổi vắng.
+    const learningStart = new Date(Date.UTC(enrollment.enrollDate.getUTCFullYear(), enrollment.enrollDate.getUTCMonth(), enrollment.enrollDate.getUTCDate()));
+    const completedMainSessions = await prisma.classSession.count({
       where: {
-        studentId: enrollment.studentId,
-        status: "PRESENT",
-        session: {
-          classId: enrollment.classId,
-          status: "COMPLETED",
-          sessionDate: { gte: enrollment.enrollDate },
-        },
+        classId: enrollment.classId,
+        status: "COMPLETED",
+        sessionDate: { gte: learningStart },
       },
     });
     const purchased = enrollment.purchasedMainSessionCount ?? enrollment.class.totalSessions ?? 0;
-    const unitPrice = resolveEnrollmentUnitPrice(enrollment);
-    const remaining = Math.max(0, purchased - attendedMainSessions);
+    // snapshot.remainingValue dùng đơn giá ĐÃ TRỪ %học bổng/điều chỉnh đang hiệu lực
+    // NGAY LÚC NÀY (không phải lúc ghi danh) — phải mô phỏng đúng, nếu không mọi học
+    // viên đang có học bổng sẽ báo sai remaining value dù snapshot tính đúng.
+    const now = new Date();
+    const [scholarships, adjustments] = await Promise.all([
+      prisma.scholarship.findMany({ where: { enrollmentId: enrollment.id }, select: { percentage: true, effectiveFrom: true, effectiveTo: true } }),
+      prisma.adjustment.findMany({
+        where: { studentId: enrollment.studentId, OR: [{ enrollmentId: null }, { enrollmentId: enrollment.id }] },
+        select: { percentage: true, effectiveFrom: true, effectiveTo: true },
+      }),
+    ]);
+    const scholarshipPct = scholarships.filter((item) => overlapsWindow(item.effectiveFrom, item.effectiveTo, now, now)).reduce((sum, item) => sum + item.percentage, 0);
+    const adjustmentPct = adjustments.filter((item) => overlapsWindow(item.effectiveFrom, item.effectiveTo, now, now)).reduce((sum, item) => sum + item.percentage, 0);
+    const unitPrice = computeEffectiveUnitPrice(resolveEnrollmentUnitPrice(enrollment), scholarshipPct, adjustmentPct);
+    const manualExtra = Math.max(0, enrollment.manualExtraSessionCount ?? 0);
+    const entitled = purchased + manualExtra;
+    const remainingMain = Math.max(0, entitled - completedMainSessions);
+    const paidRemaining = Math.max(0, purchased - completedMainSessions);
 
-    assertEqual(failures, `${enrollment.student.studentCode} completed sessions`, snapshot.completedMainSessions, attendedMainSessions);
-    assertEqual(failures, `${enrollment.student.studentCode} remaining sessions`, snapshot.remainingMainSessions, remaining);
-    assertEqual(failures, `${enrollment.student.studentCode} remaining value`, snapshot.remainingValue, remaining * unitPrice);
+    assertEqual(failures, `${enrollment.student.studentCode} completed sessions`, snapshot.completedMainSessions, completedMainSessions);
+    assertEqual(failures, `${enrollment.student.studentCode} remaining sessions`, snapshot.remainingMainSessions, remainingMain);
+    assertEqual(failures, `${enrollment.student.studentCode} remaining value`, snapshot.remainingValue, paidRemaining * unitPrice);
 
     if (enrollment.paidCatchupSessionCount > 0) {
       const paidCatchupCredits = enrollment.sessionCredits.filter((credit) => credit.origin === "PAID_CATCHUP");

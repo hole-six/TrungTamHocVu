@@ -463,12 +463,16 @@ async function main() {
       postingAmount: txn.cashPosting?.amount ?? null,
       cashTxnAmount: txn.cashPosting?.cashTransaction.amount ?? null,
     }))
-    .filter(
-      (item) =>
-        item.maintenanceAmount <= 0 ||
-        item.postingAmount !== item.maintenanceAmount ||
-        item.cashTxnAmount !== item.maintenanceAmount,
-    );
+    .filter((item) => {
+      // "Tự bảo dưỡng" (miễn phí) là hành vi CỐ Ý: amount=0 và không sinh phiếu chi ở sổ
+      // quỹ (xem components/assets/QuickMaintenanceButton.tsx) — không phải lệch dữ liệu.
+      // Chỉ coi là sai khi: (a) có phí (>0) mà thiếu/lệch bút toán quỹ, hoặc (b) amount=0
+      // mà lại có bút toán quỹ gắn vào (mới thực sự là lệch).
+      if (item.maintenanceAmount > 0) {
+        return item.postingAmount !== item.maintenanceAmount || item.cashTxnAmount !== item.maintenanceAmount;
+      }
+      return item.postingAmount !== null || item.cashTxnAmount !== null;
+    });
 
   addFinding(findings, {
     key: "assets.maintenance.parity",
