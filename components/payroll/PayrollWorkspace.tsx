@@ -387,39 +387,37 @@ export default function PayrollWorkspace({
         </Link>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-sm">
-        <DataTableResponsive
-          data={pagedRows}
-          columns={columns}
-          actions={actions}
-          rowKey="id"
-          searchable
-          searchPlaceholder="Tìm theo mã, tên..."
-          onSearch={handleSearch}
-          defaultSearchValue={search}
-          filterValues={{
-            position,
-            bonusFrom: searchParams.get("bonusFrom") ?? "",
-            bonusTo: searchParams.get("bonusTo") ?? "",
-            totalAmountFrom: searchParams.get("totalAmountFrom") ?? "",
-            totalAmountTo: searchParams.get("totalAmountTo") ?? "",
-            hasRateIssue: searchParams.get("hasRateIssue") ?? "",
-          }}
-          onFilterChange={handleFilterChange}
-          selectable={false}
-          showCountBadge={false}
-          primaryColumn="fullName"
-          secondaryColumns={["totalAmount", "hasRateIssue"]}
-          emptyState={{ title: "Không có nhân sự nào", description: `Không có nhân sự nào khớp bộ lọc trong tháng ${period}.` }}
-          pagination={{
-            total: chipFilteredRows.length,
-            page: currentPage,
-            pageSize: PAGE_SIZE,
-            onPageChange: (nextPage) => setPage(nextPage),
-            onPageSizeChange: () => {},
-          }}
-        />
-      </section>
+      <DataTableResponsive
+        data={pagedRows}
+        columns={columns}
+        actions={actions}
+        rowKey="id"
+        searchable
+        searchPlaceholder="Tìm theo mã, tên..."
+        onSearch={handleSearch}
+        defaultSearchValue={search}
+        filterValues={{
+          position,
+          bonusFrom: searchParams.get("bonusFrom") ?? "",
+          bonusTo: searchParams.get("bonusTo") ?? "",
+          totalAmountFrom: searchParams.get("totalAmountFrom") ?? "",
+          totalAmountTo: searchParams.get("totalAmountTo") ?? "",
+          hasRateIssue: searchParams.get("hasRateIssue") ?? "",
+        }}
+        onFilterChange={handleFilterChange}
+        selectable={false}
+        showCountBadge={false}
+        primaryColumn="fullName"
+        secondaryColumns={["totalAmount", "hasRateIssue"]}
+        emptyState={{ title: "Không có nhân sự nào", description: `Không có nhân sự nào khớp bộ lọc trong tháng ${period}.` }}
+        pagination={{
+          total: chipFilteredRows.length,
+          page: currentPage,
+          pageSize: PAGE_SIZE,
+          onPageChange: (nextPage) => setPage(nextPage),
+          onPageSizeChange: () => {},
+        }}
+      />
 
       {selectedRow ? (
         <PayrollEmployeeDrawer

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
@@ -26,12 +25,6 @@ type SearchParams = {
 
 const PAGE_SIZE = 20;
 
-const STATUS_FILTERS = [
-  { key: "", label: "Tất cả", icon: "📋", color: "border-[#e5eaf7] bg-white text-[#475569]", activeColor: "border-[#0f1729] bg-[#0f1729] text-white" },
-  { key: "SUBMITTED", label: "Đã nộp", icon: "✓", color: "border-[#a7f3d0] bg-[#ecfdf5] text-[#065f46]", activeColor: "border-[#059669] bg-[#059669] text-white" },
-  { key: "NOT_SUBMITTED", label: "Chưa nộp", icon: "✗", color: "border-[#fecaca] bg-[#fef2f2] text-[#b91c1c]", activeColor: "border-[#dc2626] bg-[#dc2626] text-white" },
-];
-
 const TEACHER_TASKS_TOUR: TourStep[] = [
   {
     target: '[data-tour="teacher-tasks-header"]',
@@ -40,15 +33,10 @@ const TEACHER_TASKS_TOUR: TourStep[] = [
     placement: "bottom",
   },
   {
-    target: '[data-tour="teacher-tasks-filters"]',
-    title: "Lọc theo trạng thái và nhân sự",
-    description: "Dùng các chip để lọc nhanh 'Đã nộp' hay 'Chưa nộp', hoặc chọn nhân sự cụ thể để xem lịch sử của từng người.",
-    placement: "bottom",
-  },
-  {
     target: '[data-tour="teacher-tasks-table"]',
     title: "Bảng chi tiết xác nhận",
-    description: "Mỗi dòng là 1 lần xác nhận — click vào ngày để mở buổi học gốc, hoặc vào 'Lịch sử & điểm' để xem profile nhân sự đó.",
+    description:
+      "Mỗi dòng là 1 lần xác nhận — dùng ô lọc 'Trạng thái' ngay trên bảng để lọc nhanh Đã nộp/Chưa nộp, click vào ngày để mở buổi học gốc, hoặc vào 'Lịch sử & điểm' để xem profile nhân sự đó.",
     placement: "top",
   },
 ];
@@ -199,30 +187,6 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
           </div>
           <p className="mt-3 text-3xl font-black text-[#0f1729]">{totalChecks - notSubmittedCount}</p>
         </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2" data-tour="teacher-tasks-filters">
-        {STATUS_FILTERS.map((item) => {
-          const params = new URLSearchParams();
-          if (item.key) params.set("status", item.key);
-          if (employeeId) params.set("employeeId", employeeId);
-          if (classId) params.set("classId", classId);
-          if (q) params.set("q", q);
-          const query = params.toString();
-          const active = item.key === status;
-          return (
-            <Link
-              key={item.key || "ALL"}
-              href={`/teacher-tasks${query ? `?${query}` : ""}`}
-              className={`inline-flex items-center gap-2 rounded-xl border-2 px-4 py-2.5 text-sm font-bold transition-all ${
-                active ? item.activeColor + " shadow-md scale-[1.02]" : item.color + " hover:shadow-sm hover:scale-[1.01]"
-              }`}
-            >
-              <span className="text-base">{item.icon}</span>
-              {item.label}
-            </Link>
-          );
-        })}
       </div>
 
       <div data-tour="teacher-tasks-table">

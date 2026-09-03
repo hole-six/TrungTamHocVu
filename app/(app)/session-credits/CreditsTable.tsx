@@ -142,7 +142,7 @@ export default function CreditsTable({ initialData, statusParam, typeParam, stud
     {
       key: "student",
       label: "Học viên",
-      width: "200px",
+      width: showConsumedColumn ? "17%" : "20%",
       filter: { type: "text", paramKey: "student", placeholder: "Tên hoặc mã HV..." },
       render: (_value, row) => (
         <div>
@@ -159,7 +159,7 @@ export default function CreditsTable({ initialData, statusParam, typeParam, stud
     {
       key: "origin",
       label: "Loại bổ trợ",
-      width: "180px",
+      width: showConsumedColumn ? "13%" : "16%",
       filter: {
         type: "select",
         paramKey: "type",
@@ -181,7 +181,7 @@ export default function CreditsTable({ initialData, statusParam, typeParam, stud
       key: "totalCount",
       label: "Số buổi",
       align: "center",
-      width: "110px",
+      width: showConsumedColumn ? "8%" : "10%",
       filter: {
         type: "select",
         paramKey: "status",
@@ -203,7 +203,7 @@ export default function CreditsTable({ initialData, statusParam, typeParam, stud
       key: "availableCount",
       label: "Còn lại",
       align: "center",
-      width: "100px",
+      width: showConsumedColumn ? "8%" : "10%",
       filter: { type: "numberRange", paramKeyFrom: "availableFrom", paramKeyTo: "availableTo", placeholder: "buổi" },
       render: (value, row) => (
         <div>
@@ -215,6 +215,7 @@ export default function CreditsTable({ initialData, statusParam, typeParam, stud
     {
       key: "sourceItems",
       label: "Bài/ngày cần bù",
+      width: showConsumedColumn ? "24%" : "30%",
       render: (_value, row) => <LessonList row={row} />,
     },
     ...(showConsumedColumn
@@ -222,6 +223,7 @@ export default function CreditsTable({ initialData, statusParam, typeParam, stud
           {
             key: "consumedItems",
             label: "Các ngày đã bổ trợ",
+            width: "18%",
             render: (_value, row) => <ConsumedList row={row} />,
           } as Column<CreditRow>,
         ]
@@ -230,7 +232,7 @@ export default function CreditsTable({ initialData, statusParam, typeParam, stud
       key: "actions",
       label: "Tác vụ",
       align: "right",
-      width: "150px",
+      width: showConsumedColumn ? "12%" : "14%",
       render: (_value, row) => (
         <div className="flex flex-col items-end gap-2">
           <StudentLink studentId={row.student.id} className="rounded-lg border border-[#dbeafe] bg-[#eff6ff] px-3 py-1.5 text-xs font-bold text-[#1d4ed8] hover:bg-[#dbeafe]">
@@ -260,7 +262,7 @@ export default function CreditsTable({ initialData, statusParam, typeParam, stud
       }}
       loading={isPending}
       rowKey="key"
-      className={showConsumedColumn ? "[&_table]:min-w-[1100px]" : "[&_table]:min-w-[900px]"}
+      className={showConsumedColumn ? "[&_table]:min-w-[1100px] [&_table]:table-fixed" : "[&_table]:min-w-[900px] [&_table]:table-fixed"}
       primaryColumn="student"
       secondaryColumns={["origin", "availableCount"]}
     />

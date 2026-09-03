@@ -185,7 +185,7 @@ export default function CategoryManager({
   }
 
   return (
-    <div className="card">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Phân loại giao dịch</p>

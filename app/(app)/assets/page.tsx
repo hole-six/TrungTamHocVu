@@ -270,49 +270,38 @@ export default async function AssetsPage({
         </div>
       </div>
 
-      <div className="card">
-        <form className="flex flex-wrap items-center gap-3">
-          <input
-            type="text"
-            name="q"
-            defaultValue={q}
-            placeholder="Tìm tên, mã tài sản, phòng..."
-            className="input min-w-[220px] flex-1"
-            data-tour="assets-search"
-          />
-          <div data-tour="assets-summary" className="flex flex-wrap items-center gap-3">
-            <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-ink">Tài sản {total}</span>
-            <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-sky-700">Số lượng {totalQuantity}</span>
-            <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-indigo-700">Giá gốc {formatVnd(totalBaseValue)}</span>
-            <span className="rounded-full border border-[#fde7d8] bg-[#fff8f2] px-3 py-2 text-xs font-semibold text-amber-700">Bảo dưỡng {formatVnd(totalMaintenanceValue)}</span>
-            <span className="rounded-full border border-[#e4ddff] bg-[#f7f5ff] px-3 py-2 text-xs font-semibold text-violet-700">Tổng giá trị {formatVnd(totalValue)}</span>
-            <span className="rounded-full border border-[#fde7d8] bg-[#fff8f2] px-3 py-2 text-xs font-semibold text-amber-700">Đang bảo trì {maintenanceCount}</span>
-            <span className="rounded-full border border-[#ffe0e0] bg-[#fff7f7] px-3 py-2 text-xs font-semibold text-rose-700">Hỏng {brokenCount}</span>
-            <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">Quá hạn bảo dưỡng {overdueMaintenanceCount}</span>
-            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">Sắp đến hạn {dueSoonMaintenanceCount}</span>
-          </div>
-        </form>
-      </div>
-
-      <div className="card space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="font-display text-lg font-semibold tracking-tight">Danh sách tài sản</h2>
-            <p className="mt-1 text-sm text-ink-muted48">Đối chiếu nhanh giá gốc, bảo dưỡng và tổng giá trị ngay trên từng dòng.</p>
-          </div>
-        </div>
-
-        <AssetsTable
-          rows={rows}
-          canManageAssets={canManageAssets}
-          canRemoveAssets={canRemoveAssets}
-          currentPage={page}
-          totalCount={total}
-          pageSize={pageSize}
-          categoryOptions={categoryOptions}
-          unitOptions={unitOptions}
+      <form className="flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          name="q"
+          defaultValue={q}
+          placeholder="Tìm tên, mã tài sản, phòng..."
+          className="input min-w-[220px] flex-1"
+          data-tour="assets-search"
         />
-      </div>
+        <div data-tour="assets-summary" className="flex flex-wrap items-center gap-3">
+          <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-ink">Tài sản {total}</span>
+          <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-sky-700">Số lượng {totalQuantity}</span>
+          <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-2 text-xs font-semibold text-indigo-700">Giá gốc {formatVnd(totalBaseValue)}</span>
+          <span className="rounded-full border border-[#fde7d8] bg-[#fff8f2] px-3 py-2 text-xs font-semibold text-amber-700">Bảo dưỡng {formatVnd(totalMaintenanceValue)}</span>
+          <span className="rounded-full border border-[#e4ddff] bg-[#f7f5ff] px-3 py-2 text-xs font-semibold text-violet-700">Tổng giá trị {formatVnd(totalValue)}</span>
+          <span className="rounded-full border border-[#fde7d8] bg-[#fff8f2] px-3 py-2 text-xs font-semibold text-amber-700">Đang bảo trì {maintenanceCount}</span>
+          <span className="rounded-full border border-[#ffe0e0] bg-[#fff7f7] px-3 py-2 text-xs font-semibold text-rose-700">Hỏng {brokenCount}</span>
+          <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">Quá hạn bảo dưỡng {overdueMaintenanceCount}</span>
+          <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">Sắp đến hạn {dueSoonMaintenanceCount}</span>
+        </div>
+      </form>
+
+      <AssetsTable
+        rows={rows}
+        canManageAssets={canManageAssets}
+        canRemoveAssets={canRemoveAssets}
+        currentPage={page}
+        totalCount={total}
+        pageSize={pageSize}
+        categoryOptions={categoryOptions}
+        unitOptions={unitOptions}
+      />
     </div>
   );
 }

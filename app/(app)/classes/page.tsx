@@ -7,6 +7,7 @@ import ClassesTable from "@/components/classes/ClassesTable";
 import ClassLink from "@/components/classes/ClassLink";
 import PipelineStackEditorTrigger from "@/components/classes/PipelineStackEditorTrigger";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+import DetailTabs from "@/components/ui/DetailTabs";
 import { canCreate } from "@/lib/server/role-matrix";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
@@ -231,100 +232,123 @@ export default async function ClassesPage({
         </div>
       </div>
 
-      <section className="rounded-2xl border border-[#dbe7ff] bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Pipeline lớp học</p>
-              <h2 className="mt-1 text-lg font-black text-[#0f1729]">Ngăn xếp chuyển tiếp</h2>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <p className="text-sm text-[#64748b]">Mỗi lớp nên có lớp tiếp theo để học viên vào giữa/cuối khóa không bị rơi hành trình.</p>
-              <PipelineStackEditorTrigger />
-            </div>
-          </div>
-          
-          {/* Class Group Pills */}
-          {classGroups.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              <a
-                href={`/classes?${new URLSearchParams({ ...(q && { q }), ...(status && { status }) }).toString()}`}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  !classGroup
-                    ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-                    : "border-[#dbe7ff] bg-white text-[#64748b] hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-                }`}
-              >
-                Tất cả ngăn sếp
-              </a>
-              {classGroups.map((group) => (
-                <a
-                  key={group.classGroup}
-                  href={`/classes?${new URLSearchParams({ ...(q && { q }), ...(status && { status }), classGroup: group.classGroup! }).toString()}`}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                    classGroup === group.classGroup
-                      ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-                      : "border-[#dbe7ff] bg-white text-[#64748b] hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-                  }`}
-                >
-                  Ngăn {group.classGroup}
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          {pipelineRows.map((row) => (
-            <div key={row.id} className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <ClassLink classId={row.id} className="font-bold text-[#0f1729] hover:text-[#2563eb]">
-                    {row.className}
-                  </ClassLink>
-                  {row.classGroup && (
-                    <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700">
-                      {row.classGroup}
-                    </span>
+      <DetailTabs
+        defaultTabKey="classes"
+        tabs={[
+          {
+            key: "pipeline",
+            label: "Ngăn xếp chuyển tiếp",
+            content: (
+              <section className="rounded-2xl border border-[#dbe7ff] bg-white p-4 shadow-sm">
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Pipeline lớp học</p>
+                      <h2 className="mt-1 text-lg font-black text-[#0f1729]">Ngăn xếp chuyển tiếp</h2>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="text-sm text-[#64748b]">Mỗi lớp nên có lớp tiếp theo để học viên vào giữa/cuối khóa không bị rơi hành trình.</p>
+                      <PipelineStackEditorTrigger />
+                    </div>
+                  </div>
+
+                  {/* Class Group Pills */}
+                  {classGroups.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      <a
+                        href={`/classes?${new URLSearchParams({ ...(q && { q }), ...(status && { status }) }).toString()}`}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                          !classGroup
+                            ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                            : "border-[#dbe7ff] bg-white text-[#64748b] hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                        }`}
+                      >
+                        Tất cả ngăn sếp
+                      </a>
+                      {classGroups.map((group) => (
+                        <a
+                          key={group.classGroup}
+                          href={`/classes?${new URLSearchParams({ ...(q && { q }), ...(status && { status }), classGroup: group.classGroup! }).toString()}`}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                            classGroup === group.classGroup
+                              ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                              : "border-[#dbe7ff] bg-white text-[#64748b] hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                          }`}
+                        >
+                          Ngăn {group.classGroup}
+                        </a>
+                      ))}
+                    </div>
                   )}
                 </div>
-                {row.transferNeed > 0 ? (
-                  <span className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800">
-                    {row.transferNeed} cần chuyển
-                  </span>
-                ) : (
-                  <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800">Ổn</span>
-                )}
-              </div>
-              <p className="mt-2 text-sm font-semibold text-[#64748b]">
-                {row.classCode} → {row.nextClassName ?? "Chưa cấu hình lớp tiếp theo"}
-              </p>
-              <p className="mt-1 text-xs text-[#64748b]">
-                Sĩ số {row.activeCount}
-                {row.missingNextCount > 0 ? ` · ${row.missingNextCount} học viên cần chuyển nhưng lớp chưa có nextClass` : ""}
-              </p>
-            </div>
-          ))}
-          {pipelineRows.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-[#dbe7ff] bg-[#f8faff] p-5 text-sm text-[#64748b]">
-              Chưa có lớp ACTIVE nào trong trang hiện tại để hiển thị pipeline.
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      <ClassesTable
-        initialData={classes}
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        userRole={userRole || "TEACHER"}
-        searchQuery={q}
-        statusFilter={status}
-        statusOptions={statusPills}
-        courseOptions={courses.map((course) => ({ label: course.name, value: course.id }))}
+                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  {pipelineRows.map((row) => (
+                    <div key={row.id} className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <ClassLink classId={row.id} className="font-bold text-[#0f1729] hover:text-[#2563eb]">
+                            {row.className}
+                          </ClassLink>
+                          {row.classGroup && (
+                            <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700">
+                              {row.classGroup}
+                            </span>
+                          )}
+                        </div>
+                        {row.transferNeed > 0 ? (
+                          <span className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800">
+                            {row.transferNeed} cần chuyển
+                          </span>
+                        ) : (
+                          <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800">Ổn</span>
+                        )}
+                      </div>
+                      <p className="mt-2 text-sm font-semibold text-[#64748b]">
+                        {row.classCode} → {row.nextClassName ?? "Chưa cấu hình lớp tiếp theo"}
+                      </p>
+                      <p className="mt-1 text-xs text-[#64748b]">
+                        Sĩ số {row.activeCount}
+                        {row.missingNextCount > 0 ? ` · ${row.missingNextCount} học viên cần chuyển nhưng lớp chưa có nextClass` : ""}
+                      </p>
+                    </div>
+                  ))}
+                  {pipelineRows.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-[#dbe7ff] bg-[#f8faff] p-5 text-sm text-[#64748b]">
+                      Chưa có lớp ACTIVE nào trong trang hiện tại để hiển thị pipeline.
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+            ),
+          },
+          {
+            key: "classes",
+            label: "Lớp học",
+            content: (
+              <ClassesTable
+                initialData={classes}
+                total={total}
+                page={page}
+                pageSize={pageSize}
+                userRole={userRole || "TEACHER"}
+                searchQuery={q}
+                statusFilter={status}
+                statusOptions={statusPills}
+                courseOptions={courses.map((course) => ({ label: course.name, value: course.id }))}
+              />
+            ),
+          },
+          ...(canCreate("schedule", userRole)
+            ? [
+                {
+                  key: "courses",
+                  label: "Khóa học",
+                  content: <CourseManager courses={courses} books={books} />,
+                },
+              ]
+            : []),
+        ]}
       />
-
-      {canCreate("schedule", userRole) ? <CourseManager courses={courses} books={books} /> : null}
     </div>
   );
 }

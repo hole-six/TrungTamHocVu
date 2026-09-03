@@ -7,6 +7,7 @@ import BooksTable from "@/components/inventory/BooksTable";
 import BookIssuesTable from "@/components/inventory/BookIssuesTable";
 import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+import DetailTabs from "@/components/ui/DetailTabs";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
@@ -293,50 +294,55 @@ export default async function InventoryPage({
         </div>
       </div>
 
-      <section className="space-y-3 sm:space-y-4 rounded-[22px] sm:rounded-[28px] border border-hairline bg-white/70 p-4 sm:p-5" data-tour="inventory-books">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-display text-base sm:text-lg font-semibold tracking-tight">Danh mục sách</h2>
-          </div>
-          <Link href="/classes" className="btn-ghost text-xs sm:text-sm px-3 sm:px-4 py-2">
-            <span className="sm:hidden">Khóa</span>
-            <span className="hidden sm:inline">Khóa học</span>
-          </Link>
-        </div>
-        <div>
-          <BooksTable
-            initialData={pagedBookRows}
-            total={bookTotal}
-            page={bookPage}
-            pageSize={bookPageSize}
-            categoryOptions={categoryOptions}
-            userRole={role || "TEACHER"}
-            totalOnHand={totalOnHand}
-            lowStockCount={lowStock}
-            unpaidIssuesCount={unpaidIssues}
-          />
-        </div>
-      </section>
-
-      <section className="space-y-3 sm:space-y-4 rounded-[22px] sm:rounded-[28px] border border-hairline bg-white/70 p-4 sm:p-5" data-tour="inventory-filter">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="font-display text-base sm:text-lg font-semibold tracking-tight">Sổ xuất giáo trình</h2>
-          </div>
-        </div>
-
-        <div data-tour="inventory-issues">
-          <BookIssuesTable
-            initialData={pagedIssueRows}
-            total={issueTotal}
-            page={issuePage}
-            pageSize={issuePageSize}
-            bookOptions={bookOptions}
-            categoryOptions={categoryOptions}
-            totalAmount={totalIssueAmount}
-          />
-        </div>
-      </section>
+      <DetailTabs
+        defaultTabKey="books"
+        tabs={[
+          {
+            key: "books",
+            label: "Danh mục sách",
+            content: (
+              <div className="space-y-3 sm:space-y-4" data-tour="inventory-books">
+                <div className="flex justify-end">
+                  <Link href="/classes" className="btn-ghost text-xs sm:text-sm px-3 sm:px-4 py-2">
+                    <span className="sm:hidden">Khóa</span>
+                    <span className="hidden sm:inline">Khóa học</span>
+                  </Link>
+                </div>
+                <BooksTable
+                  initialData={pagedBookRows}
+                  total={bookTotal}
+                  page={bookPage}
+                  pageSize={bookPageSize}
+                  categoryOptions={categoryOptions}
+                  userRole={role || "TEACHER"}
+                  totalOnHand={totalOnHand}
+                  lowStockCount={lowStock}
+                  unpaidIssuesCount={unpaidIssues}
+                />
+              </div>
+            ),
+          },
+          {
+            key: "issues",
+            label: "Sổ xuất giáo trình",
+            content: (
+              <div data-tour="inventory-filter">
+                <div data-tour="inventory-issues">
+                  <BookIssuesTable
+                    initialData={pagedIssueRows}
+                    total={issueTotal}
+                    page={issuePage}
+                    pageSize={issuePageSize}
+                    bookOptions={bookOptions}
+                    categoryOptions={categoryOptions}
+                    totalAmount={totalIssueAmount}
+                  />
+                </div>
+              </div>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

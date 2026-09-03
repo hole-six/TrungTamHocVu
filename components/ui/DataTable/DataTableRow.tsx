@@ -116,6 +116,7 @@ export default function DataTableRow<T extends Record<string, any>>({
                 danger: "border-red-200 bg-red-50 text-red-600 hover:bg-red-100",
               };
 
+              const iconOnly = action.iconOnly && action.icon;
               return (
                 <button
                   data-dt-action={action.variant || "secondary"}
@@ -125,11 +126,14 @@ export default function DataTableRow<T extends Record<string, any>>({
                     e.stopPropagation();
                     void handleActionClick(action);
                   }}
-                  className={`inline-flex shrink-0 whitespace-nowrap items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${variantClasses[action.variant || "secondary"]}`}
+                  className={`inline-flex shrink-0 whitespace-nowrap items-center gap-2 rounded-xl border font-semibold transition-all ${
+                    iconOnly ? "p-2" : "px-3 py-2 text-xs"
+                  } ${variantClasses[action.variant || "secondary"]}`}
                   title={action.label}
+                  aria-label={action.label}
                 >
                   {action.icon ? <span className="flex h-4 w-4 items-center justify-center">{action.icon}</span> : null}
-                  <span>{action.label}</span>
+                  {iconOnly ? null : <span>{action.label}</span>}
                 </button>
               );
             })}

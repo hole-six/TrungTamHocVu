@@ -249,7 +249,7 @@ export default async function CashbookPage({
 
       {canManageCashbook ? <CategoryManager categories={categories} amountByCategory={amountByCategory} /> : null}
 
-      <div className="card space-y-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="font-display text-lg font-semibold tracking-tight">Giao dịch thu chi</h2>

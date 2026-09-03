@@ -31,6 +31,9 @@ export type Column<T> = {
 export type Action<T> = {
   label: string;
   icon?: React.ReactNode;
+  /** Chỉ hiện icon (ẩn chữ label) trên bảng desktop — label vẫn dùng làm tooltip/title
+   *  và alt-text cho mobile, chỉ cần có icon truyền kèm mới có tác dụng. */
+  iconOnly?: boolean;
   onClick: (row: T) => void | Promise<void>;
   variant?: "primary" | "secondary" | "danger";
   permission?: string;
