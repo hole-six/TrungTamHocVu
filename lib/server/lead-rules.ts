@@ -1,47 +1,29 @@
-// Quy tắc nghiệp vụ CRM tuyển sinh — chuyển hóa trực tiếp từ Formula Catalog
-// (DSTest/T_DSTest, xem docs/00_Master_Specification_V2.md §5 FR-0029..FR-0038).
-// Đây là gợi ý tự động hóa, KHÔNG phải quyết định cứng — nhân sự vẫn có quyền
-// chọn khác (đúng tinh thần "không tự ý biến suy luận thành sự thật" của spec).
+// Quy tắc nghiệp vụ CRM tuyển sinh — đơn giản hóa chỉ theo dõi lead ĐANG xử lý.
+// Lead đã ghi danh (ENROLLED) tự động ẩn khỏi CRM, chuyển sang module Học viên.
 
 export const LEAD_STATUSES = [
-  "NEW",
-  "CONTACTING",
-  "APPOINTED",
-  "TESTED",
-  "QUALIFIED",
-  "UNQUALIFIED",
-  "ENROLLED",
-  "LOST",
+  "CONTACTING",      // Đã liên hệ (bao gồm cả đã hẹn test, đang test)
+  "QUALIFIED",       // Đạt test, chờ xếp lớp
+  "ENROLLED",        // Đã ghi danh → tự động ẩn khỏi CRM
+  "LOST",           // Không có nhu cầu
 ] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
 export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
-  NEW: "Chưa liên hệ",
-  CONTACTING: "Đang liên hệ",
-  APPOINTED: "Đã hẹn lịch",
-  TESTED: "Đã test",
-  QUALIFIED: "Đạt chờ xếp lớp",
-  UNQUALIFIED: "Chưa đạt",
+  CONTACTING: "Đã liên hệ",
+  QUALIFIED: "Đạt",
   ENROLLED: "Đã ghi danh",
   LOST: "Không có nhu cầu",
 };
 
-// Gộp 8 trạng thái chi tiết thành 5 nhóm cho CSO chọn nhanh — đúng đúng mạch khách
-// hàng yêu cầu (Chưa liên hệ / Đã liên hệ / Đạt chờ xếp lớp / Chưa đạt / Không có
-// nhu cầu), dùng chung cho cả bộ lọc (Leads) lẫn ô đổi trạng thái từng dòng
-// (LeadsTable), để không lệch nhau giữa nơi lọc và nơi sửa. APPOINTED (đã hẹn lịch)
-// và TESTED (đã test, chưa chấm) đều gộp hiển thị vào "Đã liên hệ" — với người dùng
-// đây vẫn là "đang xử lý", không phải 1 mốc cần nhìn riêng; ngày/giờ hẹn test chỉ là
-// 1 cột phụ trên bảng, không phải 1 trạng thái. TESTED không có trong ô đổi tay vì nó
-// tự chuyển khi ghi nhận kết quả test thật (xem
-// app/api/leads/[id]/placement-test/route.ts), không phải do nhân sự tự bấm.
-// ENROLLED cố tình không có mặt ở đây — có chip lọc riêng ("Đã ghi danh") ở
-// LeadsTable, tách khỏi nhóm pipeline đang xử lý (xem enrolledCount ở leads/page.tsx).
+// Gộp statuses thành nhóm filter đơn giản - chỉ 3 nhóm chính để dễ theo dõi:
+// 1. Đã liên hệ (đang xử lý) - bao gồm cả hẹn test, đang test
+// 2. Đạt (chờ xếp lớp)
+// 3. Không có nhu cầu (đã đóng)
+// ENROLLED không có trong filter groups vì tự động ẩn khỏi CRM (có chip riêng để xem lại nếu cần).
 export const LEAD_STATUS_FILTER_GROUPS = [
-  { key: "NEW", label: "Chưa liên hệ", statuses: ["NEW"] },
-  { key: "CONTACTING", label: "Đã liên hệ", statuses: ["CONTACTING", "APPOINTED", "TESTED"] },
-  { key: "QUALIFIED", label: "Đạt chờ xếp lớp", statuses: ["QUALIFIED"] },
-  { key: "UNQUALIFIED", label: "Chưa đạt", statuses: ["UNQUALIFIED"] },
+  { key: "CONTACTING", label: "Đã liên hệ", statuses: ["CONTACTING"] },
+  { key: "QUALIFIED", label: "Đạt", statuses: ["QUALIFIED"] },
   { key: "LOST", label: "Không có nhu cầu", statuses: ["LOST"] },
 ] as const satisfies { key: string; label: string; statuses: LeadStatus[] }[];
 
@@ -49,18 +31,15 @@ export function leadStatusGroupKey(status: string): string {
   return LEAD_STATUS_FILTER_GROUPS.find((group) => (group.statuses as readonly string[]).includes(status))?.key ?? status;
 }
 
-// State machine theo Master Spec §9. LOST/UNQUALIFIED có thể mở lại về CONTACTING
-// vì thực tế phụ huynh hay quay lại liên hệ sau — không nên khóa cứng thành trạng
-// thái chết như trong Excel (nơi mọi thứ chỉ là text tự gõ).
+// State machine đơn giản: CONTACTING → QUALIFIED → ENROLLED (happy path)
+// hoặc CONTACTING → LOST (không có nhu cầu).
+// LOST có thể quay lại CONTACTING nếu phụ huynh quay lại liên hệ sau.
+// ENROLLED không thể đổi sang status khác (đã tạo Student thật rồi).
 const TRANSITIONS: Record<LeadStatus, LeadStatus[]> = {
-  NEW: ["CONTACTING", "LOST"],
-  CONTACTING: ["APPOINTED", "LOST"],
-  APPOINTED: ["TESTED", "LOST"],
-  TESTED: ["QUALIFIED", "UNQUALIFIED", "LOST"],
-  QUALIFIED: ["ENROLLED", "LOST"],
-  UNQUALIFIED: ["CONTACTING", "LOST"],
-  ENROLLED: [],
-  LOST: ["CONTACTING"],
+  CONTACTING: ["QUALIFIED", "LOST"],
+  QUALIFIED: ["ENROLLED", "CONTACTING", "LOST"],  // Cho phép quay lại CONTACTING nếu cần tư vấn thêm
+  ENROLLED: [],  // Không thể đổi sau khi đã ghi danh
+  LOST: ["CONTACTING"],  // Cho phép mở lại nếu khách quay lại
 };
 
 export function canTransition(from: string, to: string): boolean {

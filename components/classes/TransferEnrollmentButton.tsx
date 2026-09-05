@@ -40,8 +40,8 @@ export default function TransferEnrollmentButton({
   scholarshipPct?: number;
   defaultTargetClassId?: string | null;
   classOptions: ClassOption[];
-  /** "row" (mặc định) cho dòng bảng học viên trong lớp; "quickaction" cho thanh hành động nhanh ở hồ sơ học viên. */
-  variant?: "row" | "quickaction";
+  /** "row" (mặc định) cho dòng bảng học viên trong lớp; "quickaction" cho thanh hành động nhanh ở hồ sơ học viên; "compact" cho hàng nút trong drawer học viên. */
+  variant?: "row" | "quickaction" | "compact";
   /** Gọi thêm sau khi chuyển lớp thành công — dùng cho nơi giữ state riêng (vd
    *  ClassDetailDrawer tự fetch dữ liệu, router.refresh() không đụng tới được). */
   onSuccess?: () => void;
@@ -105,7 +105,13 @@ export default function TransferEnrollmentButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={variant === "quickaction" ? "btn-quickaction btn-quickaction--orange" : "status-action"}
+        className={
+          variant === "quickaction"
+            ? "btn-quickaction btn-quickaction--orange"
+            : variant === "compact"
+              ? "inline-flex items-center gap-1.5 rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] shadow-sm transition hover:border-[#f97316] hover:text-[#f97316]"
+              : "status-action"
+        }
       >
         Chuyển lớp
       </button>
