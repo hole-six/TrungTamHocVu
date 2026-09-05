@@ -183,7 +183,7 @@ export async function buildTuitionOverviewLivePayload(branchId: string | null, f
                 studentCode: charge.student.studentCode,
                 leadCode: charge.student.lead?.leadCode ?? null,
                 className: charge.class.className,
-                currentClassName: activeEnrollment?.class.className ?? charge.class.className,
+                currentClassName: activeEnrollment?.class?.className ?? activeEnrollment?.packageLabel ?? charge.class.className,
                 guardianName: primaryGuardian?.fullName ?? null,
                 guardianPhone: primaryGuardian?.phone ?? null,
                 guardianPortalEmail: primaryGuardian?.user?.email ?? null,

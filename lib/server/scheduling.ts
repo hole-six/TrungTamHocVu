@@ -180,7 +180,7 @@ export async function runClassEndCreditSweep(): Promise<SweepResult> {
               remaining > 0
                 ? await grantRemainingSessionCredits(
                     tx,
-                    { id: enrollment.id, studentId: enrollment.studentId, classId: enrollment.classId },
+                    { id: enrollment.id, studentId: enrollment.studentId, classId: enrollment.classId ?? cls.id },
                     remaining,
                     CLASS_END_CREDIT_REASON
                   )

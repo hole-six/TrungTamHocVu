@@ -6,7 +6,7 @@ import { getHolidayDateSet } from "./holidays";
 type EnrollmentWithClass = {
   id: string;
   studentId: string;
-  classId: string;
+  classId?: string | null;
   enrollDate: Date;
   purchasedMainSessionCount: number | null;
   manualExtraSessionCount?: number | null;
@@ -14,7 +14,7 @@ type EnrollmentWithClass = {
   paidCatchupSessionCount: number;
   paidCatchupUnitPrice: number | null;
   transferredValueAmount: number;
-  class: {
+  class?: {
     totalSessions: number | null;
     tuitionPerSession: number | null;
     nextClassId?: string | null;
@@ -24,7 +24,7 @@ type EnrollmentWithClass = {
     // computeExpectedStudentEndDate bên dưới.
     scheduleRules?: ScheduleRuleLike[];
     branchId?: string;
-  };
+  } | null;
 };
 
 type ClassSessionLite = {
@@ -59,7 +59,7 @@ function computeExpectedStudentEndDate(
   if (futureMainSessions.length >= remainingMainSessions) {
     return futureMainSessions[remainingMainSessions - 1].sessionDate;
   }
-  if (!enrollment.class.scheduleRules || enrollment.class.scheduleRules.length === 0) return null;
+  if (!enrollment.class?.scheduleRules || enrollment.class.scheduleRules.length === 0) return null;
   const shortage = remainingMainSessions - futureMainSessions.length;
   const cursor = futureMainSessions.length
     ? addOneUtcDay(futureMainSessions[futureMainSessions.length - 1].sessionDate)
@@ -68,11 +68,11 @@ function computeExpectedStudentEndDate(
 }
 
 export function resolveEnrollmentUnitPrice(enrollment: EnrollmentWithClass) {
-  return enrollment.tuitionUnitPriceSnapshot ?? enrollment.class.tuitionPerSession ?? enrollment.class.course?.tuitionPerSession ?? 0;
+  return enrollment.tuitionUnitPriceSnapshot ?? enrollment.class?.tuitionPerSession ?? enrollment.class?.course?.tuitionPerSession ?? 0;
 }
 
 export function resolvePurchasedMainSessions(enrollment: EnrollmentWithClass) {
-  return enrollment.purchasedMainSessionCount ?? enrollment.class.totalSessions ?? 0;
+  return enrollment.purchasedMainSessionCount ?? enrollment.class?.totalSessions ?? 0;
 }
 
 export function resolveManualExtraSessions(enrollment: EnrollmentWithClass) {
@@ -145,22 +145,26 @@ export async function getEnrollmentLearningSnapshot(
   // Logic: Qua ngày = tính buổi, vắng thì được buổi bổ trợ riêng
   // KHÔNG đếm theo attendance.status = "PRESENT" vì sẽ làm chậm tiến độ
   const [completedMainSessions, futureMainSessions, scholarships, adjustments] = await Promise.all([
-    prismaClient.classSession.count({
-      where: {
-        classId: enrollment.classId,
-        status: "COMPLETED",
-        sessionDate: { gte: learningStart },
-      },
-    }),
-    prismaClient.classSession.findMany({
-      where: {
-        classId: enrollment.classId,
-        status: { notIn: ["CANCELLED", "RESCHEDULED", "COMPLETED"] },
-        sessionDate: { gte: now },
-      },
-      orderBy: [{ sessionDate: "asc" }, { startTime: "asc" }],
-      select: { id: true, classId: true, sessionDate: true, status: true },
-    }),
+    enrollment.classId
+      ? prismaClient.classSession.count({
+          where: {
+            classId: enrollment.classId,
+            status: "COMPLETED",
+            sessionDate: { gte: learningStart },
+          },
+        })
+      : Promise.resolve(0),
+    enrollment.classId
+      ? prismaClient.classSession.findMany({
+          where: {
+            classId: enrollment.classId,
+            status: { notIn: ["CANCELLED", "RESCHEDULED", "COMPLETED"] },
+            sessionDate: { gte: now },
+          },
+          orderBy: [{ sessionDate: "asc" }, { startTime: "asc" }],
+          select: { id: true, classId: true, sessionDate: true, status: true },
+        })
+      : Promise.resolve([]),
     prismaClient.scholarship.findMany({
       where: { enrollmentId: enrollment.id },
       select: { percentage: true, effectiveFrom: true, effectiveTo: true },
@@ -185,7 +189,7 @@ export async function getEnrollmentLearningSnapshot(
 
   // Chỉ cần lấy ngày lễ khi caller có truyền branchId — dùng để chiếu tiếp "dự kiến kết
   // thúc" qua ScheduleRule khi buổi đã sinh sẵn không đủ (xem computeExpectedStudentEndDate).
-  const holidayDates = enrollment.class.branchId ? await getHolidayDateSet(enrollment.class.branchId) : undefined;
+  const holidayDates = enrollment.class?.branchId ? await getHolidayDateSet(enrollment.class.branchId) : undefined;
 
   // Trả kèm % học bổng/điều chỉnh đang hiệu lực (không chỉ đơn giá đã áp dụng) để
   // luồng chuyển lớp biết CÓ học bổng hay không mà mở tuỳ chọn giữ nguyên/không giữ

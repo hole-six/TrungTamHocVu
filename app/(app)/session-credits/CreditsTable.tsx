@@ -31,7 +31,7 @@ export type CreditRow = {
   key: string;
   origin: string;
   student: { id: string; fullName: string; studentCode: string };
-  enrollment: { classId: string; class: { className: string } };
+  enrollment: { classId: string | null; class?: { className: string } | null; packageLabel?: string | null };
   totalCount: number;
   availableCount: number;
   consumedCount: number;
@@ -166,10 +166,15 @@ export default function CreditsTable({ initialData, statusParam, typeParam, stud
           <StudentLink studentId={row.student.id} className="font-black text-[#0f1729] hover:text-[#1d4ed8]">
             {row.student.fullName}
           </StudentLink>
-          <p className="mt-0.5 text-xs font-semibold text-[#64748b]">{row.student.studentCode}</p>
-          <Link href={`/classes/${row.enrollment.classId}`} className="mt-2 inline-flex text-xs font-bold text-[#1d4ed8] underline underline-offset-2">
-            {row.enrollment.class.className}
-          </Link>
+          {row.enrollment.classId ? (
+            <Link href={`/classes/${row.enrollment.classId}`} className="mt-2 inline-flex text-xs font-bold text-[#1d4ed8] underline underline-offset-2">
+              {row.enrollment.class?.className ?? row.enrollment.packageLabel ?? "Gói học"}
+            </Link>
+          ) : (
+            <span className="mt-2 inline-flex text-xs text-[#64748b]">
+              {row.enrollment.packageLabel ?? "Gói học"}
+            </span>
+          )}
         </div>
       ),
     },
@@ -257,9 +262,11 @@ export default function CreditsTable({ initialData, statusParam, typeParam, stud
           <StudentLink studentId={row.student.id} className="rounded-lg border border-[#dbeafe] bg-[#eff6ff] px-3 py-1.5 text-xs font-bold text-[#1d4ed8] hover:bg-[#dbeafe]">
             Mở học viên
           </StudentLink>
-          <Link href={`/classes/${row.enrollment.classId}`} className="rounded-lg border border-[#e5e7eb] bg-white px-3 py-1.5 text-xs font-bold text-[#475569] hover:bg-[#fafafa]">
-            Mở lớp gốc
-          </Link>
+          {row.enrollment.classId ? (
+            <Link href={`/classes/${row.enrollment.classId}`} className="rounded-lg border border-[#e5e7eb] bg-white px-3 py-1.5 text-xs font-bold text-[#475569] hover:bg-[#fafafa]">
+              Mở lớp gốc
+            </Link>
+          ) : null}
         </div>
       ),
     },

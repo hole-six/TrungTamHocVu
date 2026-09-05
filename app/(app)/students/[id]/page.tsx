@@ -1,10 +1,11 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import StudentEditForm from "@/components/students/StudentEditForm";
 import AssignEnrollmentForm from "@/components/students/AssignEnrollmentForm";
 import StudentFinanceDesk from "@/components/students/StudentFinanceDesk";
 import StudentSessionCredits from "@/components/students/StudentSessionCredits";
+import MakeupRequestPanel from "@/components/students/MakeupRequestPanel";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import ScholarshipAdjustmentForm from "@/components/students/ScholarshipAdjustmentForm";
 import RefundButton from "@/components/students/RefundButton";
@@ -277,6 +278,14 @@ export default async function StudentDetailPage({
         },
         orderBy: { createdAt: "desc" },
       },
+      makeupRequests: {
+        include: {
+          missedSession: { select: { sessionDate: true, class: { select: { className: true } } } },
+          scheduledSession: { select: { sessionDate: true, class: { select: { className: true } } } },
+          enrollment: { select: { packageLabel: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
   if (!student) notFound();
@@ -478,7 +487,7 @@ export default async function StudentDetailPage({
         student.enrollments.map((e) => ({
           id: e.id,
           classId: e.classId,
-          className: e.class.className,
+          className: e.class?.className ?? e.packageLabel ?? "Gói học",
           transferredFromEnrollmentId: e.transferredFromEnrollmentId,
           status: e.status,
           enrollDate: e.enrollDate,
@@ -520,7 +529,7 @@ export default async function StudentDetailPage({
   }
   if (currentLearningSnapshot?.continuationStatus === "NEED_TRANSFER") {
     operationalWarnings.push({
-      text: currentEnrollment?.class.nextClass
+      text: currentEnrollment?.class?.nextClass
         ? `Cần chuyển sang lớp ${currentEnrollment.class.nextClass.className} — còn thiếu ${currentLearningSnapshot.shortageAfterCurrentClass} buổi sau khi lớp hiện tại kết thúc.`
         : `Lớp hiện tại chưa cấu hình lớp tiếp theo — còn thiếu ${currentLearningSnapshot.shortageAfterCurrentClass} buổi sau khi lớp kết thúc.`,
       severity: "warning",
@@ -529,7 +538,7 @@ export default async function StudentDetailPage({
   // "Đã học đủ" trước đây chỉ là badge xanh tĩnh, không gợi ý làm gì tiếp — trong khi
   // lớp vẫn đang dạy cho học viên khác, đây thực chất là 1 việc CẦN QUYẾT ĐỊNH (ghi
   // danh thêm hay để hệ thống tự tất toán khi lớp kết thúc), không phải "xong việc".
-  if (currentLearningSnapshot?.continuationStatus === "COMPLETED" && currentEnrollment?.class.status === "ACTIVE") {
+  if (currentLearningSnapshot?.continuationStatus === "COMPLETED" && currentEnrollment?.class?.status === "ACTIVE") {
     operationalWarnings.push({
       text: "Đã học đủ số buổi đã mua — lớp vẫn đang dạy tiếp cho học viên khác. Cần quyết định: ghi danh thêm buổi mới, hay để hệ thống tự tất toán khi lớp kết thúc.",
       severity: "warning",
@@ -695,17 +704,19 @@ export default async function StudentDetailPage({
         <div className="rounded-xl sm:rounded-2xl border border-[#dbe7ff] bg-white p-4 sm:p-5 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-[#2563eb]">Hành trình học riêng của học viên</p>
-              <h2 className="mt-1 text-lg font-black text-[#0f1729]">{currentEnrollment.class.className}</h2>
+              <p className="text-xs font-bold uppercase tracking-wide text-[#2563eb]">Gói học & Hành trình của học viên</p>
+              <h2 className="mt-1 text-lg font-black text-[#0f1729]">
+                {currentEnrollment.packageLabel ?? currentEnrollment.class?.className ?? "Gói học"}
+              </h2>
               <p className="mt-1 text-sm text-[#64748b]">
                 Bắt đầu {formatDate(currentEnrollment.learningStartDate ?? currentEnrollment.enrollDate)} · dự kiến kết thúc {formatDate(currentLearningSnapshot.expectedStudentEndDate)}
               </p>
             </div>
-            <span className={`inline-flex w-fit rounded-lg px-3 py-1 text-xs font-bold ${currentLearningSnapshot.continuationStatus === "NEED_TRANSFER" ? "bg-amber-100 text-amber-800" : currentLearningSnapshot.continuationStatus === "COMPLETED" ? (currentEnrollment.class.status === "ACTIVE" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800") : "bg-sky-100 text-sky-800"}`}>
+            <span className={`inline-flex w-fit rounded-lg px-3 py-1 text-xs font-bold ${currentLearningSnapshot.continuationStatus === "NEED_TRANSFER" ? "bg-amber-100 text-amber-800" : currentLearningSnapshot.continuationStatus === "COMPLETED" ? (currentEnrollment.class?.status === "ACTIVE" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800") : "bg-sky-100 text-sky-800"}`}>
               {currentLearningSnapshot.continuationStatus === "NEED_TRANSFER"
                 ? "Cần chuyển lớp"
                 : currentLearningSnapshot.continuationStatus === "COMPLETED"
-                  ? currentEnrollment.class.status === "ACTIVE"
+                  ? currentEnrollment.class?.status === "ACTIVE"
                     ? "Đã học đủ — cần xử lý"
                     : "Đã học đủ"
                   : "Đang theo lớp"}
@@ -713,11 +724,13 @@ export default async function StudentDetailPage({
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
-              <p className="text-xs font-bold text-[#64748b]">Tiến độ khóa chính</p>
+              <p className="text-xs font-bold text-[#64748b]">Tiến độ gói học</p>
               <p className="mt-1 text-xl font-black text-[#0f1729]">
-                {currentLearningSnapshot.completedMainSessions}/{currentLearningSnapshot.entitledMainSessions}
+                {currentEnrollment.usedSessionCount ?? currentLearningSnapshot.completedMainSessions}/{currentEnrollment.purchasedMainSessionCount ?? currentLearningSnapshot.entitledMainSessions}
               </p>
-              <p className="text-xs text-[#64748b]">Còn {currentLearningSnapshot.remainingMainSessions} buổi</p>
+              <p className="text-xs text-[#64748b]">
+                Còn {Math.max(0, (currentEnrollment.purchasedMainSessionCount ?? currentLearningSnapshot.entitledMainSessions) - (currentEnrollment.usedSessionCount ?? currentLearningSnapshot.completedMainSessions))} buổi
+              </p>
               {currentLearningSnapshot.manualExtraSessions > 0 ? (
                 <p className="text-xs font-semibold text-emerald-700">
                   Gồm {currentLearningSnapshot.manualExtraSessions} buổi cộng linh động
@@ -735,11 +748,11 @@ export default async function StudentDetailPage({
               <p className="text-xs text-[#64748b]">{formatVnd(currentLearningSnapshot.paidCatchupAmount)}</p>
             </div>
             <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
-              <p className="text-xs font-bold text-[#64748b]">Chuyển tiếp</p>
-              <p className="mt-1 text-sm font-bold text-[#0f1729]">{currentEnrollment.class.nextClass?.className ?? "Chưa cấu hình"}</p>
+              <p className="text-xs font-bold text-[#64748b]">Lớp học hiện tại</p>
+              <p className="mt-1 text-sm font-bold text-[#0f1729]">{currentEnrollment.class?.className ?? "Chưa gán lớp cố định"}</p>
               {currentLearningSnapshot.continuationStatus === "NEED_TRANSFER" ? (
                 <p className="text-xs text-amber-700">Thiếu sau lớp hiện tại: {currentLearningSnapshot.shortageAfterCurrentClass} buổi</p>
-              ) : currentLearningSnapshot.continuationStatus === "COMPLETED" && currentEnrollment.class.status === "ACTIVE" ? (
+              ) : currentLearningSnapshot.continuationStatus === "COMPLETED" && currentEnrollment.class?.status === "ACTIVE" ? (
                 <p className="text-xs font-semibold text-amber-700">Đã học đủ, lớp còn dạy tiếp — cần ghi danh thêm hoặc chờ tự tất toán</p>
               ) : (
                 <p className="text-xs text-[#64748b]">Lớp hiện tại đủ đáp ứng số buổi còn lại</p>
@@ -785,7 +798,7 @@ export default async function StudentDetailPage({
 
           {currentEnrollment && enrollmentCharges.length > 0 ? (
             <div className="mt-4 border-t border-[#e5eaf7] pt-3">
-              <p className="text-[10px] font-bold uppercase text-[#64748b]">Riêng kỳ ghi danh hiện tại · {currentEnrollment.class.className}</p>
+              <p className="text-[10px] font-bold uppercase text-[#64748b]">Riêng kỳ ghi danh hiện tại · {currentEnrollment.packageLabel ?? currentEnrollment.class?.className ?? "Gói hiện tại"}</p>
               <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                 <div>
                   <p className="text-[10px] text-[#64748b]">Học phí chính</p>
@@ -845,11 +858,11 @@ export default async function StudentDetailPage({
               <div key={index} className="rounded-lg border border-[#e5eaf7] bg-[#f8faff] px-3 py-2 text-sm">
                 {item.direction === "from" ? (
                   <p className="font-medium text-[#0f1729]">
-                    Chuyển từ <strong>{item.other.class.className}</strong> sang <strong>{item.self.class.className}</strong> · {formatDate(item.self.enrollDate)}
+                    Chuyển từ <strong>{item.other.class?.className ?? "Lớp cũ"}</strong> sang <strong>{item.self.class?.className ?? "Lớp mới"}</strong> · {formatDate(item.self.enrollDate)}
                   </p>
                 ) : (
                   <p className="font-medium text-[#0f1729]">
-                    Chuyển từ <strong>{item.self.class.className}</strong> sang <strong>{item.other.class.className}</strong> · {formatDate(item.other.enrollDate)}
+                    Chuyển từ <strong>{item.self.class?.className ?? "Lớp cũ"}</strong> sang <strong>{item.other.class?.className ?? "Lớp mới"}</strong> · {formatDate(item.other.enrollDate)}
                   </p>
                 )}
                 <p className="mt-1 text-xs text-[#64748b]">
@@ -867,7 +880,7 @@ export default async function StudentDetailPage({
                   if (fromPct <= 0 && toPct <= 0) return null;
                   return (
                     <p className="mt-1 text-xs font-semibold text-emerald-700">
-                      Học bổng {fromEnrollment.class.className}: {Math.round(fromPct * 100)}% → {toEnrollment.class.className}: {Math.round(toPct * 100)}%
+                      Học bổng {fromEnrollment.class?.className ?? "Lớp cũ"}: {Math.round(fromPct * 100)}% → {toEnrollment.class?.className ?? "Lớp mới"}: {Math.round(toPct * 100)}%
                     </p>
                   );
                 })()}
@@ -980,7 +993,7 @@ export default async function StudentDetailPage({
                     <div className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
                       <span className="text-sm font-semibold text-[#64748b]">Lịch học</span>
                       <p className="text-sm font-bold text-[#0f1729] mt-1">
-                        {currentEnrollment?.class.scheduleRules.length
+                        {currentEnrollment?.class?.scheduleRules?.length
                           ? currentEnrollment.class.scheduleRules.map((item) => `${item.weekday}-${item.startTime}`).join(", ")
                           : "Chưa có"}
                       </p>
@@ -1026,7 +1039,7 @@ export default async function StudentDetailPage({
                   canIssueBooks={activeEnrollments.length > 0}
                   activeEnrollmentOptions={activeEnrollments.map((enrollment) => ({
                     enrollmentId: enrollment.id,
-                    classId: enrollment.classId,
+                    classId: enrollment.classId ?? "",
                     className: enrollment.class?.className ?? "Lớp chưa rõ tên",
                     billingModel: enrollment.billingModel,
                   }))}
@@ -1115,7 +1128,7 @@ export default async function StudentDetailPage({
                     studentId={student.id}
                     scholarships={student.scholarships}
                     adjustments={student.adjustments}
-                    enrollments={student.enrollments.map((e) => ({ id: e.id, className: e.class.className, status: e.status }))}
+                    enrollments={student.enrollments.map((e) => ({ id: e.id, className: e.class?.className ?? e.packageLabel ?? "Gói học", status: e.status }))}
                   />
                 )}
               </div>
@@ -1126,6 +1139,20 @@ export default async function StudentDetailPage({
             label: "Học tập",
             content: (
               <div className="space-y-5">
+                <MakeupRequestPanel
+                  studentId={student.id}
+                  enrollmentId={currentEnrollment?.id}
+                  requests={student.makeupRequests}
+                  sessionOptions={makeupSessionOptions.map((s) => ({
+                    id: s.id,
+                    sessionDate: s.sessionDate,
+                    startTime: s.startTime,
+                    endTime: s.endTime,
+                    class: s.class,
+                  }))}
+                  canManage={canManageSchedule}
+                />
+
                 <StudentSessionCredits
                   credits={student.sessionCredits.map((c) => ({
                     id: c.id,

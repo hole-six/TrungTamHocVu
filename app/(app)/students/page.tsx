@@ -99,7 +99,7 @@ async function computeGlobalStudentStats(where: Prisma.StudentWhereInput) {
       if (outstanding > 0) debtCount++;
 
       const enrollment = student.enrollments[0];
-      if (!enrollment) return;
+      if (!enrollment || !enrollment.class) return;
       const snapshot = await getEnrollmentLearningSnapshot(prisma, { ...enrollment, class: { ...enrollment.class, course: null } });
       if (snapshot.continuationStatus === "NEED_TRANSFER") {
         needTransferCount++;
@@ -316,13 +316,15 @@ export default async function StudentsPage({
     Promise.all(
       currentEnrollments.map(async (enrollment) => ({
         enrollmentId: enrollment.id,
-        snapshot: await getEnrollmentLearningSnapshot(prisma, {
-          ...enrollment,
-          class: {
-            ...enrollment.class,
-            course: null,
-          },
-        }),
+        snapshot: enrollment.class
+          ? await getEnrollmentLearningSnapshot(prisma, {
+              ...enrollment,
+              class: {
+                ...enrollment.class,
+                course: null,
+              },
+            })
+          : null,
       })),
     ),
   ]);
@@ -429,9 +431,9 @@ export default async function StudentsPage({
     return {
       ...item,
       primaryGuardian,
-      currentClassName: currentEnrollment?.class.className ?? null,
-      currentClassCode: currentEnrollment?.class.classCode ?? null,
-      currentClassStatus: currentEnrollment?.class.status ?? null,
+      currentClassName: currentEnrollment?.class?.className ?? currentEnrollment?.packageLabel ?? null,
+      currentClassCode: currentEnrollment?.class?.classCode ?? null,
+      currentClassStatus: currentEnrollment?.class?.status ?? null,
       currentBillingModel: currentEnrollment?.billingModel ?? null,
       leadCode: item.lead?.leadCode ?? null,
       outstanding: canViewFinance ? (chargeByStudent.get(item.id) ?? 0) - (paidByStudent.get(item.id) ?? 0) : undefined,
@@ -459,7 +461,7 @@ export default async function StudentsPage({
       expectedStudentEndDate: learningSnapshot?.expectedStudentEndDate ?? null,
       continuationStatus: learningSnapshot?.continuationStatus ?? null,
       shortageAfterCurrentClass: learningSnapshot?.shortageAfterCurrentClass ?? 0,
-      nextClassName: currentEnrollment?.class.nextClass?.className ?? null,
+      nextClassName: currentEnrollment?.class?.nextClass?.className ?? null,
     };
   });
 

@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
     guardianPortalEmail: item.guardian?.user?.email ?? null,
     guardianPortalActive: item.guardian?.user?.isActive ?? false,
     convertedStudentCode: item.student?.studentCode ?? null,
-    convertedClassName: item.student?.enrollments[0]?.class.className ?? null,
+    convertedClassName: item.student?.enrollments[0]?.class?.className ?? item.student?.enrollments[0]?.packageLabel ?? null,
     outstanding: item.student ? (chargeByStudent.get(item.student.id) ?? 0) - (paidByStudent.get(item.student.id) ?? 0) : null,
     duplicatePhoneNames: item.phone ? (duplicatesByPhone.get(item.phone) ?? []) : [],
   }));

@@ -6,7 +6,7 @@
 
 export type EnrollmentChainInput = {
   id: string;
-  classId: string;
+  classId: string | null;
   className: string;
   transferredFromEnrollmentId: string | null;
   status: string;

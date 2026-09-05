@@ -16,7 +16,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const sessions = await prisma.classSession.findMany({
     where: {
-      classId: { in: activeEnrollments.map((e) => e.classId) },
+      classId: { in: activeEnrollments.map((e) => e.classId).filter((id): id is string => id !== null) },
       status: { notIn: ["CANCELLED", "RESCHEDULED", "COMPLETED"] },
       sessionDate: { gte: new Date() },
     },

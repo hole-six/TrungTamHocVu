@@ -91,10 +91,12 @@ export default async function EnrollmentIntakePage() {
         fullName: item.fullName,
         studentCode: item.studentCode,
         phone: item.phone,
-        currentClasses: item.enrollments.map((enrollment) => ({
-          className: enrollment.class.className,
-          classCode: enrollment.class.classCode,
-        })),
+        currentClasses: item.enrollments
+          .filter((e) => e.class)
+          .map((enrollment) => ({
+            className: enrollment.class!.className,
+            classCode: enrollment.class!.classCode,
+          })),
       }))}
     />
   );

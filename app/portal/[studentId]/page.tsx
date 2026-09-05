@@ -82,7 +82,7 @@ export default async function PortalStudentPage({ params }: { params: { studentI
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">{student.fullName}</h1>
         <p className="mt-1 text-sm text-ink-muted48">
           Mã HV: {student.studentCode}
-          {student.enrollments[0] && <> · Lớp: {student.enrollments[0].class.className}</>}
+          {student.enrollments[0] && <> · Lớp: {student.enrollments[0].class?.className ?? student.enrollments[0].packageLabel ?? "Gói học"}</>}
         </p>
       </div>
 

@@ -147,7 +147,7 @@ async function getRecentAutoCompletions(activeBranchId: string | null) {
         studentId: enrollment.student.id,
         studentName: enrollment.student.fullName,
         studentCode: enrollment.student.studentCode,
-        className: enrollment.class.className,
+        className: enrollment.class?.className ?? enrollment.packageLabel ?? "Gói học",
         granted: detail.granted ?? 0,
         createdAt: log.createdAt.toISOString(),
       };

@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
       id: link.student.id,
       fullName: link.student.fullName,
       leadCode: link.student.lead?.leadCode ?? null,
-      className: link.student.enrollments[0]?.class.className ?? null,
+      className: link.student.enrollments[0]?.class?.className ?? link.student.enrollments[0]?.packageLabel ?? null,
       outstanding: (chargeByStudent.get(link.student.id) ?? 0) - (paidByStudent.get(link.student.id) ?? 0),
     })),
   }));

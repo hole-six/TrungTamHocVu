@@ -19,7 +19,7 @@ type Item = {
   reason: string | null;
   effectiveFrom: string | Date;
   effectiveTo: string | Date | null;
-  enrollment?: { id: string; class: { className: string } } | null;
+  enrollment?: { id: string; class?: { className: string } | null } | null;
 };
 
 type MergedItem = Item & { kind: "scholarship" | "adjustment" };
@@ -181,7 +181,7 @@ export default function ScholarshipAdjustmentForm({
               <div>
                 <p className="text-sm font-semibold text-ink">{item.reason ?? "Không có ghi chú"}</p>
                 <p className="text-xs font-medium text-primary mt-0.5">
-                  {item.enrollment ? `Áp dụng: Lớp ${item.enrollment.class.className}` : "Áp dụng: Tất cả các lớp"}
+                  {item.enrollment ? `Áp dụng: ${item.enrollment.class?.className ? `Lớp ${item.enrollment.class.className}` : "Gói học"}` : "Áp dụng: Tất cả các lớp"}
                 </p>
                 <p className="text-xs text-ink-muted48 mt-0.5">
                   Từ {new Date(item.effectiveFrom).toLocaleDateString("vi-VN")}

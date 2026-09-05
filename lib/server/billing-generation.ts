@@ -213,6 +213,7 @@ export async function generateChargesForPeriod(periodId: string) {
   };
 
   for (const enrollment of enrollments) {
+    if (!enrollment.classId || !enrollment.class) continue;
     const { studentId, classId } = enrollment;
     const courseKey = `${studentId}:${classId}`;
 
@@ -602,6 +603,9 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
   }
 
   const cls = enrollment.class;
+  if (!cls || !enrollment.classId) {
+    return { error: "Gói học chưa được gán vào lớp cụ thể để tính học phí." as const };
+  }
   const totalSessions = resolvePurchasedMainSessions(enrollment);
   if (!totalSessions || totalSessions <= 0) {
     return { error: `Lớp "${cls.className}" chưa cấu hình tổng số buổi (totalSessions), không thể tính học phí trọn khóa.` as const };
@@ -725,7 +729,7 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
     const createdCharge = await tx.charge.create({
       data: {
         studentId: enrollment.studentId,
-        classId: enrollment.classId,
+        classId: enrollment.classId!,
         billingPeriodId: period.id,
         sessionCount: totalSessions,
         absentCount: 0,
@@ -794,10 +798,10 @@ export async function previewChargeGenerationExceptions(periodId: string) {
   const pushException = (enrollment: (typeof enrollments)[number], reason: string) => {
     exceptions.push({
       studentId: enrollment.studentId,
-      classId: enrollment.classId,
+      classId: enrollment.classId ?? "",
       studentName: enrollment.student.fullName,
       studentCode: enrollment.student.studentCode,
-      className: enrollment.class.className,
+      className: enrollment.class?.className ?? "Gói học",
       billingModel: enrollment.billingModel,
       reason,
     });
@@ -830,7 +834,7 @@ export async function previewChargeGenerationExceptions(periodId: string) {
 
     if (enrollment.billingModel === "INSTALLMENT") {
       const installment = enrollment.installments[0];
-      if (!installment) continue;
+      if (!installment || !enrollment.classId) continue;
 
       const existingCharge = await prisma.charge.findUnique({
         where: {
@@ -863,6 +867,8 @@ export async function previewChargeGenerationExceptions(periodId: string) {
       pushException(enrollment, `Mode ${enrollment.billingModel} chưa được phép đi vào sweep tháng.`);
       continue;
     }
+
+    if (!enrollment.classId) continue;
 
     const existingCharge = await prisma.charge.findUnique({
       where: {

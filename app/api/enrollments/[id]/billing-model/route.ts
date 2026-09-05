@@ -51,6 +51,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     include: { class: true },
   });
   if (!enrollment) return NextResponse.json({ error: "Không tìm thấy ghi danh." }, { status: 404 });
+  if (!enrollment.class) {
+    return NextResponse.json({ error: "Gói học chưa gán lớp cụ thể, không thể đổi kiểu thu của lớp." }, { status: 400 });
+  }
 
   if (enrollment.status !== "ACTIVE") {
     return NextResponse.json({ error: `Ghi danh đang ở trạng thái ${enrollment.status}, không thể đổi kiểu thu.` }, { status: 409 });

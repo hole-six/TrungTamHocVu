@@ -59,7 +59,7 @@ export default async function PortalOverviewPage() {
                   {relation ?? (isPrimary ? "Phụ huynh chính" : "Phụ huynh phụ")} · {student.studentCode}
                 </p>
                 {activeEnrollment && (
-                  <p className="mt-1 text-xs text-primary">Đang học: {activeEnrollment.class.className}</p>
+                  <p className="mt-1 text-xs text-primary">Đang học: {activeEnrollment.class?.className ?? activeEnrollment.packageLabel ?? "Gói học"}</p>
                 )}
                 <p className={`mt-1 text-xs ${outstanding > 0 ? "text-red-600" : "text-emerald-700"}`}>
                   {outstanding > 0 ? `Còn nợ ${outstanding.toLocaleString("vi-VN")}đ` : "Đã đóng đủ"}

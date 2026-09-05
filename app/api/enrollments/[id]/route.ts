@@ -41,21 +41,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   let withdrawalRemaining = 0;
   if (body.status === "WITHDRAWN") {
     if (existing.billingModel !== "PERIOD") {
-      // COURSE/INSTALLMENT: tiền trọn khóa đã cam kết thu đủ ngay từ đầu (dù trả góp mấy
-      // đợt) — buổi CHƯA DIỄN RA của cả khóa (bất kể lý do) là đúng cơ sở để bù, không
-      // phụ thuộc charge đã lập hay chưa.
-      const progress = await computeEnrollmentSessionProgress(existing.classId, existing.enrollDate);
-      withdrawalRemaining = progress.remaining ?? 0;
+      // COURSE/INSTALLMENT: nếu có classId thì tính theo lịch lớp; nếu là gói tự do thì lấy tổng buổi trừ buổi đã dùng
+      if (existing.classId) {
+        const progress = await computeEnrollmentSessionProgress(existing.classId, existing.enrollDate);
+        withdrawalRemaining = progress.remaining ?? 0;
+      } else {
+        withdrawalRemaining = Math.max(0, (existing.purchasedMainSessionCount ?? 0) - existing.usedSessionCount);
+      }
     } else {
-      // PERIOD: học phí đóng TRỌN cả tháng ngay từ đầu tháng (xác nhận với người dùng),
-      // không phải đóng dần theo từng buổi đã học — nên buổi nào trong THÁNG ĐANG ĐÓNG mà
-      // CHƯA DIỄN RA lúc rút lớp vẫn phải được cộng bổ trợ, y hệt buổi bị vắng. Các tháng
-      // SAU (chưa tới, chưa đóng) thì không cộng gì — chỉ tính trong phạm vi tháng đang
-      // đóng. Buổi vắng trong tháng này đã được cộng bổ trợ riêng lẻ ngay lúc điểm danh
-      // rồi (xem attendance/route.ts) — công thức dưới đây tự động không cộng trùng vì chỉ
-      // đếm buổi CHƯA DIỄN RA (không đếm buổi đã vắng, buổi đã vắng đã COMPLETED rồi).
-      const cls = await prisma.class.findUnique({ where: { id: existing.classId }, select: { branchId: true } });
-      if (cls) {
+      // PERIOD: học phí đóng TRỌN cả tháng ngay từ đầu tháng (xác nhận với người dùng)
+      const cls = existing.classId
+        ? await prisma.class.findUnique({ where: { id: existing.classId }, select: { branchId: true } })
+        : null;
+      if (cls && existing.classId) {
         const today = getVietnamToday();
         const currentPeriodName = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}`;
         const { start, end } = monthRange(currentPeriodName);
@@ -130,7 +128,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       withdrawalRemaining > 0
         ? await grantRemainingSessionCredits(
             tx,
-            { id: enrollment.id, studentId: enrollment.studentId, classId: enrollment.classId },
+            { id: enrollment.id, studentId: enrollment.studentId, classId: enrollment.classId ?? "" },
             withdrawalRemaining,
             WITHDRAWAL_CREDIT_REASON
           )

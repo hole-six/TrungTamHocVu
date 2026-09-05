@@ -278,7 +278,7 @@ export async function getReportsDashboardData(branchId: BranchScope, month?: str
         guardianPortalEmail: primaryGuardian?.user?.email ?? null,
         guardianPortalActive: primaryGuardian?.user?.isActive ?? false,
         leadCode: student.lead?.leadCode ?? null,
-        className: currentEnrollment?.class.className ?? null,
+        className: currentEnrollment?.class?.className ?? currentEnrollment?.packageLabel ?? null,
       };
     })
     .filter((student) => student.outstanding > 0)

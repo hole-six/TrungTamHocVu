@@ -279,7 +279,7 @@ export async function GET(
         ? await prisma.class.findMany({
             where: {
               branchId: student.branchId,
-              id: { not: currentEnrollment.classId },
+              id: currentEnrollment.classId ? { not: currentEnrollment.classId } : undefined,
               status: "ACTIVE",
               isRemedial: false,
             },
@@ -297,7 +297,7 @@ export async function GET(
         : [];
     const continuationClassOptions = currentEnrollment
       ? [...continuationClassOptionsRaw].sort(
-          (a, b) => Number(b.courseId === currentEnrollment.class.courseId) - Number(a.courseId === currentEnrollment.class.courseId),
+          (a, b) => Number(b.courseId === currentEnrollment.class?.courseId) - Number(a.courseId === currentEnrollment.class?.courseId),
         )
       : [];
 
@@ -355,7 +355,7 @@ export async function GET(
     }
     if (learningSnapshot?.continuationStatus === "NEED_TRANSFER") {
       operationalWarnings.push({
-        text: currentEnrollment?.class.nextClass
+        text: currentEnrollment?.class?.nextClass
           ? `Cần chuyển sang lớp ${currentEnrollment.class.nextClass.className} — còn thiếu ${learningSnapshot.shortageAfterCurrentClass} buổi sau khi lớp hiện tại kết thúc.`
           : `Lớp hiện tại chưa cấu hình lớp tiếp theo — còn thiếu ${learningSnapshot.shortageAfterCurrentClass} buổi sau khi lớp kết thúc.`,
         severity: "warning",
@@ -509,17 +509,17 @@ export async function GET(
         ? {
             id: currentEnrollment.id,
             classId: currentEnrollment.classId,
-            className: currentEnrollment.class.className,
-            courseId: currentEnrollment.class.courseId,
-            courseName: currentEnrollment.class.course?.name,
+            className: currentEnrollment.class?.className ?? currentEnrollment.packageLabel ?? "Gói học",
+            courseId: currentEnrollment.class?.courseId ?? currentEnrollment.courseId ?? null,
+            courseName: currentEnrollment.class?.course?.name,
             enrollDate: currentEnrollment.enrollDate,
             learningStartDate: currentEnrollment.learningStartDate,
             billingModel: currentEnrollment.billingModel,
             paidCatchupSessionCount: currentEnrollment.paidCatchupSessionCount,
             paidCatchupAmount: enrollmentFinance.paidCatchup,
-            nextClassName: currentEnrollment.class.nextClass?.className,
-            nextClassId: currentEnrollment.class.nextClass?.id ?? null,
-            scheduleRules: currentEnrollment.class.scheduleRules,
+            nextClassName: currentEnrollment.class?.nextClass?.className,
+            nextClassId: currentEnrollment.class?.nextClass?.id ?? null,
+            scheduleRules: currentEnrollment.class?.scheduleRules ?? [],
           }
         : null,
       continuationClassOptions,
@@ -558,7 +558,7 @@ export async function GET(
         reason: item.reason,
         effectiveFrom: item.effectiveFrom,
         effectiveTo: item.effectiveTo,
-        enrollment: item.enrollment ? { id: item.enrollment.id, class: { className: item.enrollment.class.className } } : null,
+        enrollment: item.enrollment ? { id: item.enrollment.id, class: { className: item.enrollment.class?.className ?? "Gói học" } } : null,
       })),
       adjustments: student.adjustments.map((item) => ({
         id: item.id,
@@ -566,9 +566,9 @@ export async function GET(
         reason: item.reason,
         effectiveFrom: item.effectiveFrom,
         effectiveTo: item.effectiveTo,
-        enrollment: item.enrollment ? { id: item.enrollment.id, class: { className: item.enrollment.class.className } } : null,
+        enrollment: item.enrollment ? { id: item.enrollment.id, class: { className: item.enrollment.class?.className ?? "Gói học" } } : null,
       })),
-      enrollments: student.enrollments.map((e) => ({ id: e.id, className: e.class.className, status: e.status })),
+      enrollments: student.enrollments.map((e) => ({ id: e.id, className: e.class?.className ?? e.packageLabel ?? "Gói học", status: e.status })),
       recentSessions,
       sessionCredits: student.sessionCredits.map((c) => ({
         id: c.id,

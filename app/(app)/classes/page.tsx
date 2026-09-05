@@ -195,8 +195,8 @@ export default async function ClassesPage({
     : [];
   const learningSnapshots = await Promise.all(
     pipelineEnrollments.map(async (enrollment) => ({
-      classId: enrollment.classId,
-      nextClassName: enrollment.class.nextClass?.className ?? null,
+      classId: enrollment.classId!,
+      nextClassName: enrollment.class?.nextClass?.className ?? null,
       snapshot: await getEnrollmentLearningSnapshot(prisma, enrollment),
     })),
   );

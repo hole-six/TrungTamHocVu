@@ -83,7 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       let charge = await tx.charge.findFirst({
         where: {
           studentId: student.id,
-          classId: enrollment.classId,
+          classId: enrollment.classId ?? undefined,
           billingModel: "COURSE",
           OR: [{ enrollmentId: null }, { enrollmentId: enrollment.id }],
         },
@@ -97,11 +97,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
               where: { branchId: student.branchId, startDate: { lte: now }, endDate: { gte: now } },
               orderBy: { startDate: "desc" },
             });
-        if (period) {
+        if (period && enrollment.classId) {
           const periodCharge = await tx.charge.findUnique({
             where: { studentId_classId_billingPeriodId: { studentId: student.id, classId: enrollment.classId, billingPeriodId: period.id } },
+            include: { billingPeriod: true },
           });
-          if (periodCharge) charge = { ...periodCharge, billingPeriod: period };
+          if (periodCharge) charge = periodCharge;
         }
       }
 

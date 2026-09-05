@@ -273,7 +273,7 @@ export default async function LeadsPage({
       guardianPortalEmail: item.guardian?.user?.email ?? null,
       guardianPortalActive: item.guardian?.user?.isActive ?? false,
       convertedStudentCode: item.student?.studentCode ?? null,
-      convertedClassName: item.student?.enrollments[0]?.class.className ?? null,
+      convertedClassName: item.student?.enrollments[0]?.class?.className ?? item.student?.enrollments[0]?.packageLabel ?? null,
       outstanding: item.student ? (chargeByStudent.get(item.student.id) ?? 0) - (paidByStudent.get(item.student.id) ?? 0) : null,
       hasStudent: !!item.student,
       latestTest: item.placementTests[0] ?? null,

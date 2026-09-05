@@ -216,7 +216,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         enrollment.student.enrollments.map((e) => ({
           id: e.id,
           classId: e.classId,
-          className: e.class.className,
+          className: e.class?.className ?? "Gói học",
           transferredFromEnrollmentId: e.transferredFromEnrollmentId,
           status: e.status,
           enrollDate: e.enrollDate,

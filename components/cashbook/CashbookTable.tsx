@@ -4,17 +4,28 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
 import type { Column } from "@/components/ui/DataTable/DataTable";
-import CashTransactionExpandedDetail, { type CashTransactionForDetail } from "@/components/cashbook/CashTransactionExpandedDetail";
+import EditCashTransactionDrawer from "@/components/cashbook/EditCashTransactionDrawer";
 import { formatVnd, formatDate } from "@/lib/export-utils";
+import { Pencil } from "lucide-react";
 
 type Category = { id: string; type: string; name: string };
 
-type CashRow = CashTransactionForDetail & {
+type CashRow = {
+  id: string;
   txnDate: string;
-  handledByName: string | null;
-  categoryName: string | null;
+  type: "THU" | "CHI";
+  amount: number;
   thuAmount: number | null;
   chiAmount: number | null;
+  description: string | null;
+  detail: string | null;
+  notes: string | null;
+  attachmentUrl: string | null;
+  status: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  handledByName: string | null;
+  isDerived: boolean;
 };
 
 export default function CashbookTable({
@@ -100,9 +111,6 @@ export default function CashbookTable({
       key: "thuAmount",
       label: "Thu vào",
       align: "right",
-      // amount là field thô (Int) trên CashTransaction — lọc theo độ lớn giao dịch
-      // (áp dụng chung cho cả Thu/Chi), gắn vào cột "Thu vào" cho có chỗ đặt vì
-      // "Thu vào"/"Chi ra" chỉ là 2 cách hiện khác nhau của cùng field `amount`.
       filter: { type: "numberRange", paramKeyFrom: "amountFrom", paramKeyTo: "amountTo", placeholder: "đ" },
       render: (value) => (value ? <span className="font-semibold text-emerald-600">{formatVnd(value)}</span> : "—"),
     },
@@ -125,6 +133,24 @@ export default function CashbookTable({
           <span className="badge-gray">{value === "CONFIRMED" ? "Đã xác nhận" : value === "VOIDED" ? "Đã hủy" : "Nháp"}</span>
           {row.isDerived ? <span className="badge-purple">Tự động</span> : null}
         </div>
+      ),
+    },
+    {
+      key: "id",
+      label: "",
+      align: "right",
+      render: (_, row) => (
+        <EditCashTransactionDrawer
+          transaction={row}
+          categories={categories}
+          canManage={canManageCashbook}
+          trigger={
+            <button className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-primary hover:bg-[#eef2ff] transition-colors">
+              <Pencil className="h-3.5 w-3.5" />
+              Xem
+            </button>
+          }
+        />
       ),
     },
   ];
@@ -211,7 +237,6 @@ export default function CashbookTable({
       }
       primaryColumn="description"
       secondaryColumns={["txnDate", "type", "thuAmount", "chiAmount", "status"]}
-      renderExpanded={(row) => <CashTransactionExpandedDetail transaction={row} categories={categories} canManageCashbook={canManageCashbook} />}
       emptyState={{ title: "Chưa có phiếu thu/chi nào", description: "Không có phiếu nào trong khoảng ngày đang xem." }}
       loading={isPending}
       pagination={{

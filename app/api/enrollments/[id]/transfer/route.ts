@@ -23,6 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
   if (!existing) return NextResponse.json({ error: "Khong tim thay ghi danh" }, { status: 404 });
   if (existing.status !== "ACTIVE") return NextResponse.json({ error: "Chi chuyen lop cho enrollment dang ACTIVE." }, { status: 409 });
+  if (!existing.class) return NextResponse.json({ error: "Gói học chưa được gán vào lớp cụ thể để thực hiện chuyển lớp." }, { status: 400 });
 
   const targetClassId = String(body.targetClassId ?? existing.class.nextClassId ?? "").trim();
   if (!targetClassId) return NextResponse.json({ error: "Lop hien tai chua cau hinh lop tiep theo." }, { status: 400 });
@@ -138,7 +139,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           studentId: existing.studentId,
           enrollmentId: nextEnrollment.id,
           percentage: chosenScholarshipPct,
-          reason: `Admin chon giu ${Math.round(chosenScholarshipPct * 100)}% tu enrollment cu khi chuyen lop: ${existing.class.className} -> ${targetClass.className}`,
+          reason: `Admin chon giu ${Math.round(chosenScholarshipPct * 100)}% tu enrollment cu khi chuyen lop: ${existing.class?.className ?? "Gói cũ"} -> ${targetClass.className}`,
           effectiveFrom: now,
           effectiveTo: null,
         },
@@ -150,7 +151,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         data: {
           studentId: existing.studentId,
           amount: conversion.remainingCashAmount,
-          reason: `Tien le sau quy doi chuyen lop: ${existing.class.className} -> ${targetClass.className}`,
+          reason: `Tien le sau quy doi chuyen lop: ${existing.class?.className ?? "Gói cũ"} -> ${targetClass.className}`,
         },
       });
     }

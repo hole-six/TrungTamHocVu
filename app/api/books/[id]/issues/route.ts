@@ -93,7 +93,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       orderBy: { startDate: "desc" },
     });
 
-    if (period) {
+    if (period && inferredClassId) {
       const charge = await tx.charge.findUnique({
         where: {
           studentId_classId_billingPeriodId: {

@@ -115,8 +115,8 @@ export async function GET(req: NextRequest) {
     return {
       ...item,
       primaryGuardian,
-      currentClassName: currentEnrollment?.class.className ?? null,
-      currentClassCode: currentEnrollment?.class.classCode ?? null,
+      currentClassName: currentEnrollment?.class?.className ?? currentEnrollment?.packageLabel ?? null,
+      currentClassCode: currentEnrollment?.class?.classCode ?? null,
       leadCode: item.lead?.leadCode ?? null,
       outstanding: limitedToAssignedStudents
         ? null
