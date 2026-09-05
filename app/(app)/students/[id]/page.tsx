@@ -1055,6 +1055,8 @@ export default async function StudentDetailPage({
                     paymentStatus: issue.paymentStatus,
                     className: issue.class?.className ?? null,
                     notes: issue.notes,
+                    chargeId: issue.chargeId,
+                    chargePeriodName: issue.charge?.billingPeriod?.periodName ?? null,
                   }))}
                   bookRequirements={student.bookRequirements.map((item) => ({
                     id: item.id,

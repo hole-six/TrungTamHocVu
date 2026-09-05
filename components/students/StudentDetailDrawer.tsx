@@ -289,7 +289,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
 
   if (loading || error || !data) {
     return (
-      <ResponsiveDrawer open={open} onClose={onClose} widthClassName="max-w-3xl" title={loading ? "Đang tải..." : "Lỗi"}>
+      <ResponsiveDrawer open={open} onClose={onClose} widthClassName="max-w-5xl" title={loading ? "Đang tải..." : "Lỗi"}>
         <div className="flex items-center justify-center py-20">
           {loading ? (
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#e5e7eb] border-t-[#f97316]" />
@@ -313,7 +313,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
 
   return (
     <>
-      <ResponsiveDrawer open={open} onClose={onClose} widthClassName="max-w-3xl" title={data.fullName}>
+      <ResponsiveDrawer open={open} onClose={onClose} widthClassName="max-w-5xl" title={data.fullName}>
         <div className="space-y-4">
           {/* Danh tính: mã HV, lớp, trạng thái — 1 dòng, không lặp lại tên (tiêu đề drawer đã có) */}
           <div className="flex flex-wrap items-center gap-2 text-xs">

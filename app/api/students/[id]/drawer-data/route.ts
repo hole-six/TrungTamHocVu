@@ -543,6 +543,12 @@ export async function GET(
         paymentStatus: issue.paymentStatus,
         className: issue.class?.className ?? null,
         notes: issue.notes,
+        // Tiền sách chỉ thành công nợ khi lần xuất này được gắn vào 1 Charge (xem
+        // app/api/books/[id]/issues/route.ts — chỉ gắn được nếu kỳ thu chứa ngày xuất
+        // tồn tại, chưa khóa sổ, và học viên đã có charge của kỳ đó). Trả ra để màn
+        // hình học phí nói thật được sách nào đã vào công nợ, sách nào chưa.
+        chargeId: issue.chargeId,
+        chargePeriodName: issue.charge?.billingPeriod?.periodName ?? null,
       })),
       bookRequirements: student.bookRequirements.map((item) => ({
         id: item.id,

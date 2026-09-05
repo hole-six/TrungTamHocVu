@@ -7,7 +7,6 @@ import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import DatePicker from "@/components/ui/DatePicker";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import FormGuide from "@/components/ui/FormGuide";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import { formatVnd } from "@/lib/export-utils";
 
@@ -37,6 +36,9 @@ type BookIssueSummary = {
   paymentStatus: string;
   className?: string | null;
   notes?: string | null;
+  /** Charge mà tiền sách này đã được cộng vào. Null = chưa vào công nợ của ai. */
+  chargeId?: string | null;
+  chargePeriodName?: string | null;
 };
 
 type BookRequirementSummary = {
@@ -122,13 +124,6 @@ function stockClass(quantity: number) {
   return "bg-emerald-100 text-emerald-700";
 }
 
-function toneCard(kind: "danger" | "warning" | "success" | "default") {
-  if (kind === "danger") return "border-rose-200 bg-rose-50";
-  if (kind === "warning") return "border-amber-200 bg-amber-50";
-  if (kind === "success") return "border-emerald-200 bg-emerald-50";
-  return "border-hairline bg-white";
-}
-
 function buildChargePreviewText(charge?: ChargeSummary | null) {
   if (!charge) return "Lớp này chưa có khoản đang mở. Kiểu thu mới sẽ áp dụng từ lần sinh phí tiếp theo.";
 
@@ -141,36 +136,6 @@ function buildChargePreviewText(charge?: ChargeSummary | null) {
     `- Đã thu: ${formatVnd(charge.paidAmount)}`,
   ].join("\n");
 }
-
-const STUDENT_FINANCE_GUIDE_SECTIONS = [
-  {
-    title: "Đọc nhanh tab này",
-    items: [
-      "Nhìn số còn phải thu trước để biết học viên đang cần đóng bao nhiêu.",
-      "Khoản cần thu ngay là khoản nên xử lý đầu tiên trong lần làm việc này.",
-      "Tiền học và tiền sách được tách riêng để tránh thu nhầm.",
-    ],
-    tone: "info" as const,
-  },
-  {
-    title: "Thao tác đúng",
-    items: [
-      "Cần thu tiền thì bấm thu ở đúng khoản đang mở.",
-      "Phụ huynh đổi từ theo tháng sang theo khóa thì đổi ở phần cách thu theo lớp.",
-      "Mua thêm sách thì thêm ở khu sách để hệ thống cộng đúng vào công nợ.",
-    ],
-    tone: "success" as const,
-  },
-  {
-    title: "Lưu ý",
-    items: [
-      "Học bổng chỉ giảm học phí, không giảm tiền sách.",
-      "Khoản đã thu đủ chỉ để đối chiếu lịch sử.",
-      "Nếu số liệu lệch, kiểm tra cả học phí, thanh toán và sách cùng lúc.",
-    ],
-    tone: "warning" as const,
-  },
-];
 
 export default function StudentFinanceDesk({
   studentId,
@@ -203,6 +168,7 @@ export default function StudentFinanceDesk({
   const [issuing, setIssuing] = useState(false);
   const [issueError, setIssueError] = useState<string | null>(null);
   const [issueNotice, setIssueNotice] = useState<string | null>(null);
+  const [issueWarning, setIssueWarning] = useState<string | null>(null);
   const [bookStatusError, setBookStatusError] = useState<string | null>(null);
   const [updatingBookIssueId, setUpdatingBookIssueId] = useState<string | null>(null);
   const [deletingBookIssueId, setDeletingBookIssueId] = useState<string | null>(null);
@@ -218,15 +184,8 @@ export default function StudentFinanceDesk({
   } | null>(null);
 
   const selectedBook = useMemo(() => books.find((book) => book.id === selectedBookId) ?? null, [books, selectedBookId]);
-  const unpaidBooks = useMemo(() => bookIssues.filter((issue) => issue.paymentStatus !== "PAID"), [bookIssues]);
-  const unpaidBookAmount = unpaidBooks.reduce((sum, issue) => sum + issue.amount, 0);
   const openCharges = useMemo(() => charges.filter((charge) => charge.remainingAmount > 0), [charges]);
-  const otherOpenCharges = useMemo(() => openCharges.filter((charge) => charge.id !== nextDueCharge?.id), [openCharges, nextDueCharge?.id]);
-  // Kỳ trả góp sinh sẵn charge cho cả tương lai — tách riêng kỳ ĐÃ tới hạn (thật sự
-  // là nợ) khỏi kỳ CHƯA tới hạn (chỉ là lịch trả góp sắp tới, không phải nợ quá hạn).
   const today = useMemo(() => getVietnamToday(), []);
-  const overdueOtherCharges = useMemo(() => otherOpenCharges.filter((charge) => new Date(charge.startDate).getTime() <= today.getTime()), [otherOpenCharges, today]);
-  const upcomingOtherCharges = useMemo(() => otherOpenCharges.filter((charge) => new Date(charge.startDate).getTime() > today.getTime()), [otherOpenCharges, today]);
   const openChargeByClassId = useMemo(() => {
     const mapping = new Map<string, ChargeSummary>();
     openCharges
@@ -246,17 +205,58 @@ export default function StudentFinanceDesk({
     [bookRequirements],
   );
 
-  // Bảng "Các kỳ học phí" gộp chung khoản ưu tiên thu + kỳ còn treo + vài kỳ gần đây đã
-  // thu đủ, để CSO chỉ cần nhìn 1 danh sách duy nhất thay vì 3 khối tách rời như trước.
-  const chargeTableRows = useMemo(() => {
-    const overdue = overdueOtherCharges;
-    const dueRow = nextDueCharge && !overdue.some((c) => c.id === nextDueCharge.id) ? [nextDueCharge] : [];
-    const closed = charges
-      .filter((charge) => charge.remainingAmount <= 0)
-      .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-      .slice(0, 6);
-    return [...dueRow, ...overdue, ...upcomingOtherCharges, ...closed];
-  }, [charges, overdueOtherCharges, upcomingOtherCharges, nextDueCharge]);
+  // Từng lớp = 1 gói thu riêng. Với lớp thu THEO THÁNG, chỉ ghi nhãn "đang thu theo
+  // tháng" là vô dụng — phải liệt kê được đúng các tháng đã sinh phí, mỗi tháng bao
+  // nhiêu, đã thu bao nhiêu, còn lại bao nhiêu, và tổng của cả gói, thì mới đối chiếu
+  // được với phụ huynh. Dữ liệu lấy từ chính charges đã có, chỉ là trước đây bị trộn
+  // chung mọi lớp vào 1 bảng nên không soi theo lớp được.
+  const classPackages = useMemo(() => {
+    return activeEnrollmentOptions.map((enrollment) => {
+      const rows = charges
+        .filter((charge) => charge.classId === enrollment.classId)
+        .sort((left, right) => new Date(left.startDate).getTime() - new Date(right.startDate).getTime());
+      return {
+        enrollment,
+        rows,
+        // Cộng theo tiền RIÊNG của từng kỳ (học phí + sách), KHÔNG dùng totalAmount:
+        // totalAmount đã gộp sẵn nợ cũ (openingBalance) của kỳ trước, cộng dồn qua
+        // nhiều kỳ sẽ đếm trùng khoản nợ đó nhiều lần — xem chargeOwnDueAmount ở
+        // lib/server/tuition-rules.ts. Cộng đúng thì 3 số khớp nhau: tổng - đã thu = còn lại.
+        total: rows.reduce((sum, charge) => sum + charge.tuitionAmount + charge.materialsAmount, 0),
+        paid: rows.reduce((sum, charge) => sum + charge.paidAmount, 0),
+        remaining: rows.reduce((sum, charge) => sum + charge.remainingAmount, 0),
+        // Chỉ đếm kỳ THẬT SỰ có phát sinh học phí/sách; kỳ trống (chỉ mang nợ cũ sang)
+        // không tính là "đã thu xong" vì chưa từng phải thu gì.
+        billedCount: rows.filter((charge) => charge.tuitionAmount + charge.materialsAmount > 0).length,
+        settledCount: rows.filter(
+          (charge) => charge.tuitionAmount + charge.materialsAmount > 0 && charge.remainingAmount <= 0,
+        ).length,
+      };
+    });
+  }, [activeEnrollmentOptions, charges]);
+
+  // Các kỳ không thuộc lớp nào đang học (lớp đã kết thúc/đã chuyển) — vẫn phải hiện vì
+  // tiền vẫn là nợ thật, nhưng tách riêng để không lẫn vào gói đang chạy.
+  const orphanCharges = useMemo(() => {
+    const activeClassIds = new Set(activeEnrollmentOptions.map((item) => item.classId));
+    return charges
+      .filter((charge) => !activeClassIds.has(charge.classId))
+      .sort((left, right) => new Date(right.startDate).getTime() - new Date(left.startDate).getTime());
+  }, [charges, activeEnrollmentOptions]);
+
+  // Tiền sách chỉ thật sự thành công nợ khi lần xuất được gắn vào 1 Charge. Nếu không
+  // gắn được (chưa có kỳ thu chứa ngày xuất, kỳ đã khóa sổ, hoặc học viên chưa có
+  // charge kỳ đó) thì sách đã giao nhưng KHÔNG ai bị tính tiền — trước đây màn hình
+  // này không hề nói ra, nên tiền thất thoát im lặng.
+  const bookMoney = useMemo(() => {
+    const unlinked = bookIssues.filter((issue) => !issue.chargeId);
+    return {
+      total: bookIssues.reduce((sum, issue) => sum + issue.amount, 0),
+      linkedAmount: bookIssues.filter((issue) => issue.chargeId).reduce((sum, issue) => sum + issue.amount, 0),
+      unlinkedAmount: unlinked.reduce((sum, issue) => sum + issue.amount, 0),
+      unlinkedCount: unlinked.length,
+    };
+  }, [bookIssues]);
 
   type BookRow = {
     key: string;
@@ -271,8 +271,9 @@ export default function StudentFinanceDesk({
     issue?: BookIssueSummary;
   };
 
-  // Bảng "Sách" gộp chung sách chuẩn của khóa và sách mua thêm chưa thu vào 1 danh sách,
-  // phân biệt bằng nhãn "Sách chuẩn"/"Phát sinh" thay vì 2 khối tách rời như trước.
+  // Gộp sách chuẩn của khóa và sách đã xuất vào 1 danh sách. Cố tình hiện CẢ sách đã
+  // thu xong — trước đây lọc bỏ (chỉ giữ unpaid) nên sách đã thu biến mất khỏi màn
+  // hình, không còn cách nào đối chiếu lại đã thu những gì.
   const bookTableRows = useMemo<BookRow[]>(() => {
     const requirementRows: BookRow[] = bookRequirements.map((item) => ({
       key: `req-${item.id}`,
@@ -285,7 +286,7 @@ export default function StudentFinanceDesk({
       statusClass: requirementClass(item.status),
       requirement: item,
     }));
-    const issueRows: BookRow[] = unpaidBooks.map((issue) => ({
+    const issueRows: BookRow[] = bookIssues.map((issue) => ({
       key: `issue-${issue.id}`,
       kind: "issue",
       bookName: issue.bookName,
@@ -297,7 +298,7 @@ export default function StudentFinanceDesk({
       issue,
     }));
     return [...requirementRows, ...issueRows];
-  }, [bookRequirements, unpaidBooks]);
+  }, [bookRequirements, bookIssues]);
 
   const bookCategories = useMemo(() => {
     const values = new Set<string>();
@@ -351,6 +352,7 @@ export default function StudentFinanceDesk({
     setIssuing(true);
     setIssueError(null);
     setIssueNotice(null);
+    setIssueWarning(null);
 
     const response = await fetch(`/api/books/${selectedBookId}/issues`, {
       method: "POST",
@@ -371,10 +373,24 @@ export default function StudentFinanceDesk({
       return;
     }
 
-    const notices = [data.warning, data.classWarning, data.chargeUpdated ? "Tiền sách đã được cộng vào công nợ đang mở." : null]
-      .filter(Boolean)
-      .join(" ");
-    setIssueNotice(notices || "Đã thêm phát sinh sách.");
+    // Sách đã giao nhưng KHÔNG gắn được vào kỳ thu nào thì không ai bị tính tiền —
+    // phải nói thẳng, trước đây chỉ hiện "Đã thêm phát sinh sách." nên khoản này
+    // thất thoát im lặng.
+    if (data.chargeUpdated) {
+      setIssueNotice([data.warning, data.classWarning, "Đã thêm sách và cộng tiền vào công nợ kỳ đang mở."].filter(Boolean).join(" "));
+      setIssueWarning(null);
+    } else {
+      setIssueNotice(null);
+      setIssueWarning(
+        [
+          data.warning,
+          data.classWarning,
+          "Đã ghi nhận xuất sách NHƯNG chưa cộng được tiền vào công nợ (chưa có kỳ thu chứa ngày xuất, kỳ đã khóa sổ, hoặc học viên chưa có khoản thu của kỳ đó). Cần sinh/mở kỳ thu rồi thu tay khoản này.",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      );
+    }
     setSelectedBookId("");
     setSelectedClassId(activeEnrollmentOptions.length === 1 ? activeEnrollmentOptions[0]?.classId ?? "" : "");
     setSelectedCategory("");
@@ -476,211 +492,207 @@ export default function StudentFinanceDesk({
   }
 
   return (
-    <div className="space-y-6">
-      <FormGuide
-        title="Hướng dẫn học phí"
-        summary="Cách nhìn số tiền, đổi kiểu thu và xử lý sách của học viên."
-        sections={STUDENT_FINANCE_GUIDE_SECTIONS}
-        position="floating"
-        buttonLabel="Guide"
-      />
-      {/* Trước đây header "Học phí của..." và "Cách thu theo lớp" là 2 section xếp dọc
-          riêng biệt — với case chưa có lớp hoạt động, 2 khối này chủ yếu là chữ/trạng
-          thái rỗng nên xếp dọc chiếm nhiều chỗ không cần thiết. Gộp vào 1 hàng 2 cột. */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <section className="rounded-[28px] border border-[#dbe7fb] bg-white p-5 shadow-sm">
-          <div className="flex h-full flex-col gap-4">
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">
-                  Học phí
-                </span>
-                {currentClassName ? <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{currentClassName}</span> : null}
+    <div className="space-y-4">
+      {/* Mỗi lớp = 1 gói thu riêng. Với lớp thu theo tháng, phải nhìn được đủ: các kỳ
+          đã sinh, mỗi kỳ bao nhiêu, đã thu bao nhiêu, còn lại bao nhiêu và tổng cả gói. */}
+      {classPackages.map((pkg) => {
+        const isPeriod = pkg.enrollment.billingModel === "PERIOD";
+        return (
+          <section key={pkg.enrollment.enrollmentId} className="rounded-xl border border-[#e5eaf7] bg-white">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#f1f5f9] px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-black text-[#0f1729]">{pkg.enrollment.className}</p>
+                <p className="mt-0.5 text-xs text-[#64748b]">
+                  Đang thu {billingModeLabel(pkg.enrollment.billingModel).toLowerCase()}
+                  {isPeriod ? ` · ${pkg.billedCount} kỳ có học phí · đã thu xong ${pkg.settledCount}/${pkg.billedCount}` : ""}
+                </p>
               </div>
-
-              <div>
-                <h2 className="font-display text-2xl font-semibold tracking-tight text-ink">Học phí của {studentName}</h2>
-                <p className="mt-1 text-sm text-ink-muted48">{studentCode} · {activeEnrollmentOptions.length > 0 ? `${activeEnrollmentOptions.length} lớp đang chạy` : "Chưa có lớp đang hoạt động"}</p>
-              </div>
-            </div>
-
-            <div className="mt-auto flex flex-wrap items-center gap-2">
-              {canManageInventory ? (
-                <button type="button" onClick={() => void openBookPicker()} className="btn-ghost">
-                  Chọn sách phát sinh
-                </button>
+              {canManageFinance ? (
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => switchBillingMode(pkg.enrollment.enrollmentId, pkg.enrollment.classId, "PERIOD", pkg.enrollment.className)}
+                    disabled={switchingEnrollmentId === pkg.enrollment.enrollmentId || isPeriod}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                      isPeriod
+                        ? "bg-[#0f1729] text-white"
+                        : "border border-[#e2e8f0] bg-white text-[#475569] hover:border-[#0f1729] disabled:opacity-60"
+                    }`}
+                  >
+                    Theo tháng
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => switchBillingMode(pkg.enrollment.enrollmentId, pkg.enrollment.classId, "COURSE", pkg.enrollment.className)}
+                    disabled={switchingEnrollmentId === pkg.enrollment.enrollmentId || pkg.enrollment.billingModel === "COURSE"}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                      pkg.enrollment.billingModel === "COURSE"
+                        ? "bg-[#0f1729] text-white"
+                        : "border border-[#e2e8f0] bg-white text-[#475569] hover:border-[#0f1729] disabled:opacity-60"
+                    }`}
+                  >
+                    Theo khóa
+                  </button>
+                </div>
               ) : null}
-              {canManageFinance ? <QuickPaymentButton studentId={studentId} suggestedAmount={outstanding} /> : null}
             </div>
-          </div>
-        </section>
 
-        <section className="rounded-[28px] border border-hairline bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-ink">Cách thu theo lớp</h3>
-              <p className="mt-1 text-sm text-ink-muted48">Mỗi lớp chọn 1 kiểu thu đang áp dụng cho phụ huynh.</p>
+            <div className="grid grid-cols-3 divide-x divide-[#f1f5f9] border-b border-[#f1f5f9] text-center">
+              <div className="px-3 py-2.5">
+                <p className="text-[11px] uppercase tracking-wide text-[#94a3b8]">Tổng phải thu</p>
+                <p className="mt-0.5 text-base font-black text-[#0f1729]">{formatVnd(pkg.total)}</p>
+              </div>
+              <div className="px-3 py-2.5">
+                <p className="text-[11px] uppercase tracking-wide text-[#94a3b8]">Đã thu</p>
+                <p className="mt-0.5 text-base font-black text-[#0f1729]">{formatVnd(pkg.paid)}</p>
+              </div>
+              <div className="px-3 py-2.5">
+                <p className="text-[11px] uppercase tracking-wide text-[#94a3b8]">Còn phải thu</p>
+                <p className={`mt-0.5 text-base font-black ${pkg.remaining > 0 ? "text-[#dc2626]" : "text-[#0f1729]"}`}>
+                  {formatVnd(pkg.remaining)}
+                </p>
+              </div>
             </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{activeEnrollmentOptions.length} lớp đang áp dụng</span>
-          </div>
 
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[560px] border-separate border-spacing-y-2 text-base">
-              <tbody>
-                {activeEnrollmentOptions.map((enrollment) => {
-                  const openCharge = openChargeByClassId.get(enrollment.classId);
-                  return (
-                    <tr key={enrollment.enrollmentId} className="bg-[#fbfdff]">
-                      <td className="rounded-l-2xl px-4 py-3 align-middle">
-                        <p className="font-semibold text-ink">{enrollment.className}</p>
-                        <p className="mt-0.5 text-xs text-ink-muted48">Đang thu: {billingModeLabel(enrollment.billingModel)}</p>
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        {openCharge ? (
-                          <div className="flex flex-wrap gap-2">
-                            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">{openCharge.periodName}</span>
-                            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">Còn {formatVnd(openCharge.remainingAmount)}</span>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-ink-muted48">Chưa có khoản mở cần đổi ngay.</p>
-                        )}
-                      </td>
-                      <td className="rounded-r-2xl px-4 py-3 text-right align-middle">
-                        {canManageFinance ? (
-                          <div className="inline-flex flex-wrap justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => switchBillingMode(enrollment.enrollmentId, enrollment.classId, "PERIOD", enrollment.className)}
-                              disabled={switchingEnrollmentId === enrollment.enrollmentId || enrollment.billingModel === "PERIOD"}
-                              className={`rounded-full px-4 py-2.5 text-sm font-semibold transition ${
-                                enrollment.billingModel === "PERIOD"
-                                  ? "bg-sky-100 text-sky-700"
-                                  : "border border-sky-200 bg-white text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
-                              }`}
-                            >
-                              {switchingEnrollmentId === enrollment.enrollmentId && enrollment.billingModel !== "PERIOD" ? "Đang đổi..." : "Theo tháng"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => switchBillingMode(enrollment.enrollmentId, enrollment.classId, "COURSE", enrollment.className)}
-                              disabled={switchingEnrollmentId === enrollment.enrollmentId || enrollment.billingModel === "COURSE"}
-                              className={`rounded-full px-4 py-2.5 text-sm font-semibold transition ${
-                                enrollment.billingModel === "COURSE"
-                                  ? "bg-violet-100 text-violet-700"
-                                  : "border border-violet-200 bg-white text-violet-700 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
-                              }`}
-                            >
-                              {switchingEnrollmentId === enrollment.enrollmentId && enrollment.billingModel !== "COURSE" ? "Đang đổi..." : "Theo khóa"}
-                            </button>
-                          </div>
-                        ) : null}
-                      </td>
+            {pkg.rows.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] text-sm">
+                  <thead>
+                    <tr className="border-b border-[#f1f5f9] text-left text-[11px] uppercase tracking-wide text-[#94a3b8]">
+                      <th className="px-4 py-2 font-semibold">Kỳ thu</th>
+                      <th className="px-3 py-2 font-semibold">Học phí</th>
+                      <th className="px-3 py-2 font-semibold">Sách</th>
+                      <th className="px-3 py-2 font-semibold">Nợ cũ</th>
+                      <th className="px-3 py-2 font-semibold">Đã thu</th>
+                      <th className="px-4 py-2 text-right font-semibold">Còn lại</th>
                     </tr>
-                  );
-                })}
-                {activeEnrollmentOptions.length === 0 ? (
-                  <tr>
-                    <td className="px-4 py-3 text-sm text-ink-muted48">Chưa có ghi danh đang hoạt động.</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-          {billingModeMessage ? <div className="mt-3 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-700">{billingModeMessage}</div> : null}
-        </section>
-      </div>
+                  </thead>
+                  <tbody>
+                    {pkg.rows.map((charge) => {
+                      const isClosed = charge.remainingAmount <= 0;
+                      const isUpcoming = !isClosed && new Date(charge.startDate).getTime() > today.getTime();
+                      // Kỳ không phát sinh học phí/sách riêng (chỉ mang nợ cũ sang) thì
+                      // KHÔNG được ghi "đã thu đủ" — chưa thu đồng nào, chỉ là kỳ trống.
+                      const hasOwnCharge = charge.tuitionAmount + charge.materialsAmount > 0;
+                      return (
+                        <tr key={charge.id} className="border-b border-[#f8fafc] last:border-0">
+                          <td className="px-4 py-2.5 align-top">
+                            <p className="font-bold text-[#0f1729]">{charge.periodName}</p>
+                            <p className="mt-0.5 text-xs text-[#94a3b8]">
+                              {!hasOwnCharge
+                                ? "Không phát sinh học phí kỳ này"
+                                : isClosed
+                                  ? "Đã thu đủ"
+                                  : isUpcoming
+                                    ? `Đến hạn ${new Date(charge.startDate).toLocaleDateString("vi-VN")}`
+                                    : charge.id === nextDueCharge?.id
+                                      ? "Cần thu ngay"
+                                      : "Còn nợ"}
+                              {charge.discountLabels?.length ? ` · ${charge.discountLabels.join(" + ")}` : ""}
+                            </p>
+                          </td>
+                          <td className="px-3 py-2.5 align-top text-[#475569]">{formatVnd(charge.tuitionAmount)}</td>
+                          <td className="px-3 py-2.5 align-top text-[#475569]">{formatVnd(charge.materialsAmount)}</td>
+                          <td className="px-3 py-2.5 align-top text-[#475569]">{formatVnd(charge.openingBalance)}</td>
+                          <td className="px-3 py-2.5 align-top text-[#475569]">{formatVnd(charge.paidAmount)}</td>
+                          <td className="px-4 py-2.5 text-right align-top">
+                            <p className={`font-black ${charge.remainingAmount > 0 ? "text-[#dc2626]" : "text-[#0f1729]"}`}>
+                              {formatVnd(charge.remainingAmount)}
+                            </p>
+                            {charge.remainingAmount > 0 && canManageFinance ? (
+                              <div className="mt-1.5 flex justify-end">
+                                <QuickPaymentButton studentId={studentId} suggestedAmount={charge.remainingAmount} />
+                              </div>
+                            ) : null}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="px-4 py-3 text-sm text-[#94a3b8]">
+                {isPeriod
+                  ? "Chưa sinh kỳ thu nào cho lớp này — chạy sinh học phí theo tháng ở trang Học phí thì các tháng cần thu sẽ hiện ở đây."
+                  : "Chưa lập khoản thu nào cho lớp này."}
+              </p>
+            )}
+          </section>
+        );
+      })}
 
-      <section className="rounded-[28px] border border-hairline bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-ink">Các kỳ học phí</h3>
-            <p className="mt-1 text-sm text-ink-muted48">Kỳ ưu tiên thu, kỳ còn treo và vài kỳ gần đây đã thu đủ — gộp chung 1 danh sách, thu tiền ngay trên dòng.</p>
-          </div>
-          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Cần thu {formatVnd(dueNowAmount)}</span>
-        </div>
+      {activeEnrollmentOptions.length === 0 ? (
+        <p className="rounded-xl border border-[#e5eaf7] bg-white px-4 py-3 text-sm text-[#94a3b8]">
+          Học viên chưa có lớp đang học nên chưa có gói thu nào.
+        </p>
+      ) : null}
 
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[760px] border-separate border-spacing-y-2 text-base">
-            <thead>
-              <tr className="text-left text-xs font-semibold uppercase tracking-wide text-ink-muted48">
-                <th className="px-3 pb-1">Kỳ · Lớp · Trạng thái</th>
-                <th className="px-3 pb-1">Học phí</th>
-                <th className="px-3 pb-1">Sách</th>
-                <th className="px-3 pb-1">Nợ đầu kỳ</th>
-                <th className="px-3 pb-1">Đã thu</th>
-                <th className="px-3 pb-1 text-right">Còn lại · Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {chargeTableRows.map((charge) => {
-                const isPriority = charge.id === nextDueCharge?.id;
-                const isClosed = charge.remainingAmount <= 0;
-                const isUpcoming = !isClosed && new Date(charge.startDate).getTime() > today.getTime();
-                const statusLabel = isPriority
-                  ? "Ưu tiên thu ngay"
-                  : isUpcoming
-                    ? `Đến hạn ${new Date(charge.startDate).toLocaleDateString("vi-VN")}`
-                    : isClosed
-                      ? "Đã đủ"
-                      : "Còn nợ";
-                const statusClass = isPriority
-                  ? "bg-amber-200 text-amber-800"
-                  : isUpcoming
-                    ? "bg-sky-100 text-sky-700"
-                    : isClosed
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-rose-100 text-rose-700";
-                return (
-                  <tr key={charge.id} className={isPriority ? "bg-amber-50" : "bg-[#fbfdff]"}>
-                    <td className="rounded-l-2xl px-3 py-3 align-top">
-                      <p className="font-semibold text-ink">{charge.periodName}</p>
-                      <p className="mt-0.5 text-xs text-ink-muted48">{charge.className}</p>
-                      {charge.discountLabels?.length ? <p className="mt-1 text-xs text-emerald-700">{charge.discountLabels.join(" + ")}</p> : null}
-                      <span className={`mt-1.5 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusClass}`}>{statusLabel}</span>
+      {billingModeMessage ? (
+        <p className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] px-4 py-2.5 text-sm text-[#475569]">{billingModeMessage}</p>
+      ) : null}
+
+      {orphanCharges.length > 0 ? (
+        <section className="rounded-xl border border-[#e5eaf7] bg-white">
+          <div className="border-b border-[#f1f5f9] px-4 py-3">
+            <p className="text-sm font-black text-[#0f1729]">Kỳ thu của lớp đã kết thúc</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <tbody>
+                {orphanCharges.map((charge) => (
+                  <tr key={charge.id} className="border-b border-[#f8fafc] last:border-0">
+                    <td className="px-4 py-2.5">
+                      <p className="font-bold text-[#0f1729]">{charge.periodName}</p>
+                      <p className="mt-0.5 text-xs text-[#94a3b8]">{charge.className}</p>
                     </td>
-                    <td className="px-3 py-3 align-top text-ink-muted80">{formatVnd(charge.tuitionAmount)}</td>
-                    <td className="px-3 py-3 align-top text-ink-muted80">{formatVnd(charge.materialsAmount)}</td>
-                    <td className="px-3 py-3 align-top text-ink-muted80">{formatVnd(charge.openingBalance)}</td>
-                    <td className="px-3 py-3 align-top text-ink-muted80">{formatVnd(charge.paidAmount)}</td>
-                    <td className="rounded-r-2xl px-3 py-3 text-right align-top">
-                      <p className="font-semibold text-ink">{formatVnd(charge.remainingAmount)}</p>
+                    <td className="px-3 py-2.5 text-[#475569]">Đã thu {formatVnd(charge.paidAmount)}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      <p className={`font-black ${charge.remainingAmount > 0 ? "text-[#dc2626]" : "text-[#0f1729]"}`}>
+                        {formatVnd(charge.remainingAmount)}
+                      </p>
                       {charge.remainingAmount > 0 && canManageFinance ? (
-                        <div className="mt-1.5">
+                        <div className="mt-1.5 flex justify-end">
                           <QuickPaymentButton studentId={studentId} suggestedAmount={charge.remainingAmount} />
                         </div>
                       ) : null}
                     </td>
                   </tr>
-                );
-              })}
-              {chargeTableRows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-sm text-ink-muted48">
-                    Chưa có kỳ học phí nào.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
-      <section className="rounded-[28px] border border-hairline bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <section className="rounded-xl border border-[#e5eaf7] bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h3 className="text-lg font-semibold text-ink">Sách</h3>
-            <p className="mt-1 text-sm text-ink-muted48">Sách chuẩn của khóa và sách mua thêm chưa thu — gộp chung 1 danh sách.</p>
+            <p className="text-sm font-black text-[#0f1729]">Giáo trình</p>
+            <p className="mt-0.5 text-xs text-[#64748b]">
+              Đã xuất {formatVnd(bookMoney.total)} · vào công nợ {formatVnd(bookMoney.linkedAmount)}
+              {bookMoney.unlinkedAmount > 0 ? ` · chưa vào công nợ ${formatVnd(bookMoney.unlinkedAmount)}` : ""}
+              {` · sách chuẩn chờ xác nhận ${requirementStats.pending}`}
+            </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Chờ xác nhận {requirementStats.pending}</span>
-            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Đã mua {requirementStats.confirmed}</span>
-            {canManageInventory ? (
-              <button type="button" onClick={() => setShowIssueComposer((current) => !current)} className="btn-ghost">
-                {showIssueComposer ? "Ẩn form phát sinh" : "Thêm sách phát sinh"}
-              </button>
-            ) : null}
-          </div>
+          {canManageInventory ? (
+            <button
+              type="button"
+              onClick={() => setShowIssueComposer((current) => !current)}
+              className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] hover:border-[#f97316] hover:text-[#f97316]"
+            >
+              {showIssueComposer ? "Đóng" : "Xuất giáo trình"}
+            </button>
+          ) : null}
         </div>
+
+        {/* Sách đã giao nhưng tiền không gắn được vào kỳ thu nào = trung tâm mất tiền mà
+            không ai biết. Phải nổi lên ngay, không ẩn trong dòng trạng thái. */}
+        {bookMoney.unlinkedCount > 0 ? (
+          <p className="mt-3 rounded-lg border border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-sm font-semibold text-[#b91c1c]">
+            {bookMoney.unlinkedCount} lần xuất sách ({formatVnd(bookMoney.unlinkedAmount)}) chưa được cộng vào kỳ thu nào — khoản này hiện không nằm trong công nợ của học viên.
+          </p>
+        ) : null}
 
         {canManageInventory && showIssueComposer ? (
           <form onSubmit={handleIssueBook} className="mt-4 space-y-4 rounded-[22px] border border-[#e8eefb] bg-[#fbfdff] p-4">
@@ -762,6 +774,7 @@ export default function StudentFinanceDesk({
             ) : null}
 
             {issueError ? <div className="alert-danger">{issueError}</div> : null}
+            {issueWarning ? <div className="alert-danger">{issueWarning}</div> : null}
             {issueNotice ? <div className="alert-success">{issueNotice}</div> : null}
             {bookStatusError ? <div className="alert-danger">{bookStatusError}</div> : null}
 
@@ -779,6 +792,7 @@ export default function StudentFinanceDesk({
                 <th className="px-3 pb-1">Lớp</th>
                 <th className="px-3 pb-1">SL</th>
                 <th className="px-3 pb-1">Tiền</th>
+                <th className="px-3 pb-1">Đã tính vào</th>
                 <th className="px-3 pb-1">Trạng thái</th>
                 <th className="px-3 pb-1 text-right">Hành động</th>
               </tr>
@@ -793,6 +807,15 @@ export default function StudentFinanceDesk({
                   <td className="px-3 py-3 align-top text-ink-muted80">{row.className}</td>
                   <td className="px-3 py-3 align-top text-ink-muted80">{row.quantity}</td>
                   <td className="px-3 py-3 align-top text-ink-muted80">{formatVnd(row.amount)}</td>
+                  <td className="px-3 py-3 align-top text-xs">
+                    {row.kind === "requirement" ? (
+                      <span className="text-ink-muted48">Chưa xuất</span>
+                    ) : row.issue?.chargeId ? (
+                      <span className="text-ink-muted80">Kỳ {row.issue.chargePeriodName ?? "đã gắn"}</span>
+                    ) : (
+                      <span className="font-bold text-[#b91c1c]">Chưa vào công nợ</span>
+                    )}
+                  </td>
                   <td className="px-3 py-3 align-top">
                     <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${row.statusClass}`}>{row.statusLabel}</span>
                   </td>
@@ -860,8 +883,8 @@ export default function StudentFinanceDesk({
               ))}
               {bookTableRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-sm text-ink-muted48">
-                    Chưa có sách chuẩn hoặc sách phát sinh nào đang treo.
+                  <td colSpan={7} className="px-3 py-6 text-center text-sm text-ink-muted48">
+                    Chưa có sách chuẩn của khóa và chưa xuất giáo trình nào.
                   </td>
                 </tr>
               ) : null}
