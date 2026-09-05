@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeStockBalance } from "@/lib/server/inventory-rules";
-import { canEditCharges } from "@/lib/server/tuition-rules";
+import { canEditCharges, chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canCreateWithOverride } from "@/lib/server/role-matrix";
 import { syncBookQuantityOnHand } from "@/lib/server/database-sync";
@@ -67,6 +67,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const inferredClassId = requestedClassId || activeEnrollments[0].classId;
   const unitPrice = book.unitPrice;
 
+  // Thực tế trung tâm: sách thường thu tiền ngay lúc đưa sách. Chỉ khi CHƯA thu thì
+  // khoản đó mới được cộng vào kỳ học phí để thu chung. Trước đây route luôn cộng vào
+  // kỳ thu bất kể đã thu hay chưa, nên sách thu tiền mặt vẫn nằm trong công nợ (đếm 2
+  // lần), còn khi không gắn được kỳ nào thì im lặng bỏ qua (thu hụt, không ai biết).
+  const paidNow = body.paidNow === true;
+
   const result = await prisma.$transaction(async (tx) => {
     const issue = await tx.bookIssue.create({
       data: {
@@ -77,52 +83,70 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         unitPrice,
         amount: quantity * unitPrice,
         issueDate,
+        paymentStatus: paidNow ? "PAID" : "UNPAID",
         notes: body.notes || null,
       },
     });
 
     let linkedChargeId: string | null = null;
     let chargeUpdated = false;
+    let chargePeriodName: string | null = null;
+    let deferredToNextPeriod = false;
 
-    const period = await tx.billingPeriod.findFirst({
-      where: {
-        branchId: student.branchId,
-        startDate: { lte: issueDate },
-        endDate: { gte: issueDate },
-      },
-      orderBy: { startDate: "desc" },
-    });
-
-    if (period && inferredClassId) {
-      const charge = await tx.charge.findUnique({
-        where: {
-          studentId_classId_billingPeriodId: {
-            studentId,
-            classId: inferredClassId,
-            billingPeriodId: period.id,
-          },
-        },
+    if (!paidNow && inferredClassId) {
+      const period = await tx.billingPeriod.findFirst({
+        where: { branchId: student.branchId, startDate: { lte: issueDate }, endDate: { gte: issueDate } },
+        orderBy: { startDate: "desc" },
       });
 
-      if (charge) {
-        linkedChargeId = charge.id;
-        await tx.bookIssue.update({ where: { id: issue.id }, data: { chargeId: charge.id } });
+      // Kỳ của tháng đang đứng nếu tháng đó CHƯA thu xong; đã thu xong rồi thì đẩy sang
+      // kỳ kế tiếp — không mở lại một tháng phụ huynh đã đóng đủ.
+      const candidates = period
+        ? await tx.billingPeriod.findMany({
+            where: { branchId: student.branchId, startDate: { gte: period.startDate } },
+            orderBy: { startDate: "asc" },
+            take: 6,
+          })
+        : [];
 
-        if (canEditCharges(period.status)) {
-          await tx.charge.update({
-            where: { id: charge.id },
-            data: {
-              materialsAmount: charge.materialsAmount + issue.amount,
-              totalAmount: charge.totalAmount + issue.amount,
+      for (const candidate of candidates) {
+        if (!canEditCharges(candidate.status)) continue;
+        const charge = await tx.charge.findUnique({
+          where: {
+            studentId_classId_billingPeriodId: {
+              studentId,
+              classId: inferredClassId,
+              billingPeriodId: candidate.id,
             },
-          });
-          chargeUpdated = true;
-        }
+          },
+          include: { allocations: { where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } } } },
+        });
+        if (!charge) continue;
+
+        const paid = charge.allocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+        const ownDue = chargeOwnDueAmount(charge);
+        // Chỉ bỏ qua kỳ ĐÃ THU ĐỦ thật sự. Kỳ chưa phát sinh khoản nào (ownDue = 0) KHÔNG
+        // phải là "đã thu xong" — đó là kỳ trống và hoàn toàn nhận được tiền sách.
+        if (ownDue > 0 && paid >= ownDue) continue;
+
+        await tx.charge.update({
+          where: { id: charge.id },
+          data: {
+            materialsAmount: charge.materialsAmount + issue.amount,
+            totalAmount: charge.totalAmount + issue.amount,
+          },
+        });
+        await tx.bookIssue.update({ where: { id: issue.id }, data: { chargeId: charge.id } });
+        linkedChargeId = charge.id;
+        chargeUpdated = true;
+        chargePeriodName = candidate.periodName;
+        deferredToNextPeriod = candidate.id !== period?.id;
+        break;
       }
     }
 
     await syncBookQuantityOnHand(book.id, tx);
-    return { issue, linkedChargeId, chargeUpdated };
+    return { issue, linkedChargeId, chargeUpdated, chargePeriodName, deferredToNextPeriod, paidNow };
   });
 
   const balance = await computeStockBalance(book.id);
@@ -136,6 +160,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       warning,
       linkedChargeId: result.linkedChargeId,
       chargeUpdated: result.chargeUpdated,
+      chargePeriodName: result.chargePeriodName,
+      deferredToNextPeriod: result.deferredToNextPeriod,
+      paidNow: result.paidNow,
       classWarning: null,
     },
     { status: 201 },

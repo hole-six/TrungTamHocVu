@@ -165,6 +165,9 @@ export default function StudentFinanceDesk({
   const [quantity, setQuantity] = useState("1");
   const [issueDate, setIssueDate] = useState(new Date().toISOString().slice(0, 10));
   const [issueNotes, setIssueNotes] = useState("");
+  // Mặc định thu tiền ngay — đúng thực tế: đưa sách là thu tiền luôn, chỉ khi phụ
+  // huynh khất mới ghi nợ vào kỳ học phí.
+  const [paidNow, setPaidNow] = useState(true);
   const [issuing, setIssuing] = useState(false);
   const [issueError, setIssueError] = useState<string | null>(null);
   const [issueNotice, setIssueNotice] = useState<string | null>(null);
@@ -249,12 +252,16 @@ export default function StudentFinanceDesk({
   // charge kỳ đó) thì sách đã giao nhưng KHÔNG ai bị tính tiền — trước đây màn hình
   // này không hề nói ra, nên tiền thất thoát im lặng.
   const bookMoney = useMemo(() => {
-    const unlinked = bookIssues.filter((issue) => !issue.chargeId);
+    // Sách thu tiền mặt tại chỗ KHÔNG nằm trong công nợ — đó là đúng, không phải lỗi.
+    // Chỉ sách vừa chưa thu tiền vừa chưa ghi nợ vào kỳ nào mới là khoản bị bỏ sót.
+    const cashPaid = bookIssues.filter((issue) => !issue.chargeId && issue.paymentStatus === "PAID");
+    const missed = bookIssues.filter((issue) => !issue.chargeId && issue.paymentStatus !== "PAID");
     return {
       total: bookIssues.reduce((sum, issue) => sum + issue.amount, 0),
-      linkedAmount: bookIssues.filter((issue) => issue.chargeId).reduce((sum, issue) => sum + issue.amount, 0),
-      unlinkedAmount: unlinked.reduce((sum, issue) => sum + issue.amount, 0),
-      unlinkedCount: unlinked.length,
+      cashPaidAmount: cashPaid.reduce((sum, issue) => sum + issue.amount, 0),
+      billedAmount: bookIssues.filter((issue) => issue.chargeId).reduce((sum, issue) => sum + issue.amount, 0),
+      missedAmount: missed.reduce((sum, issue) => sum + issue.amount, 0),
+      missedCount: missed.length,
     };
   }, [bookIssues]);
 
@@ -363,6 +370,7 @@ export default function StudentFinanceDesk({
         quantity: Number(quantity),
         issueDate,
         notes: issueNotes,
+        paidNow,
       }),
     });
     const data = await response.json().catch(() => ({}));
@@ -373,19 +381,30 @@ export default function StudentFinanceDesk({
       return;
     }
 
-    // Sách đã giao nhưng KHÔNG gắn được vào kỳ thu nào thì không ai bị tính tiền —
-    // phải nói thẳng, trước đây chỉ hiện "Đã thêm phát sinh sách." nên khoản này
-    // thất thoát im lặng.
-    if (data.chargeUpdated) {
-      setIssueNotice([data.warning, data.classWarning, "Đã thêm sách và cộng tiền vào công nợ kỳ đang mở."].filter(Boolean).join(" "));
+    // 3 kết cục khác nhau, phải nói rõ cái nào vừa xảy ra:
+    // (1) thu tiền ngay → không thành công nợ; (2) ghi nợ vào đúng kỳ; (3) không gắn
+    // được kỳ nào → sách đã giao mà không ai bị tính tiền, phải cảnh báo đỏ.
+    if (data.paidNow) {
+      setIssueNotice([data.warning, "Đã xuất sách và thu tiền ngay — không cộng vào công nợ."].filter(Boolean).join(" "));
+      setIssueWarning(null);
+    } else if (data.chargeUpdated) {
+      setIssueNotice(
+        [
+          data.warning,
+          `Đã ghi nợ tiền sách vào kỳ ${data.chargePeriodName ?? "đang mở"}${
+            data.deferredToNextPeriod ? " (kỳ của tháng xuất sách đã thu đủ nên chuyển sang kỳ kế tiếp)" : ""
+          }.`,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      );
       setIssueWarning(null);
     } else {
       setIssueNotice(null);
       setIssueWarning(
         [
           data.warning,
-          data.classWarning,
-          "Đã ghi nhận xuất sách NHƯNG chưa cộng được tiền vào công nợ (chưa có kỳ thu chứa ngày xuất, kỳ đã khóa sổ, hoặc học viên chưa có khoản thu của kỳ đó). Cần sinh/mở kỳ thu rồi thu tay khoản này.",
+          "Đã xuất sách NHƯNG chưa ghi được nợ vào kỳ thu nào (chưa có kỳ thu, kỳ đã khóa sổ, hoặc học viên chưa có khoản thu của kỳ nào còn mở). Khoản này hiện không nằm trong công nợ — cần sinh/mở kỳ thu rồi xử lý.",
         ]
           .filter(Boolean)
           .join(" "),
@@ -670,8 +689,9 @@ export default function StudentFinanceDesk({
           <div>
             <p className="text-sm font-black text-[#0f1729]">Giáo trình</p>
             <p className="mt-0.5 text-xs text-[#64748b]">
-              Đã xuất {formatVnd(bookMoney.total)} · vào công nợ {formatVnd(bookMoney.linkedAmount)}
-              {bookMoney.unlinkedAmount > 0 ? ` · chưa vào công nợ ${formatVnd(bookMoney.unlinkedAmount)}` : ""}
+              Đã xuất {formatVnd(bookMoney.total)} · thu tiền mặt {formatVnd(bookMoney.cashPaidAmount)} · ghi nợ vào kỳ thu{" "}
+              {formatVnd(bookMoney.billedAmount)}
+              {bookMoney.missedAmount > 0 ? ` · chưa xử lý ${formatVnd(bookMoney.missedAmount)}` : ""}
               {` · sách chuẩn chờ xác nhận ${requirementStats.pending}`}
             </p>
           </div>
@@ -688,9 +708,9 @@ export default function StudentFinanceDesk({
 
         {/* Sách đã giao nhưng tiền không gắn được vào kỳ thu nào = trung tâm mất tiền mà
             không ai biết. Phải nổi lên ngay, không ẩn trong dòng trạng thái. */}
-        {bookMoney.unlinkedCount > 0 ? (
+        {bookMoney.missedCount > 0 ? (
           <p className="mt-3 rounded-lg border border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-sm font-semibold text-[#b91c1c]">
-            {bookMoney.unlinkedCount} lần xuất sách ({formatVnd(bookMoney.unlinkedAmount)}) chưa được cộng vào kỳ thu nào — khoản này hiện không nằm trong công nợ của học viên.
+            {bookMoney.missedCount} lần xuất sách ({formatVnd(bookMoney.missedAmount)}) chưa thu tiền mà cũng chưa ghi nợ vào kỳ thu nào — cần thu tiền mặt hoặc ghi vào kỳ học phí.
           </p>
         ) : null}
 
@@ -749,6 +769,35 @@ export default function StudentFinanceDesk({
                 <span className="label-sm">Ngày ghi nhận</span>
                 <DatePicker value={issueDate} onChange={setIssueDate} />
               </label>
+            </div>
+
+            <div className="space-y-2">
+              <span className="label-sm">Tiền sách</span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaidNow(true)}
+                  className={`rounded-lg px-3.5 py-2 text-sm font-bold transition ${
+                    paidNow ? "bg-[#0f1729] text-white" : "border border-[#e2e8f0] bg-white text-[#475569] hover:border-[#0f1729]"
+                  }`}
+                >
+                  Thu tiền ngay
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaidNow(false)}
+                  className={`rounded-lg px-3.5 py-2 text-sm font-bold transition ${
+                    !paidNow ? "bg-[#0f1729] text-white" : "border border-[#e2e8f0] bg-white text-[#475569] hover:border-[#0f1729]"
+                  }`}
+                >
+                  Chưa thu — ghi nợ vào kỳ học phí
+                </button>
+              </div>
+              <p className="text-xs text-[#64748b]">
+                {paidNow
+                  ? "Thu tiền mặt lúc đưa sách — không cộng vào công nợ học phí."
+                  : "Cộng vào kỳ học phí của tháng xuất sách; nếu tháng đó đã thu đủ thì tự chuyển sang kỳ kế tiếp."}
+              </p>
             </div>
 
             <label className="space-y-2">
@@ -812,12 +861,23 @@ export default function StudentFinanceDesk({
                       <span className="text-ink-muted48">Chưa xuất</span>
                     ) : row.issue?.chargeId ? (
                       <span className="text-ink-muted80">Kỳ {row.issue.chargePeriodName ?? "đã gắn"}</span>
+                    ) : row.issue?.paymentStatus === "PAID" ? (
+                      <span className="text-ink-muted80">Thu tiền mặt</span>
                     ) : (
-                      <span className="font-bold text-[#b91c1c]">Chưa vào công nợ</span>
+                      <span className="font-bold text-[#b91c1c]">Chưa thu, chưa ghi nợ</span>
                     )}
                   </td>
                   <td className="px-3 py-3 align-top">
-                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${row.statusClass}`}>{row.statusLabel}</span>
+                    {/* Sách đã ghi nợ vào kỳ thu thì tình trạng thu do CHÍNH kỳ đó quyết
+                        định — không hiện nhãn thủ công song song, vì 2 nguồn sẽ mâu thuẫn
+                        (dữ liệu hiện có đúng 1 dòng vừa đánh dấu đã thu vừa nằm trong nợ). */}
+                    {row.kind === "issue" && row.issue?.chargeId ? (
+                      <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                        Thu theo kỳ học phí
+                      </span>
+                    ) : (
+                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${row.statusClass}`}>{row.statusLabel}</span>
+                    )}
                   </td>
                   <td className="rounded-r-2xl px-3 py-3 text-right align-top">
                     {row.kind === "requirement" && row.requirement ? (
@@ -841,30 +901,28 @@ export default function StudentFinanceDesk({
                       </div>
                     ) : row.kind === "issue" && row.issue && canManageInventory ? (
                       <div className="inline-flex flex-wrap justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => updateBookPaymentStatus(row.issue!.id, "PAID")}
-                          disabled={updatingBookIssueId === row.issue.id}
-                          className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-200"
-                        >
-                          Đã thu
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateBookPaymentStatus(row.issue!.id, "PARTIAL")}
-                          disabled={updatingBookIssueId === row.issue.id}
-                          className="status-action"
-                        >
-                          Một phần
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateBookPaymentStatus(row.issue!.id, "UNPAID")}
-                          disabled={updatingBookIssueId === row.issue.id}
-                          className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-200"
-                        >
-                          Chưa thu
-                        </button>
+                        {/* Chỉ sách CHƯA ghi nợ vào kỳ nào mới cần đánh dấu thu bằng tay
+                            (trường hợp thu tiền mặt tại chỗ). */}
+                        {!row.issue.chargeId ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => updateBookPaymentStatus(row.issue!.id, "PAID")}
+                              disabled={updatingBookIssueId === row.issue.id || row.issue.paymentStatus === "PAID"}
+                              className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-200 disabled:opacity-50"
+                            >
+                              Đã thu
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateBookPaymentStatus(row.issue!.id, "UNPAID")}
+                              disabled={updatingBookIssueId === row.issue.id || row.issue.paymentStatus === "UNPAID"}
+                              className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-200 disabled:opacity-50"
+                            >
+                              Chưa thu
+                            </button>
+                          </>
+                        ) : null}
                         <ConfirmActionButton
                           title="Xác nhận xóa sách phát sinh?"
                           description="Hệ thống sẽ hoàn tác dòng này khỏi công nợ và tồn kho nếu khoản sách vẫn chưa thu."
