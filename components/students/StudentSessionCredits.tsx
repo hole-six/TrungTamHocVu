@@ -95,10 +95,12 @@ export default function StudentSessionCredits({
   credits,
   sessionOptions,
   canManage,
+  onChanged,
 }: {
   credits: Credit[];
   sessionOptions: SessionOption[];
   canManage: boolean;
+  onChanged?: () => void;
 }) {
   const [redeemingId, setRedeemingId] = useState<string | null>(null);
   const available = credits.filter((c) => c.status === "AVAILABLE");
@@ -139,7 +141,14 @@ export default function StudentSessionCredits({
               ) : null}
             </div>
             {redeemingId === credit.id ? (
-              <RedeemForm credit={credit} sessionOptions={sessionOptions} onDone={() => setRedeemingId(null)} />
+              <RedeemForm
+                credit={credit}
+                sessionOptions={sessionOptions}
+                onDone={() => {
+                  setRedeemingId(null);
+                  onChanged?.();
+                }}
+              />
             ) : null}
           </div>
         ))}

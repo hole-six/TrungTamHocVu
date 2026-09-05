@@ -87,7 +87,9 @@ export default function ConfirmDialog({
 
           <div className="flex-1">
             <h3 className="text-xl font-bold tracking-tight text-[#12304a]">{title}</h3>
-            {description ? <div className="mt-2 text-sm leading-6 text-[#64748b]">{description}</div> : null}
+            {/* whitespace-pre-line: nhiều nơi truyền description nhiều dòng bằng \n để
+                liệt kê số tiền/kỳ thu — không giữ ngắt dòng thì dồn thành 1 đoạn khó đọc. */}
+            {description ? <div className="mt-2 whitespace-pre-line text-sm leading-6 text-[#64748b]">{description}</div> : null}
           </div>
         </div>
 

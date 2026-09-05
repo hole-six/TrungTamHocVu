@@ -14,6 +14,8 @@ type AssignEnrollmentFormProps = {
     currentClassName?: string | null;
     sessionCreditCount?: number;
   };
+  /** Báo cho drawer đang giữ dữ liệu trong state nạp lại sau khi gán lớp. */
+  onChanged?: () => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   triggerLabel?: string;
@@ -72,6 +74,7 @@ export default function AssignEnrollmentForm({
   open: controlledOpen,
   onOpenChange,
   triggerLabel = "Gán nhập học",
+  onChanged,
 }: AssignEnrollmentFormProps) {
   const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -144,6 +147,7 @@ export default function AssignEnrollmentForm({
 
     setSuccess(`Đã ghi danh ${student.fullName} vào lớp ${selected.className}.`);
     router.refresh();
+    onChanged?.();
   }
 
   return (

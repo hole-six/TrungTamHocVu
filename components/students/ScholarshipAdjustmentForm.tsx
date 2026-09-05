@@ -60,11 +60,13 @@ export default function ScholarshipAdjustmentForm({
   scholarships,
   adjustments,
   enrollments,
+  onChanged,
 }: {
   studentId: string;
   scholarships: Item[];
   adjustments: Item[];
   enrollments: EnrollmentOption[];
+  onChanged?: () => void;
 }) {
   const router = useRouter();
   const [percentage, setPercentage] = useState("");
@@ -121,6 +123,7 @@ export default function ScholarshipAdjustmentForm({
     setSuccess(true);
     setTimeout(() => setSuccess(false), 3000);
     router.refresh();
+    onChanged?.();
   }
 
   async function removeItem(item: MergedItem) {
@@ -140,6 +143,7 @@ export default function ScholarshipAdjustmentForm({
       setEnrollmentId("");
     }
     router.refresh();
+    onChanged?.();
   }
 
   function startEdit(item: MergedItem) {

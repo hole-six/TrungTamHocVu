@@ -45,10 +45,14 @@ export default function QuickPaymentButton({
   studentId,
   suggestedAmount,
   autoOpen = false,
+  onChanged,
 }: {
   studentId: string;
   suggestedAmount: number;
   autoOpen?: boolean;
+  /** Nơi hiển thị tự giữ dữ liệu trong state (drawer học viên) phải được báo để nạp
+   *  lại — router.refresh() chỉ làm mới server component, không đụng tới state đó. */
+  onChanged?: () => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(autoOpen);
@@ -137,6 +141,7 @@ export default function QuickPaymentButton({
     setDiscountPercent("0");
     setDiscountReason("");
     router.refresh();
+    onChanged?.();
   }
 
   return (

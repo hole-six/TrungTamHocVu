@@ -72,6 +72,9 @@ type StudentFinanceDeskProps = {
   bookRequirements: BookRequirementSummary[];
   canManageFinance: boolean;
   canManageInventory: boolean;
+  /** Drawer học viên giữ dữ liệu trong state riêng nên router.refresh() không chạm tới
+   *  được — phải gọi hàm này sau mỗi thao tác để nó nạp lại số liệu mới. */
+  onChanged?: () => void;
 };
 
 type BookOption = {
@@ -152,6 +155,7 @@ export default function StudentFinanceDesk({
   bookRequirements,
   canManageFinance,
   canManageInventory,
+  onChanged,
 }: StudentFinanceDeskProps) {
   const router = useRouter();
 
@@ -179,6 +183,7 @@ export default function StudentFinanceDesk({
   const [billingModeMessage, setBillingModeMessage] = useState<string | null>(null);
   const [updatingRequirementId, setUpdatingRequirementId] = useState<string | null>(null);
   const [showIssueComposer, setShowIssueComposer] = useState(false);
+  const [confirmIssueOpen, setConfirmIssueOpen] = useState(false);
   const [pendingBillingSwitch, setPendingBillingSwitch] = useState<{
     enrollmentId: string;
     classId: string;
@@ -187,6 +192,8 @@ export default function StudentFinanceDesk({
   } | null>(null);
 
   const selectedBook = useMemo(() => books.find((book) => book.id === selectedBookId) ?? null, [books, selectedBookId]);
+  const issueQuantity = Math.max(0, Math.floor(Number(quantity) || 0));
+  const issueAmount = (selectedBook?.unitPrice ?? 0) * issueQuantity;
   const openCharges = useMemo(() => charges.filter((charge) => charge.remainingAmount > 0), [charges]);
   const today = useMemo(() => getVietnamToday(), []);
   const openChargeByClassId = useMemo(() => {
@@ -226,6 +233,8 @@ export default function StudentFinanceDesk({
         // nhiều kỳ sẽ đếm trùng khoản nợ đó nhiều lần — xem chargeOwnDueAmount ở
         // lib/server/tuition-rules.ts. Cộng đúng thì 3 số khớp nhau: tổng - đã thu = còn lại.
         total: rows.reduce((sum, charge) => sum + charge.tuitionAmount + charge.materialsAmount, 0),
+        tuition: rows.reduce((sum, charge) => sum + charge.tuitionAmount, 0),
+        materials: rows.reduce((sum, charge) => sum + charge.materialsAmount, 0),
         paid: rows.reduce((sum, charge) => sum + charge.paidAmount, 0),
         remaining: rows.reduce((sum, charge) => sum + charge.remainingAmount, 0),
         // Chỉ đếm kỳ THẬT SỰ có phát sinh học phí/sách; kỳ trống (chỉ mang nợ cũ sang)
@@ -341,7 +350,9 @@ export default function StudentFinanceDesk({
     setBookPickerOpen(true);
   }
 
-  async function handleIssueBook(event: React.FormEvent) {
+  // Bấm "Thêm sách" KHÔNG ghi nhận ngay — tiền bạc phải qua 1 bước xác nhận nêu rõ số
+  // tiền, để nhân viên đối chiếu với tiền thật cầm trên tay trước khi lưu.
+  function requestIssueBook(event: React.FormEvent) {
     event.preventDefault();
     if (!canIssueBooks) {
       setIssueError("Học viên chưa có lớp đang học để gắn phát sinh sách.");
@@ -355,7 +366,16 @@ export default function StudentFinanceDesk({
       setIssueError("Học viên đang học nhiều lớp. Hãy chọn đúng lớp cần gắn sách.");
       return;
     }
+    if (issueAmount <= 0) {
+      setIssueError("Số lượng phải lớn hơn 0.");
+      return;
+    }
+    setIssueError(null);
+    setConfirmIssueOpen(true);
+  }
 
+  async function handleIssueBook() {
+    setConfirmIssueOpen(false);
     setIssuing(true);
     setIssueError(null);
     setIssueNotice(null);
@@ -417,6 +437,7 @@ export default function StudentFinanceDesk({
     setQuantity("1");
     setIssueNotes("");
     router.refresh();
+    onChanged?.();
   }
 
   async function updateBookPaymentStatus(issueId: string, paymentStatus: string) {
@@ -437,6 +458,7 @@ export default function StudentFinanceDesk({
     }
 
     router.refresh();
+    onChanged?.();
   }
 
   async function deleteBookIssue(issueId: string) {
@@ -452,6 +474,7 @@ export default function StudentFinanceDesk({
     }
 
     router.refresh();
+    onChanged?.();
   }
 
   async function switchBillingMode(enrollmentId: string, classId: string, nextBillingModel: "PERIOD" | "COURSE", className: string) {
@@ -488,6 +511,7 @@ export default function StudentFinanceDesk({
     setBillingModeMessage(`Đã cập nhật ${className} sang ${nextLabel}.`);
     setPendingBillingSwitch(null);
     router.refresh();
+    onChanged?.();
   }
 
   async function updateBookRequirement(id: string, status: "CONFIRMED" | "DECLINED" | "PENDING") {
@@ -508,6 +532,7 @@ export default function StudentFinanceDesk({
     }
 
     router.refresh();
+    onChanged?.();
   }
 
   return (
@@ -560,6 +585,11 @@ export default function StudentFinanceDesk({
               <div className="px-3 py-2.5">
                 <p className="text-[11px] uppercase tracking-wide text-[#94a3b8]">Tổng phải thu</p>
                 <p className="mt-0.5 text-base font-black text-[#0f1729]">{formatVnd(pkg.total)}</p>
+                {/* Tách rõ 2 khoản cấu thành — tiền học và tiền sách là 2 thứ khác nhau,
+                    không được gộp thành 1 con số mù. */}
+                <p className="text-[11px] text-[#94a3b8]">
+                  Học phí {formatVnd(pkg.tuition)} + sách {formatVnd(pkg.materials)}
+                </p>
               </div>
               <div className="px-3 py-2.5">
                 <p className="text-[11px] uppercase tracking-wide text-[#94a3b8]">Đã thu</p>
@@ -620,7 +650,7 @@ export default function StudentFinanceDesk({
                             </p>
                             {charge.remainingAmount > 0 && canManageFinance ? (
                               <div className="mt-1.5 flex justify-end">
-                                <QuickPaymentButton studentId={studentId} suggestedAmount={charge.remainingAmount} />
+                                <QuickPaymentButton studentId={studentId} suggestedAmount={charge.remainingAmount} onChanged={onChanged} />
                               </div>
                             ) : null}
                           </td>
@@ -672,7 +702,7 @@ export default function StudentFinanceDesk({
                       </p>
                       {charge.remainingAmount > 0 && canManageFinance ? (
                         <div className="mt-1.5 flex justify-end">
-                          <QuickPaymentButton studentId={studentId} suggestedAmount={charge.remainingAmount} />
+                          <QuickPaymentButton studentId={studentId} suggestedAmount={charge.remainingAmount} onChanged={onChanged} />
                         </div>
                       ) : null}
                     </td>
@@ -715,7 +745,7 @@ export default function StudentFinanceDesk({
         ) : null}
 
         {canManageInventory && showIssueComposer ? (
-          <form onSubmit={handleIssueBook} className="mt-4 space-y-4 rounded-[22px] border border-[#e8eefb] bg-[#fbfdff] p-4">
+          <form onSubmit={requestIssueBook} className="mt-4 space-y-4 rounded-[22px] border border-[#e8eefb] bg-[#fbfdff] p-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)_120px_180px]">
               <label className="space-y-2">
                 <span className="label-sm">Lớp gắn sách</span>
@@ -769,6 +799,20 @@ export default function StudentFinanceDesk({
                 <span className="label-sm">Ngày ghi nhận</span>
                 <DatePicker value={issueDate} onChange={setIssueDate} />
               </label>
+            </div>
+
+            {/* Số tiền phải hiện to, rõ, ngay khi chọn xong sách — không để nhân viên
+                bấm thu mà không biết đang thu bao nhiêu. */}
+            <div className="rounded-xl border border-[#e2e8f0] bg-white px-4 py-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Thành tiền</span>
+                <span className="text-2xl font-black text-[#0f1729]">{formatVnd(issueAmount)}</span>
+              </div>
+              <p className="mt-0.5 text-xs text-[#94a3b8]">
+                {selectedBook
+                  ? `${issueQuantity} cuốn × ${formatVnd(selectedBook.unitPrice)} — ${selectedBook.name}`
+                  : "Chọn đầu sách để tính thành tiền."}
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -828,7 +872,7 @@ export default function StudentFinanceDesk({
             {bookStatusError ? <div className="alert-danger">{bookStatusError}</div> : null}
 
             <button type="submit" disabled={issuing || !canIssueBooks} className="btn-primary">
-              {issuing ? "Đang lưu..." : "Thêm sách"}
+              {issuing ? "Đang lưu..." : paidNow ? `Thu ${formatVnd(issueAmount)}` : `Ghi nợ ${formatVnd(issueAmount)}`}
             </button>
           </form>
         ) : null}
@@ -1037,6 +1081,25 @@ export default function StudentFinanceDesk({
           </div>
         </div>
       </ResponsiveDrawer>
+
+      <ConfirmDialog
+        open={confirmIssueOpen}
+        title={paidNow ? `Xác nhận đã thu ${formatVnd(issueAmount)} tiền sách?` : `Ghi ${formatVnd(issueAmount)} tiền sách vào học phí?`}
+        description={[
+          `Sách: ${selectedBook?.name ?? "—"}`,
+          `Số lượng: ${issueQuantity} cuốn × ${formatVnd(selectedBook?.unitPrice ?? 0)}`,
+          `Thành tiền: ${formatVnd(issueAmount)}`,
+          "",
+          paidNow
+            ? "Xác nhận là bạn ĐÃ NHẬN đủ số tiền này từ phụ huynh. Khoản này sẽ không nằm trong công nợ."
+            : "Khoản này sẽ được cộng vào kỳ học phí của tháng xuất sách, thành một dòng tiền sách riêng bên cạnh tiền học. Nếu tháng đó đã thu đủ thì tự chuyển sang kỳ kế tiếp.",
+        ].join("\n")}
+        confirmLabel={paidNow ? "Đã nhận đủ tiền" : "Ghi vào học phí"}
+        cancelLabel="Hủy"
+        onConfirm={handleIssueBook}
+        onClose={() => setConfirmIssueOpen(false)}
+        loading={issuing}
+      />
 
       <ConfirmDialog
         open={Boolean(pendingBillingSwitch)}

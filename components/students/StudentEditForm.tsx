@@ -17,6 +17,8 @@ type Props = {
     referredBy: string;
     notes: string;
   };
+  /** Báo cho nơi đang giữ dữ liệu trong state (drawer) nạp lại sau khi lưu. */
+  onChanged?: () => void;
 };
 
 const STUDENT_EDIT_GUIDE_SECTIONS = [
@@ -49,7 +51,7 @@ const STUDENT_EDIT_GUIDE_SECTIONS = [
   },
 ];
 
-export default function StudentEditForm({ studentId, initial }: Props) {
+export default function StudentEditForm({ studentId, initial, onChanged }: Props) {
   const router = useRouter();
   const [form, setForm] = useState(initial);
   const [loading, setLoading] = useState(false);
@@ -83,6 +85,7 @@ export default function StudentEditForm({ studentId, initial }: Props) {
     }
     setSaved(true);
     router.refresh();
+    onChanged?.();
   }
 
   return (

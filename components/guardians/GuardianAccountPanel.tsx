@@ -8,10 +8,12 @@ export default function GuardianAccountPanel({
   guardianId,
   account,
   defaultEmail,
+  onChanged,
 }: {
   guardianId: string;
   account: { email: string; isActive: boolean } | null;
   defaultEmail: string;
+  onChanged?: () => void;
 }) {
   const router = useRouter();
   const [email, setEmail] = useState(account?.email ?? defaultEmail);
@@ -36,6 +38,7 @@ export default function GuardianAccountPanel({
     }
     setTempPassword(data.tempPassword);
     router.refresh();
+    onChanged?.();
   }
 
   async function revoke() {
@@ -49,6 +52,7 @@ export default function GuardianAccountPanel({
       return;
     }
     router.refresh();
+    onChanged?.();
   }
 
   return (

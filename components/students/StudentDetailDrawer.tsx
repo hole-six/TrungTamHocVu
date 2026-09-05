@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import StudentFinanceDesk from "./StudentFinanceDesk";
@@ -263,14 +263,14 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
   const [assignEnrollmentOpen, setAssignEnrollmentOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-
-    async function fetchData() {
-      setLoading(true);
+  // Dữ liệu drawer nằm trong state của chính nó, KHÔNG phải server component — nên
+  // router.refresh() ở các form con không làm nó mới lại được. Mọi thao tác bên trong
+  // (đổi kiểu thu, thu tiền, xuất sách, chiết khấu, sửa hồ sơ...) đều gọi reload() để
+  // số liệu cập nhật ngay tại chỗ, không phải đóng/mở lại drawer.
+  const reload = useCallback(
+    async (showSpinner = false) => {
+      if (showSpinner) setLoading(true);
       setError(null);
-      setEditingProfile(false);
-
       try {
         const response = await fetch(`/api/students/${studentId}/drawer-data`);
         if (!response.ok) throw new Error("Không thể tải thông tin học viên");
@@ -278,12 +278,18 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
       } catch (err) {
         setError(err instanceof Error ? err.message : "Không thể tải thông tin học viên");
       } finally {
-        setLoading(false);
+        if (showSpinner) setLoading(false);
       }
-    }
+    },
+    [studentId],
+  );
 
-    void fetchData();
-  }, [open, studentId]);
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    setEditingProfile(false);
+    void reload(true);
+  }, [open, reload]);
 
   if (!open) return null;
 
@@ -398,7 +404,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
           {/* Hành động — chỉ những nút thật sự dùng được, xếp theo thứ tự hay dùng */}
           <div className="flex flex-wrap items-center gap-2">
             {data.permissions.canManageFinance && data.kpis.outstanding > 0 ? (
-              <QuickPaymentButton studentId={data.id} suggestedAmount={data.kpis.outstanding} />
+              <QuickPaymentButton studentId={data.id} suggestedAmount={data.kpis.outstanding} onChanged={() => void reload()} />
             ) : null}
             {data.permissions.canEditStudent ? (
               <button type="button" onClick={() => setAssignEnrollmentOpen(true)} className={ACTION_CLASS}>
@@ -418,6 +424,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                 defaultTargetClassId={enrollment.nextClassId}
                 classOptions={data.continuationClassOptions}
                 variant="compact"
+                onSuccess={() => void reload()}
               />
             ) : null}
             {data.permissions.canEditStudent ? (
@@ -445,6 +452,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                 referredBy: data.referredBy ?? "",
                 notes: data.notes ?? "",
               }}
+              onChanged={() => void reload()}
             />
           ) : null}
 
@@ -512,6 +520,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                 credits={data.sessionCredits}
                 sessionOptions={data.makeupSessionOptions}
                 canManage={data.permissions.canManageSchedule}
+                onChanged={() => void reload()}
               />
             </Section>
           ) : null}
@@ -537,6 +546,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                   bookRequirements={data.bookRequirements}
                   canManageFinance={data.permissions.canManageFinance}
                   canManageInventory={data.permissions.canManageInventory}
+                  onChanged={() => void reload()}
                 />
                 {data.permissions.canEditStudent ? (
                   <ScholarshipAdjustmentForm
@@ -544,6 +554,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                     scholarships={data.scholarships}
                     adjustments={data.adjustments}
                     enrollments={data.enrollments}
+                    onChanged={() => void reload()}
                   />
                 ) : null}
               </div>
@@ -621,6 +632,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                       : null
                   }
                   defaultEmail=""
+                  onChanged={() => void reload()}
                 />
               ) : null}
             </div>
@@ -672,6 +684,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
           }}
           open={assignEnrollmentOpen}
           onOpenChange={setAssignEnrollmentOpen}
+          onChanged={() => void reload()}
         />
       ) : null}
     </>
