@@ -184,9 +184,7 @@ function AlertBadge({ count, label, color, href }: { count: number; label: strin
 }
 
 const PIPELINE_COLORS: Record<string, string> = {
-  NEW: "#f97316", CONTACTING: "#ea580c", APPOINTED: "#c2410c",
-  TESTED: "#fdba74", QUALIFIED: "#f59e0b", UNQUALIFIED: "#94a3b8",
-  ENROLLED: "#10b981", LOST: "#ef4444",
+  CONTACTING: "#ea580c", QUALIFIED: "#f59e0b", ENROLLED: "#10b981", LOST: "#ef4444",
 };
 
 function PipelineFunnel({ rows }: { rows: { status: string; label: string; count: number }[] }) {

@@ -34,10 +34,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const updated = await prisma.placementTest.update({ where: { id: params.id }, data });
 
-  const newTestDate = "testDate" in body ? data.testDate : existing.testDate;
-  if (newTestDate && (existing.lead.status === "APPOINTED" || existing.lead.status === "CONTACTING")) {
-    await prisma.lead.update({ where: { id: existing.leadId }, data: { status: "TESTED" } });
-  }
+  // Không tự đổi trạng thái lead theo ngày test — "đã hẹn"/"đã test" nằm trong
+  // CONTACTING, tiến trình test theo dõi bằng PlacementTest.status (xem ghi chú ở
+  // app/api/leads/[id]/placement-test/route.ts).
 
   return NextResponse.json({ item: updated });
 }

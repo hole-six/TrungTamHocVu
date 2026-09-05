@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
       notes2: body.notes2 || null,
       expectedStartDate: body.expectedStartDate ? new Date(body.expectedStartDate) : null,
       interestedClassId,
-      status: LEAD_STATUSES.includes(body.status) ? body.status : "NEW",
+      status: LEAD_STATUSES.includes(body.status) ? body.status : "CONTACTING",
     },
   });
 

@@ -57,8 +57,7 @@ function pct(a: number, b: number) { return b > 0 ? Math.round((a / b) * 100) : 
 function getDefaultPeriodKey() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`; }
 
 const PIPELINE_COLOR: Record<string, string> = {
-  NEW: "#f97316", CONTACTING: "#ea580c", APPOINTED: "#c2410c", TESTED: "#ea580c",
-  QUALIFIED: "#f59e0b", UNQUALIFIED: "#94a3b8", ENROLLED: "#10b981", LOST: "#ef4444",
+  CONTACTING: "#ea580c", QUALIFIED: "#f59e0b", ENROLLED: "#10b981", LOST: "#ef4444",
 };
 
 function KpiTile({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {

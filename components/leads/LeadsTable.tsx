@@ -75,20 +75,14 @@ type LeadsTableProps = {
 };
 
 const LEAD_STATUS_CONFIG: Record<string, { label: string; color: string; activeColor: string; dot: string }> = {
-  UNCONTACTED: { label: "Chưa liên hệ", color: "border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]", activeColor: "border-[#1d4ed8] bg-[#1d4ed8] text-white", dot: "bg-[#3b82f6]" },
-  CLOSED:      { label: "Chưa đạt / không có nhu cầu", color: "border-[#fecaca] bg-[#fef2f2] text-[#b91c1c]", activeColor: "border-[#b91c1c] bg-[#b91c1c] text-white", dot: "bg-[#ef4444]" },
-  NEW:         { label: LEAD_STATUS_LABEL.NEW,         color: "border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]",   activeColor: "border-[#1d4ed8] bg-[#1d4ed8] text-white",   dot: "bg-[#3b82f6]" },
   CONTACTING:  { label: LEAD_STATUS_LABEL.CONTACTING,  color: "border-[#a5f3fc] bg-[#ecfeff] text-[#0e7490]",   activeColor: "border-[#0e7490] bg-[#0e7490] text-white",   dot: "bg-[#06b6d4]" },
-  APPOINTED:   { label: LEAD_STATUS_LABEL.APPOINTED,   color: "border-[#c4b5fd] bg-[#f5f3ff] text-[#6d28d9]",   activeColor: "border-[#6d28d9] bg-[#6d28d9] text-white",   dot: "bg-[#8b5cf6]" },
-  TESTED:      { label: LEAD_STATUS_LABEL.TESTED,      color: "border-[#a5b4fc] bg-[#eef2ff] text-[#4338ca]",   activeColor: "border-[#4338ca] bg-[#4338ca] text-white",   dot: "bg-[#6366f1]" },
   QUALIFIED:   { label: LEAD_STATUS_LABEL.QUALIFIED,   color: "border-[#fde68a] bg-[#fffbeb] text-[#b45309]",   activeColor: "border-[#b45309] bg-[#b45309] text-white",   dot: "bg-[#f59e0b]" },
-  UNQUALIFIED: { label: LEAD_STATUS_LABEL.UNQUALIFIED, color: "border-[#e2e8f0] bg-[#f8fafc] text-[#475569]",   activeColor: "border-[#475569] bg-[#475569] text-white",   dot: "bg-[#94a3b8]" },
   ENROLLED:    { label: LEAD_STATUS_LABEL.ENROLLED,    color: "border-[#a7f3d0] bg-[#ecfdf5] text-[#065f46]",   activeColor: "border-[#065f46] bg-[#065f46] text-white",   dot: "bg-[#10b981]" },
   LOST:        { label: LEAD_STATUS_LABEL.LOST,        color: "border-[#fecaca] bg-[#fef2f2] text-[#b91c1c]",   activeColor: "border-[#b91c1c] bg-[#b91c1c] text-white",   dot: "bg-[#ef4444]" },
 };
 
 function statusSelectClass(status: string) {
-  const config = LEAD_STATUS_CONFIG[status] || LEAD_STATUS_CONFIG.NEW;
+  const config = LEAD_STATUS_CONFIG[status] || LEAD_STATUS_CONFIG.CONTACTING;
   return `h-9 min-w-[150px] cursor-pointer rounded-xl border px-3 py-1 text-xs font-bold outline-none transition ${config.color}`;
 }
 
@@ -360,12 +354,10 @@ export default function LeadsTable({
       },
       render: (value, row) => {
         const isConverted = Boolean(row.hasStudent || row.convertedStudentCode || value === "ENROLLED");
-        // Chỉ cho chọn 4 nhóm gộp (đúng như thanh lọc phía trên) thay vì 7 trạng thái
-        // chi tiết — chọn 1 nhóm sẽ set về trạng thái ĐẦU TIÊN trong nhóm đó (xem
-        // LEAD_STATUS_FILTER_GROUPS ở lib/server/lead-rules.ts). TESTED không có trong
-        // danh sách vì nó tự chuyển khi ghi nhận kết quả test, không phải chọn tay.
+        // Chỉ cho chọn các nhóm trong LEAD_STATUS_FILTER_GROUPS (lib/server/lead-rules.ts) —
+        // ENROLLED không nằm trong đó vì chỉ đạt được qua luồng chuyển thành học viên thật.
         const currentGroupKey = leadStatusGroupKey(value);
-        const cfg = LEAD_STATUS_CONFIG[currentGroupKey] || LEAD_STATUS_CONFIG[value] || LEAD_STATUS_CONFIG.NEW;
+        const cfg = LEAD_STATUS_CONFIG[currentGroupKey] || LEAD_STATUS_CONFIG[value] || LEAD_STATUS_CONFIG.CONTACTING;
         return (
           <div className="flex flex-col items-start gap-1.5" onClick={(e) => e.stopPropagation()}>
             {canUpdate("leads", userRole) && !isConverted ? (

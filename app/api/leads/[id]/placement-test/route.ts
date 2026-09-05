@@ -6,9 +6,8 @@ import { canUpdate } from "@/lib/server/role-matrix";
 import { calculateAge, suggestGradeLevel } from "@/lib/server/lead-rules";
 
 // Ghi nhận kết quả test đầu vào — tương ứng bước "Lead hoàn tất test / Lưu kết quả"
-// trong Master Spec §6. Việc test đã xảy ra là sự kiện khách quan nên tự chuyển
-// Lead sang TESTED; còn QUALIFIED/UNQUALIFIED là đánh giá chủ quan trên kết quả nên
-// để nhân sự tự bấm chuyển trạng thái, không suy luận thay (spec §14).
+// trong Master Spec §6. Trạng thái lead do nhân sự tự quyết định, không suy luận thay
+// (spec §14) — xem ghi chú ở cuối hàm.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
@@ -37,21 +36,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     },
   });
 
-  // Chỉ chuyển Lead sang TESTED khi buổi test THỰC SỰ đã diễn ra (có testDate) —
-  // hẹn lịch (chỉ có scheduledDate) chưa phải là đã test. Nhưng hẹn lịch VẪN là 1
-  // bước tiến thực tế nên NEW/CONTACTING phải lên APPOINTED ngay khi có scheduledDate
-  // — trước đây chỉ APPOINTED/CONTACTING mới được nâng lên TESTED, nên 1 lead mới tạo
-  // (đang NEW) kèm lịch hẹn test nằm mãi ở "Chưa liên hệ" dù đã có lịch, trong khi cột
-  // lịch test lại hiện "Đã hẹn, chưa test" — 2 cột nhìn mâu thuẫn nhau.
-  let nextLeadStatus: string | null = null;
-  if (testDate && (lead.status === "NEW" || lead.status === "APPOINTED" || lead.status === "CONTACTING")) {
-    nextLeadStatus = "TESTED";
-  } else if (test.scheduledDate && (lead.status === "NEW" || lead.status === "CONTACTING")) {
-    nextLeadStatus = "APPOINTED";
-  }
-  if (nextLeadStatus) {
-    await prisma.lead.update({ where: { id: lead.id }, data: { status: nextLeadStatus } });
-  }
+  // KHÔNG tự đổi trạng thái lead theo lịch test nữa: "đã hẹn test" và "đã test xong"
+  // đều nằm trong CONTACTING (xem LEAD_STATUSES ở lib/server/lead-rules.ts), còn tiến
+  // trình test cụ thể đã có trạng thái riêng trên chính PlacementTest
+  // (SCHEDULED/PASSED/FAILED...). Việc lead có Đạt hay không là đánh giá của nhân sự
+  // trên kết quả, nên để họ tự bấm QUALIFIED/LOST.
 
   return NextResponse.json({ item: test }, { status: 201 });
 }

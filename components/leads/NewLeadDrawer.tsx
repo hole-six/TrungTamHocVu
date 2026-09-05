@@ -36,7 +36,7 @@ export default function NewLeadDrawer({ classOptions }: Props) {
         facebookParentName: formData.get("facebookParentName") || null,
         facebookLink: formData.get("facebookLink") || null,
         zaloContact: formData.get("zaloContact") || null,
-        status: "NEW",
+        status: "CONTACTING",
         meetDate: formData.get("meetDate") || null,
         source: formData.get("source") || null,
         initialAssessment: formData.get("initialAssessment") || null,

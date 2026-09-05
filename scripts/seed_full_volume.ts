@@ -240,14 +240,13 @@ async function main() {
   // ---------------------------------------------------------------------
   // 4. Guardians + Leads trải đủ pipeline
   // ---------------------------------------------------------------------
+  // 4 trạng thái theo LEAD_STATUSES (lib/server/lead-rules.ts). "Đã hẹn test"/"đã test"
+  // không còn là trạng thái riêng — nằm trong CONTACTING, phân biệt bằng việc có
+  // PlacementTest hay chưa.
   const PIPELINE: { status: string; count: number }[] = [
-    { status: "NEW", count: 3 },
-    { status: "CONTACTING", count: 3 },
-    { status: "APPOINTED", count: 2 },
-    { status: "TESTED", count: 2 },
+    { status: "CONTACTING", count: 8 },
     { status: "QUALIFIED", count: 4 },
-    { status: "UNQUALIFIED", count: 2 },
-    { status: "LOST", count: 2 },
+    { status: "LOST", count: 4 },
   ];
   const STUDENTS_TO_ENROLL = 14;
 
@@ -291,18 +290,21 @@ async function main() {
         occurredAt: meetDate,
       },
     });
-    if (["APPOINTED", "TESTED", "QUALIFIED", "UNQUALIFIED", "ENROLLED"].includes(status)) {
+    // Lead đã có kết luận (Đạt / Không có nhu cầu) thì phải có lịch hẹn + buổi test đã
+    // diễn ra; lead đang CONTACTING thì chỉ một phần đã hẹn test, phần còn lại mới liên hệ.
+    const hasVerdict = status === "QUALIFIED" || status === "LOST";
+    if (hasVerdict || Math.random() < 0.5) {
       await prisma.appointment.create({
         data: { leadId: lead.id, scheduledAt: daysAgo(meetDaysAgo - 2), status: "DONE" },
       });
     }
-    if (["TESTED", "QUALIFIED", "UNQUALIFIED", "ENROLLED"].includes(status)) {
+    if (hasVerdict) {
       await prisma.placementTest.create({
         data: {
           leadId: lead.id,
           testDate: daysAgo(meetDaysAgo - 3),
-          status: "DONE",
-          result: status === "UNQUALIFIED" ? "Chưa đạt" : "Đạt",
+          status: status === "LOST" ? "FAILED" : "PASSED",
+          result: status === "LOST" ? "Chưa đạt" : "Đạt",
         },
       });
     }

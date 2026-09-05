@@ -836,7 +836,7 @@ async function importLeads(
       address: row.address,
       meetDate: toDateOrNull(row.meetDate),
       interestedClassId: interestedClass?.id,
-      status: row.status || "NEW",
+      status: row.status || "CONTACTING",
       expectedStartDate: toDateOrNull(row.expectedStartDate),
       actualEnrollDate: toDateOrNull(row.actualEnrollDate),
       source: row.sourceStatus ?? undefined,

@@ -138,7 +138,7 @@ export async function getReportsDashboardData(branchId: BranchScope, month?: str
     prisma.lead.count({
       where: {
         ...branchWhere,
-        status: { in: ["QUALIFIED", "APPOINTED", "TESTED"] },
+        status: "QUALIFIED",
         interestedClassId: null,
         student: null,
       },
