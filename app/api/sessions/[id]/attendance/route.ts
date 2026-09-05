@@ -207,15 +207,61 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
   }
 
+  // Tìm gói học/enrollment phù hợp cho từng học sinh để trừ buổi
+  const studentEnrollments = await prisma.enrollment.findMany({
+    where: {
+      studentId: { in: records.map((r) => r.studentId) },
+      status: { in: ["ACTIVE", "COMPLETED", "PAUSED", "TRANSFERRED"] },
+    },
+    orderBy: { enrollDate: "desc" },
+  });
+  const enrollmentMap = new Map<string, string>();
+  for (const e of studentEnrollments) {
+    if (!enrollmentMap.has(e.studentId) || e.classId === session.classId) {
+      enrollmentMap.set(e.studentId, e.id);
+    }
+  }
+
   const autoCompleted: { studentId: string; fullName: string }[] = [];
 
   await prisma.$transaction(async (tx) => {
     for (const r of records) {
+      const isAttended = r.status === "PRESENT" || r.status === "MAKEUP";
+      const oldStatus = oldStatusByStudent.get(r.studentId);
+      const wasAttended = oldStatus === "PRESENT" || oldStatus === "MAKEUP";
+      const targetEnrollmentId = enrollmentMap.get(r.studentId) ?? null;
+      const purpose = r.status === "MAKEUP" ? "MAKEUP" : "NORMAL";
+
       await tx.studentAttendance.upsert({
         where: { sessionId_studentId: { sessionId: session.id, studentId: r.studentId } },
-        create: { sessionId: session.id, studentId: r.studentId, status: r.status },
-        update: { status: r.status },
+        create: {
+          sessionId: session.id,
+          studentId: r.studentId,
+          status: r.status,
+          purpose: purpose,
+          enrollmentId: targetEnrollmentId,
+        },
+        update: {
+          status: r.status,
+          purpose: purpose,
+          enrollmentId: targetEnrollmentId,
+        },
       });
+
+      // Cập nhật số buổi đã dùng (usedSessionCount) của gói học
+      if (targetEnrollmentId) {
+        if (isAttended && !wasAttended) {
+          await tx.enrollment.update({
+            where: { id: targetEnrollmentId },
+            data: { usedSessionCount: { increment: 1 } },
+          });
+        } else if (!isAttended && wasAttended) {
+          await tx.enrollment.update({
+            where: { id: targetEnrollmentId },
+            data: { usedSessionCount: { decrement: 1 } },
+          });
+        }
+      }
     }
 
     for (const enrollment of absenceCreditEnrollments) {

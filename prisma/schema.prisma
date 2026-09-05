@@ -384,6 +384,7 @@ model Student {
   schoolExamScores SchoolExamScore[]
   journalEntries   JournalEntry[]
   sessionCredits   SessionCredit[]
+  makeupRequests   MakeupRequest[]
 
   @@index([status])
   @@map("students")
@@ -456,6 +457,7 @@ model Course {
   classes     Class[]
   feePolicies FeePolicy[]
   bookRequirements CourseBookRequirement[]
+  enrollments Enrollment[]
 
   @@unique([branchId, code])
   @@map("courses")
@@ -628,6 +630,8 @@ model ClassSession {
   requirementCheck     SessionRequirementCheck?
   creditsFromAbsence   SessionCredit[] @relation("SessionCreditSource")
   creditsRedeemedHere  SessionCredit[] @relation("SessionCreditConsumed")
+  makeupRequestsMissed    MakeupRequest[] @relation("MakeupMissed")
+  makeupRequestsScheduled MakeupRequest[] @relation("MakeupScheduled")
 
   @@index([classId, sessionDate])
   @@map("class_sessions")
@@ -677,10 +681,21 @@ model SessionAssignment {
   @@map("session_assignments")
 }
 
+// =============================================================================
+// GÓI HỌC (Package) — trước đây gọi là "Enrollment", giờ mang ngữ nghĩa mới:
+// Học sinh MUA một gói quyền học (N buổi), gói này KHÔNG bắt buộc gắn cứng vào
+// 1 lớp duy nhất. classId giữ lại (nullable) để biết lớp CHÍNH hiện tại, nhưng
+// học sinh có thể được xếp vào bất kỳ buổi nào qua StudentAttendance.
+// courseId cho biết gói này thuộc loại chương trình nào (BT, IELTS...).
+// usedSessionCount đếm tổng buổi đã sử dụng, tính ĐỘNG mỗi khi điểm danh.
+// =============================================================================
 model Enrollment {
   id         String    @id @default(uuid())
   studentId  String    @map("student_id")
-  classId    String    @map("class_id")
+  classId    String?   @map("class_id") // ← nullable: gói không bắt buộc gắn 1 lớp duy nhất
+  // Loại chương trình — dùng để phân loại gói học (BT, FF, IELTS...) và hiển thị UI.
+  // Có thể null cho enrollment cũ chưa backfill hoặc gói tự do không thuộc course nào.
+  courseId   String?   @map("course_id")
   status     String    @default("PENDING") // PENDING→ACTIVE→PAUSED→TRANSFERRED→COMPLETED/WITHDRAWN
   // Payment choice belongs to each student enrollment, not to the whole class.
   // COURSE creates one charge at enrollment; PERIOD creates charges in monthly billing runs.
@@ -700,12 +715,20 @@ model Enrollment {
   transferredValueAmount      Int @default(0) @map("transferred_value_amount")
   transferredConvertedSessionCount Int @default(0) @map("transferred_converted_session_count")
   transferredRemainingCashAmount Int @default(0) @map("transferred_remaining_cash_amount")
+  // Số buổi ĐÃ SỬ DỤNG — tăng khi điểm danh (PRESENT/MAKEUP), giảm khi sửa thành
+  // ABSENT. Dùng cùng purchasedMainSessionCount để tính "còn lại" trên UI mà không
+  // cần scan toàn bộ attendance mỗi lần render.
+  usedSessionCount Int @default(0) @map("used_session_count")
+  // Nhãn hiển thị thân thiện trên UI, vd "Gói 20 buổi BT", "IELTS 40 buổi".
+  // Tự sinh từ course.name + purchasedMainSessionCount khi tạo, có thể sửa tay.
+  packageLabel String? @map("package_label")
   notes      String?
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
 
   student       Student                   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  class         Class                     @relation(fields: [classId], references: [id])
+  class         Class?                    @relation(fields: [classId], references: [id])
+  course        Course?                   @relation(fields: [courseId], references: [id])
   statusHistory EnrollmentStatusHistory[]
   scholarships  Scholarship[]
   adjustments   Adjustment[]
@@ -715,6 +738,8 @@ model Enrollment {
   charges       Charge[]
   transferredFrom Enrollment? @relation("EnrollmentTransfer", fields: [transferredFromEnrollmentId], references: [id])
   transferredTo   Enrollment[] @relation("EnrollmentTransfer")
+  makeupRequests  MakeupRequest[]
+  attendances     StudentAttendance[]
 
   @@index([status])
   @@index([transferredFromEnrollmentId])
@@ -757,19 +782,62 @@ model SessionCredit {
 
 // Điểm danh theo học viên/buổi — chuẩn hóa từ cột TTHoc (C/K) cấp lớp trong Excel
 // thành cấp học viên để tính đúng "Buoi nghi" trong Charge mà không cần suy đoán.
+// purpose phân loại LÝ DO tham gia: bình thường, học bù, bổ trợ, hoặc thêm.
+// enrollmentId cho biết buổi này trừ vào GÓI HỌC nào (nullable vì data cũ chưa có).
 model StudentAttendance {
-  id        String  @id @default(uuid())
-  sessionId String  @map("session_id")
-  studentId String  @map("student_id")
-  status    String  @default("PRESENT") // PRESENT | ABSENT | MAKEUP
-  notes     String?
+  id           String  @id @default(uuid())
+  sessionId    String  @map("session_id")
+  studentId    String  @map("student_id")
+  status       String  @default("PRESENT") // PRESENT | ABSENT | MAKEUP
+  // Lý do tham gia buổi học — không phải trạng thái điểm danh mà là PHÂN LOẠI mục đích:
+  // NORMAL = học bình thường theo lịch, MAKEUP = học bù buổi đã nghỉ, SUPPORT = bổ trợ
+  // (vắng bài / đầu khóa), EXTRA = học thêm ngoài gói.
+  purpose      String  @default("NORMAL") @map("purpose") // NORMAL | MAKEUP | SUPPORT | EXTRA
+  // Gói học bị trừ buổi khi học sinh tham gia buổi này — NULL cho data cũ chưa backfill
+  // hoặc buổi EXTRA không trừ gói. Khi điểm danh PRESENT → tự set enrollmentId + tăng
+  // enrollment.usedSessionCount; khi sửa thành ABSENT → clear + giảm lại.
+  enrollmentId String? @map("enrollment_id")
+  notes        String?
 
-  session ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  student Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  session    ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student    Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollment Enrollment?  @relation(fields: [enrollmentId], references: [id])
 
   @@unique([sessionId, studentId])
   @@index([studentId])
   @@map("student_attendances")
+}
+
+// =============================================================================
+// YÊU CẦU HỌC BÙ — ghi nhận ý định học bù của học sinh/phụ huynh.
+// "Học bù" là LÝ DO/Ý ĐỊNH, không phải một loại lớp riêng.
+// Flow: Học sinh nghỉ → tạo MakeupRequest → Giáo vụ duyệt → Xếp vào buổi phù
+// hợp (scheduledSessionId) → Hoàn tất → Tạo StudentAttendance purpose=MAKEUP.
+// Tách biệt khỏi SessionCredit cũ: không cần "sinh credit rồi redeem" nữa.
+// =============================================================================
+model MakeupRequest {
+  id                 String    @id @default(uuid())
+  studentId          String    @map("student_id")
+  enrollmentId       String    @map("enrollment_id")
+  // Buổi bị nghỉ sinh ra yêu cầu này — NULL nếu bổ trợ đầu khóa hoặc bù chung.
+  missedSessionId    String?   @map("missed_session_id")
+  // Ngày học sinh MUỐN học bù — giáo vụ có thể xếp ngày khác.
+  requestedDate      DateTime? @map("requested_date")
+  // Buổi thực tế được xếp vào — set bởi giáo vụ khi duyệt.
+  scheduledSessionId String?   @map("scheduled_session_id")
+  status             String    @default("PENDING") // PENDING | APPROVED | SCHEDULED | COMPLETED | CANCELLED
+  reason             String?
+  notes              String?
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  student          Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollment       Enrollment    @relation(fields: [enrollmentId], references: [id])
+  missedSession    ClassSession? @relation("MakeupMissed", fields: [missedSessionId], references: [id])
+  scheduledSession ClassSession? @relation("MakeupScheduled", fields: [scheduledSessionId], references: [id])
+
+  @@index([studentId, status])
+  @@map("makeup_requests")
 }
 
 // Nhật ký lớp học sau mỗi buổi — bản in gửi phụ huynh xem tiến độ + nhận xét của giáo
