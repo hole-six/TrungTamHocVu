@@ -526,6 +526,15 @@ export default async function StudentDetailPage({
       severity: "warning",
     });
   }
+  // "Đã học đủ" trước đây chỉ là badge xanh tĩnh, không gợi ý làm gì tiếp — trong khi
+  // lớp vẫn đang dạy cho học viên khác, đây thực chất là 1 việc CẦN QUYẾT ĐỊNH (ghi
+  // danh thêm hay để hệ thống tự tất toán khi lớp kết thúc), không phải "xong việc".
+  if (currentLearningSnapshot?.continuationStatus === "COMPLETED" && currentEnrollment?.class.status === "ACTIVE") {
+    operationalWarnings.push({
+      text: "Đã học đủ số buổi đã mua — lớp vẫn đang dạy tiếp cho học viên khác. Cần quyết định: ghi danh thêm buổi mới, hay để hệ thống tự tất toán khi lớp kết thúc.",
+      severity: "warning",
+    });
+  }
   if (!primaryGuardian) {
     operationalWarnings.push({ text: "Chưa gắn phụ huynh chính.", severity: "warning" });
   } else if (!primaryGuardian.user) {
@@ -692,8 +701,14 @@ export default async function StudentDetailPage({
                 Bắt đầu {formatDate(currentEnrollment.learningStartDate ?? currentEnrollment.enrollDate)} · dự kiến kết thúc {formatDate(currentLearningSnapshot.expectedStudentEndDate)}
               </p>
             </div>
-            <span className={`inline-flex w-fit rounded-lg px-3 py-1 text-xs font-bold ${currentLearningSnapshot.continuationStatus === "NEED_TRANSFER" ? "bg-amber-100 text-amber-800" : currentLearningSnapshot.continuationStatus === "COMPLETED" ? "bg-emerald-100 text-emerald-800" : "bg-sky-100 text-sky-800"}`}>
-              {currentLearningSnapshot.continuationStatus === "NEED_TRANSFER" ? "Cần chuyển lớp" : currentLearningSnapshot.continuationStatus === "COMPLETED" ? "Đã học đủ" : "Đang theo lớp"}
+            <span className={`inline-flex w-fit rounded-lg px-3 py-1 text-xs font-bold ${currentLearningSnapshot.continuationStatus === "NEED_TRANSFER" ? "bg-amber-100 text-amber-800" : currentLearningSnapshot.continuationStatus === "COMPLETED" ? (currentEnrollment.class.status === "ACTIVE" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800") : "bg-sky-100 text-sky-800"}`}>
+              {currentLearningSnapshot.continuationStatus === "NEED_TRANSFER"
+                ? "Cần chuyển lớp"
+                : currentLearningSnapshot.continuationStatus === "COMPLETED"
+                  ? currentEnrollment.class.status === "ACTIVE"
+                    ? "Đã học đủ — cần xử lý"
+                    : "Đã học đủ"
+                  : "Đang theo lớp"}
             </span>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -724,6 +739,8 @@ export default async function StudentDetailPage({
               <p className="mt-1 text-sm font-bold text-[#0f1729]">{currentEnrollment.class.nextClass?.className ?? "Chưa cấu hình"}</p>
               {currentLearningSnapshot.continuationStatus === "NEED_TRANSFER" ? (
                 <p className="text-xs text-amber-700">Thiếu sau lớp hiện tại: {currentLearningSnapshot.shortageAfterCurrentClass} buổi</p>
+              ) : currentLearningSnapshot.continuationStatus === "COMPLETED" && currentEnrollment.class.status === "ACTIVE" ? (
+                <p className="text-xs font-semibold text-amber-700">Đã học đủ, lớp còn dạy tiếp — cần ghi danh thêm hoặc chờ tự tất toán</p>
               ) : (
                 <p className="text-xs text-[#64748b]">Lớp hiện tại đủ đáp ứng số buổi còn lại</p>
               )}

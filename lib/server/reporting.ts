@@ -13,10 +13,19 @@ type TuitionByClassRow = {
   collected: number;
 };
 
-export async function getReportsDashboardData(branchId: BranchScope) {
+// month: "YYYY-MM" — khi có, lọc "theo tháng" đúng ý xlsx feedback (data tuyển sinh,
+// doanh thu, dòng tiền, học viên mới/nghỉ của ĐÚNG tháng đó); khi không truyền (undefined),
+// giữ nguyên hành vi tổng hợp/snapshot hiện tại (spec: "không click thì tự tổng hợp").
+export async function getReportsDashboardData(branchId: BranchScope, month?: string) {
   const branchWhere = branchId ? { branchId } : {};
   const currentMonth = new Date().getMonth() + 1;
   const bookIssueWhere = branchId ? { student: { branchId } } : {};
+
+  let monthRange: { gte: Date; lte: Date } | null = null;
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    const [y, m] = month.split("-").map(Number);
+    monthRange = { gte: new Date(y, m - 1, 1, 0, 0, 0, 0), lte: new Date(y, m, 0, 23, 59, 59, 999) };
+  }
 
   const [
     studentActive,
@@ -33,22 +42,41 @@ export async function getReportsDashboardData(branchId: BranchScope) {
     latestPeriodWithCharges,
     latestPayrollRun,
     qualifiedLeadsWithoutClass,
+    newEnrollmentsInMonth,
+    leftInMonth,
+    waitingForClass,
   ] = await Promise.all([
     prisma.student.count({ where: { ...branchWhere, status: "ACTIVE" } }),
     prisma.student.count({ where: { ...branchWhere, status: "LEFT" } }),
-    prisma.lead.groupBy({ by: ["status"], where: branchWhere, _count: { _all: true } }),
-    prisma.billingPeriod.findMany({
-      where: branchWhere,
-      orderBy: { periodName: "desc" },
-      take: 6,
-      include: {
-        charges: {
-          include: {
-            allocations: { where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } } },
-          },
-        },
-      },
+    prisma.lead.groupBy({
+      by: ["status"],
+      where: { ...branchWhere, ...(monthRange ? { createdAt: monthRange } : {}) },
+      _count: { _all: true },
     }),
+    month
+      ? prisma.billingPeriod.findMany({
+          where: { ...branchWhere, periodName: month },
+          orderBy: { periodName: "desc" },
+          include: {
+            charges: {
+              include: {
+                allocations: { where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } } },
+              },
+            },
+          },
+        })
+      : prisma.billingPeriod.findMany({
+          where: branchWhere,
+          orderBy: { periodName: "desc" },
+          take: 6,
+          include: {
+            charges: {
+              include: {
+                allocations: { where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } } },
+              },
+            },
+          },
+        }),
     prisma.student.findMany({
       where: { ...branchWhere, status: "ACTIVE" },
       include: {
@@ -83,7 +111,7 @@ export async function getReportsDashboardData(branchId: BranchScope) {
     }),
     prisma.cashTransaction.groupBy({
       by: ["type"],
-      where: { ...branchWhere, status: { not: "VOIDED" } },
+      where: { ...branchWhere, status: { not: "VOIDED" }, ...(monthRange ? { txnDate: monthRange } : {}) },
       _sum: { amount: true },
     }),
     prisma.student.findMany({
@@ -114,6 +142,19 @@ export async function getReportsDashboardData(branchId: BranchScope) {
         interestedClassId: null,
         student: null,
       },
+    }),
+    // "Học sinh mới nhập học" theo đúng tháng đang xem — khi không chọn tháng
+    // (monthRange null) đếm luôn cả năm hiện tại để KPI này không hiện "0" vô nghĩa.
+    prisma.student.count({
+      where: { ...branchWhere, enrollDate: monthRange ?? { gte: new Date(new Date().getFullYear(), 0, 1) } },
+    }),
+    prisma.student.count({
+      where: { ...branchWhere, leaveDate: monthRange ?? { gte: new Date(new Date().getFullYear(), 0, 1) } },
+    }),
+    // "Học sinh chờ lớp mới" — ACTIVE nhưng không còn enrollment nào đang ACTIVE; đây
+    // luôn là 1 snapshot hiện tại (không có ý nghĩa "chờ lớp của tháng X" trong quá khứ).
+    prisma.student.count({
+      where: { ...branchWhere, status: "ACTIVE", enrollments: { none: { status: "ACTIVE" } } },
     }),
   ]);
 
@@ -276,6 +317,10 @@ export async function getReportsDashboardData(branchId: BranchScope) {
   return {
     studentActive,
     studentLeft,
+    newEnrollmentsInMonth,
+    leftInMonth,
+    waitingForClass,
+    activeMonth: month ?? null,
     leadPipeline,
     totalLeads,
     conversionRate,

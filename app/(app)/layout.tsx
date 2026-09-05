@@ -80,15 +80,10 @@ async function getNavBadges(
     !student.guardians.some((item) => item.guardian.user?.isActive)
   ).length;
 
-  const convertedStudentsWithoutPortal = activeStudents.filter(
-    (student) => Boolean(student.leadId) && !student.guardians.some((item) => item.guardian.user?.isActive)
-  ).length;
-
   return {
     "/leads": openLeads,
     "/students": studentsWithoutPortal,
     "/session-credits": openSessionCredits,
-    "/guardians": convertedStudentsWithoutPortal,
     "/classes": branchSessionsToday,
     "/calendar": role === "TEACHER" || role === "TEACHING_ASSISTANT" ? mySessionsToday : branchSessionsToday,
     "/tuition": openBillingPeriods,

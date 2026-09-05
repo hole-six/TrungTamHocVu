@@ -36,8 +36,18 @@ export type PayrollEmployeeRow = {
   staffDays: number;
   staffHours: number;
   baseSalaryAmount: number;
+  otHours: number;
+  otAmount: number;
+  kpiBonus: number;
+  assistantRatingBonus: number;
+  parkingAllowance: number;
+  supportAllowance: number;
   bonus: number;
   penalty: number;
+  socialInsuranceDeduction: number;
+  utilityDeduction: number;
+  holidayBonus: number;
+  otherDeduction: number;
   notes: string | null;
   totalAmount: number;
   sessionCount: number;
@@ -175,8 +185,18 @@ export async function buildPayrollEmployeeRows(params: {
       staffDays: line ? line.staffDays : timesheet.days,
       staffHours: timesheet.hours,
       baseSalaryAmount: line ? line.baseSalaryAmount : liveBaseSalaryAmount,
+      otHours: line?.otHours ?? 0,
+      otAmount: line?.otAmount ?? 0,
+      kpiBonus: line?.kpiBonus ?? 0,
+      assistantRatingBonus: line?.assistantRatingBonus ?? 0,
+      parkingAllowance: line?.parkingAllowance ?? 0,
+      supportAllowance: line?.supportAllowance ?? 0,
       bonus: line ? line.bonus : 0,
       penalty: line ? line.penalty : 0,
+      socialInsuranceDeduction: line?.socialInsuranceDeduction ?? 0,
+      utilityDeduction: line?.utilityDeduction ?? 0,
+      holidayBonus: line?.holidayBonus ?? 0,
+      otherDeduction: line?.otherDeduction ?? 0,
       notes: line ? line.notes : null,
       totalAmount: line
         ? line.totalAmount

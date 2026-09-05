@@ -761,21 +761,6 @@ export default function StudentDetailDrawer({
                             Xem liên hệ chính, portal và vai trò của từng người.
                           </p>
                         </div>
-                        <Link
-                          href="/guardians"
-                          className="inline-flex items-center gap-1 text-sm font-bold text-[#3b82f6] hover:text-[#0ea5e9]"
-                        >
-                          Danh bạ{" "}
-                          <svg
-                            className="h-3.5 w-3.5"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                          >
-                            <path d="M5 12h14M12 5l7 7-7 7" />
-                          </svg>
-                        </Link>
                       </div>
 
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

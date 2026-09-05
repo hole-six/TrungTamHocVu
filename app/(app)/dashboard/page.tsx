@@ -7,6 +7,7 @@ import { getReportsDashboardData } from "@/lib/server/reporting";
 import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import QuickActions from "@/components/dashboard/QuickActions";
+import MonthPicker from "@/components/dashboard/MonthPicker";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { formatVnd } from "@/lib/export-utils";
 
@@ -110,6 +111,50 @@ async function getTestOverview(activeBranchId: string | null) {
   return { missingTest, overdue, soon: soonCount };
 }
 
+// Sweep tự động (lib/server/scheduling.ts::runClassEndCreditSweep, chạy 2h sáng mỗi
+// ngày) tất toán ghi danh + cấp tín dụng khi lớp hết hạn mà học viên chưa học hết gói
+// đã mua — trước đây HOÀN TOÀN im lặng, dấu vết duy nhất là 1 dòng AuditLog không ai
+// xem. Card này là cách rẻ nhất để lộ ra cho nhân viên thấy, không cần dựng nguyên 1
+// trang audit-log.
+async function getRecentAutoCompletions(activeBranchId: string | null) {
+  const since = new Date();
+  since.setDate(since.getDate() - 7);
+  const logs = await prisma.auditLog.findMany({
+    where: {
+      action: "AUTO_COMPLETE_ENROLLMENT",
+      createdAt: { gte: since },
+      ...(activeBranchId ? { branchId: activeBranchId } : {}),
+    },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  });
+  if (logs.length === 0) return [];
+
+  const enrollmentIds = logs.map((log) => log.entityId);
+  const enrollments = await prisma.enrollment.findMany({
+    where: { id: { in: enrollmentIds } },
+    include: { student: { select: { id: true, fullName: true, studentCode: true } }, class: { select: { className: true } } },
+  });
+  const enrollmentById = new Map(enrollments.map((item) => [item.id, item]));
+
+  return logs
+    .map((log) => {
+      const enrollment = enrollmentById.get(log.entityId);
+      if (!enrollment) return null;
+      const detail = log.after ? (JSON.parse(log.after) as { remaining?: number; granted?: number }) : {};
+      return {
+        id: log.id,
+        studentId: enrollment.student.id,
+        studentName: enrollment.student.fullName,
+        studentCode: enrollment.student.studentCode,
+        className: enrollment.class.className,
+        granted: detail.granted ?? 0,
+        createdAt: log.createdAt.toISOString(),
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
+}
+
 // ─── UI components ─────────────────────────────────────────────────────────
 
 function KpiCard({ label, value, sub, icon, color, href }: {
@@ -199,18 +244,34 @@ function enrichQuickActions(actions: AppQuickAction[], role: string | null, stat
   });
 }
 
-export default async function DashboardPage() {
+function recentMonthOptions(count: number) {
+  const now = new Date();
+  const options: { value: string; label: string }[] = [];
+  for (let i = 0; i < count; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    options.push({ value, label: `Tháng ${d.getMonth() + 1}/${d.getFullYear()}` });
+  }
+  return options;
+}
+
+export default async function DashboardPage({ searchParams }: { searchParams: { month?: string } }) {
   const user = await getCurrentUser();
   const role = user ? await getUserRole(user.id) : null;
   const activeBranchId = await getCurrentBranchId();
   const shell = getAppShellConfig(role);
   const stats = await getStats(user, activeBranchId);
   const showCrm = role !== "TEACHER" && role !== "TEACHING_ASSISTANT";
+  // Không chọn tháng -> "Tổng hợp" (hành vi mặc định trước đây, xlsx: "không click thì
+  // tự tổng hợp"). Chọn tháng -> mọi số liệu theo tháng lọc đúng tháng đó.
+  const selectedMonth = searchParams.month && /^\d{4}-\d{2}$/.test(searchParams.month) ? searchParams.month : "";
+  const monthOptions = recentMonthOptions(12);
 
-  const [operational, leadPipeline, testOverview] = await Promise.all([
-    showCrm ? getReportsDashboardData(activeBranchId) : Promise.resolve(null),
+  const [operational, leadPipeline, testOverview, recentAutoCompletions] = await Promise.all([
+    showCrm ? getReportsDashboardData(activeBranchId, selectedMonth || undefined) : Promise.resolve(null),
     showCrm ? getLeadPipeline(activeBranchId) : Promise.resolve(null),
     showCrm ? getTestOverview(activeBranchId) : Promise.resolve(null),
+    showCrm ? getRecentAutoCompletions(activeBranchId) : Promise.resolve([]),
   ]);
   const branchBreakdown = role === "DIRECTOR" ? await getBranchBreakdown() : null;
   const sessionsValue = (role === "TEACHER" || role === "TEACHING_ASSISTANT") ? stats.mySessionsToday : stats.branchSessionsToday;
@@ -223,28 +284,28 @@ export default async function DashboardPage() {
     <div className="space-y-6 pb-16">
 
       {/* ── Hero header ─────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border border-[#fed7aa] bg-gradient-to-br from-[#fff7ed] via-[#ffedd5] to-[#fed7aa] p-5 shadow-lg sm:rounded-3xl sm:p-6 md:p-8" data-tour="dashboard-hero">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNiIgc3Ryb2tlPSIjZjk3MzE2IiBzdHJva2Utd2lkdGg9IjEiIG9wYWNpdHk9Ii4xIi8+PC9nPjwvc3ZnPg==')] opacity-30" />
-        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="rounded-2xl border border-[#e5eaf7] border-l-4 border-l-[#f97316] bg-white p-5 shadow-sm sm:rounded-3xl sm:p-6 md:p-8" data-tour="dashboard-hero">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-[#c2410c] sm:text-sm truncate">{greeting} · {dateLabel}</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-[#7c2d12] sm:text-3xl md:text-4xl">{shell.dashboardTitle}</h1>
-            <p className="mt-2 text-sm font-medium text-[#9a3412] leading-relaxed sm:mt-3 sm:text-base sm:max-w-xl">{shell.dashboardSubtitle}</p>
+            <p className="text-xs font-bold text-[#f97316] sm:text-sm truncate">{greeting} · {dateLabel}</p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-[#0f1729] sm:text-3xl md:text-4xl">{shell.dashboardTitle}</h1>
+            <p className="mt-2 text-sm font-medium text-[#475569] leading-relaxed sm:mt-3 sm:text-base sm:max-w-xl">{shell.dashboardSubtitle}</p>
           </div>
-          <div className="flex flex-wrap gap-2 sm:gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {showCrm && <MonthPicker value={selectedMonth} options={monthOptions} />}
             <SpotlightTour
               steps={DASHBOARD_TOUR_STEPS.filter((step) => {
                 if (!operational && (step.target.includes("dashboard-revenue-pipeline") || step.target.includes("dashboard-alerts"))) return false;
                 return true;
               })}
             />
-            <Link href="/reports" className="inline-flex items-center gap-1.5 rounded-lg bg-white border-2 border-[#f97316] px-3 py-2 text-xs font-bold text-[#f97316] hover:bg-[#f97316] hover:text-white shadow-md hover:shadow-xl transition-all sm:rounded-xl sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm md:px-5 md:py-3">
+            <Link href="/reports" className="inline-flex items-center gap-1.5 rounded-lg bg-white border-2 border-[#f97316] px-3 py-2 text-xs font-bold text-[#f97316] hover:bg-[#f97316] hover:text-white shadow-sm transition-all sm:rounded-xl sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm md:px-5 md:py-3">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sm:h-[18px] sm:w-[18px]"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
               <span className="hidden sm:inline">Báo cáo</span>
               <span className="sm:hidden">BC</span>
             </Link>
             {showCrm && (
-              <Link href="/leads" className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#f97316] to-[#ea580c] border-2 border-[#ea580c] px-3 py-2 text-xs font-bold text-white shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all sm:rounded-xl sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm md:px-5 md:py-3">
+              <Link href="/leads" className="inline-flex items-center gap-1.5 rounded-lg bg-[#f97316] border-2 border-[#f97316] px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#ea580c] hover:border-[#ea580c] transition-all sm:rounded-xl sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm md:px-5 md:py-3">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sm:h-[18px] sm:w-[18px]"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 CRM
                 {stats.openLeads > 0 && <span className="rounded-full bg-white/20 backdrop-blur px-1.5 py-0.5 text-[9px] font-black sm:text-[10px] sm:px-2">{stats.openLeads}</span>}
@@ -268,10 +329,28 @@ export default async function DashboardPage() {
         <KpiCard label="Lead đang xử lý" value={String(stats.openLeads)} sub="chưa chuyển đổi / đóng"
           color="#ea580c" href="/leads"
           icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>} />
-        <KpiCard label="Kỳ lương đang mở" value={String(stats.openPayrollRuns)} sub={`${stats.openBillingPeriods} kỳ học phí mở`}
+        <KpiCard label="Bảng lương chưa chốt" value={String(stats.openPayrollRuns)} sub={`${stats.openBillingPeriods} bảng học phí chưa chốt`}
           color="#ef4444" href="/payroll"
           icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>} />
       </div>
+
+      {/* ── Tổng học sinh theo tháng (mới nhập / nghỉ / chờ lớp) ─── */}
+      {operational && (
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
+          <div className="rounded-xl border border-[#e5eaf7] bg-white p-4 text-center">
+            <p className="text-2xl font-black text-[#0f1729]">{operational.newEnrollmentsInMonth}</p>
+            <p className="mt-1 text-[11px] font-bold text-[#64748b]">HV mới nhập học{selectedMonth ? "" : " (năm nay)"}</p>
+          </div>
+          <div className="rounded-xl border border-[#e5eaf7] bg-white p-4 text-center">
+            <p className="text-2xl font-black text-[#0f1729]">{operational.leftInMonth}</p>
+            <p className="mt-1 text-[11px] font-bold text-[#64748b]">HV nghỉ học{selectedMonth ? "" : " (năm nay)"}</p>
+          </div>
+          <div className="rounded-xl border border-[#e5eaf7] bg-white p-4 text-center">
+            <p className="text-2xl font-black text-[#0f1729]">{operational.waitingForClass}</p>
+            <p className="mt-1 text-[11px] font-bold text-[#64748b]">HV chờ lớp mới</p>
+          </div>
+        </div>
+      )}
 
       {/* ── Revenue + Pipeline (2 cols) ──────────────────────────── */}
       {operational && leadPipeline && (
@@ -280,10 +359,10 @@ export default async function DashboardPage() {
           {/* Revenue last 6 periods */}
           <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
             <SectionHeading action={<Link href="/tuition" className="text-sm font-bold text-[#f97316] hover:text-[#ea580c]">Mở học phí →</Link>}>
-              Doanh thu theo tháng
+              {selectedMonth ? `Doanh thu tháng ${selectedMonth}` : "Doanh thu theo tháng (6 tháng gần nhất)"}
             </SectionHeading>
             <div className="space-y-2.5">
-              {operational.revenueByPeriod.slice(-6).map((row) => {
+              {(selectedMonth ? operational.revenueByPeriod : operational.revenueByPeriod.slice(-6)).map((row) => {
                 const pct = row.billed > 0 ? Math.round((row.collected / row.billed) * 100) : 0;
                 return (
                   <div key={row.period} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-4 py-3">
@@ -301,7 +380,11 @@ export default async function DashboardPage() {
                   </div>
                 );
               })}
-              {operational.revenueByPeriod.length === 0 && <p className="text-sm text-[#94a3b8] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">Chưa có tháng học phí nào.</p>}
+              {operational.revenueByPeriod.length === 0 && (
+                <p className="text-sm text-[#94a3b8] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">
+                  {selectedMonth ? "Chưa có kỳ học phí nào cho tháng này." : "Chưa có tháng học phí nào."}
+                </p>
+              )}
             </div>
           </div>
 
@@ -311,17 +394,17 @@ export default async function DashboardPage() {
               Phễu tuyển sinh
             </SectionHeading>
             <div className="mb-4 grid grid-cols-3 gap-3">
-              <div className="rounded-xl bg-gradient-to-br from-[#fff7ed] to-[#ffedd5] border border-[#fed7aa] p-3 text-center">
-                <p className="text-2xl font-black text-[#c2410c]">{operational.totalLeads}</p>
-                <p className="text-xs font-bold text-[#f97316]">Tổng lead</p>
+              <div className="rounded-xl bg-white border border-[#e5eaf7] p-3 text-center">
+                <p className="text-2xl font-black text-[#0f1729]">{operational.totalLeads}</p>
+                <p className="text-xs font-bold text-[#64748b]">Tổng data</p>
               </div>
-              <div className="rounded-xl bg-gradient-to-br from-[#ecfdf5] to-[#d1fae5] border border-[#a7f3d0] p-3 text-center">
-                <p className="text-2xl font-black text-[#065f46]">{operational.conversionRate}%</p>
-                <p className="text-xs font-bold text-[#10b981]">Tỉ lệ chuyển đổi</p>
+              <div className="rounded-xl bg-white border border-[#e5eaf7] p-3 text-center">
+                <p className="text-2xl font-black text-[#10b981]">{operational.conversionRate}%</p>
+                <p className="text-xs font-bold text-[#64748b]">Tỉ lệ chuyển đổi</p>
               </div>
-              <div className="rounded-xl bg-gradient-to-br from-[#fef9c3] to-[#fef3c7] border border-[#fde047] p-3 text-center">
-                <p className="text-2xl font-black text-[#92400e]">{operational.qualifiedLeadsWithoutClass}</p>
-                <p className="text-xs font-bold text-[#b45309]">Đạt, chờ lớp</p>
+              <div className="rounded-xl bg-white border border-[#e5eaf7] p-3 text-center">
+                <p className="text-2xl font-black text-[#ef4444]">{operational.qualifiedLeadsWithoutClass}</p>
+                <p className="text-xs font-bold text-[#64748b]">Đạt, chờ lớp</p>
               </div>
             </div>
             <PipelineFunnel rows={leadPipeline} />
@@ -370,24 +453,54 @@ export default async function DashboardPage() {
           {/* Cash flow */}
           <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
             <SectionHeading action={<Link href="/cashbook" className="text-sm font-bold text-[#f97316]">Thu chi →</Link>}>
-              Dòng tiền
+              {selectedMonth ? `Dòng tiền tháng ${selectedMonth}` : "Dòng tiền (tất cả)"}
             </SectionHeading>
             <div className="space-y-3">
               <div className="rounded-xl bg-[#ecfdf5] border border-[#a7f3d0] px-4 py-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-[#065f46] mb-1">Tổng thu</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-[#065f46] mb-1">Doanh thu</p>
                 <p className="text-2xl font-black text-[#065f46]">{formatVnd(operational.totalThu)}</p>
               </div>
               <div className="rounded-xl bg-[#fef2f2] border border-[#fecaca] px-4 py-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-[#b91c1c] mb-1">Tổng chi</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-[#b91c1c] mb-1">Chi phí</p>
                 <p className="text-2xl font-black text-[#b91c1c]">{formatVnd(operational.totalChi)}</p>
               </div>
               <div className={`rounded-xl border px-4 py-4 ${operational.totalThu - operational.totalChi >= 0 ? "bg-[#fff7ed] border-[#fed7aa]" : "bg-[#fef9c3] border-[#fde047]"}`}>
-                <p className="text-xs font-bold uppercase tracking-wide text-[#c2410c] mb-1">Số dư</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-[#c2410c] mb-1">Lợi nhuận</p>
                 <p className={`text-2xl font-black ${operational.totalThu - operational.totalChi >= 0 ? "text-[#c2410c]" : "text-[#b45309]"}`}>
                   {formatVnd(operational.totalThu - operational.totalChi)}
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Vừa tự động tất toán (sweep 2h sáng) ─────────────────── */}
+      {recentAutoCompletions.length > 0 && (
+        <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
+          <SectionHeading action={<Link href="/session-credits" className="text-sm font-bold text-[#f97316]">Mở Bổ trợ →</Link>}>
+            Vừa tự động tất toán (7 ngày qua)
+          </SectionHeading>
+          <p className="mb-3 text-xs text-[#64748b]">
+            Lớp hết hạn dự kiến trong khi học viên chưa học hết buổi đã mua — hệ thống tự tất toán ghi danh và cấp số dư chuyển sang lớp mới, không cần ai duyệt.
+          </p>
+          <div className="space-y-2">
+            {recentAutoCompletions.map((item) => (
+              <Link
+                key={item.id}
+                href={`/students/${item.studentId}`}
+                className="flex items-center justify-between rounded-xl border border-[#fed7aa] bg-[#fff7ed] px-4 py-2.5 hover:bg-[#ffedd5] transition"
+              >
+                <div>
+                  <span className="text-sm font-bold text-[#0f1729]">{item.studentName}</span>
+                  <span className="ml-2 text-xs text-[#94a3b8]">{item.studentCode}</span>
+                  <p className="text-xs text-[#64748b]">Lớp {item.className} · {formatDate(item.createdAt)}</p>
+                </div>
+                <span className="text-xs font-bold text-[#c2410c]">
+                  {item.granted > 0 ? `+${item.granted} buổi số dư` : "Đã dùng hết buổi"}
+                </span>
+              </Link>
+            ))}
           </div>
         </div>
       )}

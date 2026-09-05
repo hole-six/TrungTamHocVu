@@ -451,6 +451,9 @@ export default function NewClassForm({
     if (!form.classCode.trim() || !form.className.trim()) {
       return "Mã lớp và tên lớp là bắt buộc.";
     }
+    if (!form.startDate) {
+      return "Ngày khai giảng là bắt buộc — dùng để tính ngày dự kiến kết thúc và học phí theo kỳ.";
+    }
     if (!form.isRemedial) {
       if (!form.totalSessions || Number(form.totalSessions) <= 0) {
         return "Cần nhập tổng số buổi hợp lệ.";
@@ -642,6 +645,23 @@ export default function NewClassForm({
                 </label>
               </div>
               <div className="grid grid-cols-1 gap-5 px-6 py-5 sm:grid-cols-2 lg:grid-cols-3">
+                {/* Chọn khoá trước — lớp học và khoá học là 1, khoá chỉ là mẫu tái dùng
+                    (học phí/buổi, số buổi/tuần); đặt lên đầu để đúng thứ tự "có khoá rồi
+                    mới có lớp" thay vì để mặc định ẩn/optional như trước. */}
+                {!form.isRemedial ? (
+                  <label className="form-group sm:col-span-2 lg:col-span-3">
+                    <span className="label">Khóa học chuẩn — chọn trước khi đặt tên lớp</span>
+                    <select className="input" value={form.courseId} onChange={(event) => applyCourseTemplate(event.target.value)}>
+                      <option value="">-- Nhập tay / chưa gắn khóa (lớp đặc thù) --</option>
+                      {courses.map((course) => (
+                        <option key={course.id} value={course.id}>
+                          [{course.code}] {course.name} · {formatVnd(course.tuitionPerSession)}/buổi
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs text-ink-muted48">Chọn khoá có sẵn để tự điền học phí/buổi. Chỉ để trống nếu lớp này thật sự đặc thù, không theo khoá chuẩn nào.</p>
+                  </label>
+                ) : null}
                 <label className="form-group">
                   <span className="label">Mã lớp *</span>
                   <input className="input" value={form.classCode} onChange={(event) => patchForm("classCode", event.target.value)} placeholder="VD: CAM-A1-T2T4-SANG" />
@@ -665,22 +685,16 @@ export default function NewClassForm({
                     ))}
                   </datalist>
                 </label>
-                {!form.isRemedial ? (
-                  <label className="form-group">
-                    <span className="label">Khóa học chuẩn</span>
-                    <select className="input" value={form.courseId} onChange={(event) => applyCourseTemplate(event.target.value)}>
-                      <option value="">-- Nhập tay / chưa gắn khóa --</option>
-                      {courses.map((course) => (
-                        <option key={course.id} value={course.id}>
-                          [{course.code}] {course.name} · {formatVnd(course.tuitionPerSession)}/buổi
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
                 <label className="form-group">
-                  <span className="label">Ngày khai giảng</span>
-                  <input type="date" className="input" value={form.startDate} onChange={(event) => patchForm("startDate", event.target.value)} />
+                  <span className="label">Ngày khai giảng *</span>
+                  <input
+                    type="date"
+                    required
+                    className="input rounded-2xl border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 font-medium"
+                    value={form.startDate}
+                    onChange={(event) => patchForm("startDate", event.target.value)}
+                  />
+                  <p className="mt-2 text-xs text-ink-muted48">Bắt buộc — dùng để tính ngày dự kiến kết thúc bên dưới.</p>
                 </label>
                 {!form.isRemedial ? (
                   <label className="form-group">

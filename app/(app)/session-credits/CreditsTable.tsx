@@ -61,12 +61,29 @@ function TypeBadge({ origin }: { origin: string }) {
   if (origin === "PAID_CATCHUP") {
     return <span className="inline-flex rounded-lg border border-sky-200 bg-sky-50 px-2 py-1 text-xs font-bold text-sky-700">Bổ trợ đầu khóa</span>;
   }
+  if (origin === "WEAK_STUDENT") {
+    return <span className="inline-flex rounded-lg border border-violet-200 bg-violet-50 px-2 py-1 text-xs font-bold text-violet-700">Bổ trợ học sinh yếu</span>;
+  }
+  if (origin === "WITHDRAWAL_REMAINING") {
+    // Cố tình KHÔNG dùng chữ "Bổ trợ" — bản chất khác hẳn ABSENCE/PAID_CATCHUP/WEAK_STUDENT
+    // (những buổi CẦN dạy bù), đây là tiền/buổi THỪA khi rút lớp hoặc lớp tự kết thúc mà
+    // học viên chưa dùng hết gói đã mua — dùng ở lớp mới, không phải "bài cần bù".
+    return <span className="inline-flex rounded-lg border border-teal-200 bg-teal-50 px-2 py-1 text-xs font-bold text-teal-700">Số dư chuyển từ lớp cũ</span>;
+  }
   return <span className="inline-flex rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600">{origin}</span>;
 }
 
 function LessonList({ row }: { row: CreditRow }) {
   if (row.origin === "PAID_CATCHUP") {
     return <span className="text-xs text-[#64748b]">Không cần bài riêng. Xếp vào lớp bổ trợ đầu khóa theo nhu cầu nhập học.</span>;
+  }
+
+  if (row.origin === "WEAK_STUDENT") {
+    return <span className="text-xs text-[#64748b]">{row.notes || "Chưa ghi nội dung cần bổ trợ."}</span>;
+  }
+
+  if (row.origin === "WITHDRAWAL_REMAINING") {
+    return <span className="text-xs text-[#64748b]">{row.notes || "Số dư buổi/tiền còn lại từ lớp cũ — xếp học viên vào lớp mới để dùng hết."}</span>;
   }
 
   if (row.sourceItems.length === 0) {
@@ -167,6 +184,8 @@ export default function CreditsTable({ initialData, statusParam, typeParam, stud
         options: [
           { label: "Bổ trợ vắng cần bài", value: "ABSENCE" },
           { label: "Bổ trợ đầu khóa", value: "PAID_CATCHUP" },
+          { label: "Bổ trợ học sinh yếu", value: "WEAK_STUDENT" },
+          { label: "Số dư chuyển từ lớp cũ", value: "WITHDRAWAL_REMAINING" },
         ],
       },
       render: (value, row) => (

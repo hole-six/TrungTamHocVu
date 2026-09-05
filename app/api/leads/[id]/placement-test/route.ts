@@ -38,9 +38,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
 
   // Chỉ chuyển Lead sang TESTED khi buổi test THỰC SỰ đã diễn ra (có testDate) —
-  // hẹn lịch (chỉ có scheduledDate) chưa phải là đã test.
-  if (testDate && (lead.status === "APPOINTED" || lead.status === "CONTACTING")) {
-    await prisma.lead.update({ where: { id: lead.id }, data: { status: "TESTED" } });
+  // hẹn lịch (chỉ có scheduledDate) chưa phải là đã test. Nhưng hẹn lịch VẪN là 1
+  // bước tiến thực tế nên NEW/CONTACTING phải lên APPOINTED ngay khi có scheduledDate
+  // — trước đây chỉ APPOINTED/CONTACTING mới được nâng lên TESTED, nên 1 lead mới tạo
+  // (đang NEW) kèm lịch hẹn test nằm mãi ở "Chưa liên hệ" dù đã có lịch, trong khi cột
+  // lịch test lại hiện "Đã hẹn, chưa test" — 2 cột nhìn mâu thuẫn nhau.
+  let nextLeadStatus: string | null = null;
+  if (testDate && (lead.status === "NEW" || lead.status === "APPOINTED" || lead.status === "CONTACTING")) {
+    nextLeadStatus = "TESTED";
+  } else if (test.scheduledDate && (lead.status === "NEW" || lead.status === "CONTACTING")) {
+    nextLeadStatus = "APPOINTED";
+  }
+  if (nextLeadStatus) {
+    await prisma.lead.update({ where: { id: lead.id }, data: { status: nextLeadStatus } });
   }
 
   return NextResponse.json({ item: test }, { status: 201 });

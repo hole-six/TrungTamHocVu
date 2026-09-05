@@ -41,6 +41,77 @@ const STUDENTS_PAGE_GUIDE_SECTIONS = [
   },
 ];
 
+// Trước đây "Cần chuyển"/"Sắp hết"/portal/công nợ trên các ô thống kê chỉ đếm trên
+// ĐÚNG 20 dòng của trang đang xem (pageItems), không phải toàn bộ danh sách đã lọc —
+// khác hẳn "Tất cả"/"Đang học" cạnh nó vốn là số thật từ groupBy toàn bộ. Nhìn giống
+// nhau nhưng sai bản chất, dễ khiến nhân viên tin nhầm số liệu. Hàm này quét TOÀN BỘ
+// học viên khớp `where` (không phân trang) để ra đúng 4 số — tách riêng khỏi luồng
+// dựng bảng chính (không kèm sách/tín dụng/billing mode...) để không làm chậm trang
+// khi không cần các số này.
+async function computeGlobalStudentStats(where: Prisma.StudentWhereInput) {
+  const students = await prisma.student.findMany({
+    where,
+    select: {
+      id: true,
+      guardians: { select: { isPrimary: true, guardian: { select: { user: { select: { isActive: true } } } } } },
+      enrollments: {
+        where: { status: "ACTIVE" },
+        include: { class: { include: { nextClass: true, scheduleRules: { where: { isActive: true }, orderBy: { weekday: "asc" } } } } },
+        orderBy: { enrollDate: "desc" },
+        take: 1,
+      },
+    },
+  });
+
+  const studentIds = students.map((item) => item.id);
+  const chargeRows = studentIds.length
+    ? await prisma.charge.findMany({
+        where: { studentId: { in: studentIds } },
+        select: { id: true, studentId: true, tuitionAmount: true, materialsAmount: true },
+      })
+    : [];
+  const allocationTotals = chargeRows.length
+    ? await prisma.paymentAllocation.groupBy({
+        by: ["chargeId"],
+        where: { chargeId: { in: chargeRows.map((charge) => charge.id) }, payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } },
+        _sum: { amount: true },
+      })
+    : [];
+  const paidByCharge = new Map(allocationTotals.map((row) => [row.chargeId, row._sum.amount ?? 0]));
+  const chargeByStudent = new Map<string, number>();
+  const paidByStudent = new Map<string, number>();
+  for (const charge of chargeRows) {
+    chargeByStudent.set(charge.studentId, (chargeByStudent.get(charge.studentId) ?? 0) + chargeOwnDueAmount(charge));
+    paidByStudent.set(charge.studentId, (paidByStudent.get(charge.studentId) ?? 0) + (paidByCharge.get(charge.id) ?? 0));
+  }
+
+  let portalCount = 0;
+  let debtCount = 0;
+  let needTransferCount = 0;
+  let endingSoonCount = 0;
+
+  await Promise.all(
+    students.map(async (student) => {
+      const primaryGuardian = student.guardians.find((link) => link.isPrimary) ?? student.guardians[0];
+      if (primaryGuardian?.guardian.user?.isActive) portalCount++;
+
+      const outstanding = (chargeByStudent.get(student.id) ?? 0) - (paidByStudent.get(student.id) ?? 0);
+      if (outstanding > 0) debtCount++;
+
+      const enrollment = student.enrollments[0];
+      if (!enrollment) return;
+      const snapshot = await getEnrollmentLearningSnapshot(prisma, { ...enrollment, class: { ...enrollment.class, course: null } });
+      if (snapshot.continuationStatus === "NEED_TRANSFER") {
+        needTransferCount++;
+      } else if (snapshot.remainingMainSessions > 0 && snapshot.remainingMainSessions <= 3) {
+        endingSoonCount++;
+      }
+    }),
+  );
+
+  return { portalCount, debtCount, needTransferCount, endingSoonCount };
+}
+
 export default async function StudentsPage({
   searchParams,
 }: {
@@ -256,6 +327,39 @@ export default async function StudentsPage({
     ),
   ]);
 
+  // Chiết khấu đang active (học bổng + điều chỉnh HP) — khách hỏi thẳng "chiết khấu
+  // đang nằm ở đâu" vì trước đây chỉ xem được trong tab Học phí của drawer, không
+  // thấy đâu trên danh sách. Chỉ cộng dồn % đang trong hiệu lực (effectiveFrom/To bao
+  // quanh hôm nay hoặc để trống) — hiển thị gộp trên list, chi tiết từng khoản vẫn ở
+  // drawer.
+  // CỐ TÌNH KHÔNG gate theo canViewFinance — "có học bổng hay không" không nhạy cảm
+  // như số tiền nợ cụ thể; trước đây gate chung khiến vai trò không có quyền xem tài
+  // chính bị mất LUÔN cả thông tin có học bổng, trong khi cột hiển thị nó (Học viên)
+  // vẫn luôn hiện với mọi vai trò.
+  const now = new Date();
+  const [activeScholarships, activeAdjustments] = await Promise.all([
+    prisma.scholarship.findMany({
+      where: {
+        studentId: { in: studentIds },
+        effectiveFrom: { lte: now },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }],
+      },
+      select: { studentId: true, percentage: true },
+    }),
+    prisma.adjustment.findMany({
+      where: {
+        studentId: { in: studentIds },
+        effectiveFrom: { lte: now },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }],
+      },
+      select: { studentId: true, percentage: true },
+    }),
+  ]);
+  const activeDiscountByStudent = new Map<string, number>();
+  for (const row of [...activeScholarships, ...activeAdjustments]) {
+    activeDiscountByStudent.set(row.studentId, (activeDiscountByStudent.get(row.studentId) ?? 0) + row.percentage);
+  }
+
   const chargeByStudent = new Map<string, number>();
   const tuitionByStudent = new Map<string, number>();
   const materialsByStudent = new Map<string, number>();
@@ -327,6 +431,7 @@ export default async function StudentsPage({
       primaryGuardian,
       currentClassName: currentEnrollment?.class.className ?? null,
       currentClassCode: currentEnrollment?.class.classCode ?? null,
+      currentClassStatus: currentEnrollment?.class.status ?? null,
       currentBillingModel: currentEnrollment?.billingModel ?? null,
       leadCode: item.lead?.leadCode ?? null,
       outstanding: canViewFinance ? (chargeByStudent.get(item.id) ?? 0) - (paidByStudent.get(item.id) ?? 0) : undefined,
@@ -344,6 +449,7 @@ export default async function StudentsPage({
       chargeCount: counts?.charges ?? 0,
       scholarshipCount: counts?.scholarships ?? 0,
       adjustmentCount: counts?.adjustments ?? 0,
+      activeDiscountPercent: activeDiscountByStudent.get(item.id) ?? 0,
       sessionCreditCount: availableSessionCreditByStudent.get(item.id) ?? 0,
       sessionCreditUnitPrice: sessionCreditUnitPriceByStudent.get(item.id) ?? null,
       enrollmentsCount: item.enrollments.length,
@@ -382,14 +488,7 @@ export default async function StudentsPage({
     : filteredItems;
 
   const stats = Object.fromEntries(grouped.map((row) => [row.status, row._count._all])) as Record<string, number>;
-  const portalCount = pageItems.filter((item) => item.primaryGuardian?.user?.isActive).length;
-  const debtCount = pageItems.filter((item) => (item.outstanding ?? 0) > 0).length;
-  const needTransferCount = pageItems.filter((item) => item.continuationStatus === "NEED_TRANSFER").length;
-  const endingSoonCount = pageItems.filter((item) => {
-    if (item.continuationStatus === "NEED_TRANSFER") return false;
-    const remaining = item.learningRemainingSessions ?? 999;
-    return remaining > 0 && remaining <= 3;
-  }).length;
+  const { portalCount, debtCount, needTransferCount, endingSoonCount } = await computeGlobalStudentStats(where);
 
   return (
     <div className="space-y-4 sm:space-y-6">

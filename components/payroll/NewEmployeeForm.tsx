@@ -11,6 +11,7 @@ export default function NewEmployeeForm() {
     shortName: "",
     position: "",
     phone: "",
+    email: "",
     bankName: "",
     bankAccountNumber: "",
     bankAccountHolder: "",
@@ -42,6 +43,7 @@ export default function NewEmployeeForm() {
       shortName: "",
       position: "",
       phone: "",
+      email: "",
       bankName: "",
       bankAccountNumber: "",
       bankAccountHolder: "",
@@ -68,6 +70,7 @@ export default function NewEmployeeForm() {
       <input required placeholder="Tên ngắn *" className="input" value={form.shortName} onChange={(e) => setForm((f) => ({ ...f, shortName: e.target.value }))} />
       <input placeholder="Vị trí" className="input" value={form.position} onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))} />
       <input placeholder="SĐT" className="input" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+      <input type="email" placeholder="Email" className="input" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
       <input placeholder="Ngân hàng" className="input" value={form.bankName} onChange={(e) => setForm((f) => ({ ...f, bankName: e.target.value }))} />
       <input placeholder="Số tài khoản" className="input" value={form.bankAccountNumber} onChange={(e) => setForm((f) => ({ ...f, bankAccountNumber: e.target.value }))} />
       <input placeholder="Chủ tài khoản" className="input" value={form.bankAccountHolder} onChange={(e) => setForm((f) => ({ ...f, bankAccountHolder: e.target.value }))} />

@@ -6,6 +6,9 @@ import { formatVnd } from "@/lib/export-utils";
 
 type EmployeeProfile = {
   id: string;
+  employeeCode: string;
+  fullName: string;
+  position: string | null;
   dob: string | null;
   phone: string | null;
   email: string | null;
@@ -46,6 +49,8 @@ export default function EmployeeProfileEditor({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
+    fullName: employee.fullName,
+    position: employee.position ?? "",
     dob: toDateInput(employee.dob),
     phone: employee.phone ?? "",
     email: employee.email ?? "",
@@ -84,6 +89,9 @@ export default function EmployeeProfileEditor({
   }
 
   const rows: Array<[string, string]> = [
+    ["Mã NV", employee.employeeCode],
+    ["Họ và tên", employee.fullName],
+    ["Vị trí", employee.position ?? "—"],
     ["Ngày sinh", formatDate(employee.dob)],
     ["SĐT", employee.phone ?? "—"],
     ["Mail", employee.email ?? "—"],
@@ -124,6 +132,18 @@ export default function EmployeeProfileEditor({
         </dl>
       ) : (
         <form onSubmit={save} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-ink-muted48">Mã NV</span>
+            <input className="input" value={employee.employeeCode} disabled />
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-ink-muted48">Họ và tên</span>
+            <input className="input" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-ink-muted48">Vị trí</span>
+            <input className="input" value={form.position} onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))} />
+          </label>
           <label className="space-y-1">
             <span className="text-xs font-medium text-ink-muted48">Ngày sinh</span>
             <input type="date" className="input" value={form.dob} onChange={(e) => setForm((f) => ({ ...f, dob: e.target.value }))} />

@@ -151,6 +151,9 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
         }}
         profile={{
           id: employee.id,
+          employeeCode: employee.employeeCode,
+          fullName: employee.fullName,
+          position: employee.position,
           dob: employee.dob ? employee.dob.toISOString() : null,
           phone: employee.phone,
           email: employee.email,
@@ -195,8 +198,11 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
           requirementCheckRows,
           contract: employee.contracts[0]
             ? {
+                contractNo: employee.contracts[0].contractNo,
                 signDate: employee.contracts[0].signDate ? employee.contracts[0].signDate.toISOString() : null,
                 expiryDate: employee.contracts[0].expiryDate ? employee.contracts[0].expiryDate.toISOString() : null,
+                contractType: employee.contracts[0].contractType,
+                baseSalary: employee.contracts[0].baseSalary,
               }
             : null,
         }}

@@ -26,16 +26,23 @@ export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
   LOST: "Không có nhu cầu",
 };
 
-// Gộp 8 trạng thái chi tiết thành 4 nhóm cho CSO chọn nhanh — dùng chung cho cả bộ
-// lọc (Leads) lẫn ô đổi trạng thái từng dòng (LeadsTable), để không lệch nhau giữa
-// nơi lọc và nơi sửa. TESTED không có trong ô đổi tay vì nó tự chuyển khi ghi nhận
-// kết quả test thật (xem app/api/leads/[id]/placement-test/route.ts), không phải do
-// nhân sự tự bấm — nhóm "Đạt chờ xếp lớp" chỉ set QUALIFIED khi chọn tay.
+// Gộp 8 trạng thái chi tiết thành 5 nhóm cho CSO chọn nhanh — đúng đúng mạch khách
+// hàng yêu cầu (Chưa liên hệ / Đã liên hệ / Đạt chờ xếp lớp / Chưa đạt / Không có
+// nhu cầu), dùng chung cho cả bộ lọc (Leads) lẫn ô đổi trạng thái từng dòng
+// (LeadsTable), để không lệch nhau giữa nơi lọc và nơi sửa. APPOINTED (đã hẹn lịch)
+// và TESTED (đã test, chưa chấm) đều gộp hiển thị vào "Đã liên hệ" — với người dùng
+// đây vẫn là "đang xử lý", không phải 1 mốc cần nhìn riêng; ngày/giờ hẹn test chỉ là
+// 1 cột phụ trên bảng, không phải 1 trạng thái. TESTED không có trong ô đổi tay vì nó
+// tự chuyển khi ghi nhận kết quả test thật (xem
+// app/api/leads/[id]/placement-test/route.ts), không phải do nhân sự tự bấm.
+// ENROLLED cố tình không có mặt ở đây — có chip lọc riêng ("Đã ghi danh") ở
+// LeadsTable, tách khỏi nhóm pipeline đang xử lý (xem enrolledCount ở leads/page.tsx).
 export const LEAD_STATUS_FILTER_GROUPS = [
-  { key: "UNCONTACTED", label: "Chưa liên hệ", statuses: ["NEW", "CONTACTING"] },
-  { key: "APPOINTED", label: "Đã hẹn lịch", statuses: ["APPOINTED"] },
-  { key: "QUALIFIED", label: "Đạt chờ xếp lớp", statuses: ["QUALIFIED", "TESTED"] },
-  { key: "CLOSED", label: "Chưa đạt / không có nhu cầu", statuses: ["UNQUALIFIED", "LOST"] },
+  { key: "NEW", label: "Chưa liên hệ", statuses: ["NEW"] },
+  { key: "CONTACTING", label: "Đã liên hệ", statuses: ["CONTACTING", "APPOINTED", "TESTED"] },
+  { key: "QUALIFIED", label: "Đạt chờ xếp lớp", statuses: ["QUALIFIED"] },
+  { key: "UNQUALIFIED", label: "Chưa đạt", statuses: ["UNQUALIFIED"] },
+  { key: "LOST", label: "Không có nhu cầu", statuses: ["LOST"] },
 ] as const satisfies { key: string; label: string; statuses: LeadStatus[] }[];
 
 export function leadStatusGroupKey(status: string): string {

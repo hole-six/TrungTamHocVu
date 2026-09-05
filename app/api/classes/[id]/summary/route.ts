@@ -270,6 +270,20 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (latestSession && !latestSession.attendances.length) attentionItems.push({ text: "Buổi gần nhất chưa điểm danh", severity: "warning" });
   if (latestSession && !latestSession.journal) attentionItems.push({ text: "Buổi gần nhất chưa có journal", severity: "warning" });
   if (totalOutstanding > 0) attentionItems.push({ text: `Lớp còn tổng nợ`, severity: "warning" });
+  // Cảnh báo TRƯỚC khi sweep tự động (2h sáng, lib/server/scheduling.ts) "cướp" mất cơ
+  // hội xử lý thủ công — quên bấm "Kết thúc lớp" thì bị máy làm thay trong im lặng, và
+  // làm dở hơn (không hỏi chuyển lớp/giữ học bổng, chỉ tất toán + cấp số dư). Cùng điều
+  // kiện với app/(app)/classes/[id]/page.tsx — 2 nơi tính riêng vì chưa có chỗ dùng chung.
+  const activeNeedTransferCount = enrollmentsWithLearning.filter(
+    (item) => item.status === "ACTIVE" && item.learningSnapshot.remainingMainSessions > 0,
+  ).length;
+  const daysToExpectedEnd = cls.expectedEndDate ? (cls.expectedEndDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000) : null;
+  if (cls.status === "ACTIVE" && daysToExpectedEnd !== null && daysToExpectedEnd >= 0 && daysToExpectedEnd <= 7 && activeNeedTransferCount > 0) {
+    attentionItems.unshift({
+      text: `Lớp sắp tự động kết thúc (còn ${activeNeedTransferCount} học viên chưa học đủ buổi) — bấm "Kết thúc lớp" ngay để tự chọn lớp chuyển tiếp, nếu không hệ thống sẽ tự tất toán mà không hỏi chuyển lớp`,
+      severity: "critical",
+    });
+  }
 
   // Tasks data
   const tasks = await prisma.task.findMany({

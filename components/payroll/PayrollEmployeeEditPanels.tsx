@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import EmployeeProfileEditor from "@/components/payroll/EmployeeProfileEditor";
+import EmploymentContractPanel from "@/components/payroll/EmploymentContractPanel";
 import TimesheetQuickAddForm from "@/components/payroll/TimesheetQuickAddForm";
 import TimesheetEntryForm from "@/components/timesheets/TimesheetEntryForm";
 import AssistantScoreForm, { BranchBonusForm } from "@/components/payroll/AssistantScoreForm";
@@ -235,7 +236,7 @@ type EmployeeHistory = {
   sessionAssignments: SessionAssignmentRow[];
   timesheetEntries: TimesheetEntryRow[];
   requirementCheckRows: RequirementCheckRow[];
-  contract: { signDate: string | null; expiryDate: string | null } | null;
+  contract: { contractNo: string | null; signDate: string | null; expiryDate: string | null; contractType: string | null; baseSalary: number | null } | null;
 };
 
 function getContractTone(status: string | null) {
@@ -247,6 +248,9 @@ function getContractTone(status: string | null) {
 
 type EmployeeProfile = {
   id: string;
+  employeeCode: string;
+  fullName: string;
+  position: string | null;
   dob: string | null;
   phone: string | null;
   email: string | null;
@@ -291,7 +295,22 @@ export default function PayrollEmployeeEditPanels({
   profile: EmployeeProfile;
   canEditProfile: boolean;
   canAddTimesheet: boolean;
-  payrollLine: { id: string; bonus: number; penalty: number; notes: string | null } | null;
+  payrollLine: {
+    id: string;
+    otHours: number;
+    otAmount: number;
+    kpiBonus: number;
+    assistantRatingBonus: number;
+    parkingAllowance: number;
+    supportAllowance: number;
+    bonus: number;
+    penalty: number;
+    socialInsuranceDeduction: number;
+    utilityDeduction: number;
+    holidayBonus: number;
+    otherDeduction: number;
+    notes: string | null;
+  } | null;
   canEditPayrollLine: boolean;
   assistant: { employeeId: string; month: string; branches: { id: string; name: string }[]; bonusByBranch: Record<string, number | null> } | null;
   /** Trang /payroll/employees/[id] đã tự query sẵn — truyền thẳng vào đây. Drawer quản
@@ -328,7 +347,15 @@ export default function PayrollEmployeeEditPanels({
             status: item.status,
             deductedPoints: item.scoreEvent && item.scoreEvent.type === "DEDUCT" ? item.scoreEvent.points : null,
           })),
-          contract: data.item.contracts[0] ? { signDate: data.item.contracts[0].signDate, expiryDate: data.item.contracts[0].expiryDate } : null,
+          contract: data.item.contracts[0]
+            ? {
+                contractNo: data.item.contracts[0].contractNo,
+                signDate: data.item.contracts[0].signDate,
+                expiryDate: data.item.contracts[0].expiryDate,
+                contractType: data.item.contracts[0].contractType,
+                baseSalary: data.item.contracts[0].baseSalary,
+              }
+            : null,
         });
       })
       .catch(() => {});
@@ -347,21 +374,7 @@ export default function PayrollEmployeeEditPanels({
       content: (
         <div className="space-y-5">
           <EmployeeProfileEditor employee={profile} canEdit={canEditProfile} />
-          {history?.contract ? (
-            <div className="card">
-              <h2 className="font-display text-lg font-semibold tracking-tight">Hợp đồng hiện hành</h2>
-              <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <dt className="text-ink-muted48">Ngày ký HĐ</dt>
-                  <dd className="font-medium">{history.contract.signDate ? formatDate(history.contract.signDate) : "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-ink-muted48">Hạn HĐ</dt>
-                  <dd className="font-medium">{history.contract.expiryDate ? formatDate(history.contract.expiryDate) : "—"}</dd>
-                </div>
-              </dl>
-            </div>
-          ) : null}
+          <EmploymentContractPanel employeeId={profile.id} contract={history?.contract ?? null} canEdit={canEditProfile} />
         </div>
       ),
     },
@@ -374,8 +387,18 @@ export default function PayrollEmployeeEditPanels({
             canEditPayrollLine ? (
               <PayrollLineAdjustForm
                 lineId={payrollLine.id}
+                otHours={payrollLine.otHours}
+                otAmount={payrollLine.otAmount}
+                kpiBonus={payrollLine.kpiBonus}
+                assistantRatingBonus={payrollLine.assistantRatingBonus}
+                parkingAllowance={payrollLine.parkingAllowance}
+                supportAllowance={payrollLine.supportAllowance}
                 bonus={payrollLine.bonus}
                 penalty={payrollLine.penalty}
+                socialInsuranceDeduction={payrollLine.socialInsuranceDeduction}
+                utilityDeduction={payrollLine.utilityDeduction}
+                holidayBonus={payrollLine.holidayBonus}
+                otherDeduction={payrollLine.otherDeduction}
                 notes={payrollLine.notes}
                 employeeName={headerSummary.fullName}
               />

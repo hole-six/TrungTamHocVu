@@ -24,20 +24,44 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const body = await req.json();
-  const bonus = "bonus" in body ? Number(body.bonus) : line.bonus;
-  const penalty = "penalty" in body ? Number(body.penalty) : line.penalty;
-  const baseSalaryAmount = "baseSalaryAmount" in body ? Number(body.baseSalaryAmount) : line.baseSalaryAmount;
-  if (![bonus, penalty, baseSalaryAmount].every((value) => Number.isFinite(value) && value >= 0)) {
-    return NextResponse.json({ error: "Luong co ban, thuong va phat phai la so khong am" }, { status: 400 });
+  // Các khoản cộng/trừ itemize đúng theo phiếu lương thật (xem ghi chú model
+  // PayrollLine trong schema.prisma) — bonus/penalty/baseSalaryAmount giữ đúng field
+  // cũ, còn lại đều mới. assistantRatingBonus KHÔNG sửa tay ở đây — nó tự tính lại từ
+  // AssistantMonthlyBonus mỗi lần "Tính lại lương" (generatePayrollForRun).
+  const numericFields = [
+    "otHours", "otAmount", "kpiBonus", "parkingAllowance", "supportAllowance",
+    "bonus", "penalty", "socialInsuranceDeduction", "utilityDeduction", "holidayBonus", "otherDeduction", "baseSalaryAmount",
+  ] as const;
+  const values: Record<string, number> = {};
+  for (const field of numericFields) {
+    values[field] = field in body ? Number(body[field]) : (line as unknown as Record<string, number>)[field];
   }
-  const totalAmount = line.teachingAmount + line.assistantAmount + baseSalaryAmount + bonus - penalty;
+  if (!Object.values(values).every((value) => Number.isFinite(value) && value >= 0)) {
+    return NextResponse.json({ error: "Cac khoan luong phai la so khong am" }, { status: 400 });
+  }
+
+  const totalAmount =
+    line.teachingAmount +
+    line.assistantAmount +
+    values.baseSalaryAmount +
+    values.otAmount +
+    values.kpiBonus +
+    line.assistantRatingBonus +
+    values.parkingAllowance +
+    values.supportAllowance +
+    values.bonus -
+    values.penalty -
+    values.socialInsuranceDeduction -
+    values.utilityDeduction +
+    values.holidayBonus -
+    values.otherDeduction;
   if (totalAmount < 0) {
     return NextResponse.json({ error: "Tien phat khong duoc lon hon tong thu nhap" }, { status: 400 });
   }
 
   const updated = await prisma.payrollLine.update({
     where: { id: params.id },
-    data: { bonus, penalty, baseSalaryAmount, totalAmount, notes: "notes" in body ? body.notes || null : line.notes },
+    data: { ...values, totalAmount, notes: "notes" in body ? body.notes || null : line.notes },
   });
 
   return NextResponse.json({ item: updated });

@@ -170,15 +170,31 @@ export default async function ClassesPage({
   ]);
 
   const classStats = Object.fromEntries(grouped.map((row) => [row.status, row._count._all])) as Record<string, number>;
-  const pageClassIds = classes.map((item) => item.id);
-  const pageEnrollments = pageClassIds.length
+  // "Ngăn xếp chuyển tiếp" PHẢI là view toàn cục, độc lập với bảng lớp học đang phân
+  // trang/lọc/tìm kiếm ở trên — trước đây lấy nhầm từ `classes` (đã cắt trang theo
+  // pageSize), nên khi chi nhánh có > 8 lớp active, tab này chỉ thấy đúng lớp nằm
+  // trong trang đang xem, và dòng chữ trống "chưa có lớp active trong trang hiện tại"
+  // thực chất là chính hệ thống tự thú nhận nó không phải tổng quan thật.
+  const allActiveClasses = await prisma.class.findMany({
+    where: { ...branchWhere, status: "ACTIVE", isRemedial: false },
+    select: {
+      id: true,
+      classCode: true,
+      className: true,
+      classGroup: true,
+      nextClass: { select: { className: true } },
+      _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
+    },
+  });
+  const allActiveClassIds = allActiveClasses.map((item) => item.id);
+  const pipelineEnrollments = allActiveClassIds.length
     ? await prisma.enrollment.findMany({
-        where: { classId: { in: pageClassIds }, status: "ACTIVE" },
+        where: { classId: { in: allActiveClassIds }, status: "ACTIVE" },
         include: { class: { include: { course: true, nextClass: true } } },
       })
     : [];
   const learningSnapshots = await Promise.all(
-    pageEnrollments.map(async (enrollment) => ({
+    pipelineEnrollments.map(async (enrollment) => ({
       classId: enrollment.classId,
       nextClassName: enrollment.class.nextClass?.className ?? null,
       snapshot: await getEnrollmentLearningSnapshot(prisma, enrollment),
@@ -192,8 +208,7 @@ export default async function ClassesPage({
     if (!item.nextClassName) current.missingNextCount++;
     transferNeedByClass.set(item.classId, current);
   }
-  const pipelineRows = classes
-    .filter((item) => item.status === "ACTIVE")
+  const allPipelineRows = allActiveClasses
     .map((item) => ({
       id: item.id,
       classCode: item.classCode,
@@ -204,7 +219,12 @@ export default async function ClassesPage({
       transferNeed: transferNeedByClass.get(item.id)?.count ?? 0,
       missingNextCount: transferNeedByClass.get(item.id)?.missingNextCount ?? 0,
     }))
-    .filter((item) => item.nextClassName || item.transferNeed > 0 || item.activeCount > 0)
+    .filter((item) => item.nextClassName || item.transferNeed > 0 || item.activeCount > 0);
+  // Xếp lớp cần chú ý nhất lên đầu (còn thiếu lớp tiếp theo > có học viên cần chuyển >
+  // còn lại) trước khi cắt 8 dòng xem nhanh — trước đây thứ tự chỉ tình cờ theo
+  // createdAt của bảng chính, không phản ánh mức độ cần xử lý.
+  const pipelineRows = [...allPipelineRows]
+    .sort((a, b) => (b.missingNextCount || 0) - (a.missingNextCount || 0) || b.transferNeed - a.transferNeed)
     .slice(0, 8);
   const statusPills = [
     { key: "", label: "Tất cả", count: grouped.reduce((sum, row) => sum + row._count._all, 0) },
@@ -247,7 +267,14 @@ export default async function ClassesPage({
                       <h2 className="mt-1 text-lg font-black text-[#0f1729]">Ngăn xếp chuyển tiếp</h2>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
-                      <p className="text-sm text-[#64748b]">Mỗi lớp nên có lớp tiếp theo để học viên vào giữa/cuối khóa không bị rơi hành trình.</p>
+                      <p className="text-sm text-[#64748b]">
+                        Mỗi lớp nên có lớp tiếp theo để học viên vào giữa/cuối khóa không bị rơi hành trình.
+                        {allPipelineRows.length > pipelineRows.length ? (
+                          <span className="ml-1 font-semibold text-[#2563eb]">
+                            Đang xem {pipelineRows.length}/{allPipelineRows.length} lớp cần chú ý nhất — bấm "Sắp xếp ngăn xếp" để xem/sửa toàn bộ.
+                          </span>
+                        ) : null}
+                      </p>
                       <PipelineStackEditorTrigger />
                     </div>
                   </div>
@@ -314,7 +341,7 @@ export default async function ClassesPage({
                   ))}
                   {pipelineRows.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-[#dbe7ff] bg-[#f8faff] p-5 text-sm text-[#64748b]">
-                      Chưa có lớp ACTIVE nào trong trang hiện tại để hiển thị pipeline.
+                      Chưa có lớp ACTIVE nào trong toàn chi nhánh cần chú ý về ngăn xếp chuyển tiếp.
                     </div>
                   ) : null}
                 </div>

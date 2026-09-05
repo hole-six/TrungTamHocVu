@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
   const classCode = String(body.classCode ?? "").trim();
   const className = String(body.className ?? "").trim();
   if (!classCode || !className) return NextResponse.json({ error: "Thiếu mã hoặc tên lớp" }, { status: 400 });
+  if (!body.startDate) return NextResponse.json({ error: "Thiếu ngày khai giảng" }, { status: 400 });
 
   const existing = await prisma.class.findUnique({ where: { classCode } });
   if (existing) return NextResponse.json({ error: "Mã lớp đã tồn tại" }, { status: 409 });

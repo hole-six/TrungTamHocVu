@@ -232,20 +232,6 @@ export default function NewLeadDrawer({ classOptions }: Props) {
                   </div>
 
                   <div className="form-group">
-                    <label className="label">Nguồn lead</label>
-                    <select name="source" className="input">
-                      <option value="">Chọn nguồn</option>
-                      <option value="Facebook">Facebook</option>
-                      <option value="Google">Google</option>
-                      <option value="Giới thiệu">Giới thiệu</option>
-                      <option value="Walk-in">Walk-in</option>
-                      <option value="Website">Website</option>
-                      <option value="Zalo">Zalo</option>
-                      <option value="Khác">Khác</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
                     <label className="label">Lớp quan tâm</label>
                     <select name="interestedClassId" className="input">
                       <option value="">Chưa chọn</option>
@@ -288,7 +274,7 @@ export default function NewLeadDrawer({ classOptions }: Props) {
                       name="scheduledTestDate"
                       className="input"
                     />
-                    <p className="form-hint">Điền ngày để tạo lịch hẹn test luôn — trạng thái lead sẽ chuyển sang "Đã hẹn, chưa test".</p>
+                    <p className="form-hint">Điền ngày để tạo lịch hẹn test luôn — trạng thái lead sẽ tự chuyển sang "Đã liên hệ".</p>
                   </div>
                 </div>
               </div>
@@ -299,6 +285,20 @@ export default function NewLeadDrawer({ classOptions }: Props) {
                   Thông tin bổ sung (tùy chọn)
                 </summary>
                 <div className="space-y-4 mt-4">
+                  <div className="form-group">
+                    <label className="label">Nguồn lead</label>
+                    <select name="source" className="input">
+                      <option value="">Chọn nguồn</option>
+                      <option value="Facebook">Facebook</option>
+                      <option value="Google">Google</option>
+                      <option value="Giới thiệu">Giới thiệu</option>
+                      <option value="Walk-in">Walk-in</option>
+                      <option value="Website">Website</option>
+                      <option value="Zalo">Zalo</option>
+                      <option value="Khác">Khác</option>
+                    </select>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="form-group">
                       <label className="label">SĐT thứ 2</label>

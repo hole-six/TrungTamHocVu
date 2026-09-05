@@ -30,6 +30,14 @@ function mapEmployee(employee: {
     days: number | null;
     notes: string | null;
   }[];
+  sessionAssignments: {
+    id: string;
+    role: string;
+    hours: number | null;
+    deductedHours: number;
+    addedHours: number;
+    session: { sessionDate: Date; class: { classCode: string; className: string } };
+  }[];
 }) {
   return {
     id: employee.id,
@@ -48,6 +56,19 @@ function mapEmployee(employee: {
       days: entry.days,
       notes: entry.notes,
     })),
+    // Tổng hợp buổi dạy trong tháng theo NGÀY, gộp cùng bảng chấm công — đúng cấu
+    // trúc sheet chấm công thật của khách (1 dòng gồm cả giờ hành chính lẫn buổi
+    // dạy/lớp/đi muộn-thêm giờ trong ngày, xem ảnh mẫu trong ĐỀ XUẤT CHỈNH SỬA.xlsx).
+    sessionAssignments: employee.sessionAssignments.map((assignment) => ({
+      id: assignment.id,
+      workDate: assignment.session.sessionDate.toISOString(),
+      role: assignment.role,
+      classCode: assignment.session.class.classCode,
+      className: assignment.session.class.className,
+      hours: assignment.hours,
+      deductedHours: assignment.deductedHours,
+      addedHours: assignment.addedHours,
+    })),
   };
 }
 
@@ -65,6 +86,11 @@ export default async function TimesheetsPage() {
       timesheetEntries: {
         where: { workDate: { gte: start, lte: end } },
         orderBy: { workDate: "desc" },
+      },
+      sessionAssignments: {
+        where: { session: { sessionDate: { gte: start, lte: end } } },
+        include: { session: { select: { sessionDate: true, class: { select: { classCode: true, className: true } } } } },
+        orderBy: { id: "desc" },
       },
     },
     orderBy: { fullName: "asc" },

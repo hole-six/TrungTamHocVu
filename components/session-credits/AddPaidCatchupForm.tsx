@@ -39,6 +39,8 @@ export default function AddPaidCatchupForm({
   const [selectedStudents, setSelectedStudents] = useState<StudentHit[]>([]);
   const [configByStudent, setConfigByStudent] = useState<Record<string, StudentConfig>>({});
   const [billingPeriods, setBillingPeriods] = useState<BillingPeriodOption[]>([]);
+  const [origin, setOrigin] = useState<"PAID_CATCHUP" | "WEAK_STUDENT">("PAID_CATCHUP");
+  const [notes, setNotes] = useState("");
   const [count, setCount] = useState("1");
   const [isFree, setIsFree] = useState(false);
   const [unitPrice, setUnitPrice] = useState(0);
@@ -50,6 +52,8 @@ export default function AddPaidCatchupForm({
     setResults([]);
     setSelectedStudents([]);
     setConfigByStudent({});
+    setOrigin("PAID_CATCHUP");
+    setNotes("");
     setCount("1");
     setIsFree(false);
     setUnitPrice(0);
@@ -170,6 +174,8 @@ export default function AddPaidCatchupForm({
           count: Number(count),
           isFree,
           unitPrice,
+          origin,
+          notes: notes.trim() || undefined,
           billingPeriodId: config.billingPeriodId || undefined,
         }),
       });
@@ -198,15 +204,15 @@ export default function AddPaidCatchupForm({
           }}
           className="rounded-xl border border-[#dbe3ef] bg-white px-4 py-2 text-sm font-bold text-[#0f1729] hover:border-[#3b82f6]"
         >
-          Thêm bổ trợ đầu khóa
+          Thêm bổ trợ
         </button>
       ) : null}
 
       <ResponsiveDrawer
         open={open}
         onClose={closeDrawer}
-        title="Thêm bổ trợ đầu khóa"
-        description="Chọn một hoặc nhiều học viên đã ghi danh sẵn để đăng ký thêm buổi bổ trợ đầu khóa — có thể miễn phí hoặc tính phí, chọn đúng kỳ học phí để cộng tiền vào."
+        title="Thêm bổ trợ"
+        description="Chọn một hoặc nhiều học viên đã ghi danh sẵn để đăng ký thêm buổi bổ trợ đầu khóa hoặc bổ trợ học sinh yếu — có thể miễn phí hoặc tính phí, chọn đúng kỳ học phí để cộng tiền vào."
         widthClassName="max-w-2xl"
       >
         <div className="space-y-5">
@@ -319,20 +325,41 @@ export default function AddPaidCatchupForm({
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 border-t border-hairline pt-4">
                 <label className="space-y-2">
+                  <span className="label-sm">Loại bổ trợ</span>
+                  <select className="input" value={origin} onChange={(event) => setOrigin(event.target.value as "PAID_CATCHUP" | "WEAK_STUDENT")}>
+                    <option value="PAID_CATCHUP">Bổ trợ đầu khóa</option>
+                    <option value="WEAK_STUDENT">Bổ trợ học sinh yếu</option>
+                  </select>
+                </label>
+
+                <label className="space-y-2">
                   <span className="label-sm">Số buổi bổ trợ (áp dụng cho tất cả)</span>
                   <input type="number" min="1" className="input" value={count} onChange={(event) => setCount(event.target.value)} />
                 </label>
-
-                <label className="flex items-end gap-2 pb-3.5">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-[#c8d5ec] text-primary"
-                    checked={isFree}
-                    onChange={(event) => setIsFree(event.target.checked)}
-                  />
-                  <span className="text-sm font-semibold text-ink">Miễn phí</span>
-                </label>
               </div>
+
+              {origin === "WEAK_STUDENT" ? (
+                <label className="space-y-2 block">
+                  <span className="label-sm">Nội dung cần bổ trợ</span>
+                  <textarea
+                    className="input"
+                    rows={2}
+                    placeholder="VD: hổng kiến thức bảng cửu chương, cần kèm thêm phần..."
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                  />
+                </label>
+              ) : null}
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-[#c8d5ec] text-primary"
+                  checked={isFree}
+                  onChange={(event) => setIsFree(event.target.checked)}
+                />
+                <span className="text-sm font-semibold text-ink">Miễn phí</span>
+              </label>
 
               {!isFree ? (
                 <label className="space-y-2 block">
@@ -359,7 +386,7 @@ export default function AddPaidCatchupForm({
 
               <div className="flex gap-3 border-t border-hairline pt-4">
                 <button type="button" onClick={submit} disabled={submitting || !readyToSubmit} className="btn-primary">
-                  {submitting ? "Đang lưu..." : `Thêm bổ trợ đầu khóa (${selectedStudents.length})`}
+                  {submitting ? "Đang lưu..." : `Thêm bổ trợ (${selectedStudents.length})`}
                 </button>
                 <button type="button" onClick={closeDrawer} className="btn-ghost">
                   Đóng

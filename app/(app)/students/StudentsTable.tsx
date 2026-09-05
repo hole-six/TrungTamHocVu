@@ -25,6 +25,7 @@ type Student = {
   enrollDate?: string | Date | null;
   leadCode?: string | null;
   currentClassName?: string | null;
+  currentClassStatus?: string | null;
   currentClassCode?: string | null;
   outstanding?: number;
   enrollmentsCount?: number;
@@ -52,6 +53,7 @@ type Student = {
   continuationStatus?: string | null;
   shortageAfterCurrentClass?: number;
   nextClassName?: string | null;
+  activeDiscountPercent?: number;
   primaryGuardian?: {
     id: string;
     fullName: string;
@@ -159,8 +161,9 @@ export default function StudentsTable({
         bookIssueAmount: formatVnd(row.bookIssueAmount),
         bookIssueQuantity: row.bookIssueQuantity ?? 0,
         unpaidBookIssueCount: row.unpaidBookIssueCount ?? 0,
-        scholarshipCount: row.scholarshipCount ?? 0,
-        adjustmentCount: row.adjustmentCount ?? 0,
+        // Học bổng + điều chỉnh HP gộp thành 1 khái niệm "chiết khấu" duy nhất (xem
+        // ScholarshipAdjustmentForm.tsx) — export cũng gộp theo, không tách 2 cột.
+        discountCount: (row.scholarshipCount ?? 0) + (row.adjustmentCount ?? 0),
         sessionCreditCount: row.sessionCreditCount ?? 0,
         status: row.status === "ACTIVE" ? "Đang học" : "Đã nghỉ",
       })),
@@ -194,8 +197,7 @@ export default function StudentsTable({
         { key: "bookIssueAmount", label: "Tổng tiền sách" },
         { key: "bookIssueQuantity", label: "SL sách đã phát" },
         { key: "unpaidBookIssueCount", label: "Dòng sách chưa thu" },
-        { key: "scholarshipCount", label: "Số học bổng" },
-        { key: "adjustmentCount", label: "Số điều chỉnh HP" },
+        { key: "discountCount", label: "Số lần chiết khấu" },
         { key: "sessionCreditCount", label: "Số credit buổi" },
         { key: "status", label: "Trạng thái" },
       ],
@@ -221,13 +223,28 @@ export default function StudentsTable({
       filter: { type: "text", paramKey: "name", placeholder: "Tên học viên..." },
       render: (value, row) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-violet-600 text-sm font-bold text-white shadow-md">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e5eaf7] bg-white text-sm font-bold text-[#475569]">
             {value.charAt(0).toUpperCase()}
           </div>
           <div>
-            <p className="text-sm font-semibold text-ink">{value}</p>
-            <p className="text-xs font-mono text-ink-muted48">{row.phone ?? "Chưa có SĐT"}</p>
-            <p className="text-xs text-ink-muted48">Sinh ngày: {formatDate(row.dob)}</p>
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+              {value}
+              {row.status === "LEFT" ? (
+                <span className="rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-700">Đã nghỉ</span>
+              ) : null}
+              {/* Luôn hiện ở đây (không đặt trong cột "Học phí còn nợ") — cột đó bị ẩn với
+                  vai trò không có quyền xem tài chính, trong khi "có học bổng hay không"
+                  không nhạy cảm bằng số tiền nợ cụ thể, không nên mất theo. */}
+              {row.activeDiscountPercent ? (
+                <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                  -{Math.round(row.activeDiscountPercent * 100)}% chiết khấu
+                </span>
+              ) : null}
+            </p>
+            {/* Phụ huynh gộp vào ngay đây, không tách cột riêng — đúng ý gọn của khách */}
+            <p className="text-xs text-ink-muted48">
+              {row.primaryGuardian ? `${row.primaryGuardian.fullName} · ${row.primaryGuardian.phone ?? "chưa có SĐT"}` : "Chưa liên kết phụ huynh"}
+            </p>
           </div>
         </div>
       ),
@@ -275,21 +292,6 @@ export default function StudentsTable({
       ),
     },
     {
-      key: "primaryGuardian",
-      label: "Phụ huynh",
-      width: "220px",
-      filter: { type: "text", paramKey: "guardian", placeholder: "Tên phụ huynh..." },
-      render: (value) =>
-        value ? (
-          <div>
-            <p className="text-sm font-medium text-ink">{value.fullName}</p>
-            <p className="text-xs text-ink-muted48">{value.phone ?? "Chưa có SĐT"}</p>
-          </div>
-        ) : (
-          <span className="text-xs text-ink-muted48">Chưa liên kết phụ huynh</span>
-        ),
-    },
-    {
       key: "continuationStatus",
       label: "Hành trình",
       width: "230px",
@@ -310,13 +312,19 @@ export default function StudentsTable({
         const needTransfer = row.continuationStatus === "NEED_TRANSFER";
         const endingSoon = !needTransfer && remaining !== null && remaining > 0 && remaining <= 3;
         const completedCourse = row.continuationStatus === "COMPLETED";
+        // "Đã học đủ" trong khi lớp VẪN ACTIVE (còn dạy tiếp cho người khác) là việc cần
+        // quyết định (ghi danh thêm hay chờ tự tất toán), không phải "xong việc" — không
+        // nên tô cùng tông xanh lá với trường hợp lớp đã thật sự kết thúc.
+        const completedWhileClassActive = completedCourse && row.currentClassStatus === "ACTIVE";
         const badge = needTransfer
           ? { label: "Cần chuyển lớp", className: "border-amber-200 bg-amber-50 text-amber-800" }
           : endingSoon
             ? { label: "Sắp hết khóa", className: "border-sky-200 bg-sky-50 text-sky-800" }
-            : completedCourse
-              ? { label: "Đã học đủ", className: "border-emerald-200 bg-emerald-50 text-emerald-800" }
-              : { label: "Đang ổn", className: "border-slate-200 bg-slate-50 text-slate-700" };
+            : completedWhileClassActive
+              ? { label: "Đã học đủ — cần xử lý", className: "border-amber-200 bg-amber-50 text-amber-800" }
+              : completedCourse
+                ? { label: "Đã học đủ", className: "border-emerald-200 bg-emerald-50 text-emerald-800" }
+                : { label: "Đang ổn", className: "border-slate-200 bg-slate-50 text-slate-700" };
 
         return (
           <div className="space-y-1.5">
@@ -362,7 +370,7 @@ export default function StudentsTable({
     },
     {
       key: "outstanding",
-      label: "Tài chính",
+      label: "Học phí còn nợ",
       sortable: true,
       width: "230px",
       filter: { type: "numberRange", paramKeyFrom: "outstandingFrom", paramKeyTo: "outstandingTo", placeholder: "đ" },
@@ -370,38 +378,13 @@ export default function StudentsTable({
         <div className="space-y-1">
           <p className={`text-sm font-bold ${(value ?? 0) > 0 ? "text-rose-700" : "text-emerald-700"}`}>{formatVnd(value)}</p>
           <p className="text-xs text-ink-muted48">
-            Thu {formatVnd(row.totalPaid)} / Tính {formatVnd(row.totalCharged)}
+            Đã thu {formatVnd(row.totalPaid)} / Tổng phải thu {formatVnd(row.totalCharged)}
           </p>
           <p className="text-xs text-ink-muted48">
             HP {formatVnd(row.tuitionCharged)} · Sách {formatVnd(row.materialsCharged)}
           </p>
         </div>
       ),
-    },
-    {
-      key: "status",
-      label: "Trạng thái",
-      align: "center",
-      width: "140px",
-      filter: {
-        type: "select",
-        paramKey: "status",
-        placeholder: "Tất cả",
-        options: [
-          { label: "Đang học", value: "ACTIVE" },
-          { label: "Đã nghỉ", value: "LEFT" },
-        ],
-      },
-      render: (value, row) => {
-        const missingClass = !row.currentClassName;
-        const config =
-          value === "LEFT"
-            ? { label: "Đã nghỉ", color: "bg-red-100 text-red-700 border-red-200" }
-            : missingClass
-              ? { label: "Cần gán lớp", color: "bg-amber-100 text-amber-700 border-amber-200" }
-              : { label: "Đang học", color: "bg-emerald-100 text-emerald-700 border-emerald-200" };
-        return <span className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-bold ${config.color}`}>{config.label}</span>;
-      },
     },
   ];
   if (!canViewFinance) {

@@ -281,7 +281,7 @@ export default async function InventoryPage({
       />
       <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Kho giáo trình</h1>
+          <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Tài liệu</h1>
           <p className="page-subtitle text-xs sm:text-sm">
             <span className="hidden sm:inline">Tra cứu tồn kho, xuất sách và tình trạng thu tiền</span>
             <span className="sm:hidden">Tồn kho, xuất sách và thu tiền</span>

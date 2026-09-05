@@ -25,9 +25,9 @@ export type AppShellConfig = {
 
 const DEFAULT_NAV_GROUPS: AppNavGroup[] = [
   { label: "Điều hành", hrefs: ["/dashboard", "/reports"] },
-  { label: "Tuyển sinh & học viên", hrefs: ["/leads", "/students", "/session-credits", "/guardians"] },
-  { label: "Đào tạo", hrefs: ["/classes", "/calendar", "/timesheets"] },
-  { label: "Tài chính & nhân sự", hrefs: ["/tuition", "/inventory", "/assets", "/cashbook", "/payroll", "/teacher-tasks", "/admin"] },
+  { label: "Tuyển sinh & học viên", hrefs: ["/leads", "/students", "/session-credits"] },
+  { label: "Đào tạo", hrefs: ["/classes", "/calendar", "/inventory", "/timesheets"] },
+  { label: "Tài chính & nhân sự", hrefs: ["/tuition", "/assets", "/cashbook", "/employees", "/payroll", "/teacher-tasks", "/admin"] },
 ];
 
 const DEFAULT_CONFIG: AppShellConfig = {
@@ -106,9 +106,9 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
   },
   BRANCH_MANAGER: {
     navGroups: [
-      { label: "Điều phối trong ngày", hrefs: ["/dashboard", "/classes", "/calendar", "/students", "/session-credits"] },
-      { label: "Tuyển sinh & học phí", hrefs: ["/leads", "/guardians", "/tuition", "/reports"] },
-      { label: "Vận hành cơ sở", hrefs: ["/timesheets", "/inventory", "/cashbook", "/payroll", "/teacher-tasks", "/assets"] },
+      { label: "Điều phối trong ngày", hrefs: ["/dashboard", "/classes", "/calendar", "/inventory", "/students", "/session-credits"] },
+      { label: "Tuyển sinh & học phí", hrefs: ["/leads", "/tuition", "/reports"] },
+      { label: "Vận hành cơ sở", hrefs: ["/timesheets", "/cashbook", "/employees", "/payroll", "/teacher-tasks", "/assets"] },
     ],
     dashboardTitle: "Bảng điều hành cơ sở",
     dashboardSubtitle: "Phân phối dữ liệu đúng người, đúng việc và giữ nhịp vận hành hằng ngày thật gọn.",
@@ -129,7 +129,7 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
   REGISTRAR: {
     navGroups: [
       { label: "Giáo vụ trong ngày", hrefs: ["/dashboard", "/classes", "/calendar", "/students", "/session-credits"] },
-      { label: "Tuyển sinh hỗ trợ", hrefs: ["/leads", "/guardians", "/reports"] },
+      { label: "Tuyển sinh hỗ trợ", hrefs: ["/leads", "/reports"] },
       { label: "Công việc điều phối", hrefs: ["/timesheets"] },
     ],
     dashboardTitle: "Dashboard giáo vụ",
@@ -150,7 +150,7 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
   },
   ADMISSIONS: {
     navGroups: [
-      { label: "Tuyển sinh", hrefs: ["/dashboard", "/leads", "/guardians", "/session-credits"] },
+      { label: "Tuyển sinh", hrefs: ["/dashboard", "/leads", "/session-credits"] },
       { label: "Lịch & chuyển đổi", hrefs: ["/calendar"] },
     ],
     dashboardTitle: "Dashboard tuyển sinh",
@@ -167,11 +167,11 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
       { id: "leads", label: "DS test", description: "Mở pipeline tuyển sinh và lịch test", href: "/leads", icon: "users", tone: "success" },
       { id: "calendar", label: "Lịch hẹn", description: "Xem các lịch hẹn tuyển sinh", href: "/calendar", icon: "calendar", tone: "info" },
     ],
-    mobilePrimaryRoutes: ["/dashboard", "/leads", "/calendar", "/guardians"],
+    mobilePrimaryRoutes: ["/dashboard", "/leads", "/calendar", "/students"],
   },
   RECEPTIONIST: {
     navGroups: [
-      { label: "Tiếp nhận & hỗ trợ", hrefs: ["/dashboard", "/students", "/session-credits", "/guardians", "/leads"] },
+      { label: "Tiếp nhận & hỗ trợ", hrefs: ["/dashboard", "/students", "/session-credits", "/leads"] },
       { label: "Lớp & học phí", hrefs: ["/classes", "/calendar", "/tuition", "/inventory"] },
     ],
     dashboardTitle: "Dashboard lễ tân",
@@ -193,7 +193,7 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
   ACCOUNTANT: {
     navGroups: [
       { label: "Tài chính", hrefs: ["/dashboard", "/tuition", "/cashbook", "/reports"] },
-      { label: "Đối soát", hrefs: ["/inventory", "/payroll", "/teacher-tasks", "/students", "/session-credits", "/assets"] },
+      { label: "Đối soát", hrefs: ["/inventory", "/employees", "/payroll", "/teacher-tasks", "/students", "/session-credits", "/assets"] },
     ],
     dashboardTitle: "Dashboard kế toán",
     dashboardSubtitle: "Tập trung phải thu, đã thu, công nợ, thu chi và kỳ lương để đối soát nhanh và chính xác.",
@@ -213,7 +213,7 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
   },
   HR: {
     navGroups: [
-      { label: "Nhân sự", hrefs: ["/dashboard", "/timesheets", "/payroll", "/teacher-tasks"] },
+      { label: "Nhân sự", hrefs: ["/dashboard", "/employees", "/timesheets", "/payroll", "/teacher-tasks"] },
       { label: "Tài sản & báo cáo", hrefs: ["/assets", "/reports"] },
     ],
     dashboardTitle: "Dashboard nhân sự",

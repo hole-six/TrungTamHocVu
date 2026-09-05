@@ -318,6 +318,7 @@ export default async function LeadsPage({
         soonCount={soonCount}
         overdueCount={overdueCount}
         classOptions={classOptions}
+        enrolledCount={statusCounts.ENROLLED ?? 0}
       />
     </div>
   );

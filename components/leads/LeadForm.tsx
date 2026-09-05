@@ -3,27 +3,26 @@
 import { useRouter } from "next/navigation";
 import SmartForm, { FormSection } from "@/components/ui/SmartForm/SmartForm";
 import FormGuide from "@/components/ui/FormGuide";
-import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
 
+// Chỉ còn dùng để SỬA hồ sơ lead đã có (từ /leads/[id]/edit) — luồng TẠO MỚI đã gộp
+// hẳn về NewLeadDrawer.tsx (đường tạo lead duy nhất, tránh 2 form tạo lệch field
+// nhau như trước). Vì vậy form này không còn field "Trạng thái" nữa — đổi trạng thái
+// đã có đúng 1 chỗ làm (ô đổi trạng thái ở LeadsTable / LeadStatusPanel), tự áp
+// canManuallySetStatus/nextStatuses; sửa hồ sơ ở đây không nên là lối tắt thứ 2 để
+// đổi trạng thái vì sẽ bỏ qua validate transition.
 type LeadFormProps = {
   initialData?: any;
-  leadId?: string;
-  redirectTo?: string;
+  leadId: string;
   classes?: Array<{ id: string; classCode: string; className: string }>;
 };
-
-const LEAD_STATUS_OPTIONS = LEAD_STATUSES.map((value) => ({
-  value,
-  label: LEAD_STATUS_LABEL[value],
-}));
 
 const LEAD_FORM_GUIDE_SECTIONS = [
   {
     title: "Form này dùng để làm gì",
     items: [
-      "Đây là form gốc để tạo mới hoặc cập nhật một hồ sơ lead trong CRM tuyển sinh.",
+      "Đây là form sửa hồ sơ lead đã có trong CRM tuyển sinh.",
       "Thông tin ở đây là dữ liệu nền cho toàn bộ luồng sau đó: liên hệ, lịch hẹn, test đầu vào và chuyển đổi sang học viên.",
-      "Nếu nhập chuẩn ngay từ đầu, các bước chăm sóc phía sau sẽ gọn hơn và ít phải sửa lại.",
+      "Đổi trạng thái lead không làm ở đây — dùng ô trạng thái trên danh sách hoặc chi tiết lead.",
     ],
     tone: "info" as const,
   },
@@ -32,24 +31,21 @@ const LEAD_FORM_GUIDE_SECTIONS = [
     items: [
       "Điền rõ thông tin học viên tiềm năng trước, sau đó mới đến phụ huynh và nhu cầu tuyển sinh.",
       "Nếu chưa chắc lớp quan tâm thì có thể để trống, không cần ép chọn quá sớm.",
-      "Khi tạo mới và đã chốt lịch test, có thể nhập luôn ngày hẹn test để hệ thống sinh luồng test ban đầu.",
     ],
     tone: "success" as const,
   },
   {
     title: "Lưu ý vận hành",
     items: [
-      "Không nên tạo lead trùng chỉ vì khác cách viết tên hoặc chưa kiểm tra số điện thoại.",
-      "Trạng thái lead nên phản ánh đúng bước thực tế, không đổi chỉ để làm đẹp dashboard.",
+      "Không nên sửa trùng lặp thông tin chỉ vì khác cách viết tên hoặc chưa kiểm tra số điện thoại.",
       "Ghi chú nên ghi phần giúp người chăm lead tiếp theo hiểu nhanh hoàn cảnh và bước cần làm tiếp.",
     ],
     tone: "warning" as const,
   },
 ];
 
-export default function LeadForm({ initialData, leadId, redirectTo, classes = [] }: LeadFormProps) {
+export default function LeadForm({ initialData, leadId, classes = [] }: LeadFormProps) {
   const router = useRouter();
-  const isEdit = Boolean(leadId);
 
   const sections: FormSection[] = [
     {
@@ -63,18 +59,14 @@ export default function LeadForm({ initialData, leadId, redirectTo, classes = []
           placeholder: "Nguyễn Văn A",
           defaultValue: initialData?.fullName || "",
         },
-        ...(isEdit
-          ? [
-              {
-                name: "leadCode",
-                label: "Mã lead",
-                type: "text" as const,
-                defaultValue: initialData?.leadCode || "",
-                disabled: true,
-                description: "Mã lead do hệ thống tự sinh.",
-              },
-            ]
-          : []),
+        {
+          name: "leadCode",
+          label: "Mã lead",
+          type: "text" as const,
+          defaultValue: initialData?.leadCode || "",
+          disabled: true,
+          description: "Mã lead do hệ thống tự sinh.",
+        },
         {
           name: "gender",
           label: "Giới tính",
@@ -168,13 +160,6 @@ export default function LeadForm({ initialData, leadId, redirectTo, classes = []
       collapsible: true,
       fields: [
         {
-          name: "status",
-          label: "Trạng thái",
-          type: "select",
-          defaultValue: initialData?.status || "NEW",
-          options: LEAD_STATUS_OPTIONS,
-        },
-        {
           name: "meetDate",
           label: "Ngày gặp/liên hệ",
           type: "date",
@@ -220,16 +205,6 @@ export default function LeadForm({ initialData, leadId, redirectTo, classes = []
           })),
           description: "Có thể để trống nếu đây mới là thông tin ban đầu. Khi phụ huynh đã nhắm lớp thì chọn ở đây để giáo vụ dễ follow.",
         },
-        ...(isEdit
-          ? []
-          : [
-              {
-                name: "scheduledTestDate",
-                label: "Đặt lịch test ngay khi tạo lead (tùy chọn)",
-                type: "date" as const,
-                description: "Điền ngày để tạo lịch hẹn test luôn — trạng thái lead sẽ chuyển sang \"Đã hẹn, chưa test\".",
-              },
-            ]),
       ],
     },
     {
@@ -251,14 +226,10 @@ export default function LeadForm({ initialData, leadId, redirectTo, classes = []
   ];
 
   const handleSubmit = async (data: Record<string, any>) => {
-    const url = isEdit ? `/api/leads/${leadId}` : "/api/leads";
-    const method = isEdit ? "PATCH" : "POST";
-    const { scheduledTestDate, ...leadData } = data;
-
-    const res = await fetch(url, {
-      method,
+    const res = await fetch(`/api/leads/${leadId}`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(leadData),
+      body: JSON.stringify(data),
     });
 
     if (!res.ok) {
@@ -267,49 +238,28 @@ export default function LeadForm({ initialData, leadId, redirectTo, classes = []
     }
 
     const result = await res.json();
-
-    if (!isEdit && scheduledTestDate) {
-      const testRes = await fetch(`/api/leads/${result.item.id}/placement-test`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scheduledDate: scheduledTestDate }),
-      });
-      if (!testRes.ok) {
-        const testError = await testRes.json().catch(() => ({}));
-        // Lead ĐÃ tạo thành công ở bước trên — lỗi ở đây chỉ là lịch test không tạo
-        // được, không được để SmartForm hiện lỗi như thể cả lead chưa lưu.
-        throw new Error(
-          `Đã tạo lead "${result.item.fullName}" thành công, nhưng không tạo được lịch hẹn test (${testError.error ?? "có lỗi xảy ra"}). Vào lại hồ sơ lead để đặt lịch test thủ công.`,
-        );
-      }
-    }
-
-    router.push(redirectTo || `/leads/${result.item.id}`);
+    router.push(`/leads/${result.item.id}`);
     router.refresh();
   };
 
   const handleCancel = () => {
-    if (isEdit) {
-      router.push(`/leads/${leadId}`);
-    } else {
-      router.push(redirectTo || "/leads");
-    }
+    router.push(`/leads/${leadId}`);
   };
 
   return (
     <div className="space-y-4">
       <FormGuide
-        title={isEdit ? "Guide sửa lead" : "Guide tạo lead"}
+        title="Guide sửa lead"
         summary="Giải thích cách nhập hồ sơ lead chuẩn để CRM, lịch test và chuyển đổi sang học viên chạy mượt."
         sections={LEAD_FORM_GUIDE_SECTIONS}
         position="inline"
-        buttonLabel={isEdit ? "Guide sửa lead" : "Guide tạo lead"}
+        buttonLabel="Guide sửa lead"
       />
       <SmartForm
         sections={sections}
         onSubmit={handleSubmit}
         onCancel={handleCancel}
-        submitLabel={isEdit ? "Cập nhật" : "Tạo lead"}
+        submitLabel="Cập nhật"
         cancelLabel="Hủy"
       />
     </div>

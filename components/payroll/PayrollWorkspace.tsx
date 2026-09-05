@@ -209,18 +209,22 @@ export default function PayrollWorkspace({
     },
     {
       key: "bonus",
-      label: "Thưởng / Phạt",
+      label: "Cộng / Trừ khác",
       align: "center",
       filter: { type: "numberRange", paramKeyFrom: "bonusFrom", paramKeyTo: "bonusTo", placeholder: "đ thưởng" },
-      render: (_value, row) =>
-        row.bonus > 0 || row.penalty > 0 ? (
+      render: (_value, row) => {
+        const totalAdd =
+          row.otAmount + row.kpiBonus + row.assistantRatingBonus + row.parkingAllowance + row.supportAllowance + row.bonus + row.holidayBonus;
+        const totalDeduct = row.socialInsuranceDeduction + row.utilityDeduction + row.otherDeduction + row.penalty;
+        return totalAdd > 0 || totalDeduct > 0 ? (
           <div className="text-xs">
-            {row.bonus > 0 ? <div className="font-bold text-emerald-700">+ {formatVnd(row.bonus)}</div> : null}
-            {row.penalty > 0 ? <div className="font-bold text-rose-700">- {formatVnd(row.penalty)}</div> : null}
+            {totalAdd > 0 ? <div className="font-bold text-emerald-700">+ {formatVnd(totalAdd)}</div> : null}
+            {totalDeduct > 0 ? <div className="font-bold text-rose-700">- {formatVnd(totalDeduct)}</div> : null}
           </div>
         ) : (
           <span className="text-xs text-[#9ca3af]">—</span>
-        ),
+        );
+      },
     },
     {
       key: "totalAmount",
@@ -432,6 +436,9 @@ export default function PayrollWorkspace({
           }}
           profile={{
             id: selectedRow.id,
+            employeeCode: selectedRow.employeeCode,
+            fullName: selectedRow.fullName,
+            position: selectedRow.position,
             dob: selectedRow.dob ? new Date(selectedRow.dob).toISOString() : null,
             phone: selectedRow.phone,
             email: selectedRow.email,
@@ -451,7 +458,26 @@ export default function PayrollWorkspace({
           }}
           canEditProfile={permissions.canManageEmployees || permissions.canManagePayrollRuns}
           canAddTimesheet={permissions.canCreateTimesheet}
-          payrollLine={selectedRow.lineId ? { id: selectedRow.lineId, bonus: selectedRow.bonus, penalty: selectedRow.penalty, notes: selectedRow.notes } : null}
+          payrollLine={
+            selectedRow.lineId
+              ? {
+                  id: selectedRow.lineId,
+                  otHours: selectedRow.otHours,
+                  otAmount: selectedRow.otAmount,
+                  kpiBonus: selectedRow.kpiBonus,
+                  assistantRatingBonus: selectedRow.assistantRatingBonus,
+                  parkingAllowance: selectedRow.parkingAllowance,
+                  supportAllowance: selectedRow.supportAllowance,
+                  bonus: selectedRow.bonus,
+                  penalty: selectedRow.penalty,
+                  socialInsuranceDeduction: selectedRow.socialInsuranceDeduction,
+                  utilityDeduction: selectedRow.utilityDeduction,
+                  holidayBonus: selectedRow.holidayBonus,
+                  otherDeduction: selectedRow.otherDeduction,
+                  notes: selectedRow.notes,
+                }
+              : null
+          }
           canEditPayrollLine={canEditPayrollLine}
           assistant={
             permissions.canManagePayrollRuns

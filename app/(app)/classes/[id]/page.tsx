@@ -452,6 +452,17 @@ export default async function ClassDetailPage({ params }: { params: { id: string
     }));
   const completionNextClassUnitPrice = cls.nextClass?.tuitionPerSession ?? cls.nextClass?.course?.tuitionPerSession ?? 0;
 
+  // Cảnh báo TRƯỚC khi sweep tự động (2h sáng, lib/server/scheduling.ts) "cướp" mất cơ
+  // hội xử lý thủ công — trước đây quên bấm "Kết thúc lớp" thì bị máy làm thay trong
+  // im lặng, và làm dở hơn (không hỏi chuyển lớp/giữ học bổng, chỉ tất toán + cấp số dư).
+  const daysToExpectedEnd = cls.expectedEndDate ? (cls.expectedEndDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000) : null;
+  if (cls.status === "ACTIVE" && daysToExpectedEnd !== null && daysToExpectedEnd >= 0 && daysToExpectedEnd <= 7 && completionNeedTransferStudents.length > 0) {
+    attentionItems.unshift({
+      text: `Lớp sắp tự động kết thúc vào ${formatDate(cls.expectedEndDate)} (còn ${completionNeedTransferStudents.length} học viên chưa học đủ buổi). Bấm "Kết thúc lớp" ở góc trên để tự chọn lớp chuyển tiếp và giữ học bổng — nếu không, hệ thống sẽ tự tất toán vào đúng ngày đó mà không hỏi chuyển lớp.`,
+      severity: "critical",
+    });
+  }
+
   return (
     <div className="space-y-3 sm:space-y-5 pb-16 sm:pb-20">
       <PageGuide

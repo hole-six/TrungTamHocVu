@@ -5,11 +5,15 @@ import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { canEditCharges } from "@/lib/server/tuition-rules";
 
-// Thêm buổi bổ trợ đầu khóa cho học viên ĐÃ ghi danh sẵn (không cần đi qua luồng ghi
-// danh mới) — dùng khi học viên tới đăng ký thực tế bên ngoài. Có thể miễn phí
+const MANUAL_ORIGINS = ["PAID_CATCHUP", "WEAK_STUDENT"] as const;
+
+// Thêm buổi bổ trợ cho học viên ĐÃ ghi danh sẵn (không cần đi qua luồng ghi danh
+// mới) — dùng khi học viên tới đăng ký thực tế bên ngoài, hoặc khi giáo vụ đánh giá
+// học sinh yếu cần bổ trợ thêm (2 origin nhập tay được: PAID_CATCHUP/WEAK_STUDENT —
+// ABSENCE chỉ tự sinh khi điểm danh vắng, không tạo tay ở đây). Có thể miễn phí
 // (paidAmount = 0) hoặc tính phí theo unitPrice, tính tiền THEO TỪNG BUỔI (đăng ký 3
 // buổi = 3 x đơn giá, không phải 1 khoản cố định). Mỗi buổi 1 SessionCredit đứng độc
-// lập (sourceSessionId: null), origin: PAID_CATCHUP — tái dùng đúng origin đã có sẵn.
+// lập (sourceSessionId: null).
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
@@ -30,6 +34,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // thay vì luôn tự đoán "kỳ đang mở hôm nay" (dễ sai khi thêm bổ trợ bù cho tháng
   // trước/sau). Để trống thì vẫn tự động như cũ.
   const billingPeriodId = String(body.billingPeriodId ?? "").trim() || null;
+  const origin = MANUAL_ORIGINS.includes(body.origin) ? body.origin : "PAID_CATCHUP";
+  const notes = String(body.notes ?? "").trim() || null;
 
   if (!enrollmentId) return NextResponse.json({ error: "Thiếu lớp/ghi danh để gắn bổ trợ" }, { status: 400 });
   if (!count || count < 1) return NextResponse.json({ error: "Số buổi bổ trợ phải lớn hơn 0" }, { status: 400 });
@@ -54,9 +60,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             enrollmentId,
             sourceSessionId: null,
             status: "AVAILABLE",
-            origin: "PAID_CATCHUP",
+            origin,
             unitPriceSnapshot: isFree ? 0 : unitPrice,
             paidAmount: isFree ? 0 : unitPrice,
+            notes,
           },
         }),
       ),

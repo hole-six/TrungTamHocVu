@@ -71,6 +71,7 @@ type LeadsTableProps = {
   soonCount?: number;
   overdueCount?: number;
   classOptions?: { id: string; className: string }[];
+  enrolledCount?: number;
 };
 
 const LEAD_STATUS_CONFIG: Record<string, { label: string; color: string; activeColor: string; dot: string }> = {
@@ -137,6 +138,7 @@ export default function LeadsTable({
   soonCount = 0,
   overdueCount = 0,
   classOptions = [],
+  enrolledCount = 0,
 }: LeadsTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -646,6 +648,22 @@ export default function LeadsTable({
             );
           })}
 
+          {/* Đã ghi danh — chip riêng, tách khỏi nhóm pipeline đang xử lý ở trên vì
+              ENROLLED không nằm trong LEAD_STATUS_FILTER_GROUPS (đã có Student thật,
+              việc theo dõi tiếp thuộc module Học viên) — trước đây hoàn toàn không có
+              cách nào bấm 1 phát để xem lại các lead đã ghi danh từ chính trang này. */}
+          <div className="mx-1 h-5 w-px shrink-0 rounded-full bg-[#e5eaf7]" aria-hidden />
+          <Link
+            href={`/leads?${buildQuery({ status: "ENROLLED" })}`}
+            className={statusChipClass("ENROLLED", statusFilter === "ENROLLED", enrolledCount)}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${statusFilter === "ENROLLED" ? "bg-white" : LEAD_STATUS_CONFIG.ENROLLED.dot}`} />
+            <span>Đã ghi danh</span>
+            <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black ${statusFilter === "ENROLLED" ? "bg-white/20 text-white" : "bg-current/10"}`}>
+              {enrolledCount}
+            </span>
+          </Link>
+
           {/* Divider + Closed/Lost */}
           {closedStatusOptions.length > 0 && (
             <>
@@ -743,11 +761,7 @@ export default function LeadsTable({
       }}
       emptyState={{
         title: "Chưa có lead",
-        description: "Bắt đầu bằng cách thêm lead đầu tiên vào hệ thống CRM.",
-        action: {
-          label: "Thêm lead",
-          onClick: () => router.push("/leads/new"),
-        },
+        description: "Bắt đầu bằng cách bấm nút \"Thêm lead\" ở trên để thêm lead đầu tiên vào hệ thống CRM.",
       }}
       loading={loading}
       stickyHeader
