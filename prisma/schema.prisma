@@ -1365,8 +1365,23 @@ model PayrollLine {
   assistantAmount  Int     @default(0) @map("assistant_amount")
   staffDays        Float   @default(0) @map("staff_days")
   baseSalaryAmount Int     @default(0) @map("base_salary_amount")
+  // Các khoản cộng/trừ itemize đúng theo phiếu lương thật của trung tâm (ảnh mẫu
+  // trong ĐỀ XUẤT CHỈNH SỬA.xlsx) — trước đây chỉ có 2 số chung (bonus/penalty),
+  // không đủ để in đúng phiếu lương thật. otAmount/kpiBonus/... đều nhập tay qua
+  // PayrollLineAdjustForm, trừ assistantRatingBonus tính tự động từ
+  // AssistantMonthlyBonus.bonusPercent (xem lib/server/payroll-generation.ts).
+  otHours              Float @default(0) @map("ot_hours")
+  otAmount             Int   @default(0) @map("ot_amount")
+  kpiBonus             Int   @default(0) @map("kpi_bonus")
+  assistantRatingBonus Int   @default(0) @map("assistant_rating_bonus")
+  parkingAllowance     Int   @default(0) @map("parking_allowance")
+  supportAllowance     Int   @default(0) @map("support_allowance")
   bonus            Int     @default(0)
   penalty          Int     @default(0)
+  socialInsuranceDeduction Int @default(0) @map("social_insurance_deduction")
+  utilityDeduction         Int @default(0) @map("utility_deduction")
+  holidayBonus             Int @default(0) @map("holiday_bonus")
+  otherDeduction           Int @default(0) @map("other_deduction")
   totalAmount      Int     @default(0) @map("total_amount")
   notes            String?
 
