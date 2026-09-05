@@ -445,12 +445,8 @@ export default function LeadsTable({
             interestedClassId={row.interestedClassId ?? null}
             classOptions={classOptions}
           />
-          <button type="button" onClick={() => setSelectedLeadId(row.id)} className="btn-icon" title="Xem" aria-label="Xem">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </button>
+          {/* Không còn nút "Xem" riêng — trước đây "Xem" và "Sửa" mở CÙNG 1 drawer, chỉ
+              khác icon. Giờ đúng 3 tác vụ: sửa lịch hẹn, sửa (mở drawer, sửa tại chỗ), xóa. */}
           {canUpdate("leads", userRole) ? (
             <button type="button" onClick={() => setSelectedLeadId(row.id)} className="btn-icon" title="Sửa" aria-label="Sửa">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -770,7 +766,7 @@ export default function LeadsTable({
       primaryColumn="fullName"
       secondaryColumns={["leadCode", "status", "latestTest"]}
     />
-    <LeadDetailDrawer leadId={selectedLeadId} onClose={() => setSelectedLeadId(null)} />
+    <LeadDetailDrawer leadId={selectedLeadId} onClose={() => setSelectedLeadId(null)} classOptions={classOptions} />
     </div>
   );
 }

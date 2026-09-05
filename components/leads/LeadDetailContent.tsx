@@ -2,10 +2,22 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import LeadStatusPanel from "@/components/leads/LeadStatusPanel";
-import LeadActivityForms from "@/components/leads/LeadActivityForms";
-import AppointmentStatusButtons from "@/components/leads/AppointmentStatusButtons";
-import { LEAD_STATUS_LABEL, calculateAge, suggestGradeLevel } from "@/lib/server/lead-rules";
+import { useRouter } from "next/navigation";
+import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import TestQuickAction from "@/components/leads/TestQuickAction";
+import { useStudentDrawer } from "@/contexts/StudentDrawerContext";
+import {
+  LEAD_STATUS_LABEL,
+  LEAD_STATUS_FILTER_GROUPS,
+  leadStatusGroupKey,
+  PLACEMENT_TEST_STATUS_LABEL,
+} from "@/lib/server/lead-rules";
+
+// Drawer chi tiết lead — CỐ TÌNH giữ đúng 1 màn, không tab, không thẻ KPI, không đoạn
+// giải thích dài. Danh sách trường ở đây bám đúng các trường của form "Thêm lead"
+// (NewLeadDrawer.tsx): trường nào chưa có dữ liệu thì để trống, không bịa thêm mục.
+// Trước đây màn này có 3 tab + 4 thẻ đếm + 2 khối lặp lại thông tin phụ huynh + 3 khối
+// guide dài — quá nặng so với việc thực tế cần làm ở đây (xem nhanh, sửa, đặt lịch hẹn).
 
 const INTERACTION_LABEL: Record<string, string> = {
   CALL: "Gọi điện",
@@ -14,38 +26,35 @@ const INTERACTION_LABEL: Record<string, string> = {
   EMAIL: "Email",
 };
 
-const APPOINTMENT_STATUS_LABEL: Record<string, string> = {
-  SCHEDULED: "Đã hẹn",
-  DONE: "Đã đến",
-  MISSED: "Vắng",
-  CANCELLED: "Đã hủy",
-};
+const GENDER_LABEL: Record<string, string> = { MALE: "Nam", FEMALE: "Nữ", OTHER: "Khác" };
 
-const APPOINTMENT_STATUS_COLOR: Record<string, string> = {
-  SCHEDULED: "bg-blue-50 text-blue-700 border-blue-200",
-  DONE: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  MISSED: "bg-red-50 text-red-700 border-red-200",
-  CANCELLED: "bg-slate-100 text-slate-600 border-slate-200",
-};
-
-function formatDateTime(d: string | null) {
-  return d ? new Date(d).toLocaleString("vi-VN") : "—";
-}
+const SOURCE_OPTIONS = ["Facebook", "Google", "Giới thiệu", "Walk-in", "Website", "Zalo", "Khác"];
 
 function formatDate(d: string | null) {
-  return d ? new Date(d).toLocaleDateString("vi-VN") : "—";
+  return d ? new Date(d).toLocaleDateString("vi-VN") : "";
 }
 
-function formatMoney(amount: number | null) {
-  return amount === null ? "Chưa phát sinh" : `${amount.toLocaleString("vi-VN")}đ`;
+function toYmd(d: string | null) {
+  return d ? new Date(d).toISOString().slice(0, 10) : "";
 }
 
-function InfoItem({ label, value, hint }: { label: string; value: React.ReactNode; hint?: React.ReactNode }) {
+/** 1 dòng thông tin: chỉ nhãn + giá trị, trống thì để trống hẳn (dấu —). */
+function Row({ label, children }: { label: string; children?: React.ReactNode }) {
+  const empty = children === null || children === undefined || children === "";
   return (
-    <div className="rounded-xl border border-[#e8eef8] bg-white px-3 py-3 sm:px-4 sm:py-4">
-      <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] sm:tracking-[0.2em] text-[#8aa0ba]">{label}</p>
-      <div className="mt-1.5 sm:mt-2 text-xs sm:text-sm font-semibold text-[#12304a] break-words">{value}</div>
-      {hint ? <div className="mt-1 text-[10px] sm:text-xs text-[#6e7f93]">{hint}</div> : null}
+    <div className="flex gap-3 border-b border-[#f1f5f9] py-2 last:border-0">
+      <span className="w-[132px] shrink-0 text-xs text-[#94a3b8]">{label}</span>
+      <span className={`flex-1 text-sm ${empty ? "text-[#cbd5e1]" : "font-medium text-[#0f1729]"}`}>{empty ? "—" : children}</span>
+    </div>
+  );
+}
+
+/** 1 dòng khi đang sửa: nhãn + input, cùng lưới với chế độ xem để không nhảy layout. */
+function EditRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 border-b border-[#f1f5f9] py-1.5 last:border-0">
+      <span className="w-[132px] shrink-0 text-xs text-[#94a3b8]">{label}</span>
+      <div className="flex-1">{children}</div>
     </div>
   );
 }
@@ -56,283 +65,360 @@ export type LeadDetailData = {
     leadCode: string;
     fullName: string;
     status: string;
+    gender: string | null;
     dob: string | null;
+    currentSchoolGrade: string | null;
     phone: string | null;
+    secondaryPhone: string | null;
+    zaloContact: string | null;
     address: string | null;
     source: string | null;
     facebookParentName: string | null;
     facebookLink: string | null;
     initialAssessment: string | null;
+    pendingRemedialSessions: number | null;
     notes: string | null;
     meetDate: string | null;
     expectedStartDate: string | null;
-    guardian: { id: string; fullName: string; phone: string | null; user: { email: string | null; isActive: boolean } | null } | null;
+    actualEnrollDate: string | null;
+    interestedClassId: string | null;
+    guardian: { id: string; fullName: string; phone: string | null } | null;
     interestedClass: { className: string; classCode: string } | null;
     interactions: { id: string; type: string; content: string | null; occurredAt: string }[];
-    appointments: { id: string; status: string; notes: string | null; scheduledAt: string }[];
-    placementTests: { id: string; testDate: string | null; suggestedClass: string | null; result: string | null; notes: string | null }[];
+    placementTests: { id: string; scheduledDate: string | null; testDate: string | null; status: string; result: string | null }[];
     student: { id: string; fullName: string } | null;
   };
   editable: boolean;
-  currentEnrollment: { class: { className: string; tuitionPerSession: number | null; totalSessions: number | null } } | null;
-  linkedGuardian: { id: string; fullName: string; phone: string | null; user: { email: string | null; isActive: boolean } | null } | null;
-  outstanding: number | null;
+  deletable?: boolean;
 };
 
-type TabKey = "profile" | "schedule" | "interactions";
+export default function LeadDetailContent({
+  data,
+  classOptions = [],
+  onChanged,
+  onDeleted,
+}: {
+  data: LeadDetailData;
+  classOptions?: { id: string; className: string }[];
+  onChanged?: () => void;
+  onDeleted?: () => void;
+}) {
+  const { lead, editable, deletable } = data;
+  const router = useRouter();
+  const { openDrawer } = useStudentDrawer();
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    fullName: lead.fullName,
+    gender: lead.gender ?? "",
+    dob: toYmd(lead.dob),
+    currentSchoolGrade: lead.currentSchoolGrade ?? "",
+    guardianName: lead.guardian?.fullName ?? "",
+    phone: lead.phone ?? "",
+    secondaryPhone: lead.secondaryPhone ?? "",
+    address: lead.address ?? "",
+    source: lead.source ?? "",
+    meetDate: toYmd(lead.meetDate),
+    expectedStartDate: toYmd(lead.expectedStartDate),
+    interestedClassId: lead.interestedClassId ?? "",
+    initialAssessment: lead.initialAssessment ?? "",
+    pendingRemedialSessions: lead.pendingRemedialSessions != null ? String(lead.pendingRemedialSessions) : "",
+    facebookParentName: lead.facebookParentName ?? "",
+    facebookLink: lead.facebookLink ?? "",
+    zaloContact: lead.zaloContact ?? "",
+    notes: lead.notes ?? "",
+  });
 
-export default function LeadDetailContent({ data, onChanged }: { data: LeadDetailData; onChanged?: () => void }) {
-  const { lead, editable, currentEnrollment, linkedGuardian, outstanding } = data;
-  const [tab, setTab] = useState<TabKey>("profile");
+  const isConverted = Boolean(lead.student || lead.status === "ENROLLED");
+  const latestTest = lead.placementTests[0] ?? null;
+  const statusGroupKey = leadStatusGroupKey(lead.status);
 
-  const age = calculateAge(lead.dob ? new Date(lead.dob) : null);
-  const suggested = suggestGradeLevel(age);
-  const currentClassTuition =
-    currentEnrollment?.class.tuitionPerSession && currentEnrollment.class.totalSessions
-      ? currentEnrollment.class.tuitionPerSession * currentEnrollment.class.totalSessions
-      : null;
-  const latestAppointment = lead.appointments[0] ?? null;
-  const latestInteraction = lead.interactions[0] ?? null;
-  const latestPlacement = lead.placementTests[0] ?? null;
+  function set<K extends keyof typeof form>(key: K, value: string) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
 
-  const tabs: { key: TabKey; label: string; count?: number }[] = [
-    { key: "profile", label: "Hồ sơ" },
-    { key: "schedule", label: "Lịch hẹn & Test", count: lead.appointments.length + lead.placementTests.length },
-    { key: "interactions", label: "Tương tác", count: lead.interactions.length },
-  ];
+  async function save() {
+    setSaving(true);
+    setError(null);
+    const res = await fetch(`/api/leads/${lead.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    const result = await res.json().catch(() => ({}));
+    setSaving(false);
+    if (!res.ok) {
+      setError(result.error ?? "Không lưu được.");
+      return;
+    }
+    setEditing(false);
+    onChanged?.();
+    router.refresh();
+  }
+
+  async function changeStatus(groupKey: string) {
+    const group = LEAD_STATUS_FILTER_GROUPS.find((item) => item.key === groupKey);
+    const next = group?.statuses[0] ?? groupKey;
+    if (next === lead.status) return;
+    setError(null);
+    const res = await fetch(`/api/leads/${lead.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: next }),
+    });
+    if (!res.ok) {
+      const result = await res.json().catch(() => ({}));
+      setError(result.error ?? "Không đổi được trạng thái.");
+      return;
+    }
+    onChanged?.();
+    router.refresh();
+  }
+
+  async function convert() {
+    setSaving(true);
+    setError(null);
+    const res = await fetch(`/api/leads/${lead.id}/convert`, { method: "POST" });
+    const result = await res.json().catch(() => ({}));
+    setSaving(false);
+    if (!res.ok) {
+      setError(result.error ?? "Không chuyển đổi được.");
+      return;
+    }
+    openDrawer(result.item.id);
+    onChanged?.();
+    router.refresh();
+  }
 
   return (
-    <div className="space-y-4 sm:space-y-5">
-      <section className="rounded-[22px] border border-[#dbe7ff] bg-white p-4 sm:p-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-lg border border-[#cfe2ff] bg-[#f3f8ff] px-3 py-1.5 text-sm font-semibold text-[#1f5fa8]">Mã lead {lead.leadCode}</span>
-          <span className="rounded-lg border border-[#dbe7ff] bg-[#f8fbff] px-3 py-1.5 text-sm font-semibold text-[#12304a]">
-            {LEAD_STATUS_LABEL[lead.status as keyof typeof LEAD_STATUS_LABEL] ?? lead.status}
+    <div className="space-y-5">
+      {/* Thanh trên: mã lead + trạng thái + đúng 3 tác vụ (sửa / lịch hẹn / xóa) */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-lg border border-[#e5eaf7] px-2.5 py-1 font-mono text-xs font-bold text-[#475569]">{lead.leadCode}</span>
+        {editable && !isConverted ? (
+          <select
+            value={statusGroupKey}
+            onChange={(event) => void changeStatus(event.target.value)}
+            className="h-8 rounded-lg border border-[#e5eaf7] bg-white px-2 text-xs font-bold text-[#0f1729] outline-none"
+          >
+            {LEAD_STATUS_FILTER_GROUPS.map((group) => (
+              <option key={group.key} value={group.key}>
+                {group.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+            {isConverted ? LEAD_STATUS_LABEL.ENROLLED : LEAD_STATUS_LABEL[lead.status as keyof typeof LEAD_STATUS_LABEL] ?? lead.status}
           </span>
-          {age !== null ? <span className="rounded-lg border border-[#dbe7ff] bg-white px-3 py-1.5 text-sm font-medium text-[#50657b]">{age} tuổi</span> : null}
-          {suggested ? <span className="rounded-lg border border-[#e9d5ff] bg-[#faf5ff] px-3 py-1.5 text-sm font-medium text-[#7c3aed]">Gợi ý {suggested}</span> : null}
-          {editable ? (
-            <Link href={`/leads/${lead.id}/edit`} className="btn-ghost-sm ml-auto">
-              Sửa thông tin
-            </Link>
-          ) : null}
-        </div>
+        )}
 
-        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className="rounded-xl border border-[#d8e7fb] bg-[#fcfdff] px-3 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8aa0ba]">Lịch hẹn</p>
-            <p className="mt-1.5 text-xl font-black text-[#12304a]">{lead.appointments.length}</p>
-            <p className="mt-1 text-xs text-[#6b7a8c] truncate">{latestAppointment ? formatDateTime(latestAppointment.scheduledAt) : "Chưa có lịch"}</p>
-          </div>
-          <div className="rounded-xl border border-[#d8e7fb] bg-[#fcfdff] px-3 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8aa0ba]">Tương tác</p>
-            <p className="mt-1.5 text-xl font-black text-[#12304a]">{lead.interactions.length}</p>
-            <p className="mt-1 text-xs text-[#6b7a8c] truncate">{latestInteraction ? formatDateTime(latestInteraction.occurredAt) : "Chưa ghi nhận"}</p>
-          </div>
-          <div className="rounded-xl border border-[#d8e7fb] bg-[#fcfdff] px-3 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8aa0ba]">Test đầu vào</p>
-            <p className="mt-1.5 text-xl font-black text-[#12304a]">{lead.placementTests.length}</p>
-            <p className="mt-1 text-xs text-[#6b7a8c] truncate">{latestPlacement ? formatDate(latestPlacement.testDate) : "Chưa test"}</p>
-          </div>
-          <div className="rounded-xl border border-[#d8e7fb] bg-[#fcfdff] px-3 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8aa0ba]">Công nợ hiện tại</p>
-            <p className="mt-1.5 text-xl font-black text-[#12304a]">{outstanding !== null ? `${outstanding.toLocaleString("vi-VN")}đ` : "0đ"}</p>
-            <p className="mt-1 text-xs text-[#6b7a8c] truncate">{lead.student ? "Đã có hồ sơ học viên" : "Chưa chuyển đổi"}</p>
-          </div>
-        </div>
-      </section>
-
-      <div className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              className={`rounded-lg px-4 py-2.5 text-sm font-bold transition ${
-                tab === t.key ? "bg-primary text-white shadow-sm" : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:border-[#d1d5db]"
-              }`}
-            >
-              {t.label}
-              {t.count !== undefined ? ` (${t.count})` : ""}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {editable && !editing ? (
+            <button type="button" onClick={() => setEditing(true)} className="btn-ghost-sm">
+              Sửa
             </button>
-          ))}
+          ) : null}
+          {editable ? (
+            <TestQuickAction
+              leadId={lead.id}
+              latestTest={latestTest}
+              expectedStartDate={lead.expectedStartDate}
+              actualEnrollDate={lead.actualEnrollDate}
+              interestedClassId={lead.interestedClassId}
+              classOptions={classOptions}
+            />
+          ) : null}
+          {deletable && !isConverted ? (
+            <ConfirmActionButton
+              title="Xác nhận xóa lead?"
+              description={`Lead ${lead.fullName} sẽ bị xóa khỏi CRM.`}
+              confirmLabel="Xóa lead"
+              tone="danger"
+              className="btn-ghost-sm text-rose-600"
+              onConfirm={async () => {
+                await fetch(`/api/leads/${lead.id}`, { method: "DELETE" });
+                onDeleted?.();
+                router.refresh();
+              }}
+            >
+              Xóa
+            </ConfirmActionButton>
+          ) : null}
         </div>
-
-        {tab === "profile" ? (
-          // 4 ô bằng nhau (2x2, grid tự giãn chiều cao theo hàng) thay vì cột trái rộng
-          // + sidebar hẹp trước đây — Thông tin hồ sơ/Liên kết vận hành/Trạng thái lead/
-          // Ghi nhận hoạt động đều quan trọng như nhau, không nên có cái bị bó hẹp lại.
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <section className="card">
-              <h2 className="text-base font-bold tracking-tight text-[#12304a]">Thông tin hồ sơ</h2>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <InfoItem label="Phụ huynh" value={lead.guardian?.fullName ?? "Chưa có"} hint={lead.phone ?? "Chưa có số điện thoại"} />
-                <InfoItem label="Ngày gặp" value={formatDate(lead.meetDate)} hint={`Ngày dự kiến học: ${formatDate(lead.expectedStartDate)}`} />
-                <InfoItem label="Nguồn lead" value={lead.source ?? "Chưa ghi"} />
-                <InfoItem label="Địa chỉ" value={lead.address ?? "Chưa ghi"} />
-                <InfoItem label="Facebook phụ huynh" value={lead.facebookParentName ?? "Chưa ghi"} />
-                <InfoItem
-                  label="Link Facebook"
-                  value={
-                    lead.facebookLink ? (
-                      <a href={lead.facebookLink} target="_blank" rel="noreferrer" className="text-[#2563eb] hover:underline">
-                        {lead.facebookLink}
-                      </a>
-                    ) : (
-                      "Chưa có"
-                    )
-                  }
-                />
-                <InfoItem label="Đánh giá đầu vào" value={lead.initialAssessment ?? "Chưa ghi"} />
-                <InfoItem label="Lớp quan tâm" value={lead.interestedClass?.className ?? "Chưa gắn"} hint={lead.interestedClass?.classCode ?? undefined} />
-              </div>
-              {lead.notes ? (
-                <div className="mt-3 rounded-xl border border-[#e8eef8] bg-[#f8fbff] px-3 py-3 sm:px-4 sm:py-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8aa0ba]">Ghi chú CRM</p>
-                  <p className="mt-1.5 text-xs sm:text-sm leading-6 text-[#51657a]">{lead.notes}</p>
-                </div>
-              ) : null}
-            </section>
-
-            <section className="card">
-              <h2 className="text-base font-bold tracking-tight text-[#12304a]">Liên kết vận hành</h2>
-              <p className="mt-1 text-xs text-[#6b7a8c]">Phụ huynh, portal, học viên và lớp hiện tại nếu lead đã chuyển đổi.</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <InfoItem
-                  label="Phụ huynh chính"
-                  value={
-                    linkedGuardian ? (
-                      <Link href={`/guardians/${linkedGuardian.id}`} className="text-[#2563eb] hover:underline">
-                        {linkedGuardian.fullName}
-                      </Link>
-                    ) : (
-                      "Chưa gắn"
-                    )
-                  }
-                  hint={linkedGuardian?.phone ?? "Chưa có số điện thoại"}
-                />
-                <InfoItem
-                  label="Portal phụ huynh"
-                  value={linkedGuardian?.user?.email ?? "Chưa cấp tài khoản"}
-                  hint={linkedGuardian?.user ? (linkedGuardian.user.isActive ? "Đang hoạt động" : "Đã thu hồi") : "Nên cấp khi nhập học"}
-                />
-                <InfoItem
-                  label="Học viên"
-                  value={
-                    lead.student ? (
-                      <Link href={`/students/${lead.student.id}`} className="text-[#2563eb] hover:underline">
-                        {lead.student.fullName}
-                      </Link>
-                    ) : (
-                      "Chưa chuyển thành học viên"
-                    )
-                  }
-                  hint={currentEnrollment?.class ? `Đang học ${currentEnrollment.class.className}` : "Chưa có enrollment"}
-                />
-                <InfoItem
-                  label="Học phí / công nợ"
-                  value={formatMoney(outstanding)}
-                  hint={
-                    currentClassTuition
-                      ? `Tạm tính toàn khóa ${currentClassTuition.toLocaleString("vi-VN")}đ`
-                      : currentEnrollment?.class.tuitionPerSession
-                        ? `${currentEnrollment.class.tuitionPerSession.toLocaleString("vi-VN")}đ / buổi`
-                        : "Chưa có cấu hình học phí"
-                  }
-                />
-              </div>
-            </section>
-
-            {editable ? (
-              <>
-                <LeadStatusPanel leadId={lead.id} status={lead.status} hasStudent={!!lead.student} onSuccess={onChanged} />
-                <LeadActivityForms leadId={lead.id} onSuccess={onChanged} />
-              </>
-            ) : (
-              <section className="card md:col-span-2">
-                <p className="text-sm leading-6 text-[#6b7a8c]">Vai trò hiện tại chỉ được xem chi tiết lead này. Không thể đổi trạng thái hoặc thêm hoạt động mới.</p>
-              </section>
-            )}
-          </div>
-        ) : null}
-
-        {tab === "schedule" ? (
-            <div className="space-y-4">
-              <section className="rounded-[22px] border border-[#dbe7ff] bg-white p-4 sm:p-5">
-                <h2 className="text-base font-bold tracking-tight text-[#12304a]">Lịch hẹn</h2>
-                <div className="mt-3 space-y-2">
-                  {lead.appointments.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-[#dbe7ff] px-4 py-8 text-center text-sm text-[#7b8ea5]">Chưa có lịch hẹn nào.</div>
-                  ) : (
-                    lead.appointments.map((appointment) => (
-                      <div
-                        key={appointment.id}
-                        className="flex flex-col gap-2 rounded-[18px] border border-[#e8eef8] bg-[#fcfdff] px-3 py-3 sm:px-4 sm:py-4 md:flex-row md:items-center md:justify-between"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[#12304a]">{formatDateTime(appointment.scheduledAt)}</p>
-                          {appointment.notes ? <p className="mt-1 text-xs text-[#6b7a8c] truncate">{appointment.notes}</p> : null}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${APPOINTMENT_STATUS_COLOR[appointment.status] ?? "bg-slate-100 text-slate-600 border-slate-200"}`}>
-                            {APPOINTMENT_STATUS_LABEL[appointment.status] ?? appointment.status}
-                          </span>
-                          {editable ? <AppointmentStatusButtons appointmentId={appointment.id} status={appointment.status} onSuccess={onChanged} /> : null}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </section>
-
-              <section className="rounded-[22px] border border-[#dbe7ff] bg-white p-4 sm:p-5">
-                <h2 className="text-base font-bold tracking-tight text-[#12304a]">Test đầu vào</h2>
-                <div className="mt-3 space-y-2">
-                  {lead.placementTests.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-[#dbe7ff] px-4 py-8 text-center text-sm text-[#7b8ea5]">Chưa có kết quả test đầu vào.</div>
-                  ) : (
-                    lead.placementTests.map((test) => (
-                      <div key={test.id} className="rounded-[18px] border border-[#e8eef8] bg-[#fcfdff] px-3 py-3 sm:px-4 sm:py-4">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <p className="text-sm font-semibold text-[#12304a]">{formatDate(test.testDate)}</p>
-                            <p className="mt-1 text-xs text-[#6b7a8c]">{test.suggestedClass ?? "Chưa gợi ý lớp"}</p>
-                          </div>
-                          {test.result ? (
-                            <span className="rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-2.5 py-1 text-xs font-medium text-[#235f9d]">{test.result}</span>
-                          ) : null}
-                        </div>
-                        {test.notes ? <p className="mt-2 text-xs leading-6 text-[#51657a]">{test.notes}</p> : null}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </section>
-            </div>
-          ) : null}
-
-          {tab === "interactions" ? (
-            <section className="rounded-[22px] border border-[#dbe7ff] bg-white p-4 sm:p-5">
-              <h2 className="text-base font-bold tracking-tight text-[#12304a]">Lịch sử tương tác</h2>
-              <div className="mt-3 space-y-2">
-                {lead.interactions.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-[#dbe7ff] px-4 py-8 text-center text-sm text-[#7b8ea5]">Chưa có tương tác nào.</div>
-                ) : (
-                  lead.interactions.map((interaction) => (
-                    <div key={interaction.id} className="rounded-[18px] border border-[#e8eef8] bg-[#fcfdff] px-3 py-3 sm:px-4 sm:py-4">
-                      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
-                        <p className="text-sm font-semibold text-[#12304a]">{INTERACTION_LABEL[interaction.type] ?? interaction.type}</p>
-                        <p className="text-xs text-[#7b8ea5] whitespace-nowrap">{formatDateTime(interaction.occurredAt)}</p>
-                      </div>
-                      {interaction.content ? <p className="mt-1.5 text-xs leading-6 text-[#51657a]">{interaction.content}</p> : null}
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
-          ) : null}
       </div>
+
+      {lead.student ? (
+        <p className="text-sm text-[#475569]">
+          Đã thành học viên:{" "}
+          <Link href={`/students/${lead.student.id}`} className="font-bold text-[#2563eb] hover:underline">
+            {lead.student.fullName}
+          </Link>
+        </p>
+      ) : lead.status === "QUALIFIED" && editable ? (
+        <ConfirmActionButton
+          title="Chuyển lead thành học viên?"
+          description="Hệ thống sẽ tạo hồ sơ học viên thật từ lead này."
+          confirmLabel="Chuyển thành học viên"
+          disabled={saving}
+          className="btn-primary"
+          onConfirm={convert}
+        >
+          Chuyển thành học viên
+        </ConfirmActionButton>
+      ) : null}
+
+      {error ? <div className="alert-danger text-sm">{error}</div> : null}
+
+      {/* Thông tin — đúng bộ trường của form tạo lead */}
+      {editing ? (
+        <div>
+          <div className="rounded-xl border border-[#e5eaf7] bg-white px-4 py-2">
+            <EditRow label="Họ và tên">
+              <input className="input h-9" value={form.fullName} onChange={(e) => set("fullName", e.target.value)} />
+            </EditRow>
+            <EditRow label="Giới tính">
+              <select className="input h-9" value={form.gender} onChange={(e) => set("gender", e.target.value)}>
+                <option value="">—</option>
+                <option value="MALE">Nam</option>
+                <option value="FEMALE">Nữ</option>
+                <option value="OTHER">Khác</option>
+              </select>
+            </EditRow>
+            <EditRow label="Ngày sinh">
+              <input type="date" className="input h-9" value={form.dob} onChange={(e) => set("dob", e.target.value)} />
+            </EditRow>
+            <EditRow label="Lớp ở trường">
+              <input className="input h-9" value={form.currentSchoolGrade} onChange={(e) => set("currentSchoolGrade", e.target.value)} />
+            </EditRow>
+            <EditRow label="Phụ huynh">
+              <input className="input h-9" value={form.guardianName} onChange={(e) => set("guardianName", e.target.value)} />
+            </EditRow>
+            <EditRow label="Số điện thoại">
+              <input className="input h-9" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
+            </EditRow>
+            <EditRow label="SĐT thứ 2">
+              <input className="input h-9" value={form.secondaryPhone} onChange={(e) => set("secondaryPhone", e.target.value)} />
+            </EditRow>
+            <EditRow label="Địa chỉ">
+              <input className="input h-9" value={form.address} onChange={(e) => set("address", e.target.value)} />
+            </EditRow>
+            <EditRow label="Nguồn">
+              <select className="input h-9" value={form.source} onChange={(e) => set("source", e.target.value)}>
+                <option value="">—</option>
+                {SOURCE_OPTIONS.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </EditRow>
+            <EditRow label="Ngày gặp">
+              <input type="date" className="input h-9" value={form.meetDate} onChange={(e) => set("meetDate", e.target.value)} />
+            </EditRow>
+            <EditRow label="Dự kiến nhập học">
+              <input type="date" className="input h-9" value={form.expectedStartDate} onChange={(e) => set("expectedStartDate", e.target.value)} />
+            </EditRow>
+            <EditRow label="Lớp quan tâm">
+              <select className="input h-9" value={form.interestedClassId} onChange={(e) => set("interestedClassId", e.target.value)}>
+                <option value="">—</option>
+                {classOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.className}
+                  </option>
+                ))}
+              </select>
+            </EditRow>
+            <EditRow label="Đánh giá đầu vào">
+              <input className="input h-9" value={form.initialAssessment} onChange={(e) => set("initialAssessment", e.target.value)} />
+            </EditRow>
+            <EditRow label="Số buổi bổ trợ">
+              <input
+                type="number"
+                min={0}
+                max={60}
+                className="input h-9"
+                value={form.pendingRemedialSessions}
+                onChange={(e) => set("pendingRemedialSessions", e.target.value)}
+              />
+            </EditRow>
+            <EditRow label="Facebook PH">
+              <input className="input h-9" value={form.facebookParentName} onChange={(e) => set("facebookParentName", e.target.value)} />
+            </EditRow>
+            <EditRow label="Link Facebook">
+              <input className="input h-9" value={form.facebookLink} onChange={(e) => set("facebookLink", e.target.value)} />
+            </EditRow>
+            <EditRow label="Zalo">
+              <input className="input h-9" value={form.zaloContact} onChange={(e) => set("zaloContact", e.target.value)} />
+            </EditRow>
+            <EditRow label="Ghi chú">
+              <input className="input h-9" value={form.notes} onChange={(e) => set("notes", e.target.value)} />
+            </EditRow>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button type="button" onClick={save} disabled={saving} className="btn-primary">
+              {saving ? "Đang lưu..." : "Lưu"}
+            </button>
+            <button type="button" onClick={() => setEditing(false)} className="btn-ghost">
+              Hủy
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-[#e5eaf7] bg-white px-4 py-2">
+          <Row label="Họ và tên">{lead.fullName}</Row>
+          <Row label="Giới tính">{lead.gender ? GENDER_LABEL[lead.gender] ?? lead.gender : ""}</Row>
+          <Row label="Ngày sinh">{formatDate(lead.dob)}</Row>
+          <Row label="Lớp ở trường">{lead.currentSchoolGrade ?? ""}</Row>
+          <Row label="Phụ huynh">{lead.guardian?.fullName ?? ""}</Row>
+          <Row label="Số điện thoại">{lead.phone ?? ""}</Row>
+          <Row label="SĐT thứ 2">{lead.secondaryPhone ?? ""}</Row>
+          <Row label="Địa chỉ">{lead.address ?? ""}</Row>
+          <Row label="Nguồn">{lead.source ?? ""}</Row>
+          <Row label="Ngày gặp">{formatDate(lead.meetDate)}</Row>
+          <Row label="Ngày hẹn test">{formatDate(latestTest?.scheduledDate ?? null)}</Row>
+          <Row label="Kết quả test">
+            {latestTest ? PLACEMENT_TEST_STATUS_LABEL[latestTest.status] ?? latestTest.status : ""}
+          </Row>
+          <Row label="Dự kiến nhập học">{formatDate(lead.expectedStartDate)}</Row>
+          <Row label="Lớp quan tâm">{lead.interestedClass?.className ?? ""}</Row>
+          <Row label="Đánh giá đầu vào">{lead.initialAssessment ?? ""}</Row>
+          <Row label="Số buổi bổ trợ">{lead.pendingRemedialSessions != null ? `${lead.pendingRemedialSessions} buổi` : ""}</Row>
+          <Row label="Facebook PH">{lead.facebookParentName ?? ""}</Row>
+          <Row label="Link Facebook">
+            {lead.facebookLink ? (
+              <a href={lead.facebookLink} target="_blank" rel="noreferrer" className="text-[#2563eb] hover:underline">
+                {lead.facebookLink}
+              </a>
+            ) : (
+              ""
+            )}
+          </Row>
+          <Row label="Zalo">{lead.zaloContact ?? ""}</Row>
+          <Row label="Ghi chú">{lead.notes ?? ""}</Row>
+        </div>
+      )}
+
+      {/* Lịch sử tương tác — chỉ hiện khi thực sự có, không có thì không chiếm chỗ */}
+      {lead.interactions.length > 0 ? (
+        <div>
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#94a3b8]">Tương tác</p>
+          <div className="rounded-xl border border-[#e5eaf7] bg-white px-4 py-2">
+            {lead.interactions.slice(0, 10).map((item) => (
+              <div key={item.id} className="flex gap-3 border-b border-[#f1f5f9] py-2 text-sm last:border-0">
+                <span className="w-[132px] shrink-0 text-xs text-[#94a3b8]">
+                  {new Date(item.occurredAt).toLocaleDateString("vi-VN")}
+                </span>
+                <span className="flex-1 text-[#0f1729]">
+                  {INTERACTION_LABEL[item.type] ?? item.type}
+                  {item.content ? ` · ${item.content}` : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
