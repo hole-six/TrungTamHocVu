@@ -96,17 +96,89 @@ export default function StudentSessionCredits({
   sessionOptions,
   canManage,
   onChanged,
+  bare = false,
 }: {
   credits: Credit[];
   sessionOptions: SessionOption[];
   canManage: boolean;
   onChanged?: () => void;
+  /** Truyền true khi nơi gọi (drawer) đã tự có khung viền riêng — bỏ khung/nền của
+   *  chính component này và của từng dòng bên trong để không bị khung lồng khung. */
+  bare?: boolean;
 }) {
   const [redeemingId, setRedeemingId] = useState<string | null>(null);
   const available = credits.filter((c) => c.status === "AVAILABLE");
   const history = credits.filter((c) => c.status !== "AVAILABLE").slice(0, 5);
 
   if (credits.length === 0) return null;
+
+  if (bare) {
+    return (
+      <div>
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm text-ink-muted48">Mỗi buổi vắng ở khóa đã thu trọn gói sinh 1 buổi bổ trợ để CSO xếp học bù/bổ trợ khi phụ huynh có nhu cầu.</p>
+          <span className={`shrink-0 badge ${available.length > 0 ? "bg-amber-100 text-amber-700" : "bg-ink/5 text-ink-muted48"}`}>{available.length} khả dụng</span>
+        </div>
+
+        <div className="mt-3 divide-y divide-[#f1f5f9]">
+          {available.map((credit) => (
+            <div key={credit.id} className="py-3 first:pt-0 last:pb-0">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="text-sm">
+                  <p className="font-medium text-ink">
+                    {credit.sourceSession
+                      ? `Vắng buổi ${formatDate(credit.sourceSession.sessionDate)} · ${credit.sourceSession.class.className}`
+                      : `Buổi bổ trợ từ khóa ${credit.className}`}
+                  </p>
+                  <p className="text-xs text-ink-muted48">
+                    {originLabel(credit.origin, credit.notes)}
+                    {credit.paidAmount && credit.paidAmount > 0 ? ` · đã thu ${credit.paidAmount.toLocaleString("vi-VN")}đ` : ""} — chưa dùng
+                  </p>
+                </div>
+                {canManage ? (
+                  <button type="button" onClick={() => setRedeemingId(redeemingId === credit.id ? null : credit.id)} className="btn-ghost-sm">
+                    {redeemingId === credit.id ? "Đóng" : "Đăng ký học bù"}
+                  </button>
+                ) : null}
+              </div>
+              {redeemingId === credit.id ? (
+                <RedeemForm
+                  credit={credit}
+                  sessionOptions={sessionOptions}
+                  onDone={() => {
+                    setRedeemingId(null);
+                    onChanged?.();
+                  }}
+                />
+              ) : null}
+            </div>
+          ))}
+          {available.length === 0 ? <p className="py-3 text-sm text-ink-muted48 first:pt-0">Không có buổi bổ trợ nào đang khả dụng.</p> : null}
+        </div>
+
+        {history.length > 0 ? (
+          <div className="mt-3 border-t border-[#f1f5f9] pt-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-muted48">Lịch sử buổi bổ trợ</p>
+            <div className="mt-2 space-y-1.5 text-xs text-ink-muted80">
+              {history.map((credit) => (
+                <p key={credit.id}>
+                  {credit.sourceSession
+                    ? `Vắng ${formatDate(credit.sourceSession.sessionDate)} (${credit.sourceSession.class.className})`
+                    : `Buổi bổ trợ từ khóa ${credit.className}`}{" "}
+                  —{" "}
+                  {credit.status === "CONSUMED" && credit.consumedSession
+                    ? `đã dùng ở buổi ${formatDate(credit.consumedSession.sessionDate)} (${credit.consumedSession.class.className})`
+                    : credit.status === "VOIDED"
+                      ? "đã hủy (điểm danh sửa lại có mặt)"
+                      : "trạng thái khác"}
+                </p>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="card">

@@ -9,11 +9,15 @@ export default function GuardianAccountPanel({
   account,
   defaultEmail,
   onChanged,
+  bare = false,
 }: {
   guardianId: string;
   account: { email: string; isActive: boolean } | null;
   defaultEmail: string;
   onChanged?: () => void;
+  /** Truyền true khi nơi gọi (drawer) đã tự có khung viền riêng — bỏ khung/nền của
+   *  chính component này để không bị khung lồng khung. */
+  bare?: boolean;
 }) {
   const router = useRouter();
   const [email, setEmail] = useState(account?.email ?? defaultEmail);
@@ -56,12 +60,18 @@ export default function GuardianAccountPanel({
   }
 
   return (
-    <div className="card">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted48">Phụ huynh</p>
-      <h2 className="mt-1 font-display text-lg font-semibold tracking-tight">Tài khoản cổng phụ huynh</h2>
-      <p className="mt-1 text-xs text-ink-muted48">
-        Cấp tài khoản để phụ huynh tự đăng nhập xem học phí, nhật ký lớp học và lịch học của con.
-      </p>
+    <div className={bare ? "" : "card"}>
+      {bare ? (
+        <p className="text-sm text-ink-muted48">Cấp tài khoản để phụ huynh tự đăng nhập xem học phí, nhật ký lớp học và lịch học của con.</p>
+      ) : (
+        <>
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted48">Phụ huynh</p>
+          <h2 className="mt-1 font-display text-lg font-semibold tracking-tight">Tài khoản cổng phụ huynh</h2>
+          <p className="mt-1 text-xs text-ink-muted48">
+            Cấp tài khoản để phụ huynh tự đăng nhập xem học phí, nhật ký lớp học và lịch học của con.
+          </p>
+        </>
+      )}
 
       {account && (
         <div className="mt-3 flex items-center justify-between rounded-lg border border-hairline px-3 py-2 text-sm">

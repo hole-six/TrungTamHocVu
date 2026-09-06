@@ -61,12 +61,16 @@ export default function ScholarshipAdjustmentForm({
   adjustments,
   enrollments,
   onChanged,
+  bare = false,
 }: {
   studentId: string;
   scholarships: Item[];
   adjustments: Item[];
   enrollments: EnrollmentOption[];
   onChanged?: () => void;
+  /** Truyền true khi nơi gọi (drawer) đã tự có khung viền riêng — bỏ khung/nền của
+   *  chính component này và của từng dòng chiết khấu để không bị khung lồng khung. */
+  bare?: boolean;
 }) {
   const router = useRouter();
   const [percentage, setPercentage] = useState("");
@@ -154,7 +158,7 @@ export default function ScholarshipAdjustmentForm({
   }
 
   return (
-    <div className="card">
+    <div className={bare ? "" : "card"}>
       <FormGuide
         title="Hướng dẫn chiết khấu"
         summary="Cách thêm chiết khấu học phí và chọn đúng phạm vi áp dụng."
@@ -171,16 +175,20 @@ export default function ScholarshipAdjustmentForm({
         <h2 className="font-display text-base font-bold tracking-tight text-ink">Chiết khấu</h2>
       </div>
 
-      <div className="space-y-2 mb-4">
+      <div className={bare ? "" : "space-y-2 mb-4"}>
         {list.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[#e2e8f0] py-6 text-center">
+          <div className={bare ? "py-4 text-center" : "rounded-xl border border-dashed border-[#e2e8f0] py-6 text-center"}>
             <p className="text-sm text-ink-muted48">Chưa có chiết khấu nào.</p>
           </div>
         ) : (
           list.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between rounded-xl border border-[#e8edf5] bg-[#f8fafc] px-4 py-3"
+              className={
+                bare
+                  ? "flex items-center justify-between border-b border-[#f1f5f9] py-3 first:pt-0 last:border-0 last:pb-0"
+                  : "flex items-center justify-between rounded-xl border border-[#e8edf5] bg-[#f8fafc] px-4 py-3"
+              }
             >
               <div>
                 <p className="text-sm font-semibold text-ink">{item.reason ?? "Không có ghi chú"}</p>
@@ -214,7 +222,7 @@ export default function ScholarshipAdjustmentForm({
       </div>
 
       {/* Add/edit form */}
-      <div className="rounded-xl border border-[#e8edf5] bg-[#fafbff] p-4">
+      <div className={bare ? "border-t border-[#f1f5f9] pt-4" : "rounded-xl border border-[#e8edf5] bg-[#fafbff] p-4"}>
         <p className="text-xs font-bold uppercase tracking-wide text-ink-muted48 mb-3">
           {editing ? "Đang sửa chiết khấu" : "Thêm chiết khấu"}
         </p>

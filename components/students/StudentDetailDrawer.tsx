@@ -256,6 +256,19 @@ function Row({ label, children }: { label: string; children?: React.ReactNode })
   );
 }
 
+// Danh sách trường cố định (hồ sơ, tiến độ lớp) xếp thành lưới 2-3 cột thay vì mỗi
+// trường 1 dòng đầy đủ chiều ngang — cùng nội dung nhưng chiếm ít chiều cao hơn hẳn,
+// không cần khung/viền riêng vì đã nằm trong khung của Section cha.
+function Stat({ label, wide, children }: { label: string; wide?: boolean; children?: React.ReactNode }) {
+  const empty = children === null || children === undefined || children === "";
+  return (
+    <div className={wide ? "col-span-full" : ""}>
+      <p className="text-xs text-[#94a3b8]">{label}</p>
+      <p className={`mt-0.5 text-sm ${empty ? "text-[#cbd5e1]" : "font-semibold text-[#0f1729]"}`}>{empty ? "—" : children}</p>
+    </div>
+  );
+}
+
 export default function StudentDetailDrawer({ open, onClose, studentId }: StudentDetailDrawerProps) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<StudentData | null>(null);
@@ -462,51 +475,51 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
             hint={enrollment ? enrollment.className : "Chưa ghi danh"}
           >
             {enrollment && snapshot ? (
-              <div>
-                <Row label="Lớp đang học">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+                <Stat label="Lớp đang học">
                   <Link href={`/classes/${enrollment.classId}`} className="text-[#1d4ed8] hover:underline">
                     {enrollment.className}
                   </Link>
                   {enrollment.courseName ? ` · ${enrollment.courseName}` : ""}
-                </Row>
-                <Row label="Lịch học">{schedule || null}</Row>
-                <Row label="Bắt đầu">{formatDate(enrollment.learningStartDate ?? enrollment.enrollDate)}</Row>
-                <Row label="Dự kiến hết buổi">{formatDate(snapshot.expectedStudentEndDate)}</Row>
-                <Row label="Cách thu">{enrollment.billingModel === "PERIOD" ? "Theo tháng" : "Trọn khóa"}</Row>
+                </Stat>
+                <Stat label="Lịch học">{schedule || null}</Stat>
+                <Stat label="Bắt đầu">{formatDate(enrollment.learningStartDate ?? enrollment.enrollDate)}</Stat>
+                <Stat label="Dự kiến hết buổi">{formatDate(snapshot.expectedStudentEndDate)}</Stat>
+                <Stat label="Cách thu">{enrollment.billingModel === "PERIOD" ? "Theo tháng" : "Trọn khóa"}</Stat>
                 {canSeeFinance ? (
-                  <Row label="Tiền còn lại">
+                  <Stat label="Tiền còn lại">
                     {formatVnd(snapshot.remainingValue)} · {formatVnd(snapshot.unitPrice)}/buổi
-                  </Row>
+                  </Stat>
                 ) : null}
                 {enrollment.paidCatchupSessionCount > 0 ? (
-                  <Row label="Bổ trợ đầu khóa">
+                  <Stat label="Bổ trợ đầu khóa">
                     {enrollment.paidCatchupSessionCount} buổi
                     {canSeeFinance ? ` · ${formatVnd(enrollment.paidCatchupAmount)}` : ""}
-                  </Row>
+                  </Stat>
                 ) : null}
-                {snapshot.continuationStatus === "NEED_TRANSFER" ? (
-                  <Row label="Cần xử lý">
-                    <span className="text-amber-700">
-                      Lớp hiện tại thiếu {snapshot.shortageAfterCurrentClass} buổi so với số buổi đã mua — cần chuyển
-                      lớp tiếp.
-                    </span>
-                  </Row>
-                ) : null}
-                {snapshot.continuationStatus === "COMPLETED" ? (
-                  <Row label="Cần xử lý">
-                    <span className="text-emerald-700">
-                      Đã học đủ số buổi đã mua. Ghi danh gói mới nếu học tiếp, hoặc để nguyên đến khi lớp kết thúc.
-                    </span>
-                  </Row>
-                ) : null}
-                {enrollment.nextClassName ? <Row label="Lớp tiếp theo">{enrollment.nextClassName}</Row> : null}
+                {enrollment.nextClassName ? <Stat label="Lớp tiếp theo">{enrollment.nextClassName}</Stat> : null}
                 {data.enrollments.length > 1 ? (
-                  <Row label="Các lớp khác">
+                  <Stat label="Các lớp khác" wide>
                     {data.enrollments
                       .filter((item) => item.className !== enrollment.className)
                       .map((item) => `${item.className} (${STATUS_LABEL[item.status] ?? item.status})`)
                       .join(", ")}
-                  </Row>
+                  </Stat>
+                ) : null}
+                {snapshot.continuationStatus === "NEED_TRANSFER" ? (
+                  <Stat label="Cần xử lý" wide>
+                    <span className="text-amber-700">
+                      Lớp hiện tại thiếu {snapshot.shortageAfterCurrentClass} buổi so với số buổi đã mua — cần chuyển
+                      lớp tiếp.
+                    </span>
+                  </Stat>
+                ) : null}
+                {snapshot.continuationStatus === "COMPLETED" ? (
+                  <Stat label="Cần xử lý" wide>
+                    <span className="text-emerald-700">
+                      Đã học đủ số buổi đã mua. Ghi danh gói mới nếu học tiếp, hoặc để nguyên đến khi lớp kết thúc.
+                    </span>
+                  </Stat>
                 ) : null}
               </div>
             ) : (
@@ -521,6 +534,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                 sessionOptions={data.makeupSessionOptions}
                 canManage={data.permissions.canManageSchedule}
                 onChanged={() => void reload()}
+                bare
               />
             </Section>
           ) : null}
@@ -547,6 +561,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                   canManageFinance={data.permissions.canManageFinance}
                   canManageInventory={data.permissions.canManageInventory}
                   onChanged={() => void reload()}
+                  bare
                 />
                 {data.permissions.canEditStudent ? (
                   <ScholarshipAdjustmentForm
@@ -555,6 +570,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                     adjustments={data.adjustments}
                     enrollments={data.enrollments}
                     onChanged={() => void reload()}
+                    bare
                   />
                 ) : null}
               </div>
@@ -633,6 +649,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                   }
                   defaultEmail=""
                   onChanged={() => void reload()}
+                  bare
                 />
               ) : null}
             </div>
@@ -644,16 +661,16 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
               .filter(Boolean)
               .join(" · ")}
           >
-            <div>
-              <Row label="Ngày sinh">{formatDate(data.dob)}</Row>
-              <Row label="Giới tính">{data.gender ? GENDER_LABEL[data.gender] ?? data.gender : null}</Row>
-              <Row label="Số điện thoại">{data.phone}</Row>
-              <Row label="Địa chỉ">{data.address}</Row>
-              <Row label="Ngày nhập học">{formatDate(data.enrollDate)}</Row>
-              <Row label="Người giới thiệu">{data.referredBy}</Row>
-              <Row label="Đánh giá">{data.evaluation}</Row>
-              <Row label="Ghi chú">{data.notes}</Row>
-              {data.status !== "ACTIVE" ? <Row label="Lý do nghỉ">{data.leaveReason}</Row> : null}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+              <Stat label="Ngày sinh">{formatDate(data.dob)}</Stat>
+              <Stat label="Giới tính">{data.gender ? GENDER_LABEL[data.gender] ?? data.gender : null}</Stat>
+              <Stat label="Số điện thoại">{data.phone}</Stat>
+              <Stat label="Ngày nhập học">{formatDate(data.enrollDate)}</Stat>
+              <Stat label="Người giới thiệu">{data.referredBy}</Stat>
+              {data.status !== "ACTIVE" ? <Stat label="Lý do nghỉ">{data.leaveReason}</Stat> : null}
+              <Stat label="Địa chỉ" wide>{data.address}</Stat>
+              <Stat label="Đánh giá" wide>{data.evaluation}</Stat>
+              <Stat label="Ghi chú" wide>{data.notes}</Stat>
             </div>
           </Section>
 

@@ -75,6 +75,9 @@ type StudentFinanceDeskProps = {
   /** Drawer học viên giữ dữ liệu trong state riêng nên router.refresh() không chạm tới
    *  được — phải gọi hàm này sau mỗi thao tác để nó nạp lại số liệu mới. */
   onChanged?: () => void;
+  /** Drawer đã tự có khung viền riêng cho cả khối "Học phí & thanh toán" — truyền true
+   *  để bỏ khung/nền riêng của từng section con bên trong, tránh khung lồng khung. */
+  bare?: boolean;
 };
 
 type BookOption = {
@@ -156,8 +159,10 @@ export default function StudentFinanceDesk({
   canManageFinance,
   canManageInventory,
   onChanged,
+  bare = false,
 }: StudentFinanceDeskProps) {
   const router = useRouter();
+  const sectionFrameClass = bare ? "" : "rounded-xl border border-[#e5eaf7] bg-white";
 
   const [books, setBooks] = useState<BookOption[]>([]);
   const [booksLoaded, setBooksLoaded] = useState(false);
@@ -542,7 +547,7 @@ export default function StudentFinanceDesk({
       {classPackages.map((pkg) => {
         const isPeriod = pkg.enrollment.billingModel === "PERIOD";
         return (
-          <section key={pkg.enrollment.enrollmentId} className="rounded-xl border border-[#e5eaf7] bg-white">
+          <section key={pkg.enrollment.enrollmentId} className={`${sectionFrameClass} ${bare ? "border-b border-[#f1f5f9] pb-4 last:border-0 last:pb-0" : ""}`}>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#f1f5f9] px-4 py-3">
               <div className="min-w-0">
                 <p className="text-sm font-black text-[#0f1729]">{pkg.enrollment.className}</p>
@@ -672,7 +677,7 @@ export default function StudentFinanceDesk({
       })}
 
       {activeEnrollmentOptions.length === 0 ? (
-        <p className="rounded-xl border border-[#e5eaf7] bg-white px-4 py-3 text-sm text-[#94a3b8]">
+        <p className={`px-4 py-3 text-sm text-[#94a3b8] ${sectionFrameClass}`}>
           Học viên chưa có lớp đang học nên chưa có gói thu nào.
         </p>
       ) : null}
@@ -682,7 +687,7 @@ export default function StudentFinanceDesk({
       ) : null}
 
       {orphanCharges.length > 0 ? (
-        <section className="rounded-xl border border-[#e5eaf7] bg-white">
+        <section className={`${sectionFrameClass} ${bare ? "border-b border-[#f1f5f9] pb-4 last:border-0 last:pb-0" : ""}`}>
           <div className="border-b border-[#f1f5f9] px-4 py-3">
             <p className="text-sm font-black text-[#0f1729]">Kỳ thu của lớp đã kết thúc</p>
           </div>
@@ -714,7 +719,7 @@ export default function StudentFinanceDesk({
         </section>
       ) : null}
 
-      <section className="rounded-xl border border-[#e5eaf7] bg-white p-4">
+      <section className={`p-4 ${sectionFrameClass}`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-sm font-black text-[#0f1729]">Giáo trình</p>
