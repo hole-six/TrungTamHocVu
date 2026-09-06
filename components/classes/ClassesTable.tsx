@@ -525,13 +525,9 @@ export default function ClassesTable({
       }}
       emptyState={{
         title: "Chưa có lớp học",
-        description: "Bắt đầu bằng cách thêm lớp học đầu tiên và gắn lịch chuẩn cho lớp.",
-        action: canCreate("schedule", userRole)
-          ? {
-              label: "Thêm lớp học",
-              onClick: () => router.push("/classes/new"),
-            }
-          : undefined,
+        description: canCreate("schedule", userRole)
+          ? "Bấm \"+ Thêm lớp học\" phía trên để tạo lớp đầu tiên và gắn lịch chuẩn cho lớp."
+          : "Chưa có lớp học nào.",
       }}
       loading={loading || isPending}
       stickyHeader

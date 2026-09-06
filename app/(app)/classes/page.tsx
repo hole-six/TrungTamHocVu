@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import CourseManager from "@/components/classes/CourseManager";
 import ClassesTable from "@/components/classes/ClassesTable";
 import ClassLink from "@/components/classes/ClassLink";
+import NewClassForm from "@/components/classes/NewClassForm";
 import PipelineStackEditorTrigger from "@/components/classes/PipelineStackEditorTrigger";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import DetailTabs from "@/components/ui/DetailTabs";
@@ -12,6 +12,7 @@ import { canCreate } from "@/lib/server/role-matrix";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
+import { getHolidayDateSet } from "@/lib/server/holidays";
 
 const CLASSES_TOUR_STEPS: TourStep[] = [
   {
@@ -108,7 +109,7 @@ export default async function ClassesPage({
 
   const today = getVietnamToday();
 
-  const [classes, courses, books, total, grouped, classGroups] = await Promise.all([
+  const [classes, courses, books, total, grouped, classGroups, holidayDateSet] = await Promise.all([
     prisma.class.findMany({
       where,
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
@@ -167,6 +168,7 @@ export default async function ClassesPage({
       distinct: ["classGroup"],
       orderBy: { classGroup: "asc" },
     }),
+    activeBranchId ? getHolidayDateSet(activeBranchId) : Promise.resolve(new Set<string>()),
   ]);
 
   const classStats = Object.fromEntries(grouped.map((row) => [row.status, row._count._all])) as Record<string, number>;
@@ -244,10 +246,18 @@ export default async function ClassesPage({
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <SpotlightTour steps={CLASSES_TOUR_STEPS} />
           {canCreate("schedule", userRole) ? (
-            <Link href="/classes/new" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5" data-tour="classes-new">
-              <span className="hidden sm:inline">+ Thêm lớp học</span>
-              <span className="sm:hidden">+ Lớp</span>
-            </Link>
+            <NewClassForm
+              courses={courses.map((course) => ({
+                id: course.id,
+                code: course.code,
+                name: course.name,
+                tuitionPerSession: course.tuitionPerSession,
+                sessionsPerWeek: course.sessionsPerWeek,
+              }))}
+              holidayDates={[...holidayDateSet]}
+              classOptions={allActiveClasses.map((item) => ({ id: item.id, classCode: item.classCode, className: item.className }))}
+              triggerDataTour="classes-new"
+            />
           ) : null}
         </div>
       </div>

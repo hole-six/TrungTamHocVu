@@ -145,7 +145,6 @@ export default function EditCashTransactionDrawer({ transaction, categories, can
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
-                <p className="hint">Hiển thị trong bảng giao dịch chính.</p>
               </label>
 
               <label className="form-group">
@@ -160,7 +159,6 @@ export default function EditCashTransactionDrawer({ transaction, categories, can
                       </option>
                     ))}
                 </select>
-                <p className="hint">Phân loại giao dịch để dễ đối soát.</p>
               </label>
 
               <label className="form-group">
