@@ -11,7 +11,7 @@ import AssignEnrollmentForm from "./AssignEnrollmentForm";
 import GuardianAccountPanel from "@/components/guardians/GuardianAccountPanel";
 import TransferEnrollmentButton from "@/components/classes/TransferEnrollmentButton";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
-import { Section, Row, Stat } from "@/components/ui/DetailDrawerParts";
+import { Section, Row, Stat, ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { formatVnd, formatDate } from "@/lib/export-utils";
 
 // Hồ sơ học viên — CỐ TÌNH giữ đúng 1 màn, không tab, không thẻ KPI, không đoạn giải
@@ -206,9 +206,6 @@ const STATUS_LABEL: Record<string, string> = {
   WITHDRAWN: "Rút lớp",
   TRANSFERRED: "Đã chuyển",
 };
-
-const ACTION_CLASS =
-  "inline-flex items-center gap-1.5 rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] shadow-sm transition hover:border-[#f97316] hover:text-[#f97316]";
 
 export default function StudentDetailDrawer({ open, onClose, studentId }: StudentDetailDrawerProps) {
   const [loading, setLoading] = useState(true);

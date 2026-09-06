@@ -5,6 +5,7 @@ import SessionLinkWithDrawer from "./SessionLinkWithDrawer";
 import GenerateSessionsForm from "./GenerateSessionsForm";
 import CompleteClassButton, { type CompleteClassTransferStudent } from "./CompleteClassButton";
 import ClassEditForm from "./ClassEditForm";
+import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 
 type ClassEditFormProps = ComponentProps<typeof ClassEditForm>;
 
@@ -62,7 +63,7 @@ export default function ClassQuickActions({
   return (
     <div className="flex flex-wrap items-center gap-2 sm:gap-3" data-tour="class-actions">
       {latestSessionId && (
-        <SessionLinkWithDrawer sessionId={latestSessionId} classId={classId} returnPath={returnPath} className="btn-primary">
+        <SessionLinkWithDrawer sessionId={latestSessionId} classId={classId} returnPath={returnPath} className={ACTION_CLASS}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sm:w-[18px] sm:h-[18px]">
             <circle cx="12" cy="12" r="10" />
             <polyline points="10 8 16 12 10 16" />

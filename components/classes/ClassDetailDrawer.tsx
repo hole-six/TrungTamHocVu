@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatVnd, formatDate } from "@/lib/export-utils";
-import { Section, Stat } from "@/components/ui/DetailDrawerParts";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
+import { Section, Stat, ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import ClassQuickActions from "./ClassQuickActions";
 import EnrollStudentForm from "./EnrollStudentForm";
 import EnrollmentRowActions from "./EnrollmentRowActions";
@@ -98,20 +99,6 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
     void reload(true);
   }, [open, reload]);
 
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    if (open) {
-      document.addEventListener("keydown", handleEscape);
-      document.body.style.overflow = "hidden";
-    }
-    return () => {
-      document.removeEventListener("keydown", handleEscape);
-      document.body.style.overflow = "";
-    };
-  }, [open, onClose]);
-
   if (!open) return null;
 
   function openConfigSection() {
@@ -122,74 +109,53 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
     }
   }
 
+  if (loading || error || !data) {
+    return (
+      <ResponsiveDrawer open={open} onClose={onClose} widthClassName="max-w-5xl" title={loading ? "Đang tải..." : "Lỗi"}>
+        <div className="flex items-center justify-center py-20">
+          {loading ? (
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#e5e7eb] border-t-[#f97316]" />
+          ) : (
+            <p className="text-sm font-semibold text-red-600">{error ?? "Không thể tải thông tin lớp học"}</p>
+          )}
+        </div>
+      </ResponsiveDrawer>
+    );
+  }
+
+  const statusLabel =
+    data.status === "ACTIVE" ? "Đang chạy" : data.status === "COMPLETED" ? "Đã kết thúc" : data.status === "CANCELLED" ? "Đã hủy" : data.status;
+  const statusBadgeClass = data.status === "ACTIVE" ? "bg-[#10b981]" : data.status === "CANCELLED" ? "bg-[#ef4444]" : "bg-[#64748b]";
+
   return (
-    <>
-      {/* z-[60]/[61] — PHẢI thấp hơn các dialog mở TỪ BÊN TRONG drawer này (Sinh buổi
-          học/Sửa dùng ResponsiveDrawer z-[80], Kết thúc lớp dùng ConfirmDialog z-[90]).
-          Để cao hơn cả 2 thì các dialog đó mở ra bị nằm sau drawer, nhìn như bấm không
-          có phản ứng gì. */}
-      <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed inset-0 z-[61] flex flex-col overflow-hidden bg-white">
-        {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-[#e5eaf7] bg-gradient-to-r from-[#f97316] to-[#ea580c] px-4 py-3 shadow-lg">
-          <div className="flex items-center justify-between gap-3">
-            <button onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur transition hover:bg-white/30">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6" /></svg>
-            </button>
-            {loading || !data ? (
-              <h2 className="flex-1 text-center text-lg font-black text-white">Đang tải...</h2>
-            ) : (
-              <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
-                <h2 className="truncate text-center text-lg font-black text-white">{data.className}</h2>
-                <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs">
-                  <span className="rounded-lg bg-white/20 px-2 py-0.5 font-bold text-white backdrop-blur">{data.classCode}</span>
-                  {data.course && <span className="rounded-lg bg-white/20 px-2 py-0.5 font-bold text-white backdrop-blur">{data.course.name}</span>}
-                  {data.isRemedial && <span className="rounded-lg bg-amber-500 px-2 py-0.5 font-bold text-white">Bổ trợ</span>}
-                  {data.totalOutstanding > 0 && <span className="rounded-lg bg-amber-400 px-2 py-0.5 font-bold text-white">Nợ {formatVnd(data.totalOutstanding)}</span>}
-                </div>
-              </div>
-            )}
-            <button onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur transition hover:bg-white/30">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-            </button>
-          </div>
+    <ResponsiveDrawer open={open} onClose={onClose} widthClassName="max-w-5xl" title={data.className}>
+      <div className="space-y-4">
+        {/* Danh tính: mã lớp, khóa, trạng thái — 1 dòng, không lặp lại tên (tiêu đề drawer đã có) */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="rounded-md border border-[#e2e8f0] bg-[#f8faff] px-2 py-1 font-mono font-bold text-[#475569]">{data.classCode}</span>
+          {data.course ? <span className="rounded-md bg-slate-100 px-2 py-1 font-bold text-slate-700">{data.course.name}</span> : null}
+          {data.isRemedial ? <span className="rounded-md bg-violet-100 px-2 py-1 font-bold text-violet-700">Bổ trợ</span> : null}
+          <span className={`rounded-md px-2 py-1 font-bold text-white ${statusBadgeClass}`}>{statusLabel}</span>
+          {data.totalOutstanding > 0 ? <span className="rounded-md bg-amber-100 px-2 py-1 font-bold text-amber-700">Nợ {formatVnd(data.totalOutstanding)}</span> : null}
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="flex flex-col items-center gap-3">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#e5e7eb] border-t-[#f97316]" />
-                <p className="text-sm text-[#64748b]">Đang tải đầy đủ thông tin lớp học...</p>
-              </div>
-            </div>
-          ) : error || !data ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="text-center">
-                <p className="text-sm font-semibold text-red-600">{error || "Không thể tải"}</p>
-                <button onClick={onClose} className="mt-4 rounded-xl border-2 border-[#e5eaf7] bg-white px-6 py-3 text-sm font-semibold">Đóng</button>
-              </div>
-            </div>
-          ) : (
-            <div className="mx-auto max-w-4xl space-y-4 p-4 pb-20">
-              {/* Hai con số nghiệp vụ thật sự cần: sĩ số/tiến độ và công nợ */}
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-[#e5eaf7] bg-white p-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Sĩ số</p>
-                  <p className="mt-1 text-3xl font-black text-[#0f1729]">{data.activeEnrollments}</p>
-                  <p className="mt-0.5 text-sm text-[#64748b]">
-                    Đã học {data.completedSessions}{data.totalSessions ? `/${data.totalSessions}` : ""} buổi
-                  </p>
-                </div>
-                <div className="rounded-xl border border-[#e5eaf7] bg-white p-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Công nợ</p>
-                  <p className={`mt-1 text-3xl font-black ${data.totalOutstanding > 0 ? "text-[#dc2626]" : "text-[#0f1729]"}`}>
-                    {formatVnd(data.totalOutstanding)}
-                  </p>
-                  <p className="mt-0.5 text-sm text-[#64748b]">{data.overdueEnrollments} học viên đang nợ</p>
-                </div>
-              </div>
+        {/* Hai con số nghiệp vụ thật sự cần: sĩ số/tiến độ và công nợ */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-[#e5eaf7] bg-white p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Sĩ số</p>
+            <p className="mt-1 text-3xl font-black text-[#0f1729]">{data.activeEnrollments}</p>
+            <p className="mt-0.5 text-sm text-[#64748b]">
+              Đã học {data.completedSessions}{data.totalSessions ? `/${data.totalSessions}` : ""} buổi
+            </p>
+          </div>
+          <div className="rounded-xl border border-[#e5eaf7] bg-white p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Công nợ</p>
+            <p className={`mt-1 text-3xl font-black ${data.totalOutstanding > 0 ? "text-[#dc2626]" : "text-[#0f1729]"}`}>
+              {formatVnd(data.totalOutstanding)}
+            </p>
+            <p className="mt-0.5 text-sm text-[#64748b]">{data.overdueEnrollments} học viên đang nợ</p>
+          </div>
+        </div>
 
               {data.attentionItems.length > 0 ? (
                 <ul className="space-y-1.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -278,26 +244,14 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
 
                 <div className="mt-4 flex flex-wrap gap-2 border-t border-[#f1f5f9] pt-4">
                   {data.latestSession ? (
-                    <SessionLinkWithDrawer
-                      sessionId={data.latestSession.id}
-                      classId={data.id}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] shadow-sm transition hover:border-[#f97316] hover:text-[#f97316]"
-                    >
+                    <SessionLinkWithDrawer sessionId={data.latestSession.id} classId={data.id} className={ACTION_CLASS}>
                       Điểm danh buổi gần nhất
                     </SessionLinkWithDrawer>
                   ) : null}
-                  <Link
-                    href="/tuition"
-                    onClick={onClose}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] shadow-sm transition hover:border-[#f97316] hover:text-[#f97316]"
-                  >
+                  <Link href="/tuition" onClick={onClose} className={ACTION_CLASS}>
                     Mở học phí
                   </Link>
-                  <Link
-                    href="/inventory"
-                    onClick={onClose}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] shadow-sm transition hover:border-[#f97316] hover:text-[#f97316]"
-                  >
+                  <Link href="/inventory" onClick={onClose} className={ACTION_CLASS}>
                     Mở giáo trình
                   </Link>
                 </div>
@@ -460,10 +414,7 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                   </div>
                 </Section>
               )}
-            </div>
-          )}
-        </div>
       </div>
-    </>
+    </ResponsiveDrawer>
   );
 }

@@ -5,6 +5,14 @@
 // trong. Row/Stat chỉ là label+giá trị, không tự vẽ viền — nội dung nào cần khung
 // riêng (form, danh sách phụ) thì tự quyết định, không mặc định có sẵn.
 
+// Style dùng chung cho hàng nút "hành động nhanh" ngay trong thân drawer — CỐ TÌNH
+// trung tính (viền trắng, chữ đen, chỉ đổi màu khi hover), không dùng màu cam
+// thương hiệu (.btn-primary) vốn để dành cho đúng 1 CTA thật sự quan trọng (vd
+// "Thu tiền ngay" khi có công nợ) — một hàng 3-4 nút thao tác thường ngày mà cái
+// nào cũng cam sẽ không còn phân biệt được đâu là việc thật sự cần ưu tiên.
+export const ACTION_CLASS =
+  "inline-flex items-center gap-1.5 rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] shadow-sm transition hover:border-[#f97316] hover:text-[#f97316]";
+
 export function Section({
   id,
   title,
