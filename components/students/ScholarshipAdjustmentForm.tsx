@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
-import FormGuide from "@/components/ui/FormGuide";
 
 // Trước đây đây là 2 khái niệm tách riêng (tab "Học bổng" / "Điều chỉnh HP") — với
 // người dùng cả hai chỉ là MỘT thứ: chiết khấu, giảm % học phí. Sự khác nhau thật sự
@@ -26,35 +25,6 @@ type MergedItem = Item & { kind: "scholarship" | "adjustment" };
 
 type EnrollmentOption = { id: string; className: string; status: string };
 
-const DISCOUNT_GUIDE_SECTIONS = [
-  {
-    title: "Dùng để làm gì",
-    items: [
-      "Chiết khấu dùng để giảm % học phí cho học viên — không giảm tiền sách.",
-      "Áp dụng cho đúng 1 lớp: chiết khấu đi theo học viên khi chuyển sang lớp mới.",
-      "Áp dụng cho tất cả các lớp: dùng cho ưu đãi chung (vd anh chị em, nhân viên).",
-    ],
-    tone: "info" as const,
-  },
-  {
-    title: "Cách làm đúng",
-    items: [
-      "Chọn đúng phạm vi áp dụng trước khi nhập %.",
-      "Muốn đổi mục cũ thì bấm Sửa, không tạo chồng mục mới.",
-    ],
-    tone: "success" as const,
-  },
-  {
-    title: "Lưu ý",
-    items: [
-      "Hệ thống sẽ tính lại học phí sau khi thêm, sửa hoặc xóa.",
-      "Chưa ghi danh thì chưa thể gắn chiết khấu theo lớp.",
-      "Nên ghi rõ lý do để sau này đối soát.",
-    ],
-    tone: "warning" as const,
-  },
-];
-
 export default function ScholarshipAdjustmentForm({
   studentId,
   scholarships,
@@ -69,7 +39,7 @@ export default function ScholarshipAdjustmentForm({
   enrollments: EnrollmentOption[];
   onChanged?: () => void;
   /** Truyền true khi nơi gọi (drawer) đã tự có khung viền riêng — bỏ khung/nền của
-   *  chính component này và của từng dòng chiết khấu để không bị khung lồng khung. */
+   *  chính component này để không bị khung lồng khung. */
   bare?: boolean;
 }) {
   const router = useRouter();
@@ -157,72 +127,77 @@ export default function ScholarshipAdjustmentForm({
     setEnrollmentId(item.enrollment?.id ?? "");
   }
 
+  // Cùng vocabulary bảng với "Giáo trình" trong StudentFinanceDesk (header xám hoa,
+  // dòng bo góc trái/phải, nền #fbfdff) — trước đây chiết khấu tự vẽ 1 kiểu khác hẳn
+  // (icon tròn, khung form riêng), nhìn như 2 phần mềm khác nhau ghép lại.
   return (
     <div className={bare ? "" : "card"}>
-      <FormGuide
-        title="Hướng dẫn chiết khấu"
-        summary="Cách thêm chiết khấu học phí và chọn đúng phạm vi áp dụng."
-        sections={DISCOUNT_GUIDE_SECTIONS}
-        position="inline"
-        buttonLabel="Guide"
-      />
-      <div className="flex items-center gap-2 mb-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>
-          </svg>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-black text-[#0f1729]">Chiết khấu</p>
+          <p className="mt-0.5 text-xs text-[#64748b]">Giảm % học phí theo lớp hoặc cho tất cả các lớp đang học — không giảm tiền sách.</p>
         </div>
-        <h2 className="font-display text-base font-bold tracking-tight text-ink">Chiết khấu</h2>
       </div>
 
-      <div className={bare ? "" : "space-y-2 mb-4"}>
-        {list.length === 0 ? (
-          <div className={bare ? "py-4 text-center" : "rounded-xl border border-dashed border-[#e2e8f0] py-6 text-center"}>
-            <p className="text-sm text-ink-muted48">Chưa có chiết khấu nào.</p>
-          </div>
-        ) : (
-          list.map((item) => (
-            <div
-              key={item.id}
-              className={
-                bare
-                  ? "flex items-center justify-between border-b border-[#f1f5f9] py-3 first:pt-0 last:border-0 last:pb-0"
-                  : "flex items-center justify-between rounded-xl border border-[#e8edf5] bg-[#f8fafc] px-4 py-3"
-              }
-            >
-              <div>
-                <p className="text-sm font-semibold text-ink">{item.reason ?? "Không có ghi chú"}</p>
-                <p className="text-xs font-medium text-primary mt-0.5">
-                  {item.enrollment ? `Áp dụng: ${item.enrollment.class?.className ? `Lớp ${item.enrollment.class.className}` : "Gói học"}` : "Áp dụng: Tất cả các lớp"}
-                </p>
-                <p className="text-xs text-ink-muted48 mt-0.5">
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[560px] border-separate border-spacing-y-2 text-base">
+          <thead>
+            <tr className="text-left text-xs font-semibold uppercase tracking-wide text-ink-muted48">
+              <th className="px-3 pb-1">Áp dụng</th>
+              <th className="px-3 pb-1">Lý do</th>
+              <th className="px-3 pb-1">Hiệu lực</th>
+              <th className="px-3 pb-1 text-right">Tỉ lệ</th>
+              <th className="px-3 pb-1 text-right">Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((item) => (
+              <tr key={item.id} className="bg-[#fbfdff]">
+                <td className="rounded-l-2xl px-3 py-3 align-top text-ink-muted80">
+                  {item.enrollment ? `Lớp ${item.enrollment.class?.className ?? "?"}` : "Tất cả các lớp"}
+                </td>
+                <td className="px-3 py-3 align-top text-ink-muted80">{item.reason || "—"}</td>
+                <td className="px-3 py-3 align-top text-xs text-ink-muted48">
                   Từ {new Date(item.effectiveFrom).toLocaleDateString("vi-VN")}
                   {item.effectiveTo ? ` → ${new Date(item.effectiveTo).toLocaleDateString("vi-VN")}` : " (còn hiệu lực)"}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-base font-bold text-amber-600">-{Math.round(item.percentage * 100)}%</span>
-                <button type="button" onClick={() => startEdit(item)} className="btn-ghost-sm">
-                  Sửa
-                </button>
-                <ConfirmActionButton
-                  title="Xác nhận xóa mục này?"
-                  description="Hệ thống sẽ xóa mục này và tính lại học phí tương ứng."
-                  confirmLabel="Xóa mục"
-                  tone="danger"
-                  className="btn-ghost-sm text-red-600 hover:text-red-700"
-                  onConfirm={() => removeItem(item)}
-                >
-                  Xóa
-                </ConfirmActionButton>
-              </div>
-            </div>
-          ))
-        )}
+                </td>
+                <td className="px-3 py-3 text-right align-top font-black text-amber-600">-{Math.round(item.percentage * 100)}%</td>
+                <td className="rounded-r-2xl px-3 py-3 text-right align-top">
+                  <div className="inline-flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(item)}
+                      className="rounded-full border border-[#e2e8f0] bg-white px-3 py-1 text-xs font-semibold text-[#0f1729] hover:border-[#f97316] hover:text-[#f97316]"
+                    >
+                      Sửa
+                    </button>
+                    <ConfirmActionButton
+                      title="Xác nhận xóa mục này?"
+                      description="Hệ thống sẽ xóa mục này và tính lại học phí tương ứng."
+                      confirmLabel="Xóa mục"
+                      tone="danger"
+                      className="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                      onConfirm={() => removeItem(item)}
+                    >
+                      Xóa
+                    </ConfirmActionButton>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {list.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-3 py-6 text-center text-sm text-ink-muted48">
+                  Chưa có chiết khấu nào.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
       </div>
 
       {/* Add/edit form */}
-      <div className={bare ? "border-t border-[#f1f5f9] pt-4" : "rounded-xl border border-[#e8edf5] bg-[#fafbff] p-4"}>
+      <div className="mt-4 border-t border-[#f1f5f9] pt-4">
         <p className="text-xs font-bold uppercase tracking-wide text-ink-muted48 mb-3">
           {editing ? "Đang sửa chiết khấu" : "Thêm chiết khấu"}
         </p>
@@ -274,7 +249,7 @@ export default function ScholarshipAdjustmentForm({
             <button
               type="submit"
               disabled={loading}
-              className="btn-ghost-sm w-full border-dashed hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] hover:border-[#f97316] hover:text-[#f97316] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Đang lưu..." : editing ? "Lưu chỉnh sửa" : "Thêm chiết khấu"}
             </button>

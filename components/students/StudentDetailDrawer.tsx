@@ -8,7 +8,7 @@ import StudentEditForm from "./StudentEditForm";
 import StudentSessionCredits from "./StudentSessionCredits";
 import ScholarshipAdjustmentForm from "./ScholarshipAdjustmentForm";
 import AssignEnrollmentForm from "./AssignEnrollmentForm";
-import GuardianAccountPanel from "@/components/guardians/GuardianAccountPanel";
+import AddGuardianForm from "./AddGuardianForm";
 import TransferEnrollmentButton from "@/components/classes/TransferEnrollmentButton";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import { Section, Row, Stat, ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
@@ -556,7 +556,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
           </Section>
 
           <Section
-            title="Phụ huynh & Portal"
+            title="Phụ huynh"
             hint={primaryGuardian ? primaryGuardian.fullName : "Chưa gắn phụ huynh"}
           >
             <div className="space-y-4">
@@ -568,28 +568,13 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                         {item.guardian.fullName}
                       </Link>
                       {item.guardian.phone ? ` · ${item.guardian.phone}` : ""}
-                      {item.guardian.user
-                        ? ` · ${item.guardian.user.email}${item.guardian.user.isActive ? "" : " (chưa kích hoạt)"}`
-                        : " · chưa cấp portal"}
                     </Row>
                   ))}
                 </div>
               ) : (
                 <p className="text-sm text-[#94a3b8]">Chưa liên kết phụ huynh nào.</p>
               )}
-              {data.permissions.canManageGuardianAccount && data.primaryGuardian ? (
-                <GuardianAccountPanel
-                  guardianId={data.primaryGuardian.id}
-                  account={
-                    data.primaryGuardian.user
-                      ? { email: data.primaryGuardian.user.email, isActive: data.primaryGuardian.user.isActive }
-                      : null
-                  }
-                  defaultEmail=""
-                  onChanged={() => void reload()}
-                  bare
-                />
-              ) : null}
+              {data.permissions.canEditStudent ? <AddGuardianForm studentId={data.id} onChanged={() => void reload()} /> : null}
             </div>
           </Section>
 
