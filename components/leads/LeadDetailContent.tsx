@@ -228,6 +228,7 @@ export default function LeadDetailContent({
               actualEnrollDate={lead.actualEnrollDate}
               interestedClassId={lead.interestedClassId}
               classOptions={classOptions}
+              onSaved={onChanged}
             />
           ) : null}
           {deletable && !isConverted ? (

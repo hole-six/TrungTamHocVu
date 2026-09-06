@@ -26,6 +26,7 @@ export default function TestQuickAction({
   actualEnrollDate,
   interestedClassId,
   classOptions,
+  onSaved,
 }: {
   leadId: string;
   latestTest: LatestTest;
@@ -33,6 +34,10 @@ export default function TestQuickAction({
   actualEnrollDate?: Date | string | null;
   interestedClassId?: string | null;
   classOptions: { id: string; className: string }[];
+  /** Nơi gọi tự giữ dữ liệu trong state (drawer chi tiết lead fetch qua
+   *  /api/leads/[id]/detail) phải nạp lại — router.refresh() chỉ dựng lại server
+   *  component, KHÔNG chạy lại fetch phía client nên drawer sẽ vẫn hiện ngày hẹn cũ. */
+  onSaved?: () => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -51,6 +56,25 @@ export default function TestQuickAction({
   const canSetStartDate = form.status === "PASSED";
 
   useEffect(() => setMounted(true), []);
+
+  // Đồng bộ lại form mỗi lần MỞ panel theo dữ liệu mới nhất từ props. useState ở trên
+  // chỉ chạy đúng 1 lần lúc mount, mà dòng lead ở bảng/drawer không bị unmount sau khi
+  // lưu — nên nếu không có chỗ này, mở lại panel sẽ thấy đúng giá trị của lần mount đầu
+  // tiên chứ không phải ngày vừa lưu.
+  useEffect(() => {
+    if (!open) return;
+    setForm({
+      scheduledDate: toYmd(latestTest?.scheduledDate ?? null),
+      testDate: toYmd(latestTest?.testDate ?? null),
+      status: latestTest?.status ?? "SCHEDULED",
+      result: latestTest?.result ?? "",
+      expectedStartDate: toYmd(expectedStartDate ?? null),
+      actualEnrollDate: toYmd(actualEnrollDate ?? null),
+    });
+    setSelectedClassId(interestedClassId ?? "");
+    setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, latestTest?.id, latestTest?.scheduledDate, latestTest?.testDate, latestTest?.status, expectedStartDate, actualEnrollDate, interestedClassId]);
 
   async function save() {
     setSaving(true);
@@ -92,6 +116,7 @@ export default function TestQuickAction({
 
     setSaving(false);
     setOpen(false);
+    onSaved?.();
     router.refresh();
   }
 
