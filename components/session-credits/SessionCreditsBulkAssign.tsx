@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
+import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 
 type Candidate = { id: string; fullName: string; studentCode: string; availableCredits: number };
 type RemedialClassOption = {
@@ -80,21 +82,21 @@ export default function SessionCreditsBulkAssign({ candidates }: { candidates: C
 
   if (candidates.length === 0) return null;
 
+  // Nút nhỏ đứng cùng hàng với các nút thao tác khác — trước đây là 1 thanh chiếm trọn
+  // chiều ngang trang, và bung nội dung ngay tại chỗ nên đẩy cả bảng xuống dưới.
   return (
-    <div className="rounded-2xl border border-[#dbe3ef] bg-[#fbfdff]">
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-      >
-        <span className="text-sm font-bold text-[#0f1729]">
-          Xếp hàng loạt vào lớp bổ trợ ({candidates.length} học viên có buổi khả dụng)
-        </span>
-        <span className="text-xs font-semibold text-[#1d4ed8]">{open ? "Thu gọn" : "Mở"}</span>
+    <>
+      <button type="button" onClick={() => setOpen(true)} className={ACTION_CLASS}>
+        Xếp hàng loạt ({candidates.length})
       </button>
 
-      {open ? (
-        <div className="space-y-4 border-t border-[#e5eaf7] px-4 py-4">
+      <ResponsiveDrawer
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Xếp hàng loạt vào lớp bổ trợ"
+        widthClassName="max-w-2xl"
+      >
+        <div className="space-y-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">1. Chọn lớp bổ trợ</p>
             <select
@@ -186,12 +188,12 @@ export default function SessionCreditsBulkAssign({ candidates }: { candidates: C
             type="button"
             onClick={submit}
             disabled={!classId || !sessionId || selectedIds.size === 0 || loading}
-            className="btn-primary"
+            className={`${ACTION_CLASS} disabled:cursor-not-allowed disabled:opacity-50`}
           >
             {loading ? "Đang xếp..." : `Xếp ${selectedIds.size || ""} học viên vào buổi đã chọn`}
           </button>
         </div>
-      ) : null}
-    </div>
+      </ResponsiveDrawer>
+    </>
   );
 }

@@ -80,10 +80,14 @@ export default function StudentEditForm({ studentId, initial, onChanged }: Props
         </label>
         <label className="space-y-1">
           <span className="label-sm">Giới tính</span>
+          {/* Giá trị phải là MALE/FEMALE/OTHER giống form tạo học viên và đúng những gì
+              đang nằm trong DB — trước đây form này lưu thẳng chữ "Nam"/"Nữ", nên sau
+              khi sửa hồ sơ thì GENDER_LABEL ở drawer không tra ra được nhãn nào. */}
           <select className="input" value={form.gender} onChange={(e) => update("gender", e.target.value)}>
             <option value="">— Chọn —</option>
-            <option value="Nam">Nam</option>
-            <option value="Nữ">Nữ</option>
+            <option value="MALE">Nam</option>
+            <option value="FEMALE">Nữ</option>
+            <option value="OTHER">Khác</option>
           </select>
         </label>
         <label className="space-y-1">

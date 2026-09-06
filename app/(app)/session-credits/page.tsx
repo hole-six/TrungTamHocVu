@@ -195,8 +195,6 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
     <div className="space-y-4">
       <h1 className="text-xl font-black tracking-tight text-[#0f1729] sm:text-2xl">Bảng xử lý bổ trợ</h1>
 
-      {canUpdate("schedule", role) ? <SessionCreditsBulkAssign candidates={bulkAssignCandidates} /> : null}
-
       <CreditsTable
         initialData={rows}
         statusParam={statusParam}
@@ -206,6 +204,7 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
         headerActions={
           <div className="flex flex-wrap items-center gap-2">
             {canUpdate("students", role) ? <AddPaidCatchupForm /> : null}
+            {canUpdate("schedule", role) ? <SessionCreditsBulkAssign candidates={bulkAssignCandidates} /> : null}
             <CreditFilterChips stats={stats} statusParam={statusParam} typeParam={type} />
           </div>
         }

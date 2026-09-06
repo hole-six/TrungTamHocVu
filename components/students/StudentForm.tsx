@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import SmartForm, { FormSection } from "@/components/ui/SmartForm/SmartForm";
+import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { useStudentDrawer } from "@/contexts/StudentDrawerContext";
 
 type StudentFormProps = {
@@ -13,279 +14,168 @@ type StudentFormProps = {
   onCreated?: () => void;
 };
 
+function toDateInput(value: unknown) {
+  if (!value) return "";
+  return new Date(value as string).toISOString().slice(0, 10);
+}
+
+// Form tạo/sửa học viên — trước đây dựng bằng SmartForm: mỗi nhóm trường là 1 thẻ bo
+// góc lớn có nền gradient + icon tròn, cộng 1 thanh "stepper" và 1 thanh nút dính ở
+// đáy, tức là 6 khung lồng trong drawer vốn đã là 1 khung. Lưới của SmartForm còn là
+// 3 cột trong khi drawer chỉ đủ rộng cho 2, nên các ô không bao giờ thẳng hàng. Giờ
+// viết thẳng: 1 lưới 2 cột duy nhất, các nhóm ngăn nhau bằng 1 đường kẻ mảnh.
 export default function StudentForm({ initialData, studentId, onCancel, onCreated }: StudentFormProps) {
   const router = useRouter();
   const { openDrawer } = useStudentDrawer();
   const isEdit = !!studentId;
 
-  const sections: FormSection[] = [
-    {
-      title: "Thông tin cơ bản",
-      icon: (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-primary"
-        >
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-          <circle cx="12" cy="7" r="4" />
-        </svg>
-      ),
-      fields: [
-        {
-          name: "fullName",
-          label: "Họ và tên",
-          type: "text",
-          placeholder: "Nguyễn Văn A",
-          required: true,
-          defaultValue: initialData?.fullName || "",
-          icon: (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-          ),
-        },
-        ...(isEdit
-          ? [
-              {
-                name: "studentCode",
-                label: "Mã học viên",
-                type: "text" as const,
-                defaultValue: initialData?.studentCode || "",
-                disabled: true,
-                description: "Mã số nội bộ không thể thay đổi",
-                icon: (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                    <line x1="16" y1="2" x2="16" y2="6" />
-                    <line x1="8" y1="2" x2="8" y2="6" />
-                    <line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                ),
-              },
-            ]
-          : []),
-        {
-          name: "gender",
-          label: "Giới tính",
-          type: "select",
-          defaultValue: initialData?.gender || "",
-          options: [
-            { value: "MALE", label: "Nam" },
-            { value: "FEMALE", label: "Nữ" },
-            { value: "OTHER", label: "Khác" },
-          ],
-        },
-        {
-          name: "dob",
-          label: "Ngày sinh",
-          type: "date",
-          defaultValue: initialData?.dob ? new Date(initialData.dob).toISOString().split("T")[0] : "",
-          icon: (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-          ),
-        },
-      ],
-    },
-    {
-      title: "Thông tin liên hệ",
-      icon: (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-primary"
-        >
-          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-        </svg>
-      ),
-      fields: [
-        {
-          name: "phone",
-          label: "Số điện thoại",
-          type: "tel",
-          placeholder: "0912345678",
-          defaultValue: initialData?.phone || "",
-          validation: (value) => {
-            if (value && !/^[0-9]{10,11}$/.test(value)) {
-              return "Số điện thoại không hợp lệ (10-11 chữ số)";
-            }
-          },
-          icon: (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-            </svg>
-          ),
-        },
-        {
-          name: "address",
-          label: "Địa chỉ",
-          type: "textarea",
-          placeholder: "Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố",
-          defaultValue: initialData?.address || "",
-          rows: 3,
-          icon: (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-          ),
-        },
-      ],
-    },
-    {
-      title: "Thông tin nhập học",
-      icon: (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-primary"
-        >
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-          <line x1="16" y1="2" x2="16" y2="6" />
-          <line x1="8" y1="2" x2="8" y2="6" />
-          <line x1="3" y1="10" x2="21" y2="10" />
-        </svg>
-      ),
-      collapsible: true,
-      fields: [
-        {
-          name: "enrollDate",
-          label: "Ngày nhập học",
-          type: "date",
-          defaultValue: initialData?.enrollDate
-            ? new Date(initialData.enrollDate).toISOString().split("T")[0]
-            : new Date().toISOString().split("T")[0],
-          icon: (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-          ),
-        },
-        {
-          name: "referredBy",
-          label: "Người giới thiệu",
-          type: "text",
-          placeholder: "Tên người/tổ chức giới thiệu",
-          defaultValue: initialData?.referredBy || "",
-          icon: (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-          ),
-        },
-        {
-          name: "status",
-          label: "Trạng thái",
-          type: "select",
-          defaultValue: initialData?.status || "ACTIVE",
-          options: [
-            { value: "ACTIVE", label: "Đang học" },
-            { value: "LEFT", label: "Đã nghỉ" },
-          ],
-        },
-      ],
-    },
-    {
-      title: "Ghi chú & thông tin khác",
-      icon: (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-primary"
-        >
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-        </svg>
-      ),
-      collapsible: true,
-      defaultCollapsed: true,
-      fields: [
-        {
-          name: "notes",
-          label: "Ghi chú",
-          type: "textarea",
-          placeholder: "Ghi chú về học viên (tình trạng sức khỏe, sở thích, mục tiêu học tập...)",
-          defaultValue: initialData?.notes || "",
-          rows: 4,
-        },
-      ],
-    },
-  ];
+  const [form, setForm] = useState({
+    fullName: initialData?.fullName ?? "",
+    gender: initialData?.gender ?? "",
+    dob: toDateInput(initialData?.dob),
+    phone: initialData?.phone ?? "",
+    address: initialData?.address ?? "",
+    enrollDate: initialData?.enrollDate ? toDateInput(initialData.enrollDate) : new Date().toISOString().slice(0, 10),
+    referredBy: initialData?.referredBy ?? "",
+    status: initialData?.status ?? "ACTIVE",
+    notes: initialData?.notes ?? "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
-  const handleSubmit = async (data: Record<string, any>) => {
-    const url = isEdit ? `/api/students/${studentId}` : "/api/students";
-    const method = isEdit ? "PATCH" : "POST";
+  function set<K extends keyof typeof form>(key: K, value: string) {
+    setForm((current) => ({ ...current, [key]: value }));
+    if (key === "phone") setPhoneError(null);
+  }
 
-    const res = await fetch(url, {
-      method,
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (form.phone && !/^[0-9]{10,11}$/.test(form.phone)) {
+      setPhoneError("Số điện thoại không hợp lệ (10-11 chữ số)");
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    const res = await fetch(isEdit ? `/api/students/${studentId}` : "/api/students", {
+      method: isEdit ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...form, dob: form.dob || null }),
     });
 
     if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Có lỗi xảy ra");
+      const data = await res.json().catch(() => ({}));
+      setSubmitting(false);
+      setError(data.error ?? "Có lỗi xảy ra");
+      return;
     }
 
     const result = await res.json();
+    setSubmitting(false);
     onCreated?.();
     openDrawer(result.item.id);
     router.refresh();
-  };
+  }
 
-  const handleCancel = () => {
-    if (onCancel) {
-      onCancel();
-    } else if (isEdit) {
-      router.push(`/students/${studentId}`);
-    } else {
-      router.push("/students");
-    }
-  };
+  function handleCancel() {
+    if (onCancel) onCancel();
+    else if (isEdit) router.push(`/students/${studentId}`);
+    else router.push("/students");
+  }
 
   return (
-    <SmartForm
-      sections={sections}
-      onSubmit={handleSubmit}
-      onCancel={handleCancel}
-      submitLabel={isEdit ? "Cập nhật" : "Tạo học viên"}
-      cancelLabel="Hủy"
-    />
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="space-y-1 sm:col-span-2">
+          <span className="label-sm">Họ và tên *</span>
+          <input
+            required
+            className="input"
+            placeholder="Nguyễn Văn A"
+            value={form.fullName}
+            onChange={(e) => set("fullName", e.target.value)}
+          />
+        </label>
+        {isEdit ? (
+          <label className="space-y-1">
+            <span className="label-sm">Mã học viên</span>
+            <input className="input" value={initialData?.studentCode ?? ""} disabled />
+          </label>
+        ) : null}
+        <label className="space-y-1">
+          <span className="label-sm">Giới tính</span>
+          <select className="input" value={form.gender} onChange={(e) => set("gender", e.target.value)}>
+            <option value="">— Chọn —</option>
+            <option value="MALE">Nam</option>
+            <option value="FEMALE">Nữ</option>
+            <option value="OTHER">Khác</option>
+          </select>
+        </label>
+        <label className="space-y-1">
+          <span className="label-sm">Ngày sinh</span>
+          <input type="date" className="input" value={form.dob} onChange={(e) => set("dob", e.target.value)} />
+        </label>
+        <label className="space-y-1">
+          <span className="label-sm">Số điện thoại</span>
+          <input className="input" placeholder="0912345678" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
+          {phoneError ? <span className="block text-xs text-red-600">{phoneError}</span> : null}
+        </label>
+        <label className="space-y-1 sm:col-span-2">
+          <span className="label-sm">Địa chỉ</span>
+          <input
+            className="input"
+            placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố"
+            value={form.address}
+            onChange={(e) => set("address", e.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 border-t border-[#f1f5f9] pt-4 sm:grid-cols-2">
+        <label className="space-y-1">
+          <span className="label-sm">Ngày nhập học</span>
+          <input type="date" className="input" value={form.enrollDate} onChange={(e) => set("enrollDate", e.target.value)} />
+        </label>
+        <label className="space-y-1">
+          <span className="label-sm">Trạng thái</span>
+          <select className="input" value={form.status} onChange={(e) => set("status", e.target.value)}>
+            <option value="ACTIVE">Đang học</option>
+            <option value="LEFT">Đã nghỉ</option>
+          </select>
+        </label>
+        <label className="space-y-1 sm:col-span-2">
+          <span className="label-sm">Người giới thiệu</span>
+          <input
+            className="input"
+            placeholder="Tên người/tổ chức giới thiệu"
+            value={form.referredBy}
+            onChange={(e) => set("referredBy", e.target.value)}
+          />
+        </label>
+        <label className="space-y-1 sm:col-span-2">
+          <span className="label-sm">Ghi chú</span>
+          <textarea
+            className="input resize-none"
+            rows={3}
+            placeholder="Tình trạng sức khỏe, sở thích, mục tiêu học tập..."
+            value={form.notes}
+            onChange={(e) => set("notes", e.target.value)}
+          />
+        </label>
+      </div>
+
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+      <div className="flex gap-2">
+        <button type="submit" disabled={submitting} className={ACTION_CLASS}>
+          {submitting ? "Đang lưu..." : isEdit ? "Cập nhật" : "Tạo học viên"}
+        </button>
+        <button type="button" onClick={handleCancel} disabled={submitting} className="btn-ghost-sm">
+          Hủy
+        </button>
+      </div>
+    </form>
   );
 }
