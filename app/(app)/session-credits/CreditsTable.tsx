@@ -48,6 +48,8 @@ type CreditsTableProps = {
   typeParam: string;
   studentParam: string;
   showConsumedColumn: boolean;
+  /** Hàng chip lọc + nút thao tác, render ở server rồi truyền xuống (giống /students). */
+  headerActions?: React.ReactNode;
 };
 
 function formatDate(date: Date | string | null | undefined) {
@@ -129,7 +131,14 @@ function ConsumedList({ row }: { row: CreditRow }) {
   );
 }
 
-export default function CreditsTable({ initialData, statusParam, typeParam, studentParam, showConsumedColumn }: CreditsTableProps) {
+export default function CreditsTable({
+  initialData,
+  statusParam,
+  typeParam,
+  studentParam,
+  showConsumedColumn,
+  headerActions,
+}: CreditsTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -276,7 +285,11 @@ export default function CreditsTable({ initialData, statusParam, typeParam, stud
     <DataTableResponsive
       data={initialData}
       columns={columns}
-      searchable={false}
+      headerActions={headerActions}
+      searchable
+      searchPlaceholder="Tìm theo tên, mã học viên..."
+      onSearch={(value) => updateParams({ student: value || null })}
+      defaultSearchValue={studentParam}
       showCountBadge={false}
       sortable={false}
       selectable={false}

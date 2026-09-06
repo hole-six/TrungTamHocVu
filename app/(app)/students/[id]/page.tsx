@@ -1324,12 +1324,11 @@ export default async function StudentDetailPage({
           {
             key: "hoso",
             label: "Hồ sơ",
+            // 1 khung duy nhất: tiêu đề + form. Trước đây là 2 khung rời chồng lên nhau
+            // (1 khung chỉ chứa đúng dòng tiêu đề, 1 khung là form).
             content: canEditStudent ? (
-              <div className="space-y-5">
-                <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
-                  <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Cập nhật hồ sơ</h2>
-                  <p className="mt-1 text-sm text-[#64748b]">Sửa thông tin cá nhân, trạng thái và ghi chú nội bộ.</p>
-                </div>
+              <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
+                <h2 className="mb-4 text-lg font-black tracking-tight text-[#0f1729]">Cập nhật hồ sơ</h2>
                 <StudentEditForm
                   studentId={student.id}
                   initial={{

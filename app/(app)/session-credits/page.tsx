@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentBranchId } from "@/lib/branch-filter";
@@ -9,9 +8,9 @@ import AddPaidCatchupForm from "@/components/session-credits/AddPaidCatchupForm"
 import { resolveSourceLessonDetails } from "@/lib/server/session-credit-lessons";
 import SessionCreditsBulkAssign from "@/components/session-credits/SessionCreditsBulkAssign";
 import CreditsTable from "./CreditsTable";
+import CreditFilterChips, { type CreditStats } from "./CreditFilterChips";
 
 type SearchParams = {
-  view?: string;
   status?: string;
   type?: string;
   student?: string;
@@ -19,44 +18,37 @@ type SearchParams = {
   availableTo?: string;
 };
 
-// "Bổ trợ theo ngày" — feedback khách: "đây chỉ là bảng thống kê, chưa phải danh
-// sách theo ngày, điểm danh đã đi học bổ trợ theo ngày ở đâu?". Trước đây không có
-// view nào liệt kê theo NGÀY cụ thể học viên nào đã bổ trợ — chỉ có tổng hợp theo
-// học viên. Dùng đúng dữ liệu đã có (SessionCredit.status=CONSUMED, tự set khi điểm
-// danh buổi bù — xem app/api/sessions/[id]/attendance/route.ts), nhóm theo ngày của
-// buổi học bù (consumedSession.sessionDate).
-async function getDailyRemedialLog(activeBranchId: string | null) {
-  const credits = await prisma.sessionCredit.findMany({
+const CREDIT_ORIGINS = ["ABSENCE", "PAID_CATCHUP", "WEAK_STUDENT", "WITHDRAWAL_REMAINING"];
+
+// Số cho hàng chip lọc — CỐ TÌNH đếm KHÔNG theo bộ lọc status/type đang chọn (chỉ theo
+// chi nhánh). Nếu đếm trên `rows` đã lọc thì bấm vào 1 chip loại sẽ làm mọi chip còn lại
+// tụt về 0, không còn biết các nhóm khác đang có bao nhiêu để mà bấm sang.
+async function getCreditStats(activeBranchId: string | null): Promise<CreditStats> {
+  const grouped = await prisma.sessionCredit.groupBy({
+    by: ["origin", "status"],
     where: {
-      status: "CONSUMED",
-      consumedSessionId: { not: null },
+      origin: { in: CREDIT_ORIGINS },
       student: activeBranchId ? { branchId: activeBranchId } : {},
     },
-    include: {
-      student: { select: { id: true, fullName: true, studentCode: true } },
-      consumedSession: { include: { class: { select: { className: true } }, journal: true } },
-    },
-    orderBy: { consumedAt: "desc" },
-    take: 300,
+    _count: { _all: true },
   });
 
-  const rows = credits
-    .filter((credit) => credit.consumedSession && credit.student)
-    .map((credit) => ({
-      id: credit.id,
-      date: credit.consumedSession!.sessionDate,
-      studentName: credit.student!.fullName,
-      studentCode: credit.student!.studentCode,
-      className: credit.consumedSession!.class.className,
-      lesson: credit.consumedSession!.journal?.unitLesson ?? credit.notes ?? "—",
-    }));
+  const countOf = (origin: string, status: string) =>
+    grouped.find((item) => item.origin === origin && item.status === status)?._count._all ?? 0;
+  const sumWhere = (predicate: (item: (typeof grouped)[number]) => boolean) =>
+    grouped.filter(predicate).reduce((sum, item) => sum + item._count._all, 0);
 
-  const byDay = new Map<string, typeof rows>();
-  for (const row of rows) {
-    const key = new Date(row.date).toLocaleDateString("vi-VN");
-    byDay.set(key, [...(byDay.get(key) ?? []), row]);
-  }
-  return [...byDay.entries()];
+  return {
+    total: sumWhere(() => true),
+    available: sumWhere((item) => item.status === "AVAILABLE"),
+    consumed: sumWhere((item) => item.status === "CONSUMED"),
+    // Chip theo loại đếm buổi CÒN PHẢI XẾP — con số thực sự cần hành động, giống ý
+    // nghĩa của 4 ô thống kê cũ ("... còn lại"), không phải tổng mọi trạng thái.
+    absence: countOf("ABSENCE", "AVAILABLE"),
+    paidCatchup: countOf("PAID_CATCHUP", "AVAILABLE"),
+    weakStudent: countOf("WEAK_STUDENT", "AVAILABLE"),
+    withdrawalRemaining: countOf("WITHDRAWAL_REMAINING", "AVAILABLE"),
+  };
 }
 
 async function getCreditRows(activeBranchId: string | null, statusFilter: string, typeFilter: string, studentFilter: string) {
@@ -160,15 +152,17 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
   if (!user || (!canView("students", role) && !canView("schedule", role) && !canView("leads", role))) notFound();
 
   const activeBranchId = await getCurrentBranchId();
-  const view = searchParams.view === "daily" ? "daily" : "stats";
   const statusParam = searchParams.status ?? "AVAILABLE";
   const status = statusParam === "ALL" ? "" : statusParam;
   const type = searchParams.type ?? "";
   const student = searchParams.student?.trim() ?? "";
   const availableFrom = searchParams.availableFrom?.trim() ?? "";
   const availableTo = searchParams.availableTo?.trim() ?? "";
-  const dailyLog = view === "daily" ? await getDailyRemedialLog(activeBranchId) : [];
-  let rows = view === "stats" ? await getCreditRows(activeBranchId, status, type, student) : [];
+  const [stats, initialRows] = await Promise.all([
+    getCreditStats(activeBranchId),
+    getCreditRows(activeBranchId, status, type, student),
+  ]);
+  let rows = initialRows;
   // availableCount là số tính SAU khi gộp nhóm (không phải cột thô) — lọc bằng JS ở
   // server sau khi đã có đủ rows, cùng cách "computed-filter" đang dùng ở /students.
   if (availableFrom) rows = rows.filter((row) => row.availableCount >= Number(availableFrom));
@@ -178,13 +172,6 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
   // rỗng ở mọi dòng. Ẩn hẳn cột này khi nó không thể có dữ liệu, thay vì hiện 1 cột
   // trống vô nghĩa xuyên suốt bảng — chỉ hiện khi bộ lọc có thể trả về credit đã dùng.
   const showConsumedColumn = status !== "AVAILABLE";
-
-  const totalCredits = rows.reduce((sum, row) => sum + row.totalCount, 0);
-  const availableCredits = rows.reduce((sum, row) => sum + row.availableCount, 0);
-  const absenceNeedLesson = rows.filter((row) => row.origin === "ABSENCE").reduce((sum, row) => sum + row.availableCount, 0);
-  const paidCatchupRemaining = rows.filter((row) => row.origin === "PAID_CATCHUP").reduce((sum, row) => sum + row.availableCount, 0);
-  const weakStudentRemaining = rows.filter((row) => row.origin === "WEAK_STUDENT").reduce((sum, row) => sum + row.availableCount, 0);
-  const withdrawalRemaining = rows.filter((row) => row.origin === "WITHDRAWAL_REMAINING").reduce((sum, row) => sum + row.availableCount, 0);
 
   // Gộp theo học viên (1 học viên có thể xuất hiện ở nhiều dòng khác nhau — vd vừa có
   // credit ABSENCE vừa có PAID_CATCHUP) để form xếp hàng loạt không hiện trùng 1 người
@@ -205,109 +192,24 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
   );
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-[#0f1729]">Bảng xử lý bổ trợ</h1>
-          <p className="mt-1 max-w-3xl text-sm text-[#64748b]">
-            Gom học viên bổ trợ vắng cần bài và bổ trợ đầu khóa vào một nơi để CSO biết còn bao nhiêu buổi, đã bù ngày nào và phải mở đúng hồ sơ/lớp nào.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {canUpdate("students", role) ? <AddPaidCatchupForm /> : null}
-          <Link href="/students" className="rounded-lg border border-[#e5e7eb] bg-white px-4 py-2 text-sm font-bold text-[#0f1729] hover:bg-[#fafafa]">
-            Danh sách học viên
-          </Link>
-        </div>
-      </div>
+    <div className="space-y-4">
+      <h1 className="text-xl font-black tracking-tight text-[#0f1729] sm:text-2xl">Bảng xử lý bổ trợ</h1>
 
-      {/* 2 sheet tách bạch đúng feedback: "Thống kê" (tổng hợp theo học viên) khác
-          "Theo ngày" (điểm danh bổ trợ theo NGÀY cụ thể) — trước đây chỉ có 1 view
-          tổng hợp, không có cách nào xem "hôm nay ai đã bổ trợ". */}
-      <div className="flex gap-2 border-b border-[#e5e7eb]">
-        <Link
-          href="/session-credits"
-          className={`border-b-2 px-3 py-2 text-sm font-bold ${view === "stats" ? "border-[#0f1729] text-[#0f1729]" : "border-transparent text-[#94a3b8] hover:text-[#475569]"}`}
-        >
-          Thống kê bổ trợ
-        </Link>
-        <Link
-          href="/session-credits?view=daily"
-          className={`border-b-2 px-3 py-2 text-sm font-bold ${view === "daily" ? "border-[#0f1729] text-[#0f1729]" : "border-transparent text-[#94a3b8] hover:text-[#475569]"}`}
-        >
-          Bổ trợ theo ngày
-        </Link>
-      </div>
+      {canUpdate("schedule", role) ? <SessionCreditsBulkAssign candidates={bulkAssignCandidates} /> : null}
 
-      {view === "stats" ? (
-        <>
-          <div className="grid gap-3 md:grid-cols-6">
-            <div className="rounded-lg border border-[#e5eaf7] bg-white p-4">
-              <p className="text-xs font-bold uppercase text-[#64748b]">Tổng credit</p>
-              <p className="mt-2 text-2xl font-black text-[#0f1729]">{totalCredits}</p>
-            </div>
-            <div className="rounded-lg border border-[#e5eaf7] bg-white p-4">
-              <p className="text-xs font-bold uppercase text-[#64748b]">Còn phải xếp</p>
-              <p className="mt-2 text-2xl font-black text-[#ef4444]">{availableCredits}</p>
-            </div>
-            <div className="rounded-lg border border-[#e5eaf7] bg-white p-4">
-              <p className="text-xs font-bold uppercase text-[#64748b]">Vắng cần bài</p>
-              <p className="mt-2 text-2xl font-black text-[#0f1729]">{absenceNeedLesson}</p>
-            </div>
-            <div className="rounded-lg border border-[#e5eaf7] bg-white p-4">
-              <p className="text-xs font-bold uppercase text-[#64748b]">Đầu khóa còn lại</p>
-              <p className="mt-2 text-2xl font-black text-[#0f1729]">{paidCatchupRemaining}</p>
-            </div>
-            <div className="rounded-lg border border-[#e5eaf7] bg-white p-4">
-              <p className="text-xs font-bold uppercase text-[#64748b]">HS yếu còn lại</p>
-              <p className="mt-2 text-2xl font-black text-[#0f1729]">{weakStudentRemaining}</p>
-            </div>
-            <div className="rounded-lg border border-[#e5eaf7] bg-white p-4">
-              <p className="text-xs font-bold uppercase text-[#64748b]">Số dư từ lớp cũ</p>
-              <p className="mt-2 text-2xl font-black text-[#0f1729]">{withdrawalRemaining}</p>
-            </div>
+      <CreditsTable
+        initialData={rows}
+        statusParam={statusParam}
+        typeParam={type}
+        studentParam={student}
+        showConsumedColumn={showConsumedColumn}
+        headerActions={
+          <div className="flex flex-wrap items-center gap-2">
+            {canUpdate("students", role) ? <AddPaidCatchupForm /> : null}
+            <CreditFilterChips stats={stats} statusParam={statusParam} typeParam={type} />
           </div>
-
-          {canUpdate("schedule", role) ? <SessionCreditsBulkAssign candidates={bulkAssignCandidates} /> : null}
-
-          <CreditsTable initialData={rows} statusParam={statusParam} typeParam={type} studentParam={student} showConsumedColumn={showConsumedColumn} />
-        </>
-      ) : (
-        <div className="space-y-4">
-          {dailyLog.length === 0 && (
-            <p className="rounded-lg border border-[#e5eaf7] bg-white p-6 text-center text-sm text-[#94a3b8]">
-              Chưa có buổi bổ trợ nào được điểm danh.
-            </p>
-          )}
-          {dailyLog.map(([day, entries]) => (
-            <div key={day} className="rounded-lg border border-[#e5eaf7] bg-white p-4">
-              <p className="mb-3 text-sm font-black text-[#0f1729]">{day}</p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="text-xs font-bold uppercase text-[#64748b]">
-                      <th className="py-1.5 pr-4">Học viên</th>
-                      <th className="py-1.5 pr-4">Lớp</th>
-                      <th className="py-1.5 pr-4">Bài bổ trợ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {entries.map((entry) => (
-                      <tr key={entry.id} className="border-t border-[#f1f5f9]">
-                        <td className="py-1.5 pr-4 font-semibold text-[#0f1729]">
-                          {entry.studentName} <span className="font-mono text-xs text-[#94a3b8]">{entry.studentCode}</span>
-                        </td>
-                        <td className="py-1.5 pr-4 text-[#475569]">{entry.className}</td>
-                        <td className="py-1.5 pr-4 text-[#475569]">{entry.lesson}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+        }
+      />
     </div>
   );
 }
