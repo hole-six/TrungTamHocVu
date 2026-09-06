@@ -1,4 +1,4 @@
-// Tạo kỳ lương + tính PayrollLine — tách riêng khỏi payroll-rules.ts (file đó có
+// Tạo tháng lương + tính PayrollLine — tách riêng khỏi payroll-rules.ts (file đó có
 // vài hàm/label thuần được client component import trực tiếp; thêm import prisma
 // vào đó sẽ kéo Prisma Client vào bundle trình duyệt). File này chỉ được gọi từ
 // route handler và scheduler (server-only).
@@ -17,14 +17,20 @@ export async function ensurePayrollRun(branchId: string, periodName: string) {
 
 // Tổng hợp lương từ SessionAssignment (giờ dạy/trợ giảng theo buổi, đã snapshot
 // hourlyRate lúc phân công) + TimesheetEntry (ngày công chấm theo giờ hành chính)
-// trong khoảng ngày của kỳ lương — nguồn Report_Cong_Luong. Logic giống hệt route
+// trong khoảng ngày của tháng lương — nguồn Report_Cong_Luong. Logic giống hệt route
 // payroll-runs/[id]/generate (đã kiểm chứng idempotent nhiều lần) — tách ra để
 // route thủ công và scheduler tự động dùng chung 1 chỗ tính duy nhất.
 export async function generatePayrollForRun(runId: string) {
   const run = await prisma.payrollRun.findUnique({ where: { id: runId } });
-  if (!run) return { error: "Không tìm thấy kỳ lương" as const };
+  // `code` là thứ nơi gọi dựa vào để chọn HTTP status — trước đây route /generate so
+  // sánh THẲNG chuỗi tiếng Việt của message ("Không tìm thấy tháng lương") để chọn
+  // 404 hay 409, nên chỉ cần sửa lại câu chữ là mọi lỗi 404 âm thầm thành 409.
+  if (!run) return { error: "Không tìm thấy tháng lương" as const, code: "NOT_FOUND" as const };
   if (!canEditPayroll(run.status)) {
-    return { error: `Kỳ lương đang ở trạng thái "${run.status}", không thể tính lại.` as const };
+    return {
+      error: `Tháng lương đang ở trạng thái "${run.status}", không thể tính lại.` as const,
+      code: "NOT_EDITABLE" as const,
+    };
   }
 
   const { start, end } = monthRange(run.periodName);
@@ -151,7 +157,7 @@ export async function generatePayrollForRun(runId: string) {
     }
   }
 
-  // REOPENED xử lý giống hệt DRAFT ở đây — bấm "Tính lại lương" tự đưa kỳ lương quay
+  // REOPENED xử lý giống hệt DRAFT ở đây — bấm "Tính lại lương" tự đưa tháng lương quay
   // về CALCULATED để đi lại đúng chuỗi bước REVIEWED→APPROVED→LOCKED→PAID bình thường.
   if (run.status === "DRAFT" || run.status === "REOPENED") {
     await prisma.payrollRun.update({ where: { id: run.id }, data: { status: "CALCULATED", calculatedAt: new Date() } });

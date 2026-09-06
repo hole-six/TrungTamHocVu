@@ -38,10 +38,9 @@ function formatDate(value: Date | string | null) {
 }
 
 function contractStatusClass(status: string) {
-  if (status === "Đã hết hạn HĐ") return "bg-red-100 text-red-700 border-red-200";
-  if (status === "Sắp hết hạn HĐ") return "bg-amber-100 text-amber-700 border-amber-200";
-  if (status === "Nghỉ ngang") return "bg-slate-100 text-slate-600 border-slate-200";
-  return "";
+  if (status === "Đã hết hạn HĐ") return "text-rose-700";
+  if (status === "Sắp hết hạn HĐ") return "text-amber-700";
+  return "text-[#94a3b8]";
 }
 
 export default function EmployeesTable({
@@ -62,7 +61,7 @@ export default function EmployeesTable({
       label: "Mã NV",
       width: "110px",
       filter: { type: "text", paramKey: "code", placeholder: "Mã NV..." },
-      render: (value) => <span className="font-mono text-sm font-semibold text-primary">{value}</span>,
+      render: (value) => <span className="font-mono text-sm font-semibold text-[#475569]">{value}</span>,
     },
     {
       key: "fullName",
@@ -71,10 +70,8 @@ export default function EmployeesTable({
       filter: { type: "text", paramKey: "name", placeholder: "Tên nhân viên..." },
       render: (value, row) => (
         <div>
-          <p className="text-sm font-semibold text-ink">{value}</p>
-          {row.workStatus === "RESIGNED" ? (
-            <span className="mt-0.5 inline-flex rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-700">Đã nghỉ việc</span>
-          ) : null}
+          <p className="text-sm font-semibold text-[#0f1729]">{value}</p>
+          {row.workStatus === "RESIGNED" ? <p className="mt-0.5 text-xs font-bold text-[#94a3b8]">Đã nghỉ việc</p> : null}
         </div>
       ),
     },
@@ -118,12 +115,12 @@ export default function EmployeesTable({
       label: "Hợp đồng lao động",
       width: "220px",
       render: (_value, row) => (
-        <div className="space-y-1">
-          <p className="text-xs text-ink">
+        <div>
+          <p className="text-xs text-[#475569]">
             Ký: {formatDate(row.latestContract?.signDate ?? null)} · Hạn: {formatDate(row.latestContract?.expiryDate ?? null)}
           </p>
           {row.contractStatus ? (
-            <span className={`inline-flex rounded-lg border px-2 py-0.5 text-[11px] font-bold ${contractStatusClass(row.contractStatus)}`}>{row.contractStatus}</span>
+            <p className={`mt-0.5 text-xs font-bold ${contractStatusClass(row.contractStatus)}`}>{row.contractStatus}</p>
           ) : null}
         </div>
       ),

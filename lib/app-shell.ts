@@ -38,7 +38,7 @@ const DEFAULT_CONFIG: AppShellConfig = {
   focusItems: [
     "Kiểm tra lớp, học viên, học phí và các cảnh báo phát sinh mới nhất.",
     "Đi vào đúng module nghiệp vụ thay vì sửa tay trên báo cáo tổng hợp.",
-    "Chỉ chốt số liệu ở kỳ báo cáo hoặc kỳ lương/học phí đã được duyệt.",
+    "Chỉ chốt số liệu ở kỳ báo cáo hoặc tháng lương/học phí đã được duyệt.",
   ],
   quickActionsTitle: "Lối tắt vận hành",
   quickActions: [
@@ -63,7 +63,7 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
     quickActionsTitle: "Tác vụ điều hành nhanh",
     quickActions: [
       { id: "reports", label: "Báo cáo tổng hợp", description: "Mở toàn bộ dashboard và báo cáo", href: "/reports", icon: "report", tone: "info" },
-      { id: "payroll", label: "Kỳ lương", description: "Rà soát kỳ lương và khóa số liệu", href: "/payroll", icon: "money", tone: "warning" },
+      { id: "payroll", label: "Lương tháng", description: "Rà soát tháng lương và khóa số liệu", href: "/payroll", icon: "money", tone: "warning" },
       { id: "admin", label: "Quản trị", description: "Phân quyền, import, kiểm soát hệ thống", href: "/admin", icon: "shield", tone: "danger" },
     ],
     mobilePrimaryRoutes: ["/dashboard", "/reports", "/payroll", "/cashbook", "/admin"],
@@ -75,7 +75,7 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
     focusTitle: "Điểm cần nhìn ngay",
     focusItems: [
       "So sánh tăng trưởng học viên, tuyển sinh và doanh thu theo kỳ.",
-      "Phát hiện công nợ, chi phí, kỳ lương và lớp rủi ro cần can thiệp.",
+      "Phát hiện công nợ, chi phí, tháng lương và lớp rủi ro cần can thiệp.",
       "Đọc snapshot đã chốt khi cần xem lại lịch sử, tránh lệch dữ liệu live.",
     ],
     quickActionsTitle: "Lối tắt điều hành",
@@ -196,11 +196,11 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
       { label: "Đối soát", hrefs: ["/inventory", "/employees", "/payroll", "/teacher-tasks", "/students", "/session-credits", "/assets"] },
     ],
     dashboardTitle: "Dashboard kế toán",
-    dashboardSubtitle: "Tập trung phải thu, đã thu, công nợ, thu chi và kỳ lương để đối soát nhanh và chính xác.",
+    dashboardSubtitle: "Tập trung phải thu, đã thu, công nợ, thu chi và tháng lương để đối soát nhanh và chính xác.",
     focusTitle: "Ưu tiên kế toán",
     focusItems: [
       "Theo dõi học phí theo kỳ, khoản đã thu và phần còn thiếu.",
-      "Đối soát thu chi ngoài học phí, các phát sinh sách và kỳ lương cần kiểm tra.",
+      "Đối soát thu chi ngoài học phí, các phát sinh sách và tháng lương cần kiểm tra.",
       "Chỉ xuất báo cáo từ dữ liệu đã chuẩn hóa hoặc snapshot đã chốt.",
     ],
     quickActionsTitle: "Lối tắt tài chính",
@@ -217,17 +217,17 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
       { label: "Tài sản & báo cáo", hrefs: ["/assets", "/reports"] },
     ],
     dashboardTitle: "Dashboard nhân sự",
-    dashboardSubtitle: "Tách rõ chấm công ngày, công giảng dạy và kỳ lương để kiểm soát không chồng chéo dữ liệu.",
+    dashboardSubtitle: "Tách rõ chấm công hành chính, công giảng dạy và tháng lương để kiểm soát không chồng chéo dữ liệu.",
     focusTitle: "Ưu tiên nhân sự",
     focusItems: [
       "Chấm công ngày cho hành chính/văn phòng ở đúng menu riêng.",
       "Không dùng chấm công ngày làm nguồn công dạy cho giáo viên/trợ giảng.",
-      "Theo dõi hợp đồng, kỳ lương, chênh lệch công và audit chỉnh sửa.",
+      "Theo dõi hợp đồng, tháng lương, chênh lệch công và audit chỉnh sửa.",
     ],
     quickActionsTitle: "Lối tắt nhân sự",
     quickActions: [
       { id: "timesheets", label: "Chấm công ngày", description: "Nhập và rà soát công hành chính", href: "/timesheets", icon: "calendar", tone: "primary" },
-      { id: "payroll", label: "Kỳ lương", description: "Mở kỳ lương và bảng lương", href: "/payroll", icon: "money", tone: "warning" },
+      { id: "payroll", label: "Lương tháng", description: "Mở tháng lương và bảng lương", href: "/payroll", icon: "money", tone: "warning" },
       { id: "reports", label: "Báo cáo nhân sự", description: "Xem tổng hợp công, lương và cảnh báo", href: "/reports", icon: "report", tone: "info" },
     ],
     mobilePrimaryRoutes: ["/dashboard", "/timesheets", "/payroll", "/reports"],

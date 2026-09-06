@@ -10,8 +10,8 @@ import NewEmployeeForm from "@/components/payroll/NewEmployeeForm";
 
 // Trang "NHÂN SỰ" — trước đây hoàn toàn chưa có (chỉ có form thêm/sửa nhân viên
 // nhúng trong /payroll, không có 1 danh sách riêng cho thông tin nhân sự cơ bản:
-// mã NV/tên/SĐT/email/vị trí/lương/ngày ký-hết hạn HĐ). Độc lập với kỳ lương —
-// đây là thông tin nhân sự tĩnh, không nên gắn với 1 kỳ lương cụ thể như /payroll.
+// mã NV/tên/SĐT/email/vị trí/lương/ngày ký-hết hạn HĐ). Độc lập với tháng lương —
+// đây là thông tin nhân sự tĩnh, không nên gắn với 1 tháng lương cụ thể như /payroll.
 export default async function EmployeesPage() {
   const user = await getCurrentUser();
   if (!user) notFound();
@@ -32,14 +32,9 @@ export default async function EmployeesPage() {
   }));
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-[#0f1729]">Nhân sự</h1>
-          <p className="mt-1 max-w-2xl text-sm text-[#64748b]">
-            Mã NV, tên, liên hệ, vị trí, lương và hợp đồng lao động — độc lập với từng kỳ lương cụ thể.
-          </p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-black tracking-tight text-[#0f1729] sm:text-2xl">Nhân sự</h1>
         {canCreateWithOverride("hr", role, override) ? <NewEmployeeForm /> : null}
       </div>
 

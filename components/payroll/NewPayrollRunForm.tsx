@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 
 function currentMonth() {
   const d = new Date();
@@ -27,7 +28,7 @@ export default function NewPayrollRunForm({ defaultPeriod }: { defaultPeriod?: s
     const data = await res.json();
     setLoading(false);
     if (!res.ok) {
-      setError(data.error ?? "Không thể tạo kỳ lương.");
+      setError(data.error ?? "Không thể chốt tháng lương.");
       return;
     }
     router.push(`/payroll?period=${data.item.periodName}`);
@@ -35,27 +36,25 @@ export default function NewPayrollRunForm({ defaultPeriod }: { defaultPeriod?: s
 
   if (!open) {
     return (
-      <div className="flex flex-col items-start gap-2">
-        <button onClick={() => setOpen(true)} className="btn-primary">
-          + Tạo kỳ lương mới
-        </button>
-        <p className="text-sm font-medium text-[#6b7280]">
-          Mỗi kỳ lương tương ứng với một tháng, sau đó bạn mới tính lương và duyệt.
-        </p>
-      </div>
+      <button onClick={() => setOpen(true)} className={ACTION_CLASS}>
+        + Chốt tháng lương
+      </button>
     );
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-wrap items-end gap-2 rounded-2xl border-2 border-[#e5e7eb] bg-white p-4 shadow-sm">
+    <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
       <label className="flex flex-col gap-1">
-        <span className="text-xs font-black uppercase tracking-[0.18em] text-[#9ca3af]">Tháng lương</span>
+        <span className="label-sm">Tháng lương</span>
         <input type="month" required className="input" value={periodName} onChange={(e) => setPeriodName(e.target.value)} />
       </label>
-      <button type="submit" disabled={loading} className="btn-primary whitespace-nowrap">
-        {loading ? "Đang tạo..." : "Tạo kỳ"}
+      <button type="submit" disabled={loading} className={ACTION_CLASS}>
+        {loading ? "Đang tạo..." : "Chốt tháng"}
       </button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <button type="button" onClick={() => setOpen(false)} className="btn-ghost-sm">
+        Hủy
+      </button>
+      {error && <p className="w-full text-sm text-red-600">{error}</p>}
     </form>
   );
 }

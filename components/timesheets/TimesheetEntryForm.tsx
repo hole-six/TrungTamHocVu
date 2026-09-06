@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 
 type Entry = {
   id: string;
@@ -139,7 +140,7 @@ export default function TimesheetEntryForm({
       </label>
       {error ? <p className="mt-2 text-xs text-red-600">{error}</p> : null}
       <div className="mt-3 flex items-center gap-2">
-        <button type="button" onClick={save} disabled={saving} className="btn-primary">
+        <button type="button" onClick={save} disabled={saving} className={ACTION_CLASS}>
           {saving ? "Đang lưu..." : "Lưu chấm công"}
         </button>
         {existing && canDeleteTimesheet ? (

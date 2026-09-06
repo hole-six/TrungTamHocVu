@@ -6,12 +6,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import NewEmployeeForm from "@/components/payroll/NewEmployeeForm";
 import NewPayrollRunForm from "@/components/payroll/NewPayrollRunForm";
 import PayrollExportButton from "@/components/payroll/PayrollExportButton";
-import PayrollRunActions from "@/components/payroll/PayrollRunActions";
-import AddPayrollLineForm from "@/components/payroll/AddPayrollLineForm";
 import PayrollRateCsvTools from "@/components/payroll/PayrollRateCsvTools";
 import PayrollEmployeeDrawer from "@/components/payroll/PayrollEmployeeDrawer";
+import PayrollMonthDrawer from "@/components/payroll/PayrollMonthDrawer";
 import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
 import type { Column, Action } from "@/components/ui/DataTable/DataTable";
+import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { PAYROLL_RUN_STATUS_LABEL } from "@/lib/server/payroll-rules";
 import type { PayrollEmployeeRow } from "@/lib/server/payroll-row-builder";
 import { formatVnd } from "@/lib/export-utils";
@@ -26,16 +26,6 @@ type Checklist = { items: { key: string; label: string; done: boolean; help: str
 
 function formatNumber(value: number) {
   return value.toLocaleString("vi-VN");
-}
-
-function getRunTone(status: string) {
-  if (status === "PAID") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (status === "LOCKED") return "border-sky-200 bg-sky-50 text-sky-700";
-  if (status === "APPROVED") return "border-violet-200 bg-violet-50 text-violet-700";
-  if (status === "REVIEWED") return "border-amber-200 bg-amber-50 text-amber-700";
-  if (status === "CALCULATED") return "border-orange-200 bg-orange-50 text-orange-700";
-  if (status === "REOPENED") return "border-rose-200 bg-rose-50 text-rose-700";
-  return "border-slate-200 bg-slate-50 text-slate-700";
 }
 
 export default function PayrollWorkspace({
@@ -75,7 +65,7 @@ export default function PayrollWorkspace({
   const [page, setPage] = useState(1);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(initialEmployeeId);
   const [drawerOpen, setDrawerOpen] = useState(Boolean(initialEmployeeId));
-  const [showRunPanel, setShowRunPanel] = useState(false);
+  const [monthDrawerOpen, setMonthDrawerOpen] = useState(false);
 
   function pageHref(patch: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams?.toString());
@@ -124,6 +114,8 @@ export default function PayrollWorkspace({
     setPage(1);
   }, [period, initialFilter, tableRows]);
 
+  // Giữ nguyên đủ các trường — PayrollExportButton dùng cả tiền dạy/TG/công hành chính
+  // để ghi dòng tổng hợp trong file xuất, không chỉ vài số hiển thị trên đầu trang.
   const totals = useMemo(() => {
     return rows.reduce(
       (acc, row) => {
@@ -139,7 +131,6 @@ export default function PayrollWorkspace({
         acc.timesheetEntryCount += row.timesheetEntryCount;
         if (row.hasRateIssue) acc.missingRateCount += 1;
         if (!row.hasBankInfo) acc.missingBankCount += 1;
-        if (row.contractStatus && row.contractStatus !== "Chưa có info") acc.contractAttentionCount += 1;
         return acc;
       },
       {
@@ -155,7 +146,6 @@ export default function PayrollWorkspace({
         timesheetEntryCount: 0,
         missingRateCount: 0,
         missingBankCount: 0,
-        contractAttentionCount: 0,
       },
     );
   }, [rows]);
@@ -175,19 +165,15 @@ export default function PayrollWorkspace({
         options: positionOptions.map((value) => ({ label: value, value })),
       },
       render: (_value, row) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#f97316] to-[#ea580c] text-sm font-black text-white">
-            {row.fullName.charAt(0)}
-          </div>
-          <div>
-            <button type="button" onClick={() => openEmployee(row.id)} className="text-left font-bold text-[#111827] transition hover:text-[#ea580c]">
-              {row.fullName}
-            </button>
-            <p className="mt-0.5 text-xs text-[#6b7280]">
-              {row.employeeCode} · {row.position ?? "Chưa cấu hình vị trí"}
-              {row.workStatus !== "ACTIVE" ? " · Đã nghỉ" : ""}
-            </p>
-          </div>
+        <div>
+          <button type="button" onClick={() => openEmployee(row.id)} className="text-left font-semibold text-[#0f1729] hover:underline">
+            {row.fullName}
+          </button>
+          <p className="mt-0.5 text-xs text-[#94a3b8]">
+            {row.employeeCode}
+            {row.position ? ` · ${row.position}` : ""}
+            {row.workStatus !== "ACTIVE" ? " · Đã nghỉ" : ""}
+          </p>
         </div>
       ),
     },
@@ -201,9 +187,9 @@ export default function PayrollWorkspace({
           row.staffDays > 0 ? `HC ${formatNumber(row.staffDays)} công` : null,
         ].filter(Boolean);
         return parts.length > 0 ? (
-          <p className="text-sm text-[#374151]">{parts.join(" · ")}</p>
+          <p className="text-sm text-[#475569]">{parts.join(" · ")}</p>
         ) : (
-          <span className="text-xs text-[#9ca3af]">Chưa có công</span>
+          <span className="text-sm text-[#94a3b8]">Chưa có công</span>
         );
       },
     },
@@ -222,7 +208,7 @@ export default function PayrollWorkspace({
             {totalDeduct > 0 ? <div className="font-bold text-rose-700">- {formatVnd(totalDeduct)}</div> : null}
           </div>
         ) : (
-          <span className="text-xs text-[#9ca3af]">—</span>
+          <span className="text-xs text-[#94a3b8]">—</span>
         );
       },
     },
@@ -233,8 +219,8 @@ export default function PayrollWorkspace({
       filter: { type: "numberRange", paramKeyFrom: "totalAmountFrom", paramKeyTo: "totalAmountTo", placeholder: "đ" },
       render: (_value, row) => (
         <div>
-          <div className="text-lg font-black text-[#ea580c]">{formatVnd(row.totalAmount)}</div>
-          <div className="mt-1 text-xs text-[#6b7280]">{row.lineId ? "Đã tính lương" : "Xem trước"}</div>
+          <div className="text-base font-black text-[#0f1729]">{formatVnd(row.totalAmount)}</div>
+          <div className="mt-0.5 text-xs text-[#94a3b8]">{row.lineId ? "Đã tính lương" : "Xem trước"}</div>
         </div>
       ),
     },
@@ -251,145 +237,94 @@ export default function PayrollWorkspace({
         ],
       },
       render: (_value, row) => (
-        <div className="flex flex-col items-start gap-1.5">
-          {row.hasRateIssue ? <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700">Thiếu đơn giá</span> : null}
-          {!row.hasBankInfo ? <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Thiếu CK</span> : null}
-          {row.lineId && row.hasMismatch ? <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Lệch dữ liệu</span> : null}
-          {!row.hasRateIssue && row.hasBankInfo && !(row.lineId && row.hasMismatch) ? <span className="text-xs text-[#9ca3af]">—</span> : null}
+        <div className="flex flex-col items-start gap-1">
+          {row.hasRateIssue ? <span className="text-xs font-bold text-rose-700">Thiếu đơn giá</span> : null}
+          {!row.hasBankInfo ? <span className="text-xs font-bold text-amber-700">Thiếu CK</span> : null}
+          {row.lineId && row.hasMismatch ? <span className="text-xs font-bold text-amber-700">Lệch dữ liệu</span> : null}
+          {!row.hasRateIssue && row.hasBankInfo && !(row.lineId && row.hasMismatch) ? <span className="text-xs text-[#94a3b8]">—</span> : null}
         </div>
       ),
     },
   ];
 
-  const actions: Action<PayrollEmployeeRow>[] = [
-    { label: "Sửa", onClick: (row) => openEmployee(row.id), variant: "primary" },
+  const actions: Action<PayrollEmployeeRow>[] = [{ label: "Mở", onClick: (row) => openEmployee(row.id) }];
+
+  const filterChips: { key: FilterMode; label: string; count: number }[] = [
+    { key: "all", label: "Tất cả", count: rows.length },
+    { key: "missing-rate", label: "Thiếu đơn giá", count: totals.missingRateCount },
+    { key: "missing-bank", label: "Thiếu chuyển khoản", count: totals.missingBankCount },
   ];
 
   return (
-    <div className="min-h-screen space-y-4 pb-20 sm:space-y-5">
-      <section className="rounded-2xl border border-[#e5e7eb] bg-white px-4 py-4 shadow-sm sm:px-6 sm:py-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-xl font-black tracking-tight text-[#111827] sm:text-2xl">Lương & nhân sự</h1>
-            <input
-              type="month"
-              className="input w-auto text-sm"
-              value={period}
-              onChange={(event) => {
-                if (event.target.value) router.push(pageHref({ period: event.target.value, employeeId: null }));
-              }}
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {!run && permissions.canManagePayrollRuns ? <NewPayrollRunForm defaultPeriod={period} /> : null}
-            <PayrollExportButton period={period} rows={rows} runStatus={run?.status ?? null} totals={totals} />
-            {permissions.canManageEmployees ? <NewEmployeeForm /> : null}
-            {permissions.canManageEmployees ? <PayrollRateCsvTools items={rows} /> : null}
-          </div>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-black tracking-tight text-[#0f1729] sm:text-2xl">Lương</h1>
+          <input
+            type="month"
+            className="input w-auto text-sm"
+            value={period}
+            onChange={(event) => {
+              if (event.target.value) router.push(pageHref({ period: event.target.value, employeeId: null }));
+            }}
+          />
         </div>
-
-        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-          <div className="rounded-xl border border-[#e5e7eb] bg-[#fbfbfc] px-4 py-3">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#9ca3af]">Tổng payroll tháng này</p>
-            <p className="mt-1 text-2xl font-black text-[#111827]">{formatVnd(totals.totalPayroll)}</p>
-          </div>
-          <div className="rounded-xl border border-[#e5e7eb] bg-[#fbfbfc] px-4 py-3">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#9ca3af]">Công đã ghi nhận</p>
-            <p className="mt-1 text-2xl font-black text-[#111827]">{formatNumber(totals.sessionCount)} buổi</p>
-            <p className="mt-0.5 text-xs text-[#6b7280]">{formatNumber(totals.totalStaffDays)} công hành chính</p>
-          </div>
-          <div className={`rounded-xl border px-4 py-3 ${needsAttentionCount > 0 ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#9ca3af]">Cần xử lý</p>
-            <p className={`mt-1 text-2xl font-black ${needsAttentionCount > 0 ? "text-amber-700" : "text-emerald-700"}`}>
-              {needsAttentionCount > 0 ? `${formatNumber(needsAttentionCount)} nhân sự` : "Không có"}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {run ? (
-        <section className="rounded-2xl border border-[#e5e7eb] bg-white px-4 py-4 shadow-sm sm:px-6 sm:py-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-[0.14em] text-[#9ca3af]">Kỳ lương {run.periodName}</span>
-              <span className={`rounded-full border px-3 py-1 text-sm font-bold ${getRunTone(run.status)}`}>
-                {PAYROLL_RUN_STATUS_LABEL[run.status] ?? run.status}
-              </span>
-              <span className="rounded-full border border-[#fed7aa] bg-[#fff7ed] px-3 py-1 text-sm font-bold text-[#c2410c]">
-                {formatNumber(run.lineCount)} người đã có dòng lương
-              </span>
-              {checklist ? (
-                <span
-                  className={`rounded-full border px-3 py-1 text-sm font-bold ${
-                    checklist.isReady ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"
-                  }`}
-                >
-                  Checklist: {checklist.isReady ? "Đạt" : "Chưa đạt"}
-                </span>
-              ) : null}
-            </div>
-            {permissions.canManagePayrollRuns ? (
-              <button type="button" onClick={() => setShowRunPanel((current) => !current)} className="btn-ghost">
-                {showRunPanel ? "Thu gọn" : "Xử lý kỳ lương"}
-              </button>
-            ) : null}
-          </div>
-
-          {permissions.canManagePayrollRuns && showRunPanel ? (
-            <div className="mt-4 grid grid-cols-1 gap-5 border-t border-[#f3f4f6] pt-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-              <PayrollRunActions runId={run.id} status={run.status} checklistReady={checklist?.isReady ?? true} />
-              <div className="space-y-4">
-                {checklist ? (
-                  <div className="rounded-2xl border border-[#e5e7eb] bg-white px-4 py-4">
-                    <h3 className="text-sm font-black text-[#111827]">Checklist chốt kỳ</h3>
-                    <div className="mt-3 space-y-2 text-sm">
-                      {checklist.items.map((item) => (
-                        <div key={item.key} className={`rounded-xl border px-3 py-2.5 ${item.done ? "border-emerald-100 bg-emerald-50/60" : "border-amber-200 bg-amber-50"}`}>
-                          <p className={`font-bold ${item.done ? "text-emerald-700" : "text-amber-800"}`}>
-                            {item.done ? "✓" : "•"} {item.label}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {eligibleEmployees.length > 0 ? <AddPayrollLineForm payrollRunId={run.id} employeeOptions={eligibleEmployees} /> : null}
-              </div>
-            </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {run && permissions.canManagePayrollRuns ? (
+            <button type="button" onClick={() => setMonthDrawerOpen(true)} className={ACTION_CLASS}>
+              Xử lý lương tháng
+            </button>
           ) : null}
-        </section>
-      ) : (
-        <section className="rounded-2xl border border-dashed border-[#e5e7eb] bg-white px-6 py-5 text-center text-sm text-[#6b7280] shadow-sm">
-          Tháng {period} chưa có kỳ lương chính thức — bảng dưới đây đang là số xem trước. Bấm &quot;Tạo kỳ lương&quot; ở trên để chốt số liệu.
-        </section>
-      )}
+          {!run && permissions.canManagePayrollRuns ? <NewPayrollRunForm defaultPeriod={period} /> : null}
+          <PayrollExportButton period={period} rows={rows} runStatus={run?.status ?? null} totals={totals} />
+          {permissions.canManageEmployees ? <NewEmployeeForm /> : null}
+          {permissions.canManageEmployees ? <PayrollRateCsvTools items={rows} /> : null}
+        </div>
+      </div>
 
-      <section className="flex flex-wrap items-center gap-2">
-        <Link
-          href={pageHref({ filter: "all" })}
-          className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${
-            initialFilter === "all" ? "bg-[#ea580c] text-white shadow-sm" : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:border-[#d1d5db]"
-          }`}
-        >
-          Tất cả ({formatNumber(rows.length)})
-        </Link>
-        <Link
-          href={pageHref({ filter: "missing-rate" })}
-          className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${
-            initialFilter === "missing-rate" ? "bg-rose-600 text-white shadow-sm" : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:border-[#d1d5db]"
-          }`}
-        >
-          Thiếu đơn giá ({formatNumber(totals.missingRateCount)})
-        </Link>
-        <Link
-          href={pageHref({ filter: "missing-bank" })}
-          className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${
-            initialFilter === "missing-bank" ? "bg-amber-600 text-white shadow-sm" : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:border-[#d1d5db]"
-          }`}
-        >
-          Thiếu chuyển khoản ({formatNumber(totals.missingBankCount)})
-        </Link>
-      </section>
+      {/* Số liệu tháng — 1 khung duy nhất chia cột, thay cho 3 ô thống kê riêng lẻ trước đây */}
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-xl border border-[#e5eaf7] bg-white px-4 py-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Tổng lương tháng {period}</p>
+          <p className="mt-0.5 text-2xl font-black text-[#0f1729]">{formatVnd(totals.totalPayroll)}</p>
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Công đã ghi nhận</p>
+          <p className="mt-0.5 text-2xl font-black text-[#0f1729]">{formatNumber(totals.sessionCount)} buổi</p>
+          <p className="text-xs text-[#94a3b8]">{formatNumber(totals.totalStaffDays)} công hành chính</p>
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Cần xử lý</p>
+          <p className={`mt-0.5 text-2xl font-black ${needsAttentionCount > 0 ? "text-amber-700" : "text-[#0f1729]"}`}>
+            {needsAttentionCount > 0 ? `${formatNumber(needsAttentionCount)} nhân sự` : "Không có"}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Trạng thái</p>
+          <p className="mt-0.5 text-2xl font-black text-[#0f1729]">
+            {run ? PAYROLL_RUN_STATUS_LABEL[run.status] ?? run.status : "Chưa chốt"}
+          </p>
+          <p className="text-xs text-[#94a3b8]">
+            {run ? `${formatNumber(run.lineCount)} người đã có dòng lương` : "Bảng dưới đang là số xem trước"}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {filterChips.map((chip) => (
+          <Link
+            key={chip.key}
+            href={pageHref({ filter: chip.key })}
+            className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+              initialFilter === chip.key
+                ? "bg-[#0f1729] text-white"
+                : "border border-[#e2e8f0] bg-white text-[#475569] hover:border-[#94a3b8]"
+            }`}
+          >
+            {chip.label} ({formatNumber(chip.count)})
+          </Link>
+        ))}
+      </div>
 
       <DataTableResponsive
         data={pagedRows}
@@ -423,6 +358,19 @@ export default function PayrollWorkspace({
         }}
       />
 
+      {run && permissions.canManagePayrollRuns ? (
+        <PayrollMonthDrawer
+          open={monthDrawerOpen}
+          onClose={() => setMonthDrawerOpen(false)}
+          period={period}
+          runId={run.id}
+          status={run.status}
+          lineCount={run.lineCount}
+          checklist={checklist}
+          eligibleEmployees={eligibleEmployees}
+        />
+      ) : null}
+
       {selectedRow ? (
         <PayrollEmployeeDrawer
           open={drawerOpen}
@@ -433,6 +381,16 @@ export default function PayrollWorkspace({
             position: selectedRow.position,
             contractStatus: selectedRow.contractStatus,
             sourceLabel: selectedRow.lineId ? "Đã tính lương" : "Xem trước (chưa tính lương)",
+            totalAmount: selectedRow.totalAmount,
+            month: period,
+            workSummary:
+              [
+                selectedRow.teachingHours > 0 ? `Dạy ${formatNumber(selectedRow.teachingHours)}h` : null,
+                selectedRow.assistantHours > 0 ? `TG ${formatNumber(selectedRow.assistantHours)}h` : null,
+                selectedRow.staffDays > 0 ? `HC ${formatNumber(selectedRow.staffDays)} công` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") || null,
           }}
           profile={{
             id: selectedRow.id,

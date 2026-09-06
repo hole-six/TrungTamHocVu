@@ -42,19 +42,19 @@ export async function POST(req: NextRequest) {
   if (!branchId) return NextResponse.json({ error: "Tài khoản chưa gán chi nhánh" }, { status: 400 });
   const { role, override } = await getUserRoleAndOverride(user.id, "hr");
   if (!canUpdateWithOverride("hr", role, override)) {
-    return NextResponse.json({ error: "Vai trò của bạn không có quyền tạo kỳ lương" }, { status: 403 });
+    return NextResponse.json({ error: "Vai trò của bạn không có quyền tạo tháng lương" }, { status: 403 });
   }
 
   const body = await req.json();
   const periodName = String(body.periodName ?? "").trim();
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodName)) {
-    return NextResponse.json({ error: "Kỳ lương phải theo định dạng YYYY-MM" }, { status: 400 });
+    return NextResponse.json({ error: "Tháng lương phải theo định dạng YYYY-MM" }, { status: 400 });
   }
 
   const existing = await prisma.payrollRun.findUnique({
     where: { branchId_periodName: { branchId, periodName } },
   });
-  if (existing) return NextResponse.json({ error: "Kỳ lương này đã tồn tại" }, { status: 409 });
+  if (existing) return NextResponse.json({ error: "Tháng lương này đã tồn tại" }, { status: 409 });
 
   const run = await ensurePayrollRun(branchId, periodName);
   return NextResponse.json({ item: run }, { status: 201 });

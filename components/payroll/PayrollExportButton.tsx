@@ -1,5 +1,6 @@
 "use client";
 
+import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { exportSectionsToExcel, formatVnd } from "@/lib/export-utils";
 import { PAYROLL_RUN_STATUS_LABEL } from "@/lib/server/payroll-rules";
 import type { PayrollEmployeeRow } from "@/lib/server/payroll-row-builder";
@@ -9,7 +10,7 @@ function formatMonthLabel(period: string) {
   return `Tháng ${Number(month)}/${year}`;
 }
 
-// Duy nhất 1 nút xuất Excel cho cả trang (nút "xuất đẹp" cũ ở khu vực kỳ lương đã bỏ vì
+// Duy nhất 1 nút xuất Excel cho cả trang (nút "xuất đẹp" cũ ở khu vực tháng lương đã bỏ vì
 // trùng lặp, không thêm được thông tin gì mới) — nên xuất phải đầy đủ nhất có thể, đủ để
 // dùng độc lập mà không cần mở lại ứng dụng.
 export default function PayrollExportButton({
@@ -48,8 +49,8 @@ export default function PayrollExportButton({
             { key: "giaTri", label: "Giá trị" },
           ],
           rows: [
-            { chiSo: "Kỳ lương", giaTri: formatMonthLabel(period) },
-            { chiSo: "Trạng thái kỳ lương", giaTri: runStatus ? PAYROLL_RUN_STATUS_LABEL[runStatus] ?? runStatus : "Chưa tạo kỳ lương (số liệu xem trước)" },
+            { chiSo: "Tháng lương", giaTri: formatMonthLabel(period) },
+            { chiSo: "Trạng thái tháng lương", giaTri: runStatus ? PAYROLL_RUN_STATUS_LABEL[runStatus] ?? runStatus : "Chưa tạo tháng lương (số liệu xem trước)" },
             { chiSo: "Tổng số nhân sự có phát sinh", giaTri: String(rows.length) },
             { chiSo: "Tổng số buổi dạy/trợ giảng", giaTri: String(totals.sessionCount) },
             { chiSo: "Tổng số ngày công hành chính", giaTri: String(totals.timesheetEntryCount) },
@@ -143,8 +144,8 @@ export default function PayrollExportButton({
             { key: "giaiThich", label: "Giải thích" },
           ],
           rows: [
-            { muc: "Nguồn số liệu = Đã tính lương", giaiThich: "Số liệu lấy từ dòng lương chính thức của kỳ (đã bấm Tính lại lương), gồm cả thưởng/phạt đã điều chỉnh." },
-            { muc: "Nguồn số liệu = Xem trước", giaiThich: "Kỳ lương tháng này chưa được tạo/tính chính thức — số liệu tính trực tiếp từ buổi dạy/trợ giảng/chấm công, thưởng/phạt mặc định là 0." },
+            { muc: "Nguồn số liệu = Đã tính lương", giaiThich: "Số liệu lấy từ dòng lương chính thức của tháng (đã bấm Tính lại lương), gồm cả thưởng/phạt đã điều chỉnh." },
+            { muc: "Nguồn số liệu = Xem trước", giaiThich: "Tháng này chưa được chốt/tính lương chính thức — số liệu tính trực tiếp từ buổi dạy/trợ giảng/chấm công, thưởng/phạt mặc định là 0." },
             { muc: "Theo ca", giaiThich: "Trả cố định 1 đơn vị tiền cho mỗi buổi bất kể buổi đó dạy dài hay ngắn hơn khung giờ chuẩn — tránh sai lệch khi giáo viên dạy quá giờ hoặc cho nghỉ sớm." },
             { muc: "Theo giờ", giaiThich: "Trả theo đúng số giờ của khung giờ buổi học (giờ kết thúc trừ giờ bắt đầu theo lịch)." },
             { muc: "Tổng lương", giaiThich: "Tiền dạy + Tiền trợ giảng + Lương cứng + Thưởng − Phạt." },
@@ -160,7 +161,7 @@ export default function PayrollExportButton({
     <button
       type="button"
       onClick={handleExport}
-      className="inline-flex items-center justify-center rounded-2xl border-2 border-emerald-200 bg-white px-5 py-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50"
+      className={ACTION_CLASS}
     >
       Xuất Excel đầy đủ
     </button>

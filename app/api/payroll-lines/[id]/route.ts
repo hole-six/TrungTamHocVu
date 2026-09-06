@@ -20,7 +20,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
   if (!line) return NextResponse.json({ error: "Không tìm thấy dòng lương" }, { status: 404 });
   if (!canEditPayroll(line.payrollRun.status)) {
-    return NextResponse.json({ error: "Kỳ lương đã duyệt/khóa, không thể sửa." }, { status: 409 });
+    return NextResponse.json({ error: "Tháng lương đã duyệt/khóa, không thể sửa." }, { status: 409 });
   }
 
   const body = await req.json();
@@ -81,7 +81,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   }
   if (!line) return NextResponse.json({ error: "Không tìm thấy dòng lương" }, { status: 404 });
   if (!canEditPayroll(line.payrollRun.status)) {
-    return NextResponse.json({ error: "Kỳ lương đã duyệt/khóa, không thể xóa dòng." }, { status: 409 });
+    return NextResponse.json({ error: "Tháng lương đã duyệt/khóa, không thể xóa dòng." }, { status: 409 });
   }
 
   await prisma.payrollLine.delete({ where: { id: params.id } });

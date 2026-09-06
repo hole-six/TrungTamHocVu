@@ -55,15 +55,15 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/employees",
     label: "Nhân sự",
     status: "live",
-    description: "Danh sách nhân viên: mã NV, liên hệ, vị trí, lương và hợp đồng lao động — độc lập với từng kỳ lương.",
+    description: "Danh sách nhân viên: mã NV, liên hệ, vị trí, lương và hợp đồng lao động — độc lập với từng tháng lương.",
     sections: ["Hợp đồng lao động"],
   },
   {
     href: "/timesheets",
     label: "Chấm công",
     status: "live",
-    description: "Chấm công ngày cho nhân sự hành chính/văn phòng; công dạy của giáo viên và trợ giảng lấy từ buổi học đã phân công.",
-    sections: ["Duyệt & khóa kỳ công", "Đi muộn/về sớm/OT tự động"],
+    description: "Chấm công theo tháng cho nhân sự hành chính/văn phòng; công dạy của giáo viên và trợ giảng lấy từ buổi học đã phân công.",
+    sections: ["Duyệt & khóa công tháng", "Đi muộn/về sớm/OT tự động"],
   },
   {
     href: "/tuition",
@@ -97,7 +97,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/payroll",
     label: "Lương nhân viên",
     status: "live",
-    description: "Phân công GV/TG theo buổi, chấm công ngày hành chính, tính lương theo kỳ (nguồn: Report_Cong_Luong).",
+    description: "Phân công GV/TG theo buổi, chấm công hành chính, tính lương theo tháng (nguồn: Report_Cong_Luong).",
     sections: ["Phiếu lương PDF"],
   },
   {

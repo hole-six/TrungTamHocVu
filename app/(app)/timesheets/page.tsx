@@ -3,14 +3,13 @@ import TimesheetsWorkspace from "@/components/timesheets/TimesheetsWorkspace";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
-import { canView, canDelete } from "@/lib/server/role-matrix";
+import { canView, canCreate, canDelete } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
+import { monthRange } from "@/lib/server/tuition-rules";
 
-function currentMonthRange() {
+function currentMonthString() {
   const now = new Date();
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
-  return { start, end };
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function mapEmployee(employee: {
@@ -56,9 +55,9 @@ function mapEmployee(employee: {
       days: entry.days,
       notes: entry.notes,
     })),
-    // Tổng hợp buổi dạy trong tháng theo NGÀY, gộp cùng bảng chấm công — đúng cấu
-    // trúc sheet chấm công thật của khách (1 dòng gồm cả giờ hành chính lẫn buổi
-    // dạy/lớp/đi muộn-thêm giờ trong ngày, xem ảnh mẫu trong ĐỀ XUẤT CHỈNH SỬA.xlsx).
+    // Buổi dạy trong tháng — hiển thị cạnh công hành chính để đối chiếu, nhưng CỐ TÌNH
+    // tách riêng: hai loại công này tính lương theo 2 đơn giá khác nhau và nguồn dữ
+    // liệu khác nhau (buổi dạy đến từ phân công lớp, không sửa ở trang chấm công).
     sessionAssignments: employee.sessionAssignments.map((assignment) => ({
       id: assignment.id,
       workDate: assignment.session.sessionDate.toISOString(),
@@ -72,13 +71,16 @@ function mapEmployee(employee: {
   };
 }
 
-export default async function TimesheetsPage() {
+export default async function TimesheetsPage({ searchParams }: { searchParams?: { month?: string } }) {
   const user = await getCurrentUser();
   const role = user ? await getUserRole(user.id) : null;
   if (!canView("timesheet", role)) notFound();
   const activeBranchId = await getCurrentBranchId();
 
-  const { start, end } = currentMonthRange();
+  // Chấm công đi theo THÁNG giống lương — cùng một mốc thời gian để đối chiếu công/lương,
+  // thay vì trang này theo ngày còn trang lương theo tháng như trước.
+  const month = searchParams?.month && /^\d{4}-\d{2}$/.test(searchParams.month) ? searchParams.month : currentMonthString();
+  const { start, end } = monthRange(month);
 
   const employees = await prisma.employee.findMany({
     where: { ...(activeBranchId ? { branchId: activeBranchId } : {}), workStatus: "ACTIVE" },
@@ -98,8 +100,9 @@ export default async function TimesheetsPage() {
 
   return (
     <TimesheetsWorkspace
-      defaultDate={new Date().toISOString().slice(0, 10)}
-      canManageEmployees={canView("hr", role)}
+      month={month}
+      today={new Date().toISOString().slice(0, 10)}
+      canEditTimesheet={canCreate("timesheet", role)}
       canDeleteTimesheet={canDelete("timesheet", role)}
       employees={employees.map(mapEmployee)}
     />

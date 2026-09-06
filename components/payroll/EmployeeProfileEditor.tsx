@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Stat, ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { formatVnd } from "@/lib/export-utils";
 
 type EmployeeProfile = {
@@ -40,9 +41,13 @@ function formatDate(value: string | null) {
 export default function EmployeeProfileEditor({
   employee,
   canEdit,
+  bare = false,
 }: {
   employee: EmployeeProfile;
   canEdit: boolean;
+  /** Truyền true khi nơi gọi (Section trong drawer) đã có sẵn khung + tiêu đề — bỏ
+   *  khung/tiêu đề của chính component này để không bị khung lồng khung. */
+  bare?: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -111,25 +116,37 @@ export default function EmployeeProfileEditor({
   ];
 
   return (
-    <div className="card">
-      <div className="flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold tracking-tight">Thông tin nhân sự</h2>
-        {canEdit && !editing && (
-          <button onClick={() => setEditing(true)} className="btn-ghost text-sm">
-            Sửa
-          </button>
-        )}
-      </div>
+    <div className={bare ? "" : "card"}>
+      {bare && (!canEdit || editing) ? null : (
+        <div className="flex items-center justify-between">
+          {bare ? <span /> : <h2 className="font-display text-lg font-semibold tracking-tight">Thông tin nhân sự</h2>}
+          {canEdit && !editing && (
+            <button onClick={() => setEditing(true)} className="btn-ghost-sm">
+              Sửa hồ sơ
+            </button>
+          )}
+        </div>
+      )}
 
       {!editing ? (
-        <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-          {rows.map(([label, value]) => (
-            <div key={label} className="flex justify-between border-b border-hairline/60 py-1 sm:justify-start sm:gap-3">
-              <dt className="text-ink-muted48">{label}</dt>
-              <dd className="font-medium">{value}</dd>
-            </div>
-          ))}
-        </dl>
+        bare ? (
+          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+            {rows.map(([label, value]) => (
+              <Stat key={label} label={label}>
+                {value === "—" ? null : value}
+              </Stat>
+            ))}
+          </div>
+        ) : (
+          <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+            {rows.map(([label, value]) => (
+              <div key={label} className="flex justify-between border-b border-hairline/60 py-1 sm:justify-start sm:gap-3">
+                <dt className="text-ink-muted48">{label}</dt>
+                <dd className="font-medium">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )
       ) : (
         <form onSubmit={save} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="space-y-1">
@@ -220,7 +237,7 @@ export default function EmployeeProfileEditor({
           </label>
           {error && <p className="col-span-full text-sm text-red-600">{error}</p>}
           <div className="col-span-full flex gap-2">
-            <button type="submit" disabled={loading} className="btn-primary">
+            <button type="submit" disabled={loading} className={ACTION_CLASS}>
               {loading ? "Đang lưu..." : "Lưu"}
             </button>
             <button type="button" onClick={() => setEditing(false)} className="btn-ghost">

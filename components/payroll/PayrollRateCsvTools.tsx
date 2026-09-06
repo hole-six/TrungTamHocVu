@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
+import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { exportSectionsToExcel, exportToCSV, formatVnd } from "@/lib/export-utils";
 import type { PayrollEmployeeRow } from "@/lib/server/payroll-row-builder";
 
@@ -241,7 +242,7 @@ export default function PayrollRateCsvTools({ items }: { items: PayrollEmployeeR
       if (!res.ok) {
         throw new Error(data.error ?? "Không thể tính lại payroll.");
       }
-      setMessage(`Đã tính lại ${data.recalculatedRuns ?? 0} kỳ lương đang mở.`);
+      setMessage(`Đã tính lại ${data.recalculatedRuns ?? 0} tháng lương đang mở.`);
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Không thể tính lại payroll.");
@@ -255,45 +256,45 @@ export default function PayrollRateCsvTools({ items }: { items: PayrollEmployeeR
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center justify-center rounded-2xl border-2 border-amber-200 bg-white px-5 py-3 text-sm font-bold text-amber-700 transition hover:bg-amber-50"
+        className={ACTION_CLASS}
       >
-        Công cụ đơn giá hàng loạt (CSV)
+        Đơn giá hàng loạt (CSV)
       </button>
 
-      <ResponsiveDrawer         open={open}
+      <ResponsiveDrawer
+        open={open}
         onClose={() => setOpen(false)}
-        title="Công cụ đơn giá hàng loạt (CSV)"
-        description="Xuất/nhập đơn giá nhiều người cùng lúc, và tính lại các kỳ lương đang mở sau khi đổi giá."
+        title="Đơn giá hàng loạt (CSV)"
         widthClassName="max-w-2xl"
       >
         <div className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-red-700">Thiếu đơn giá</p>
-              <p className="mt-1 text-2xl font-black text-red-800">{missingCount}</p>
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-xl border border-[#e5eaf7] bg-white px-4 py-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Thiếu đơn giá</p>
+              <p className={`mt-0.5 text-2xl font-black ${missingCount > 0 ? "text-rose-700" : "text-[#0f1729]"}`}>{missingCount}</p>
             </div>
-            <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-700">Có phát sinh</p>
-              <p className="mt-1 text-2xl font-black text-blue-800">{activeCount}</p>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Có phát sinh</p>
+              <p className="mt-0.5 text-2xl font-black text-[#0f1729]">{activeCount}</p>
             </div>
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Quỹ lương ước tính</p>
-              <p className="mt-1 text-lg font-black text-emerald-800">{formatVnd(estimatedConfiguredPayroll)}</p>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Quỹ lương ước tính</p>
+              <p className="mt-0.5 text-2xl font-black text-[#0f1729]">{formatVnd(estimatedConfiguredPayroll)}</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={exportCurrentConfig} className="btn-ghost">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={exportCurrentConfig} className={ACTION_CLASS}>
               Xuất Excel cấu hình hiện tại
             </button>
-            <button type="button" onClick={downloadTemplate} className="btn-ghost">
-              Tải mẫu CSV để cập nhật nhanh
+            <button type="button" onClick={downloadTemplate} className={ACTION_CLASS}>
+              Tải mẫu CSV
             </button>
-            <button type="button" onClick={() => inputRef.current?.click()} disabled={isImporting} className="btn-ghost disabled:opacity-60">
+            <button type="button" onClick={() => inputRef.current?.click()} disabled={isImporting} className={`${ACTION_CLASS} disabled:opacity-60`}>
               {isImporting ? "Đang import..." : "Import CSV đơn giá"}
             </button>
-            <button type="button" onClick={recalculateOpenRuns} disabled={isRecalculating} className="btn-primary disabled:opacity-60">
-              {isRecalculating ? "Đang tính lại..." : "Tính lại các kỳ lương đang mở"}
+            <button type="button" onClick={recalculateOpenRuns} disabled={isRecalculating} className={`${ACTION_CLASS} disabled:opacity-60`}>
+              {isRecalculating ? "Đang tính lại..." : "Tính lại các tháng lương đang mở"}
             </button>
             <input
               ref={inputRef}

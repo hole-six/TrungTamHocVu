@@ -8,7 +8,7 @@ export function getReportEffectiveBadge(mode: ReportMode, scope: "report" | "tui
   if (mode === "snapshot") {
     if (scope === "tuition") return "Đang xem dữ liệu kỳ đã chốt";
     if (scope === "cashbook") return "Đang xem thu chi kỳ đã chốt";
-    if (scope === "payroll") return "Đang xem kỳ lương đã chốt";
+    if (scope === "payroll") return "Đang xem tháng lương đã chốt";
     return "Đang xem báo cáo kỳ đã chốt";
   }
   return "Đang xem dữ liệu hiện tại";
@@ -18,12 +18,12 @@ export function getCreateSnapshotButtonLabel(scope: "report" | "tuition" | "cash
   if (creating) {
     if (scope === "tuition") return "Đang chốt dữ liệu kỳ...";
     if (scope === "cashbook") return "Đang chốt thu chi kỳ...";
-    if (scope === "payroll") return "Đang chốt dữ liệu kỳ lương...";
+    if (scope === "payroll") return "Đang chốt dữ liệu tháng lương...";
     return "Đang chốt báo cáo kỳ...";
   }
   if (scope === "tuition") return "Chốt dữ liệu kỳ này";
   if (scope === "cashbook") return "Chốt thu chi kỳ này";
-  if (scope === "payroll") return "Chốt kỳ lương này";
+  if (scope === "payroll") return "Chốt tháng lương này";
   return "Chốt báo cáo kỳ này";
 }
 
@@ -34,7 +34,7 @@ export function getSnapshotTimestampLabel(scope: "report" | "tuition" | "cashboo
       : scope === "cashbook"
         ? "Đã chốt thu chi lúc"
         : scope === "payroll"
-          ? "Đã chốt kỳ lương lúc"
+          ? "Đã chốt tháng lương lúc"
           : "Đã chốt báo cáo lúc";
   return `${prefix} ${new Date(timestamp).toLocaleString("vi-VN")}`;
 }

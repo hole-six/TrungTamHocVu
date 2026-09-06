@@ -462,7 +462,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
                   </div>
                 </SectionCard>
               ) : (
-                <div className="rounded-2xl border border-[#e5eaf7] bg-[#f8faff] p-6 text-center text-sm text-[#94a3b8]">Chưa có kỳ lương nào.</div>
+                <div className="rounded-2xl border border-[#e5eaf7] bg-[#f8faff] p-6 text-center text-sm text-[#94a3b8]">Chưa có tháng lương nào.</div>
               )}
 
               {/* Materials */}

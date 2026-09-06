@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CurrencyInput from "@/components/ui/CurrencyInput";
+import { Stat, ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { formatVnd } from "@/lib/export-utils";
 
 type Contract = {
@@ -26,7 +27,18 @@ function toDateInput(value: string | null) {
 // hoàn toàn không có API/form tạo. Mỗi lần ký hợp đồng mới tạo 1 dòng mới (không sửa
 // đè hợp đồng cũ, xem app/api/employees/[id]/contracts/route.ts) — đúng bản chất lịch
 // sử, danh sách/hồ sơ luôn hiển thị hợp đồng ký gần nhất.
-export default function EmploymentContractPanel({ employeeId, contract, canEdit }: { employeeId: string; contract: Contract | null; canEdit: boolean }) {
+export default function EmploymentContractPanel({
+  employeeId,
+  contract,
+  canEdit,
+  bare = false,
+}: {
+  employeeId: string;
+  contract: Contract | null;
+  canEdit: boolean;
+  /** Nơi gọi (Section trong drawer) đã có khung + tiêu đề — bỏ khung/tiêu đề riêng. */
+  bare?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -64,11 +76,11 @@ export default function EmploymentContractPanel({ employeeId, contract, canEdit 
   }
 
   return (
-    <div className="card">
+    <div className={bare ? "" : "card"}>
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold tracking-tight">Hợp đồng lao động</h2>
+        {bare ? <span /> : <h2 className="font-display text-lg font-semibold tracking-tight">Hợp đồng lao động</h2>}
         {canEdit && !open && (
-          <button onClick={() => setOpen(true)} className="btn-ghost text-sm">
+          <button onClick={() => setOpen(true)} className="btn-ghost-sm">
             Ký hợp đồng mới
           </button>
         )}
@@ -76,30 +88,13 @@ export default function EmploymentContractPanel({ employeeId, contract, canEdit 
 
       {!open ? (
         contract ? (
-          <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <dt className="text-ink-muted48">Số HĐ</dt>
-              <dd className="font-medium">{contract.contractNo ?? "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-ink-muted48">Loại HĐ</dt>
-              <dd className="font-medium">{contract.contractType ?? "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-ink-muted48">Ngày ký HĐ</dt>
-              <dd className="font-medium">{formatDate(contract.signDate)}</dd>
-            </div>
-            <div>
-              <dt className="text-ink-muted48">Hạn HĐ</dt>
-              <dd className="font-medium">{formatDate(contract.expiryDate)}</dd>
-            </div>
-            {contract.baseSalary ? (
-              <div>
-                <dt className="text-ink-muted48">Lương cơ bản HĐ</dt>
-                <dd className="font-medium">{formatVnd(contract.baseSalary)}</dd>
-              </div>
-            ) : null}
-          </dl>
+          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+            <Stat label="Số HĐ">{contract.contractNo}</Stat>
+            <Stat label="Loại HĐ">{contract.contractType}</Stat>
+            <Stat label="Ngày ký">{contract.signDate ? formatDate(contract.signDate) : null}</Stat>
+            <Stat label="Hạn HĐ">{contract.expiryDate ? formatDate(contract.expiryDate) : null}</Stat>
+            <Stat label="Lương cơ bản HĐ">{contract.baseSalary ? formatVnd(contract.baseSalary) : null}</Stat>
+          </div>
         ) : (
           <p className="mt-3 text-sm text-ink-muted48">Chưa có hợp đồng nào được ghi nhận.</p>
         )
@@ -127,7 +122,7 @@ export default function EmploymentContractPanel({ employeeId, contract, canEdit 
           </label>
           {error && <p className="col-span-full text-sm text-red-600">{error}</p>}
           <div className="col-span-full flex gap-2">
-            <button type="submit" disabled={loading} className="btn-primary">
+            <button type="submit" disabled={loading} className={ACTION_CLASS}>
               {loading ? "Đang lưu..." : "Lưu hợp đồng"}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="btn-ghost">

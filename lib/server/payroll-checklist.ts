@@ -44,7 +44,7 @@ export async function evaluatePayrollRunChecklist(runId: string) {
   const items = [
     {
       key: "has_lines",
-      label: "Đã có nhân sự trong kỳ lương",
+      label: "Đã có nhân sự trong tháng lương",
       done: run.lines.length > 0,
       help: run.lines.length > 0 ? `${run.lines.length} nhân sự đã có trong kỳ.` : "Kỳ này chưa có dòng lương nào.",
     },

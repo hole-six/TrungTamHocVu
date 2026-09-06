@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 import CurrencyInput from "@/components/ui/CurrencyInput";
+import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { formatVnd } from "@/lib/export-utils";
 
 type Props = {
@@ -22,6 +23,8 @@ type Props = {
   otherDeduction: number;
   notes: string | null;
   employeeName: string;
+  /** Nơi gọi (Section trong drawer) đã có khung + tiêu đề — bỏ khung/tiêu đề riêng. */
+  bare?: boolean;
 };
 
 // Các khoản cộng/trừ itemize đúng theo phiếu lương thật của trung tâm (ảnh mẫu trong
@@ -45,6 +48,7 @@ export default function PayrollLineAdjustForm({
   otherDeduction,
   notes,
   employeeName,
+  bare = false,
 }: Props) {
   const router = useRouter();
   const [form, setForm] = useState({
@@ -128,8 +132,8 @@ export default function PayrollLineAdjustForm({
   }
 
   return (
-    <div className="card space-y-4">
-      <h2 className="font-display text-lg font-semibold tracking-tight">Điều chỉnh dòng lương kỳ này</h2>
+    <div className={bare ? "space-y-4" : "card space-y-4"}>
+      {bare ? null : <h2 className="font-display text-lg font-semibold tracking-tight">Điều chỉnh lương tháng này</h2>}
 
       <div>
         <p className="mb-2 text-xs font-bold uppercase text-ink-muted48">Làm thêm giờ</p>
@@ -201,18 +205,18 @@ export default function PayrollLineAdjustForm({
         <textarea className="input resize-none" rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} />
       </label>
 
-      <p className="text-sm font-bold text-ink">Tổng cộng/trừ kỳ này (chưa gồm lương dạy/TG/công): {formatVnd(previewNetAdjustment)}</p>
+      <p className="text-sm font-bold text-ink">Tổng cộng/trừ tháng này (chưa gồm lương dạy/TG/công): {formatVnd(previewNetAdjustment)}</p>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {saved && !error ? <p className="text-sm text-emerald-600">Đã lưu.</p> : null}
 
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={save} disabled={loading} className="btn-primary">
+        <button type="button" onClick={save} disabled={loading} className={ACTION_CLASS}>
           {loading ? "Đang lưu..." : "Lưu thay đổi"}
         </button>
         <ConfirmActionButton
           title="Xác nhận xóa dòng lương?"
-          description={`Dòng lương của ${employeeName} sẽ bị xóa khỏi kỳ hiện tại.`}
+          description={`Dòng lương của ${employeeName} sẽ bị xóa khỏi tháng hiện tại.`}
           confirmLabel="Xóa dòng lương"
           tone="danger"
           disabled={loading}

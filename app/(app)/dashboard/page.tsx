@@ -589,7 +589,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
             <table className="w-full text-left text-sm">
               <thead className="bg-[#f8faff]">
                 <tr>
-                  {["Cơ sở", "HV đang học", "Lớp HĐ", "Buổi hôm nay", "Công nợ", "Kỳ HP mở", "Kỳ lương", "Lead"].map((h) => (
+                  {["Cơ sở", "HV đang học", "Lớp HĐ", "Buổi hôm nay", "Công nợ", "Kỳ HP mở", "Lương tháng", "Lead"].map((h) => (
                     <th key={h} className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-[#64748b]">{h}</th>
                   ))}
                 </tr>
@@ -641,7 +641,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                     <p className="font-bold text-[#475569]">{b.openBillingPeriods}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-[10px] text-[#94a3b8] mb-0.5">Kỳ lương</p>
+                    <p className="text-[10px] text-[#94a3b8] mb-0.5">Lương tháng</p>
                     <p className="font-bold text-[#475569]">{b.openPayrollRuns}</p>
                   </div>
                 </div>

@@ -3,8 +3,6 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { computeContractStatus } from "@/lib/server/payroll-rules";
 import PayrollEmployeeEditPanels from "@/components/payroll/PayrollEmployeeEditPanels";
-import PageGuide from "@/components/ui/PageGuide";
-import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canCreate, canUpdateWithOverride, canViewFullWithOverride } from "@/lib/server/role-matrix";
@@ -24,49 +22,6 @@ type RequirementCheckRow = {
 function formatDate(d: Date) {
   return new Date(d).toLocaleDateString("vi-VN");
 }
-
-const EMPLOYEE_DETAIL_GUIDE_SECTIONS = [
-  {
-    title: "Mục tiêu trang này",
-    items: [
-      "Đây là hồ sơ nhân sự chi tiết: buổi dạy, buổi trợ giảng, chấm công và thông tin lương cơ bản của một người.",
-      "Trang này dùng để đối chiếu dữ liệu làm việc thực tế trước khi chốt payroll.",
-      "Nếu số liệu lương đang lệch, đây là nơi nên mở đầu tiên để kiểm tra nguồn công gốc.",
-    ],
-    tone: "info" as const,
-  },
-  {
-    title: "Cách dùng nhanh",
-    items: [
-      "Xem bảng buổi dạy/trợ giảng để biết nhân viên đã phát sinh công việc và tiền theo buổi ra sao.",
-      "Xem bảng chấm công ngày để đối chiếu thêm số giờ, số công ngoài hoạt động giảng dạy.",
-      "Dùng khối bên phải để cập nhật hồ sơ hoặc thêm chấm công nhanh khi bạn có quyền thao tác.",
-    ],
-    tone: "success" as const,
-  },
-  {
-    title: "Lưu ý vận hành",
-    items: [
-      "Số liệu ở đây là dữ liệu gốc cho payroll nên không nên sửa tay nếu chưa hiểu nó đến từ đâu.",
-      "Hết hạn hợp đồng là cảnh báo vận hành, không tự động có nghĩa là người đó không còn phát sinh công.",
-      "Nếu nhân viên vừa có buổi dạy vừa có chấm công hành chính, cần đối chiếu cả hai nguồn trước khi chốt.",
-    ],
-    tone: "warning" as const,
-  },
-];
-
-// Trước đây trỏ vào 4 khối cột trái/phải (buổi dạy, chấm công, đơn giá) — các khối đó
-// giờ đã chuyển vào trong PayrollEmployeeEditPanels (tab "Lịch sử"/"Thông tin cá nhân"),
-// không còn nằm trực tiếp ở page này với data-tour riêng — thu gọn tour lại đúng những
-// gì còn ở page, tránh trỏ vào target không tồn tại.
-const EMPLOYEE_DETAIL_TOUR_STEPS: TourStep[] = [
-  {
-    target: '[data-tour="employee-header"]',
-    title: "Hồ sơ nhân sự — nguồn công gốc cho lương",
-    description: "Cảnh báo hợp đồng ở đây chỉ là nhắc việc, không tự động ảnh hưởng đến việc tính công/lương của người này. Buổi dạy, chấm công, đơn giá và lịch sử đều đã chia theo tab bên dưới.",
-    placement: "bottom",
-  },
-];
 
 export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
   const currentUser = await getCurrentUser();
@@ -119,26 +74,12 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
   }));
 
   return (
-    <div className="space-y-6">
-      <PageGuide
-        title="Guide hồ sơ nhân sự"
-        summary="Giải thích nhanh cách đọc buổi dạy, chấm công và thông tin lương của từng nhân viên."
-        sections={EMPLOYEE_DETAIL_GUIDE_SECTIONS}
-        buttonLabel="Guide nhân sự"
-      />
-      <div className="flex items-start justify-between gap-3" data-tour="employee-header">
-        <div>
-          <BackButton href="/payroll" className="text-sm text-primary">
-            ← Quay lại Nhân sự & Lương
-          </BackButton>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight">{employee.fullName}</h1>
-          <p className="mt-1 text-sm text-ink-muted48">
-            Mã NV: {employee.employeeCode} · Tên ngắn: {employee.shortName} · {employee.position ?? "—"}
-          </p>
-          {contractStatus === "Đã hết hạn HĐ" && <span className="badge-red mt-2 inline-flex">Đã hết hạn HĐ</span>}
-          {contractStatus === "Sắp hết hạn HĐ" && <span className="badge-amber mt-2 inline-flex">Sắp hết hạn HĐ</span>}
-        </div>
-        <SpotlightTour steps={EMPLOYEE_DETAIL_TOUR_STEPS} />
+    <div className="space-y-4">
+      <div>
+        <BackButton href="/payroll" className="text-sm text-[#64748b]">
+          ← Quay lại Lương
+        </BackButton>
+        <h1 className="mt-2 text-xl font-black tracking-tight text-[#0f1729] sm:text-2xl">{employee.fullName}</h1>
       </div>
 
       <PayrollEmployeeEditPanels

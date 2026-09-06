@@ -3,91 +3,52 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 
-const NEXT: Record<
-  string,
-  { to: string; label: string; description: string; confirm?: string } | null
-> = {
+const NEXT: Record<string, { to: string; label: string; confirm: string } | null> = {
   DRAFT: null,
   CALCULATED: {
     to: "REVIEWED",
-    label: "Bước 2: Xác nhận đã kiểm tra",
-    description:
-      "Dùng khi bạn đã rà soát xong số giờ, công, lương cứng và điều chỉnh.",
-    confirm:
-      "Xác nhận đã kiểm tra xong số liệu kỳ lương này? Hãy chắc chắn giờ dạy, công và các khoản điều chỉnh đã đúng trước khi qua bước duyệt.",
+    label: "Xác nhận đã kiểm tra",
+    confirm: "Xác nhận đã kiểm tra xong số liệu tháng này? Hãy chắc chắn giờ dạy, công và các khoản điều chỉnh đã đúng.",
   },
   REVIEWED: {
     to: "APPROVED",
-    label: "Bước 3: Duyệt số liệu",
-    description:
-      "Sau bước này, kỳ lương sẽ được xem là đã chốt số liệu để chuẩn bị khóa.",
-    confirm:
-      "Duyệt kỳ lương này? Sau khi duyệt, bạn không nên tính lại từ dữ liệu gốc nữa.",
+    label: "Duyệt số liệu",
+    confirm: "Duyệt lương tháng này? Sau khi duyệt, không nên tính lại từ dữ liệu gốc nữa.",
   },
   APPROVED: {
     to: "LOCKED",
-    label: "Bước 4: Khóa kỳ lương",
-    description: "Khóa kỳ để ngừng chỉnh sửa trước khi trả lương thực tế.",
-    confirm:
-      "Khóa kỳ lương này? Sau khi khóa, các dòng lương sẽ không còn sửa được — chỉ mở lại được qua thao tác quản trị riêng.",
+    label: "Khóa tháng lương",
+    confirm: "Khóa lương tháng này? Sau khi khóa, các dòng lương sẽ không còn sửa được.",
   },
   LOCKED: {
     to: "PAID",
-    label: "Bước 5: Đánh dấu đã trả lương",
-    description: "Chỉ dùng khi tiền lương đã được chi trả thực tế.",
-    confirm:
-      "Đánh dấu kỳ lương này ĐÃ TRẢ? Chỉ xác nhận khi tiền lương đã thực sự được chi trả cho toàn bộ nhân sự trong kỳ.",
+    label: "Đánh dấu đã trả lương",
+    confirm: "Đánh dấu tháng lương này ĐÃ TRẢ? Chỉ xác nhận khi tiền lương đã thực sự được chi trả.",
   },
   PAID: {
     to: "REOPENED",
-    label: "Mở lại kỳ lương",
-    description: "Chỉ dùng khi phát hiện sai sót cần đính chính sau khi đã trả lương.",
-    confirm:
-      "Mở lại kỳ lương đã trả? Các dòng lương trong kỳ sẽ có thể tính/sửa lại — chỉ dùng khi thực sự cần đính chính, không dùng để làm lại từ đầu theo thói quen.",
+    label: "Mở lại tháng lương",
+    confirm: "Mở lại tháng lương đã trả? Chỉ dùng khi thực sự cần đính chính.",
   },
   // Không có nút "bước tiếp theo" riêng ở REOPENED — giống hệt DRAFT, việc bấm "Tính
-  // lại lương" (nút generate ở dưới) sẽ tự đưa trạng thái sang CALCULATED, từ đó đi
-  // tiếp REVIEWED→APPROVED→LOCKED→PAID theo đúng quy trình bình thường.
+  // lại lương" sẽ tự đưa trạng thái sang CALCULATED, từ đó đi tiếp REVIEWED→APPROVED→
+  // LOCKED→PAID theo đúng quy trình bình thường.
   REOPENED: null,
 };
 
-const STATUS_HELP: Record<string, { title: string; description: string }> = {
-  DRAFT: {
-    title: "Kỳ lương mới tạo",
-    description:
-      "Việc đầu tiên cần làm là tính lương để kéo dữ liệu buổi dạy, trợ giảng và chấm công vào kỳ này.",
-  },
-  CALCULATED: {
-    title: "Đã lấy xong dữ liệu nguồn",
-    description:
-      "Giờ hãy kiểm tra số giờ, số công, lương cứng, thưởng và phạt trước khi xác nhận.",
-  },
-  REVIEWED: {
-    title: "Đã kiểm tra xong",
-    description:
-      "Nếu số liệu đã đúng, bạn có thể duyệt để chốt phần nghiệp vụ.",
-  },
-  APPROVED: {
-    title: "Đã duyệt",
-    description:
-      "Kỳ lương đang chờ khóa. Chỉ khóa khi bạn chắc chắn không cần sửa gì thêm.",
-  },
-  LOCKED: {
-    title: "Đã khóa",
-    description:
-      "Kỳ lương không còn chỉnh sửa được. Sau khi chi lương xong thì đánh dấu đã trả.",
-  },
-  PAID: {
-    title: "Đã hoàn tất",
-    description: "Kỳ lương này đã được đánh dấu trả xong.",
-  },
-  REOPENED: {
-    title: "Đã mở lại",
-    description:
-      "Bấm tính lại lương để lấy lại dữ liệu buổi dạy, trợ giảng, chấm công mới nhất rồi đi lại các bước kiểm tra/duyệt/khóa/trả từ đầu.",
-  },
-};
+// Thứ tự các bước để hiển thị người dùng đang ở đâu — thay cho 2 khối chữ mô tả dài
+// (STATUS_HELP + "việc nên làm lúc này" + "bước tiếp theo") vốn nói đi nói lại cùng
+// một điều ở 3 chỗ khác nhau.
+const STEPS: { status: string; label: string }[] = [
+  { status: "DRAFT", label: "Tính lương" },
+  { status: "CALCULATED", label: "Kiểm tra" },
+  { status: "REVIEWED", label: "Duyệt" },
+  { status: "APPROVED", label: "Khóa" },
+  { status: "LOCKED", label: "Trả lương" },
+  { status: "PAID", label: "Xong" },
+];
 
 export default function PayrollRunActions({
   runId,
@@ -108,9 +69,7 @@ export default function PayrollRunActions({
     setError(null);
     setResult(null);
 
-    const res = await fetch(`/api/payroll-runs/${runId}/generate`, {
-      method: "POST",
-    });
+    const res = await fetch(`/api/payroll-runs/${runId}/generate`, { method: "POST" });
     const data = await res.json();
 
     setLoading(null);
@@ -119,9 +78,7 @@ export default function PayrollRunActions({
       return;
     }
 
-    setResult(
-      `Đã tạo ${data.created} dòng mới, cập nhật ${data.updated} dòng trên ${data.totalEmployees} nhân sự.`,
-    );
+    setResult(`Đã tạo ${data.created} dòng mới, cập nhật ${data.updated} dòng trên ${data.totalEmployees} nhân sự.`);
     router.refresh();
   }
 
@@ -154,7 +111,7 @@ export default function PayrollRunActions({
     setLoading(null);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Không thể xóa kỳ lương.");
+      setError(data.error ?? "Không thể xóa tháng lương.");
       return;
     }
 
@@ -162,120 +119,76 @@ export default function PayrollRunActions({
   }
 
   const nextAction = NEXT[status] ?? null;
-  const statusHelp = STATUS_HELP[status] ?? {
-    title: "Trạng thái hiện tại",
-    description: "Kiểm tra kỹ dữ liệu trước khi chuyển sang bước tiếp theo.",
-  };
-  const canGenerate =
-    status === "DRAFT" || status === "CALCULATED" || status === "REVIEWED" || status === "REOPENED";
+  const canGenerate = status === "DRAFT" || status === "CALCULATED" || status === "REVIEWED" || status === "REOPENED";
   const canDelete = canGenerate;
+  const currentStepIndex = STEPS.findIndex((step) => step.status === status);
+  const blockedByChecklist = Boolean(nextAction && (nextAction.to === "APPROVED" || nextAction.to === "LOCKED") && !checklistReady);
 
   return (
-    <div className="overflow-hidden rounded-3xl border-2 border-[#fed7aa] bg-white shadow-sm">
-      <div className="border-b border-[#ffedd5] bg-gradient-to-r from-[#fff7ed] to-white px-6 py-5">
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-[#f97316]">
-          Thao tác chính
-        </p>
-        <h2 className="mt-2 text-xl font-black tracking-tight text-[#111827]">
-          {statusHelp.title}
-        </h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-[#6b7280]">
-          {statusHelp.description}
-        </p>
+    <div className="space-y-4">
+      {/* Đang ở bước nào — 1 dòng thay cho 3 khối chữ mô tả trạng thái trước đây */}
+      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        {STEPS.map((step, index) => (
+          <span
+            key={step.status}
+            className={`rounded-md px-2 py-1 font-bold ${
+              index === currentStepIndex
+                ? "bg-[#0f1729] text-white"
+                : index < currentStepIndex
+                  ? "border border-[#e2e8f0] bg-white text-[#94a3b8]"
+                  : "border border-[#e2e8f0] bg-white text-[#475569]"
+            }`}
+          >
+            {index + 1}. {step.label}
+          </span>
+        ))}
+        {status === "REOPENED" ? <span className="rounded-md bg-[#b45309] px-2 py-1 font-bold text-white">Đã mở lại</span> : null}
       </div>
 
-      <div className="space-y-4 px-6 py-5">
-        <div className="rounded-2xl border border-[#e5e7eb] bg-[#fafafa] px-4 py-3">
-          <p className="text-sm font-bold text-[#111827]">Việc nên làm lúc này</p>
-          <p className="mt-1 text-sm leading-6 text-[#6b7280]">
-            {status === "DRAFT"
-              ? "Bấm tính lương để tạo toàn bộ dữ liệu kỳ lương từ dữ liệu gốc."
-              : status === "REOPENED"
-                ? "Bấm tính lại lương để lấy lại dữ liệu mới nhất, sau đó đi lại các bước kiểm tra/duyệt/khóa/trả."
-                : nextAction
-                  ? nextAction.description
-                  : "Kỳ lương đã hoàn tất. Bạn chỉ cần tra cứu hoặc xuất file nếu cần."}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          {canGenerate ? (
-            <button
-              onClick={generate}
-              disabled={loading === "GENERATE"}
-              className="btn-primary"
-            >
-              {loading === "GENERATE"
-                ? "Đang tính lại..."
-                : "Bước 1: Tính lại lương từ dữ liệu gốc"}
-            </button>
-          ) : null}
-
-          {nextAction ? (
-            <ConfirmActionButton
-              title="Xác nhận chuyển bước kỳ lương?"
-              description={nextAction.confirm ?? nextAction.description}
-              confirmLabel={nextAction.label}
-              tone={nextAction.to === "PAID" ? "danger" : "default"}
-              disabled={
-                loading === nextAction.to ||
-                ((nextAction.to === "APPROVED" || nextAction.to === "LOCKED") &&
-                  !checklistReady)
-              }
-              className="inline-flex items-center justify-center rounded-2xl border-2 border-[#fdba74] bg-white px-5 py-3 text-sm font-bold text-[#c2410c] transition hover:bg-[#fff7ed] disabled:cursor-not-allowed disabled:opacity-60"
-              onConfirm={() => setStatus(nextAction.to)}
-            >
-              {loading === nextAction.to
-                ? "Đang chuyển bước..."
-                : nextAction.label}
-            </ConfirmActionButton>
-          ) : null}
-        </div>
+      <div className="flex flex-wrap gap-2">
+        {canGenerate ? (
+          <button onClick={generate} disabled={loading === "GENERATE"} className={ACTION_CLASS}>
+            {loading === "GENERATE" ? "Đang tính lại..." : "Tính lại lương từ dữ liệu gốc"}
+          </button>
+        ) : null}
 
         {nextAction ? (
-          <div className="rounded-2xl border border-[#fed7aa] bg-[#fffaf5] px-4 py-3 text-sm text-[#7c2d12]">
-            <p className="font-bold">Bước tiếp theo</p>
-            <p className="mt-1 leading-6">{nextAction.description}</p>
-            {(nextAction.to === "APPROVED" || nextAction.to === "LOCKED") &&
-            !checklistReady ? (
-              <p className="mt-2 font-semibold text-red-600">
-                Checklist chưa đạt 100%, hệ thống đang chặn bước này để tránh chốt sai.
-              </p>
-            ) : null}
-          </div>
+          <ConfirmActionButton
+            title="Xác nhận chuyển bước?"
+            description={nextAction.confirm}
+            confirmLabel={nextAction.label}
+            tone={nextAction.to === "PAID" ? "danger" : "default"}
+            disabled={loading === nextAction.to || blockedByChecklist}
+            className={ACTION_CLASS}
+            onConfirm={() => setStatus(nextAction.to)}
+          >
+            {loading === nextAction.to ? "Đang chuyển bước..." : nextAction.label}
+          </ConfirmActionButton>
         ) : null}
-
-        {canDelete ? (
-          <details className="rounded-2xl border border-[#e5e7eb] bg-[#fafafa] px-4 py-3">
-            <summary className="cursor-pointer text-sm font-bold text-[#6b7280]">
-              Tác vụ phụ và thao tác nguy hiểm
-            </summary>
-            <div className="mt-3 rounded-2xl border border-[#f1f5f9] bg-white px-4 py-3">
-              <p className="text-sm font-bold text-[#111827]">Xóa kỳ lương</p>
-              <p className="mt-1 text-xs leading-5 text-[#6b7280]">
-                Chỉ dùng khi bạn muốn làm lại kỳ lương từ đầu. Toàn bộ dòng lương
-                hiện tại sẽ bị xóa.
-              </p>
-              <div className="mt-3">
-                <ConfirmActionButton
-                  title="Xác nhận xóa kỳ lương?"
-                  description="Toàn bộ dòng lương trong kỳ này sẽ bị xóa và không thể hoàn tác."
-                  confirmLabel="Xóa kỳ lương"
-                  tone="danger"
-                  disabled={loading === "DELETE"}
-                  className="btn-danger-sm"
-                  onConfirm={remove}
-                >
-                  {loading === "DELETE" ? "Đang xóa..." : "Xóa kỳ lương"}
-                </ConfirmActionButton>
-              </div>
-            </div>
-          </details>
-        ) : null}
-
-        {result ? <p className="text-sm text-primary">{result}</p> : null}
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
       </div>
+
+      {blockedByChecklist ? (
+        <p className="text-sm font-semibold text-rose-700">Checklist chưa đạt, hệ thống đang chặn bước này để tránh chốt sai.</p>
+      ) : null}
+
+      {result ? <p className="text-sm text-emerald-700">{result}</p> : null}
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+      {canDelete ? (
+        <div className="border-t border-[#f1f5f9] pt-3">
+          <ConfirmActionButton
+            title="Xác nhận xóa tháng lương?"
+            description="Toàn bộ dòng lương của tháng này sẽ bị xóa và không thể hoàn tác."
+            confirmLabel="Xóa tháng lương"
+            tone="danger"
+            disabled={loading === "DELETE"}
+            className="btn-danger-sm"
+            onConfirm={remove}
+          >
+            {loading === "DELETE" ? "Đang xóa..." : "Xóa tháng lương"}
+          </ConfirmActionButton>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { canAccessBranch } from "@/lib/branch-filter";
 
 // Tổng hợp lương từ SessionAssignment (giờ dạy/trợ giảng theo buổi, đã snapshot
 // hourlyRate lúc phân công) + TimesheetEntry (ngày công chấm theo giờ hành chính)
-// trong khoảng ngày của kỳ lương — nguồn Report_Cong_Luong.
+// trong khoảng ngày của tháng lương — nguồn Report_Cong_Luong.
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
@@ -25,7 +25,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
   const result = await generatePayrollForRun(params.id);
   if ("error" in result) {
-    const status = result.error === "Không tìm thấy kỳ lương" ? 404 : 409;
+    const status = result.code === "NOT_FOUND" ? 404 : 409;
     return NextResponse.json({ error: result.error }, { status });
   }
 

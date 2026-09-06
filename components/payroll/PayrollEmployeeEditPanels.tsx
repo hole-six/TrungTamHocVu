@@ -5,13 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import EmployeeProfileEditor from "@/components/payroll/EmployeeProfileEditor";
 import EmploymentContractPanel from "@/components/payroll/EmploymentContractPanel";
-import TimesheetQuickAddForm from "@/components/payroll/TimesheetQuickAddForm";
 import TimesheetEntryForm from "@/components/timesheets/TimesheetEntryForm";
 import AssistantScoreForm, { BranchBonusForm } from "@/components/payroll/AssistantScoreForm";
 import PayrollLineAdjustForm from "@/components/payroll/PayrollLineAdjustForm";
-import DetailTabs, { type DetailTab } from "@/components/ui/DetailTabs";
-import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
-import type { Column } from "@/components/ui/DataTable";
+import { Section, Stat, ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { formatVnd } from "@/lib/export-utils";
 import { SESSION_ROLE_LABEL, type EmployeeContractStatus } from "@/lib/server/payroll-rules";
 
@@ -55,57 +52,35 @@ function AssistantScorecardSummary({ employeeId, month }: { employeeId: string; 
   }, [employeeId, month]);
 
   return (
-    <div className="rounded-2xl border-2 border-[#e5e7eb] bg-white px-6 py-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-base font-bold text-[#111827]">Tổng hợp điểm đánh giá tháng {month}</h3>
-          <p className="text-sm text-[#6b7280]">Số ca, điểm trừ/cộng và tỉ lệ A — tính riêng theo từng cơ sở.</p>
-        </div>
-        <Link
-          href={`/teacher-tasks?employeeId=${employeeId}&status=NOT_SUBMITTED`}
-          className="inline-flex shrink-0 items-center gap-1 rounded-lg border-2 border-[#f97316] px-3 py-2 text-xs font-bold text-[#f97316] transition hover:bg-[#fff7ed]"
-        >
-          Xem việc chưa nộp →
-        </Link>
-      </div>
-
-      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
-      {!data && !error ? <p className="mt-3 text-sm text-[#9ca3af]">Đang tải...</p> : null}
+    <div className="space-y-3">
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {!data && !error ? <p className="text-sm text-[#94a3b8]">Đang tải...</p> : null}
       {data && data.byBranch.length === 0 ? (
-        <p className="mt-3 text-sm text-[#9ca3af]">Chưa có ca/điểm nào ghi nhận trong tháng {month}.</p>
+        <p className="text-sm text-[#94a3b8]">Chưa có ca/điểm nào ghi nhận trong tháng {month}.</p>
       ) : null}
 
-      {data && data.byBranch.length > 0 ? (
-        <div className="mt-4 space-y-3">
-          {data.byBranch.map((b) => (
-            <div key={b.branchId} className="rounded-xl border border-[#e5e7eb] bg-[#fbfbfc] px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-[#6b7280]">{b.branchName}</p>
-              <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-5">
-                <div>
-                  <p className="text-[11px] text-[#9ca3af]">Số ca tính</p>
-                  <p className="text-lg font-black text-[#0f1729]">{b.countedShifts}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-[#9ca3af]">Điểm trừ</p>
-                  <p className="text-lg font-black text-red-600">{b.deducted}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-[#9ca3af]">Điểm cộng</p>
-                  <p className="text-lg font-black text-emerald-600">{b.added}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-[#9ca3af]">Tỉ lệ A</p>
-                  <p className="text-lg font-black text-[#0f1729]">{b.ratio !== null ? `${b.ratio.toFixed(1)}%` : "—"}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-[#9ca3af]">% Thưởng hiện tại</p>
-                  <p className="text-lg font-black text-[#f97316]">{b.bonus ? `${(b.bonus.bonusPercent * 100).toFixed(0)}%` : "—"}</p>
-                </div>
+      {data && data.byBranch.length > 0
+        ? data.byBranch.map((b) => (
+            <div key={b.branchId} className="border-b border-[#f1f5f9] pb-3 last:border-0">
+              <p className="text-xs font-bold uppercase tracking-wide text-[#94a3b8]">{b.branchName}</p>
+              <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-5">
+                <Stat label="Số ca tính">{b.countedShifts}</Stat>
+                <Stat label="Điểm trừ">
+                  <span className={b.deducted > 0 ? "text-red-600" : undefined}>{b.deducted}</span>
+                </Stat>
+                <Stat label="Điểm cộng">
+                  <span className={b.added > 0 ? "text-emerald-700" : undefined}>{b.added}</span>
+                </Stat>
+                <Stat label="Tỉ lệ A">{b.ratio !== null ? `${b.ratio.toFixed(1)}%` : null}</Stat>
+                <Stat label="% Thưởng">{b.bonus ? `${(b.bonus.bonusPercent * 100).toFixed(0)}%` : null}</Stat>
               </div>
             </div>
-          ))}
-        </div>
-      ) : null}
+          ))
+        : null}
+
+      <Link href={`/teacher-tasks?employeeId=${employeeId}&status=NOT_SUBMITTED`} className={ACTION_CLASS}>
+        Xem việc chưa nộp
+      </Link>
     </div>
   );
 }
@@ -126,11 +101,10 @@ type TimesheetEntryRow = {
   notes: string | null;
 };
 
-// Danh sách chấm công có sửa/xóa tại chỗ — trước đây drawer nhân sự chỉ TẠO được
-// chấm công mới (TimesheetQuickAddForm), không có chỗ xem lại/sửa/xóa dù API
-// PUT/DELETE /api/timesheet-entries đã hoạt động đầy đủ ở trang /timesheets. Tái
-// dùng đúng TimesheetEntryForm.tsx (không viết form riêng) cho từng dòng khi "Sửa".
-function TimesheetEditableList({
+// Danh sách chấm công có sửa/xóa tại chỗ — tái dùng đúng TimesheetEntryForm.tsx (không
+// viết form riêng) cho từng dòng khi "Sửa", và cho cả dòng "chấm công ngày mới" ở trên
+// cùng: cùng 1 form, chỉ khác `existing` null hay không.
+function TimesheetSection({
   employeeId,
   employeeName,
   entries,
@@ -144,46 +118,84 @@ function TimesheetEditableList({
   onChanged: () => void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
-
-  if (entries.length === 0) {
-    return <p className="text-sm text-ink-muted48">Chưa có chấm công nào.</p>;
-  }
+  const [addingDate, setAddingDate] = useState<string | null>(null);
 
   return (
-    <div className="space-y-2">
-      {entries.map((entry) =>
-        editingId === entry.id ? (
-          <div key={entry.id} className="rounded-xl border-2 border-[#f97316] bg-[#fff7ed] p-3">
-            <p className="mb-2 text-sm font-semibold text-ink">{formatDate(entry.workDate)}</p>
-            <TimesheetEntryForm
-              employeeId={employeeId}
-              employeeName={employeeName}
-              selectedDate={new Date(entry.workDate).toISOString().slice(0, 10)}
-              selectedDateLabel={formatDate(entry.workDate)}
-              existing={entry}
-              canDeleteTimesheet={canEdit}
-              onSaved={() => {
-                setEditingId(null);
-                onChanged();
-              }}
-            />
-            <button type="button" onClick={() => setEditingId(null)} className="btn-ghost-sm mt-2">
-              Đóng
+    <div className="space-y-3">
+      {canEdit ? (
+        addingDate === null ? (
+          <button type="button" onClick={() => setAddingDate(new Date().toISOString().slice(0, 10))} className={ACTION_CLASS}>
+            + Chấm công một ngày
+          </button>
+        ) : (
+          <div className="space-y-2 border-b border-[#f1f5f9] pb-3">
+            <label className="block space-y-1">
+              <span className="label-sm">Ngày công</span>
+              <input type="date" className="input" value={addingDate} onChange={(event) => setAddingDate(event.target.value)} />
+            </label>
+            {addingDate ? (
+              <TimesheetEntryForm
+                key={addingDate}
+                employeeId={employeeId}
+                employeeName={employeeName}
+                selectedDate={addingDate}
+                selectedDateLabel={formatDate(addingDate)}
+                existing={null}
+                canDeleteTimesheet={false}
+                onSaved={() => {
+                  setAddingDate(null);
+                  onChanged();
+                }}
+              />
+            ) : null}
+            <button type="button" onClick={() => setAddingDate(null)} className="btn-ghost-sm">
+              Hủy
             </button>
           </div>
-        ) : (
-          <div key={entry.id} className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-white px-4 py-2.5">
-            <div>
-              <p className="text-sm font-semibold text-ink">{formatDate(entry.workDate)}</p>
-              <p className="text-xs text-ink-muted48">{entry.hours ?? 0} giờ · {entry.days ?? 0} công{entry.notes ? ` · ${entry.notes}` : ""}</p>
-            </div>
-            {canEdit ? (
-              <button type="button" onClick={() => setEditingId(entry.id)} className="btn-ghost-sm">
-                Sửa
-              </button>
-            ) : null}
-          </div>
         )
+      ) : null}
+
+      {entries.length === 0 ? (
+        <p className="text-sm text-[#94a3b8]">Chưa có chấm công nào.</p>
+      ) : (
+        <div>
+          {entries.map((entry) =>
+            editingId === entry.id ? (
+              <div key={entry.id} className="space-y-2 border-b border-[#f1f5f9] py-3 last:border-0">
+                <p className="text-sm font-bold text-[#0f1729]">{formatDate(entry.workDate)}</p>
+                <TimesheetEntryForm
+                  employeeId={employeeId}
+                  employeeName={employeeName}
+                  selectedDate={new Date(entry.workDate).toISOString().slice(0, 10)}
+                  selectedDateLabel={formatDate(entry.workDate)}
+                  existing={entry}
+                  canDeleteTimesheet={canEdit}
+                  onSaved={() => {
+                    setEditingId(null);
+                    onChanged();
+                  }}
+                />
+                <button type="button" onClick={() => setEditingId(null)} className="btn-ghost-sm">
+                  Đóng
+                </button>
+              </div>
+            ) : (
+              <div key={entry.id} className="flex items-center justify-between gap-3 border-b border-[#f1f5f9] py-2.5 last:border-0">
+                <div>
+                  <p className="text-sm font-semibold text-[#0f1729]">{formatDate(entry.workDate)}</p>
+                  <p className="text-xs text-[#64748b]">
+                    {entry.hours ?? 0} giờ · {entry.days ?? 0} công{entry.notes ? ` · ${entry.notes}` : ""}
+                  </p>
+                </div>
+                {canEdit ? (
+                  <button type="button" onClick={() => setEditingId(entry.id)} className="btn-ghost-sm">
+                    Sửa
+                  </button>
+                ) : null}
+              </div>
+            )
+          )}
+        </div>
       )}
     </div>
   );
@@ -208,43 +220,12 @@ type RequirementCheckRow = {
   deductedPoints: number | null;
 };
 
-const REQUIREMENT_CHECK_COLUMNS: Column<RequirementCheckRow>[] = [
-  { key: "sessionDate", label: "Ngày buổi học", sortable: true },
-  { key: "className", label: "Lớp" },
-  {
-    key: "requirementText",
-    label: "Yêu cầu",
-    render: (value: string) => <p className="line-clamp-2 max-w-xs text-sm text-ink-muted80">{value}</p>,
-  },
-  {
-    key: "status",
-    label: "Trạng thái",
-    render: (value: string) => (
-      <span className={`badge ${value === "SUBMITTED" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
-        {value === "SUBMITTED" ? "Đã nộp" : "Chưa nộp"}
-      </span>
-    ),
-  },
-  {
-    key: "deductedPoints",
-    label: "Điểm trừ",
-    render: (value: number | null) => (value != null ? <span className="font-bold text-rose-600">-{value}</span> : <span className="text-ink-muted48">—</span>),
-  },
-];
-
 type EmployeeHistory = {
   sessionAssignments: SessionAssignmentRow[];
   timesheetEntries: TimesheetEntryRow[];
   requirementCheckRows: RequirementCheckRow[];
   contract: { contractNo: string | null; signDate: string | null; expiryDate: string | null; contractType: string | null; baseSalary: number | null } | null;
 };
-
-function getContractTone(status: string | null) {
-  if (!status || status === "Chưa có info") return "border-slate-200 bg-slate-50 text-slate-700";
-  if (status.includes("Đã hết hạn")) return "border-rose-200 bg-rose-50 text-rose-700";
-  if (status.includes("Sắp")) return "border-amber-200 bg-amber-50 text-amber-700";
-  return "border-emerald-200 bg-emerald-50 text-emerald-700";
-}
 
 type EmployeeProfile = {
   id: string;
@@ -269,12 +250,11 @@ type EmployeeProfile = {
   bankAccountHolder: string | null;
 };
 
-// Nội dung thật của drawer sửa nhân sự — tách riêng khỏi phần bọc SlideOver để trang tự
-// xem lương cá nhân (/payroll/employees/[id]) render trực tiếp không cần drawer, dùng
-// chung đúng 1 bộ form thay vì lặp lại markup ở 2 nơi. Trước đây đây là 1 cột dọc gồm
-// sửa hồ sơ + dòng lương + chấm công + điểm đánh giá xếp chồng lên nhau không phân
-// biệt — giờ tách theo đúng 5 tab người dùng yêu cầu (Thông tin cá nhân / Lương thưởng
-// / Cơ sở / Cơ chế điểm / Lịch sử), đúng pattern DetailTabs đã dùng ở StudentDetailDrawer.
+// Nội dung thật của drawer nhân sự — tách riêng khỏi phần bọc ResponsiveDrawer để trang
+// tự xem lương cá nhân (/payroll/employees/[id]) render trực tiếp không cần drawer, dùng
+// chung đúng 1 bộ form thay vì lặp lại markup ở 2 nơi. Trước đây đây là 5 TAB, mỗi tab
+// lại gồm nhiều .card lồng nhau (card trong tab trong drawer) — giờ là các Section gập
+// mở phẳng, đúng 1 lớp khung, giống hệt drawer học viên và lớp học.
 export default function PayrollEmployeeEditPanels({
   headerSummary,
   profile,
@@ -291,6 +271,10 @@ export default function PayrollEmployeeEditPanels({
     position: string | null;
     contractStatus: EmployeeContractStatus;
     sourceLabel: string | null;
+    /** Tổng lương tháng đang xem — chỉ có ở ngữ cảnh /payroll, /employees không có. */
+    totalAmount?: number | null;
+    workSummary?: string | null;
+    month?: string | null;
   };
   profile: EmployeeProfile;
   canEditProfile: boolean;
@@ -365,212 +349,201 @@ export default function PayrollEmployeeEditPanels({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile.id]);
 
-  const recentTimesheetEntries = (history?.timesheetEntries ?? []).slice(0, 10);
+  const timesheetEntries = history?.timesheetEntries ?? [];
+  const notSubmittedCount = (history?.requirementCheckRows ?? []).filter((item) => item.status !== "SUBMITTED").length;
+  const rateSummary = [
+    profile.teachingHourlyRate ? `Dạy ${formatVnd(profile.teachingHourlyRate)}` : null,
+    profile.assistantHourlyRate ? `TG ${formatVnd(profile.assistantHourlyRate)}` : null,
+    profile.staffDailyRate ? `HC ${formatVnd(profile.staffDailyRate)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
-  const tabs: DetailTab[] = [
-    {
-      key: "thongtin",
-      label: "Thông tin cá nhân",
-      content: (
-        <div className="space-y-5">
-          <EmployeeProfileEditor employee={profile} canEdit={canEditProfile} />
-          <EmploymentContractPanel employeeId={profile.id} contract={history?.contract ?? null} canEdit={canEditProfile} />
-        </div>
-      ),
-    },
-    {
-      key: "luongthuong",
-      label: "Lương thưởng",
-      content: (
-        <div className="space-y-5">
-          {payrollLine ? (
-            canEditPayrollLine ? (
-              <PayrollLineAdjustForm
-                lineId={payrollLine.id}
-                otHours={payrollLine.otHours}
-                otAmount={payrollLine.otAmount}
-                kpiBonus={payrollLine.kpiBonus}
-                assistantRatingBonus={payrollLine.assistantRatingBonus}
-                parkingAllowance={payrollLine.parkingAllowance}
-                supportAllowance={payrollLine.supportAllowance}
-                bonus={payrollLine.bonus}
-                penalty={payrollLine.penalty}
-                socialInsuranceDeduction={payrollLine.socialInsuranceDeduction}
-                utilityDeduction={payrollLine.utilityDeduction}
-                holidayBonus={payrollLine.holidayBonus}
-                otherDeduction={payrollLine.otherDeduction}
-                notes={payrollLine.notes}
-                employeeName={headerSummary.fullName}
-              />
-            ) : (
-              <div className="card">
-                <h2 className="font-display text-lg font-semibold tracking-tight">Dòng lương kỳ này</h2>
-                <p className="mt-2 text-sm text-ink-muted48">Kỳ lương đã duyệt/khóa nên không thể sửa thưởng/phạt ở đây nữa.</p>
-              </div>
-            )
-          ) : (
-            <div className="card">
-              <h2 className="font-display text-lg font-semibold tracking-tight">Dòng lương kỳ này</h2>
-              <p className="mt-2 text-sm text-ink-muted48">
-                Kỳ lương chưa được tính — số liệu đang là xem trước. Bấm &quot;Tính lại lương&quot; ở thanh công cụ để tạo dòng
-                lương chính thức cho người này, sau đó mới điều chỉnh thưởng/phạt được.
-              </p>
-            </div>
-          )}
+  return (
+    <div className="space-y-4">
+      {/* Danh tính: mã NV, vị trí, trạng thái HĐ — 1 dòng, không lặp tên (tiêu đề drawer đã có) */}
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="rounded-md border border-[#e2e8f0] bg-[#f8faff] px-2 py-1 font-mono font-bold text-[#475569]">
+          {headerSummary.employeeCode}
+        </span>
+        {headerSummary.position ? (
+          <span className="rounded-md border border-[#e2e8f0] bg-white px-2 py-1 font-semibold text-[#475569]">{headerSummary.position}</span>
+        ) : null}
+        {headerSummary.contractStatus ? (
+          <span className="rounded-md bg-[#b45309] px-2 py-1 font-bold text-white">{headerSummary.contractStatus}</span>
+        ) : null}
+        {headerSummary.sourceLabel ? <span className="text-[#64748b]">{headerSummary.sourceLabel}</span> : null}
+      </div>
 
-          {canAddTimesheet ? <TimesheetQuickAddForm employeeId={profile.id} /> : null}
-
-          <div className="card">
-            <h2 className="font-display text-lg font-semibold tracking-tight">Chấm công gần đây</h2>
-            <p className="mt-1 text-sm text-ink-muted48">Sửa/xóa lại chấm công đã ghi nếu có sai sót — xem đầy đủ ở tab &quot;Lịch sử&quot;.</p>
-            <div className="mt-3">
-              {history ? (
-                <TimesheetEditableList
-                  employeeId={profile.id}
-                  employeeName={headerSummary.fullName}
-                  entries={recentTimesheetEntries}
-                  canEdit={canAddTimesheet}
-                  onChanged={() => router.refresh()}
-                />
-              ) : (
-                <p className="text-sm text-ink-muted48">Đang tải...</p>
-              )}
-            </div>
+      {/* Hai con số thật sự cần khi mở 1 nhân sự trong tháng: tiền và công */}
+      {headerSummary.totalAmount != null ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-[#e5eaf7] bg-white p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">
+              Lương tháng {headerSummary.month ?? ""}
+            </p>
+            <p className="mt-1 text-3xl font-black text-[#0f1729]">{formatVnd(headerSummary.totalAmount)}</p>
+            <p className="mt-0.5 text-sm text-[#64748b]">{payrollLine ? "Đã tính lương" : "Số xem trước, chưa tính lương"}</p>
+          </div>
+          <div className="rounded-xl border border-[#e5eaf7] bg-white p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Công trong tháng</p>
+            <p className="mt-1 text-3xl font-black text-[#0f1729]">{headerSummary.workSummary || "—"}</p>
+            <p className="mt-0.5 text-sm text-[#64748b]">{rateSummary || "Chưa cấu hình đơn giá"}</p>
           </div>
         </div>
-      ),
-    },
-  ];
+      ) : null}
 
-  if (assistant) {
-    tabs.push({
-      key: "coso",
-      label: "Cơ sở",
-      content: <BranchBonusForm employeeId={assistant.employeeId} month={assistant.month} branches={assistant.branches} bonusByBranch={assistant.bonusByBranch} />,
-    });
-    tabs.push({
-      key: "cochediem",
-      label: "Cơ chế điểm",
-      content: (
-        <div className="space-y-5">
-          <AssistantScorecardSummary employeeId={assistant.employeeId} month={assistant.month} />
-          <AssistantScoreForm employeeId={assistant.employeeId} month={assistant.month} branches={assistant.branches} />
-        </div>
-      ),
-    });
-  }
+      <Section title="Hồ sơ nhân sự" hint={profile.phone ?? profile.email ?? null} defaultOpen={headerSummary.totalAmount == null}>
+        <EmployeeProfileEditor employee={profile} canEdit={canEditProfile} bare />
+      </Section>
 
-  tabs.push({
-    key: "lichsu",
-    label: "Lịch sử",
-    content: !history ? (
-      <p className="text-sm text-ink-muted48">Đang tải...</p>
-    ) : (
-      <div className="space-y-5">
-        <div className="card">
-          <h2 className="font-display text-lg font-semibold tracking-tight mb-3">Buổi dạy/trợ giảng ({history.sessionAssignments.length})</h2>
+      <Section
+        title={`Lương tháng ${headerSummary.month ?? ""}`.trim()}
+        hint={payrollLine ? "Đã có dòng lương" : "Chưa tính lương"}
+        defaultOpen={Boolean(payrollLine) && canEditPayrollLine}
+      >
+        {payrollLine ? (
+          canEditPayrollLine ? (
+            <PayrollLineAdjustForm
+              lineId={payrollLine.id}
+              otHours={payrollLine.otHours}
+              otAmount={payrollLine.otAmount}
+              kpiBonus={payrollLine.kpiBonus}
+              assistantRatingBonus={payrollLine.assistantRatingBonus}
+              parkingAllowance={payrollLine.parkingAllowance}
+              supportAllowance={payrollLine.supportAllowance}
+              bonus={payrollLine.bonus}
+              penalty={payrollLine.penalty}
+              socialInsuranceDeduction={payrollLine.socialInsuranceDeduction}
+              utilityDeduction={payrollLine.utilityDeduction}
+              holidayBonus={payrollLine.holidayBonus}
+              otherDeduction={payrollLine.otherDeduction}
+              notes={payrollLine.notes}
+              employeeName={headerSummary.fullName}
+              bare
+            />
+          ) : (
+            <p className="text-sm text-[#94a3b8]">Tháng lương đã duyệt/khóa nên không sửa thưởng/phạt ở đây được nữa.</p>
+          )
+        ) : (
+          <p className="text-sm text-[#94a3b8]">
+            Tháng này chưa tính lương — số đang hiển thị là xem trước. Bấm &quot;Tính lại lương&quot; ở trang lương để tạo dòng
+            lương chính thức, sau đó mới điều chỉnh thưởng/phạt được.
+          </p>
+        )}
+      </Section>
+
+      <Section title="Chấm công" hint={history ? `${timesheetEntries.length} ngày đã chấm` : "Đang tải..."}>
+        {history ? (
+          <TimesheetSection
+            employeeId={profile.id}
+            employeeName={headerSummary.fullName}
+            entries={timesheetEntries}
+            canEdit={canAddTimesheet}
+            onChanged={() => router.refresh()}
+          />
+        ) : (
+          <p className="text-sm text-[#94a3b8]">Đang tải...</p>
+        )}
+      </Section>
+
+      <Section title="Hợp đồng lao động" hint={history?.contract?.contractNo ?? (history ? "Chưa có hợp đồng" : "Đang tải...")}>
+        <EmploymentContractPanel employeeId={profile.id} contract={history?.contract ?? null} canEdit={canEditProfile} bare />
+      </Section>
+
+      {assistant ? (
+        <>
+          <Section title="Đánh giá trợ giảng" hint={`Tháng ${assistant.month}`}>
+            <AssistantScorecardSummary employeeId={assistant.employeeId} month={assistant.month} />
+          </Section>
+          <Section title="Mức thưởng theo cơ sở" hint={`${assistant.branches.length} cơ sở`}>
+            <BranchBonusForm
+              employeeId={assistant.employeeId}
+              month={assistant.month}
+              branches={assistant.branches}
+              bonusByBranch={assistant.bonusByBranch}
+            />
+          </Section>
+          <Section title="Ghi nhận điểm trừ/cộng">
+            <AssistantScoreForm employeeId={assistant.employeeId} month={assistant.month} branches={assistant.branches} />
+          </Section>
+        </>
+      ) : null}
+
+      <Section title="Buổi dạy / trợ giảng" hint={history ? `${history.sessionAssignments.length} buổi` : "Đang tải..."}>
+        {!history ? (
+          <p className="text-sm text-[#94a3b8]">Đang tải...</p>
+        ) : history.sessionAssignments.length === 0 ? (
+          <p className="text-sm text-[#94a3b8]">Chưa được phân công buổi dạy nào.</p>
+        ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
-                <tr>
-                  <th className="py-2 font-medium">Ngày</th>
-                  <th className="py-2 font-medium">Lớp</th>
-                  <th className="py-2 font-medium">Vai trò</th>
-                  <th className="py-2 font-medium">Giờ</th>
-                  <th className="py-2 font-medium">Tiền</th>
+            <table className="w-full min-w-[420px] text-left text-sm">
+              <thead>
+                <tr className="text-xs font-semibold uppercase tracking-wide text-[#94a3b8]">
+                  <th className="pb-2 font-semibold">Ngày</th>
+                  <th className="pb-2 font-semibold">Lớp</th>
+                  <th className="pb-2 font-semibold">Vai trò</th>
+                  <th className="pb-2 text-right font-semibold">Giờ</th>
+                  <th className="pb-2 text-right font-semibold">Tiền</th>
                 </tr>
               </thead>
               <tbody>
                 {history.sessionAssignments.map((a) => (
-                  <tr key={a.id} className="border-b border-hairline last:border-0">
+                  <tr key={a.id} className="border-t border-[#f1f5f9]">
                     <td className="py-2">{formatDate(a.session.sessionDate)}</td>
-                    <td className="py-2 text-ink-muted80">{a.session.class.className}</td>
-                    <td className="py-2 text-ink-muted80">{SESSION_ROLE_LABEL[a.role] ?? a.role}</td>
-                    <td className="py-2 text-ink-muted80">{a.hours ?? 0}</td>
-                    <td className="py-2 font-medium">{formatVnd(a.amount ?? 0)}</td>
+                    <td className="py-2 text-[#475569]">{a.session.class.className}</td>
+                    <td className="py-2 text-[#475569]">{SESSION_ROLE_LABEL[a.role] ?? a.role}</td>
+                    <td className="py-2 text-right text-[#475569]">{a.hours ?? 0}</td>
+                    <td className="py-2 text-right font-semibold">{formatVnd(a.amount ?? 0)}</td>
                   </tr>
                 ))}
-                {history.sessionAssignments.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="py-6 text-center text-ink-muted48">Chưa được phân công buổi dạy nào.</td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
-        </div>
+        )}
+      </Section>
 
-        <div className="card">
-          <h2 className="font-display text-lg font-semibold tracking-tight mb-3">Tất cả chấm công ngày ({history.timesheetEntries.length})</h2>
+      <Section
+        title="Việc theo buổi cần nộp"
+        hint={history ? (notSubmittedCount > 0 ? `${notSubmittedCount} chưa nộp` : "Đã nộp đủ") : "Đang tải..."}
+      >
+        {!history ? (
+          <p className="text-sm text-[#94a3b8]">Đang tải...</p>
+        ) : history.requirementCheckRows.length === 0 ? (
+          <p className="text-sm text-[#94a3b8]">Chưa có xác nhận nào.</p>
+        ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-hairline text-xs uppercase tracking-wide text-ink-muted48">
-                <tr>
-                  <th className="py-2 font-medium">Ngày</th>
-                  <th className="py-2 font-medium">Giờ</th>
-                  <th className="py-2 font-medium">Công</th>
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead>
+                <tr className="text-xs font-semibold uppercase tracking-wide text-[#94a3b8]">
+                  <th className="pb-2 font-semibold">Ngày</th>
+                  <th className="pb-2 font-semibold">Lớp</th>
+                  <th className="pb-2 font-semibold">Yêu cầu</th>
+                  <th className="pb-2 font-semibold">Trạng thái</th>
+                  <th className="pb-2 text-right font-semibold">Điểm trừ</th>
                 </tr>
               </thead>
               <tbody>
-                {history.timesheetEntries.map((entry) => (
-                  <tr key={entry.id} className="border-b border-hairline last:border-0">
-                    <td className="py-2">{formatDate(entry.workDate)}</td>
-                    <td className="py-2 text-ink-muted80">{entry.hours ?? 0}</td>
-                    <td className="py-2 font-medium">{entry.days ?? 0}</td>
+                {history.requirementCheckRows.map((item) => (
+                  <tr key={item.id} className="border-t border-[#f1f5f9]">
+                    <td className="py-2">{item.sessionDate}</td>
+                    <td className="py-2 text-[#475569]">{item.className}</td>
+                    <td className="py-2 text-[#475569]">
+                      <span className="line-clamp-2 max-w-xs">{item.requirementText}</span>
+                    </td>
+                    <td className={`py-2 font-semibold ${item.status === "SUBMITTED" ? "text-emerald-700" : "text-rose-700"}`}>
+                      {item.status === "SUBMITTED" ? "Đã nộp" : "Chưa nộp"}
+                    </td>
+                    <td className="py-2 text-right">
+                      {item.deductedPoints != null ? <span className="font-bold text-rose-600">-{item.deductedPoints}</span> : "—"}
+                    </td>
                   </tr>
                 ))}
-                {history.timesheetEntries.length === 0 && (
-                  <tr>
-                    <td colSpan={3} className="py-6 text-center text-ink-muted48">Chưa có chấm công nào.</td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
-        </div>
-
-        <div className="card">
-          <h2 className="font-display text-lg font-semibold tracking-tight mb-3">
-            Việc giáo viên cần làm theo buổi ({history.requirementCheckRows.length})
-          </h2>
-          <DataTableResponsive
-            data={history.requirementCheckRows}
-            columns={REQUIREMENT_CHECK_COLUMNS}
-            rowKey="id"
-            primaryColumn="sessionDate"
-            secondaryColumns={["className", "status"]}
-            sortable
-            emptyState={{
-              title: "Chưa có xác nhận nào",
-              description: "Các xác nhận sẽ xuất hiện khi trợ giảng đánh dấu tại từng buổi học.",
-            }}
-          />
-        </div>
-      </div>
-    ),
-  });
-
-  return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-hairline bg-[#fafafa] px-4 py-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="font-display text-lg font-semibold tracking-tight">{headerSummary.fullName}</p>
-          <span className="badge bg-ink/5 text-ink-muted80">{headerSummary.employeeCode}</span>
-          {headerSummary.position ? <span className="text-sm text-ink-muted48">{headerSummary.position}</span> : null}
-        </div>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <span className={`rounded-full border px-3 py-1 text-xs font-bold ${getContractTone(headerSummary.contractStatus)}`}>
-            {headerSummary.contractStatus || "Hợp đồng ổn"}
-          </span>
-          {headerSummary.sourceLabel ? (
-            <span className="rounded-full border border-[#fed7aa] bg-[#fff7ed] px-3 py-1 text-xs font-bold text-[#c2410c]">
-              {headerSummary.sourceLabel}
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      <DetailTabs tabs={tabs} defaultTabKey="thongtin" />
+        )}
+      </Section>
     </div>
   );
 }

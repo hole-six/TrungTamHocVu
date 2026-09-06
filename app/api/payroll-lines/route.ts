@@ -6,7 +6,7 @@ import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdateWithOverride } from "@/lib/server/role-matrix";
 import { canAccessBranch } from "@/lib/branch-filter";
 
-// Thêm thủ công 1 nhân viên vào 1 kỳ lương đang mở (DRAFT/CALCULATED/REVIEWED) — dùng
+// Thêm thủ công 1 nhân viên vào 1 tháng lương đang mở (DRAFT/CALCULATED/REVIEWED) — dùng
 // khi "Tính lương" hàng loạt bỏ sót 1 nhân viên (vd mới ký hợp đồng giữa tháng, chưa
 // có buổi dạy/chấm công nào để hệ thống tự nhận ra). Mọi số tiền mặc định 0, sửa lại
 // bằng PayrollLineEditor sau khi tạo — không tự tính công/lương ở đây.
@@ -22,16 +22,16 @@ export async function POST(req: NextRequest) {
   const payrollRunId = String(body.payrollRunId ?? "").trim();
   const employeeId = String(body.employeeId ?? "").trim();
   if (!payrollRunId || !employeeId) {
-    return NextResponse.json({ error: "Thiếu kỳ lương hoặc nhân viên" }, { status: 400 });
+    return NextResponse.json({ error: "Thiếu tháng lương hoặc nhân viên" }, { status: 400 });
   }
 
   const run = await prisma.payrollRun.findUnique({ where: { id: payrollRunId } });
   if (run && !(await canAccessBranch(run.branchId))) {
     return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
   }
-  if (!run) return NextResponse.json({ error: "Không tìm thấy kỳ lương" }, { status: 404 });
+  if (!run) return NextResponse.json({ error: "Không tìm thấy tháng lương" }, { status: 404 });
   if (!canEditPayroll(run.status)) {
-    return NextResponse.json({ error: "Kỳ lương đã duyệt/khóa, không thể thêm nhân sự." }, { status: 409 });
+    return NextResponse.json({ error: "Tháng lương đã duyệt/khóa, không thể thêm nhân sự." }, { status: 409 });
   }
 
   const employee = await prisma.employee.findUnique({ where: { id: employeeId }, select: { branchId: true } });
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   const existing = await prisma.payrollLine.findUnique({
     where: { payrollRunId_employeeId: { payrollRunId, employeeId } },
   });
-  if (existing) return NextResponse.json({ error: "Nhân viên này đã có trong kỳ lương" }, { status: 409 });
+  if (existing) return NextResponse.json({ error: "Nhân viên này đã có trong tháng lương" }, { status: 409 });
 
   const line = await prisma.payrollLine.create({ data: { payrollRunId, employeeId } });
   return NextResponse.json({ item: line }, { status: 201 });
