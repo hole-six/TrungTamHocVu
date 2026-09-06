@@ -111,10 +111,13 @@ export default function ClassTaskManager({
   classId,
   tasks,
   onSuccess,
+  bare = false,
 }: {
   classId: string;
   tasks: Task[];
   onSuccess?: () => void;
+  /** Truyền true khi nơi gọi (drawer) đã tự có khung viền riêng. */
+  bare?: boolean;
 }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
@@ -147,7 +150,7 @@ export default function ClassTaskManager({
   const doneTasks = tasks.filter((t) => t.status !== "OPEN");
 
   return (
-    <div className="card">
+    <div className={bare ? "" : "card"}>
       <h2 className="font-display text-lg font-semibold tracking-tight">Việc cần làm</h2>
       <div className="mt-3 space-y-2">
         {openTasks.map((t) => (

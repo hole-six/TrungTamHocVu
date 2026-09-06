@@ -28,11 +28,15 @@ export default function RemedialBulkAssignPanel({
   candidates,
   futureSessions,
   onSuccess,
+  bare = false,
 }: {
   classId: string;
   candidates: Candidate[];
   futureSessions: FutureSession[];
   onSuccess?: () => void;
+  /** Truyền true khi nơi gọi (drawer) đã tự có khung viền riêng — bỏ khung/nền của
+   *  chính panel này (vẫn giữ nút mở/thu gọn riêng của nó). */
+  bare?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -147,11 +151,11 @@ export default function RemedialBulkAssignPanel({
   }
 
   return (
-    <div className="rounded-2xl border border-[#dbe3ef] bg-[#fbfdff]">
+    <div className={bare ? "" : "rounded-2xl border border-[#dbe3ef] bg-[#fbfdff]"}>
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        className={bare ? "flex w-full items-center justify-between gap-3 py-2 text-left" : "flex w-full items-center justify-between gap-3 px-4 py-3 text-left"}
       >
         <span className="text-sm font-bold text-[#0f1729]">
           Gán hàng loạt vào lớp bổ trợ ({candidates.length} người đã có buổi bổ trợ)
@@ -160,7 +164,7 @@ export default function RemedialBulkAssignPanel({
       </button>
 
       {open ? (
-        <div className="space-y-4 border-t border-[#e5eaf7] px-4 py-4">
+        <div className={bare ? "space-y-4 border-t border-[#e5eaf7] pt-4" : "space-y-4 border-t border-[#e5eaf7] px-4 py-4"}>
           <div>
             <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">1. Học viên đã có buổi bổ trợ</p>
             {candidates.length === 0 ? (

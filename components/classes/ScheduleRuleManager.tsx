@@ -11,10 +11,14 @@ export default function ScheduleRuleManager({
   classId,
   rules,
   onSuccess,
+  bare = false,
 }: {
   classId: string;
   rules: Rule[];
   onSuccess?: () => void;
+  /** Truyền true khi nơi gọi (drawer) đã tự có khung viền riêng — bỏ khung/nền của
+   *  chính component này và của từng dòng lịch để không bị khung lồng khung. */
+  bare?: boolean;
 }) {
   const router = useRouter();
   const [form, setForm] = useState({ weekday: "1", startTime: "", endTime: "", room: "" });
@@ -64,7 +68,7 @@ export default function ScheduleRuleManager({
   }
 
   return (
-    <div className="rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm">
+    <div className={bare ? "" : "rounded-2xl border border-[#e5eaf7] bg-white p-5 shadow-sm"}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Lịch học chuẩn</h2>
@@ -77,11 +81,15 @@ export default function ScheduleRuleManager({
         </span>
       </div>
 
-      <div className="mt-4 space-y-2">
+      <div className={bare ? "mt-4 divide-y divide-[#f1f5f9]" : "mt-4 space-y-2"}>
         {rules.map((rule) => (
           <div
             key={rule.id}
-            className="flex flex-col gap-3 rounded-xl border border-[#e5eaf7] bg-[#f8faff] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+            className={
+              bare
+                ? "flex flex-col gap-3 py-3 text-sm first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+                : "flex flex-col gap-3 rounded-xl border border-[#e5eaf7] bg-[#f8faff] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+            }
           >
             <span className="font-semibold text-[#0f1729]">
               {WEEKDAY_LABEL[rule.weekday]} · {rule.startTime}-{rule.endTime}
@@ -100,7 +108,7 @@ export default function ScheduleRuleManager({
           </div>
         ))}
         {rules.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-[#dbe7ff] bg-[#f8faff] p-4 text-sm text-[#64748b]">
+          <p className={bare ? "py-3 text-sm text-[#64748b]" : "rounded-xl border border-dashed border-[#dbe7ff] bg-[#f8faff] p-4 text-sm text-[#64748b]"}>
             Chưa có lịch chuẩn.
           </p>
         ) : null}

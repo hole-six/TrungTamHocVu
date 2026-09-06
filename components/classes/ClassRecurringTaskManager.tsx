@@ -42,10 +42,13 @@ export default function ClassRecurringTaskManager({
   classId,
   tasks,
   onSuccess,
+  bare = false,
 }: {
   classId: string;
   tasks: ClassTask[];
   onSuccess?: () => void;
+  /** Truyền true khi nơi gọi (drawer) đã tự có khung viền riêng. */
+  bare?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -104,7 +107,7 @@ export default function ClassRecurringTaskManager({
   }
 
   return (
-    <div className="card">
+    <div className={bare ? "" : "card"}>
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg font-semibold tracking-tight">Nhắc việc định kỳ</h2>
         <button onClick={() => setOpen(!open)} className="btn-ghost-sm">
