@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import CategorySelect from "./CategorySelect";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 import CurrencyInput from "@/components/ui/CurrencyInput";
+import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { formatVnd } from "@/lib/export-utils";
 
 type BookProfile = {
@@ -18,7 +19,19 @@ type BookProfile = {
   notes: string | null;
 };
 
-export default function BookEditForm({ book, categoryOptions }: { book: BookProfile; categoryOptions: string[] }) {
+export default function BookEditForm({
+  book,
+  categoryOptions,
+  bare = false,
+  onSaved,
+}: {
+  book: BookProfile;
+  categoryOptions: string[];
+  /** Nơi gọi (Section trong drawer) đã có khung + tiêu đề, và đã hiển thị sẵn các
+   *  trường ở dạng chỉ đọc — bỏ khung/tiêu đề/bảng chỉ đọc của riêng component này. */
+  bare?: boolean;
+  onSaved?: () => void;
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -52,6 +65,7 @@ export default function BookEditForm({ book, categoryOptions }: { book: BookProf
     }
 
     setEditing(false);
+    onSaved?.();
     router.refresh();
   }
 
@@ -59,22 +73,29 @@ export default function BookEditForm({ book, categoryOptions }: { book: BookProf
     const response = await fetch(`/api/books/${book.id}`, { method: "DELETE" });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      alert(data.error ?? "Không thể xóa sách.");
+      // Dùng lại đúng ô báo lỗi của form thay vì alert() — trong drawer, alert() bật ra
+      // ngoài ngữ cảnh và không cho đọc lại lỗi sau khi bấm OK.
+      setError(data.error ?? "Không thể xóa sách.");
       return;
     }
+    onSaved?.();
     router.push("/inventory");
   }
 
   return (
-    <div className="card">
+    <div className={bare ? "" : "card"}>
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="font-display text-lg font-semibold tracking-tight">Thông tin sách</h2>
-          <p className="mt-1 text-sm text-ink-muted48">Sửa nhanh tên, danh mục, giá nhập, giá bán và trạng thái sử dụng.</p>
-        </div>
+        {bare ? (
+          <span />
+        ) : (
+          <div>
+            <h2 className="font-display text-lg font-semibold tracking-tight">Thông tin sách</h2>
+            <p className="mt-1 text-sm text-ink-muted48">Sửa nhanh tên, danh mục, giá nhập, giá bán và trạng thái sử dụng.</p>
+          </div>
+        )}
         {!editing ? (
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setEditing(true)} className="btn-ghost text-sm">
+            <button type="button" onClick={() => setEditing(true)} className="btn-ghost-sm">
               Sửa
             </button>
             <ConfirmActionButton
@@ -92,6 +113,7 @@ export default function BookEditForm({ book, categoryOptions }: { book: BookProf
       </div>
 
       {!editing ? (
+        bare ? null : (
         <dl className="mt-4 space-y-2 text-sm">
           <div className="flex justify-between border-b border-hairline/60 py-1">
             <dt className="text-ink-muted48">Mã sách</dt>
@@ -118,6 +140,7 @@ export default function BookEditForm({ book, categoryOptions }: { book: BookProf
             <dd className="font-medium">{book.notes ?? "—"}</dd>
           </div>
         </dl>
+        )
       ) : (
         <form onSubmit={save} className="mt-4 space-y-3">
           <label className="space-y-1 block">
@@ -151,16 +174,18 @@ export default function BookEditForm({ book, categoryOptions }: { book: BookProf
             <textarea className="input resize-none" rows={3} value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
           </label>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          <div className="flex gap-2 border-t border-hairline pt-4">
-            <button type="submit" disabled={loading} className="btn-primary">
+          <div className="flex gap-2 border-t border-[#f1f5f9] pt-4">
+            <button type="submit" disabled={loading} className={ACTION_CLASS}>
               {loading ? "Đang lưu..." : "Lưu"}
             </button>
-            <button type="button" onClick={() => setEditing(false)} className="btn-ghost">
+            <button type="button" onClick={() => setEditing(false)} className="btn-ghost-sm">
               Hủy
             </button>
           </div>
         </form>
       )}
+      {/* Lỗi xóa sách hiện ở chế độ chỉ đọc (nút Xóa nằm ngoài form) */}
+      {!editing && error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
     </div>
   );
 }

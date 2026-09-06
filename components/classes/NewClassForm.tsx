@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import CurrencyInput from "@/components/ui/CurrencyInput";
+import PickOrCreateSelect from "@/components/ui/PickOrCreateSelect";
 import { useClassDrawer } from "@/contexts/ClassDrawerContext";
 import { formatVnd as formatVndBase } from "@/lib/export-utils";
 
@@ -313,18 +314,18 @@ export default function NewClassForm({
             </label>
             <label className="form-group">
               <span className="label">Nhóm lớp</span>
-              <input
-                className="input"
-                list="class-group-options"
+              {/* Trước đây là <input list=...> + <datalist>: trình duyệt chỉ gợi ý sau
+                  khi đã gõ và không có nút sổ, nên nhìn vào không biết trung tâm đang
+                  có sẵn những nhóm nào. Giờ sổ thẳng danh sách nhóm đã có, vẫn thêm
+                  được nhóm mới qua lựa chọn cuối. */}
+              <PickOrCreateSelect
                 value={form.classGroup}
-                onChange={(event) => patchForm("classGroup", event.target.value)}
-                placeholder="Chọn ngăn có sẵn hoặc gõ tên mới..."
+                onChange={(next) => patchForm("classGroup", next)}
+                options={classGroupOptions}
+                emptyLabel="Chưa xếp nhóm"
+                createLabel="+ Nhóm lớp mới..."
+                createPlaceholder="Nhập tên nhóm lớp mới"
               />
-              <datalist id="class-group-options">
-                {classGroupOptions.map((group) => (
-                  <option key={group} value={group} />
-                ))}
-              </datalist>
             </label>
             <label className="form-group">
               <span className="label">Ngày khai giảng *</span>

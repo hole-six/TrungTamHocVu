@@ -23,7 +23,22 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   }
 
   const balance = await computeStockBalance(book.id);
-  return NextResponse.json({ item: book, balance });
+
+  // Tiền nhập/tiền thu tính bằng aggregate trên TOÀN BỘ dòng, không cộng tay từ
+  // `stockTransactions`/`bookIssues` ở trên — hai mảng đó bị cắt còn 30 dòng gần nhất,
+  // nên sách nào phát sinh nhiều hơn 30 lần sẽ ra lợi nhuận sai mà nhìn vẫn hợp lý.
+  const [receiptAgg, issueAgg] = await Promise.all([
+    prisma.stockTransaction.aggregate({ where: { bookId: book.id, type: "RECEIPT" }, _sum: { totalAmount: true } }),
+    prisma.bookIssue.aggregate({ where: { bookId: book.id }, _sum: { amount: true } }),
+  ]);
+  const receiptCost = receiptAgg._sum.totalAmount ?? 0;
+  const issueRevenue = issueAgg._sum.amount ?? 0;
+
+  return NextResponse.json({
+    item: book,
+    balance,
+    totals: { receiptCost, issueRevenue, profit: issueRevenue - receiptCost },
+  });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {

@@ -8,7 +8,8 @@ import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import FormGuide from "@/components/ui/FormGuide";
 import CategorySelect from "./CategorySelect";
-import { canUpdate, canDelete } from "@/lib/server/role-matrix";
+import BookDetailDrawer from "./BookDetailDrawer";
+import { canUpdate, canCreate, canDelete } from "@/lib/server/role-matrix";
 import { exportToExcel, formatVnd } from "@/lib/export-utils";
 
 type BookRow = {
@@ -182,6 +183,7 @@ export default function BooksTable({
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [editingBook, setEditingBook] = useState<BookRow | null>(null);
+  const [viewingBookId, setViewingBookId] = useState<string | null>(null);
   const [deletingBook, setDeletingBook] = useState<BookRow | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -295,7 +297,7 @@ export default function BooksTable({
           <circle cx="12" cy="12" r="3" />
         </svg>
       ),
-      onClick: (row) => router.push(`/inventory/${row.id}`),
+      onClick: (row) => setViewingBookId(row.id),
       variant: "secondary",
     },
     {
@@ -407,6 +409,15 @@ export default function BooksTable({
         }}
         primaryColumn="name"
         secondaryColumns={["categoryLabel", "onHand"]}
+      />
+
+      <BookDetailDrawer
+        bookId={viewingBookId}
+        open={Boolean(viewingBookId)}
+        onClose={() => setViewingBookId(null)}
+        categoryOptions={categoryOptions}
+        canUpdateInventory={canUpdate("inventory", userRole)}
+        canCreateIssue={canCreate("inventory", userRole)}
       />
 
       {editingBook ? (
