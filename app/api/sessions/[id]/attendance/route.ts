@@ -7,6 +7,7 @@ import { computeSessionTiming, getVietnamToday } from "@/lib/server/class-rules"
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { findLockedPeriodForSession } from "@/lib/server/billing-generation";
 import { BILLING_PERIOD_STATUS_LABEL } from "@/lib/server/tuition-rules";
+import { debitWalletsForCompletedSession } from "@/lib/server/enrollment-wallet";
 
 // Điểm danh vẫn cho phép GV/TG (canUpdate("schedule") = false với 2 vai trò này) vì đây
 // là việc dạy học hàng ngày, khác với quản lý lịch/ghi danh — xem giải thích tương tự ở
@@ -345,6 +346,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       where: { id: session.id },
       data: { status: "COMPLETED", completedAt: new Date() },
     });
+
+    // Ví buổi học (PERIOD): buổi này vừa "giao hàng" thật, trừ 1 cho mọi enrollment
+    // PERIOD active của lớp — vô điều kiện, không quan tâm học sinh đó có mặt hay
+    // vắng ở đúng buổi này. Idempotent, gọi lại (sửa điểm danh) không trừ 2 lần.
+    await debitWalletsForCompletedSession(tx, session.id);
   });
 
   return NextResponse.json({ ok: true, autoCompleted });

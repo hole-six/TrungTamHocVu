@@ -10,6 +10,7 @@ import {
   getEnrollmentLearningSnapshot,
 } from "@/lib/server/enrollment-learning";
 import { computeEffectiveUnitPrice } from "@/lib/server/tuition-rules";
+import { getWalletBalance, transferWalletToNewEnrollment } from "@/lib/server/enrollment-wallet";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -47,7 +48,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       snapshot: await getEnrollmentLearningSnapshot(prisma, enrollment),
     })),
   );
-  const needTransfer = snapshots.filter((item) => item.snapshot.remainingMainSessions > 0);
+
+  // COURSE/INSTALLMENT: "hết buổi thật sự" (remainingMainSessions<=0) thì tất toán
+  // luôn, không cần lớp tiếp theo — giữ nguyên hành vi cũ.
+  // PERIOD: không có khái niệm "hết buổi" (quyền học nằm trong Ví, không phải
+  // purchasedMainSessionCount) — nếu CÓ lớp tiếp theo thì LUÔN chuyển tiếp bất kể ví
+  // còn bao nhiêu (chốt nghiệp vụ); nếu KHÔNG có lớp tiếp theo thì kết thúc luôn, ví
+  // còn dư giữ nguyên trên enrollment đã đóng để xử lý hoàn/giữ thủ công sau (mục 3.10).
+  const isPeriod = (billingModel: string) => billingModel === "PERIOD";
+  const courseNeedTransfer = snapshots.filter(
+    (item) => !isPeriod(item.enrollment.billingModel) && item.snapshot.remainingMainSessions > 0,
+  );
+  const periodAll = snapshots.filter((item) => isPeriod(item.enrollment.billingModel));
+  const willTransferPeriod = Boolean(finalTargetClassId);
+  const transferGroup = willTransferPeriod ? [...courseNeedTransfer, ...periodAll] : courseNeedTransfer;
+  const completeOutrightGroup = snapshots.filter((item) => !transferGroup.includes(item));
 
   let targetClass: {
     id: string;
@@ -58,10 +73,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     status: string;
     course: { tuitionPerSession: number } | null;
   } | null = null;
-  if (needTransfer.length > 0) {
-    if (!finalTargetClassId) {
-      return NextResponse.json({ error: "Lớp còn học viên chưa học đủ nhưng chưa cấu hình lớp tiếp theo." }, { status: 400 });
-    }
+  if (courseNeedTransfer.length > 0 && !finalTargetClassId) {
+    return NextResponse.json({ error: "Lớp còn học viên chưa học đủ nhưng chưa cấu hình lớp tiếp theo." }, { status: 400 });
+  }
+  if (transferGroup.length > 0) {
     if (finalTargetClassId === cls.id) {
       return NextResponse.json({ error: "Lớp tiếp theo không được là chính lớp hiện tại." }, { status: 400 });
     }
@@ -74,7 +89,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       where: {
         classId: targetClass.id,
         status: { in: ["PENDING", "ACTIVE", "PAUSED"] },
-        studentId: { in: needTransfer.map((item) => item.enrollment.studentId) },
+        studentId: { in: transferGroup.map((item) => item.enrollment.studentId) },
       },
       select: { studentId: true },
     });
@@ -85,7 +100,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   // Học bổng gắn theo TỪNG enrollment — không tự động giữ hay bỏ khi chuyển hàng loạt.
   // Admin phải chọn rõ % cho MỖI học viên đang có học bổng (giữ nguyên/giảm/bỏ), 400
-  // nếu thiếu quyết định cho ai đó, để không lỡ tay tính sai giá cho ai.
+  // nếu thiếu quyết định cho ai đó, để không lỡ tay tính sai giá cho ai. Áp dụng cho
+  // cả PERIOD lẫn COURSE trong transferGroup — học bổng không phụ thuộc billingModel.
   const decisionsRaw: unknown[] = Array.isArray(body.decisions) ? body.decisions : [];
   const decisionByEnrollmentId = new Map<string, number>(
     decisionsRaw
@@ -94,7 +110,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .map((item) => [item.enrollmentId, Number(item.scholarshipPct)]),
   );
   const scholarshipPctByEnrollmentId = new Map<string, number>();
-  for (const { enrollment, snapshot } of needTransfer) {
+  for (const { enrollment, snapshot } of transferGroup) {
     if (snapshot.scholarshipPct <= 0) continue;
     if (!decisionByEnrollmentId.has(enrollment.id)) {
       return NextResponse.json(
@@ -114,42 +130,41 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const now = new Date();
   const createdEnrollmentIds: string[] = [];
+  const createdEnrollmentBillingModel = new Map<string, string>();
   const result = await prisma.$transaction(async (tx) => {
     let completed = 0;
     let transferred = 0;
     let freeExtraCarried = 0;
     let transferValueAmount = 0;
 
-    for (const { enrollment, snapshot } of snapshots) {
-      if (snapshot.remainingMainSessions <= 0) {
-        await tx.enrollment.update({
-          where: { id: enrollment.id },
-          data: { status: "COMPLETED", endDate: now, continuationStatus: "COMPLETED" },
-        });
-        await tx.enrollmentStatusHistory.create({
-          data: {
-            studentId: enrollment.studentId,
-            enrollmentId: enrollment.id,
-            fromStatus: enrollment.status,
-            toStatus: "COMPLETED",
-            reason,
-            changedById: user.id,
-          },
-        });
-        completed += 1;
-        continue;
-      }
+    for (const { enrollment, snapshot } of completeOutrightGroup) {
+      await tx.enrollment.update({
+        where: { id: enrollment.id },
+        data: { status: "COMPLETED", endDate: now, continuationStatus: "COMPLETED" },
+      });
+      await tx.enrollmentStatusHistory.create({
+        data: {
+          studentId: enrollment.studentId,
+          enrollmentId: enrollment.id,
+          fromStatus: enrollment.status,
+          toStatus: "COMPLETED",
+          reason,
+          changedById: user.id,
+        },
+      });
+      completed += 1;
+      void snapshot; // giữ tham chiếu để không phải đổi kiểu dữ liệu của mảng, không dùng tới cho nhánh này
+    }
 
+    for (const { enrollment, snapshot } of transferGroup) {
       if (!targetClass) throw new Error("Thiếu lớp tiếp theo.");
+      const enrollmentIsPeriod = isPeriod(enrollment.billingModel);
       // snapshot.unitPrice đã trừ học bổng/điều chỉnh đang hiệu lực của đúng học viên
-      // này — mỗi học viên trong danh sách needTransfer có thể có mức giảm khác nhau,
-      // nên không dùng lại resolveEnrollmentUnitPrice() (giá gốc) ở đây.
+      // này — mỗi học viên trong danh sách transferGroup có thể có mức giảm khác
+      // nhau, nên không dùng lại resolveEnrollmentUnitPrice() (giá gốc) ở đây.
       const oldUnitPrice = snapshot.unitPrice;
       const chosenScholarshipPct = scholarshipPctByEnrollmentId.get(enrollment.id) ?? 0;
       const rawNewUnitPrice = targetClass.tuitionPerSession ?? targetClass.course?.tuitionPerSession ?? 0;
-      // Dùng đúng % học bổng admin vừa chọn cho học viên NÀY (không hardcode 0, không
-      // dùng lại % của người khác) — mỗi học viên trong needTransfer có thể chọn khác
-      // nhau, kể cả bỏ hẳn học bổng khi chuyển sang lớp nâng cao.
       const newUnitPrice = chosenScholarshipPct > 0
         ? computeEffectiveUnitPrice(rawNewUnitPrice, chosenScholarshipPct, snapshot.adjustmentPct)
         : rawNewUnitPrice;
@@ -157,16 +172,33 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         throw new Error(`Lớp tiếp theo "${targetClass.className}" chưa có đơn giá/buổi hợp lệ.`);
       }
 
-      const conversion = computeTransferConversion(snapshot.paidRemainingSessions, oldUnitPrice, newUnitPrice);
-      if (conversion.convertedSessionCount <= 0 && snapshot.manualExtraRemainingSessions <= 0) {
+      // PERIOD: quy đổi qua Ví (mục 3.9) — không có "hết buổi thì chặn", ví có thể
+      // đang = 0 mà vẫn chuyển bình thường, chỉ là enrollment mới bắt đầu ví trống.
+      // COURSE: giữ nguyên công thức cũ dựa trên purchasedMainSessionCount.
+      const walletBalanceBefore = enrollmentIsPeriod ? await getWalletBalance(tx, enrollment.id) : 0;
+      const conversion = enrollmentIsPeriod
+        ? (() => {
+            const remainingValue = walletBalanceBefore * Math.max(0, oldUnitPrice);
+            const convertedSessionCount = newUnitPrice > 0 ? Math.floor(remainingValue / newUnitPrice) : 0;
+            return {
+              remainingValue,
+              convertedSessionCount,
+              remainingCashAmount: newUnitPrice > 0 ? remainingValue - convertedSessionCount * newUnitPrice : remainingValue,
+            };
+          })()
+        : computeTransferConversion(snapshot.paidRemainingSessions, oldUnitPrice, newUnitPrice);
+
+      if (!enrollmentIsPeriod && conversion.convertedSessionCount <= 0 && snapshot.manualExtraRemainingSessions <= 0) {
         throw new Error(`Học viên ${enrollment.studentId} không còn đủ tiền hoặc buổi cộng thêm để chuyển lớp.`);
       }
 
       const note = [
         `Kết thúc lớp ${cls.className}, chuyển sang ${targetClass.className}`,
-        `Còn tiền: ${snapshot.paidRemainingSessions} buổi x ${oldUnitPrice.toLocaleString("vi-VN")}đ = ${conversion.remainingValue.toLocaleString("vi-VN")}đ`,
+        enrollmentIsPeriod
+          ? `Còn ${walletBalanceBefore} buổi trong ví x ${oldUnitPrice.toLocaleString("vi-VN")}đ = ${conversion.remainingValue.toLocaleString("vi-VN")}đ`
+          : `Còn tiền: ${snapshot.paidRemainingSessions} buổi x ${oldUnitPrice.toLocaleString("vi-VN")}đ = ${conversion.remainingValue.toLocaleString("vi-VN")}đ`,
         conversion.convertedSessionCount > 0 ? `Quy đổi ${conversion.convertedSessionCount} buổi ở lớp mới` : null,
-        snapshot.manualExtraRemainingSessions > 0 ? `Mang theo ${snapshot.manualExtraRemainingSessions} buổi cộng linh động` : null,
+        !enrollmentIsPeriod && snapshot.manualExtraRemainingSessions > 0 ? `Mang theo ${snapshot.manualExtraRemainingSessions} buổi cộng linh động` : null,
         conversion.remainingCashAmount > 0 ? `Dư ${conversion.remainingCashAmount.toLocaleString("vi-VN")}đ` : null,
         snapshot.scholarshipPct > 0
           ? chosenScholarshipPct > 0
@@ -204,8 +236,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           billingModel: enrollment.billingModel,
           enrollDate: now,
           learningStartDate: now,
-          purchasedMainSessionCount: conversion.convertedSessionCount,
-          manualExtraSessionCount: snapshot.manualExtraRemainingSessions,
+          purchasedMainSessionCount: enrollmentIsPeriod ? null : conversion.convertedSessionCount,
+          manualExtraSessionCount: enrollmentIsPeriod ? 0 : snapshot.manualExtraRemainingSessions,
+          // Tiến độ điểm danh đi xuyên suốt các lớp nối tiếp, không reset khi lớp cũ
+          // kết thúc và chuyển sang lớp mới (cùng lý do như route transfer đơn lẻ).
+          usedSessionCount: enrollment.usedSessionCount,
           tuitionUnitPriceSnapshot: newUnitPrice,
           paidCatchupSessionCount: 0,
           paidCatchupUnitPrice: newUnitPrice,
@@ -218,6 +253,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         },
       });
       createdEnrollmentIds.push(nextEnrollment.id);
+      createdEnrollmentBillingModel.set(nextEnrollment.id, enrollment.billingModel);
+
+      if (enrollmentIsPeriod) {
+        await transferWalletToNewEnrollment(tx, {
+          fromEnrollmentId: enrollment.id,
+          toEnrollmentId: nextEnrollment.id,
+          oldUnitPrice,
+          newUnitPrice,
+        });
+      }
 
       if (chosenScholarshipPct > 0) {
         await tx.scholarship.create({
@@ -244,7 +289,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
       await syncStudentDerivedFields(enrollment.studentId, tx);
       transferred += 1;
-      freeExtraCarried += snapshot.manualExtraRemainingSessions;
+      freeExtraCarried += enrollmentIsPeriod ? 0 : snapshot.manualExtraRemainingSessions;
       transferValueAmount += conversion.remainingValue;
     }
 
@@ -254,6 +299,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const billingWarnings: string[] = [];
   for (const enrollmentId of createdEnrollmentIds) {
+    // PERIOD không thu 1 cục lúc ghi danh (charge sinh theo tháng) — chỉ gọi
+    // generateCourseCharge cho enrollment COURSE, tránh cảnh báo vô nghĩa
+    // "enrollment đang ở mode PERIOD" hiện lên cho mọi ca chuyển lớp PERIOD.
+    if (createdEnrollmentBillingModel.get(enrollmentId) !== "COURSE") continue;
     const chargeResult = await generateCourseCharge(enrollmentId);
     if (chargeResult && "error" in chargeResult && chargeResult.error) billingWarnings.push(chargeResult.error);
   }

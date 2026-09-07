@@ -7,6 +7,7 @@ type EnrollmentWithClass = {
   id: string;
   studentId: string;
   classId?: string | null;
+  billingModel?: string;
   enrollDate: Date;
   purchasedMainSessionCount: number | null;
   manualExtraSessionCount?: number | null;
@@ -72,6 +73,12 @@ export function resolveEnrollmentUnitPrice(enrollment: EnrollmentWithClass) {
 }
 
 export function resolvePurchasedMainSessions(enrollment: EnrollmentWithClass) {
+  // PERIOD (95% học sinh) KHÔNG có "đã mua N buổi" — quyền học nằm trong Ví buổi học
+  // (lib/server/enrollment-wallet.ts), không phải con số cố định. Trước đây fallback
+  // về class.totalSessions (số buổi DỰ KIẾN của lớp) cho mọi enrollment, khiến toàn bộ
+  // hàm bên dưới (entitledMainSessions/remainingMainSessions/continuationStatus) bịa
+  // ra quyền học giả cho PERIOD — đây là chỗ sửa gốc, chỉ COURSE mới fallback.
+  if (enrollment.billingModel === "PERIOD") return enrollment.purchasedMainSessionCount ?? 0;
   return enrollment.purchasedMainSessionCount ?? enrollment.class?.totalSessions ?? 0;
 }
 
@@ -110,9 +117,18 @@ export function computeLearningSnapshot(
   const paidRemainingSessions = Math.max(0, plan.purchasedMainSessions - completedMainSessions);
   const manualExtraRemainingSessions = Math.max(0, remainingMainSessions - paidRemainingSessions);
   const remainingValue = paidRemainingSessions * plan.unitPrice;
-  const expectedStudentEndDate = computeExpectedStudentEndDate(enrollment, remainingMainSessions, futureMainSessions, holidayDates);
-  const continuationStatus =
-    remainingMainSessions <= 0
+  const isPeriod = enrollment.billingModel === "PERIOD";
+  // PERIOD không có "hết buổi"/"cần chuyển lớp" — quyền học nằm trong Ví, không phải
+  // trong entitledMainSessions (luôn = 0 cho PERIOD sau khi sửa resolvePurchasedMainSessions
+  // ở trên). Chốt cứng continuationStatus = "ON_TRACK" để MỌI nơi đang so sánh
+  // === "NEED_TRANSFER"/"COMPLETED" tự động không kích hoạt cho PERIOD, thay vì bắt
+  // từng màn hình tự nhớ gate theo billingModel.
+  const expectedStudentEndDate = isPeriod
+    ? null
+    : computeExpectedStudentEndDate(enrollment, remainingMainSessions, futureMainSessions, holidayDates);
+  const continuationStatus = isPeriod
+    ? "ON_TRACK"
+    : remainingMainSessions <= 0
       ? "COMPLETED"
       : expectedStudentEndDate
         ? "ON_TRACK"

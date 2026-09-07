@@ -81,6 +81,13 @@ export default function AssignEnrollmentForm({
   const [q, setQ] = useState("");
   const [results, setResults] = useState<ClassHit[]>([]);
   const [selected, setSelected] = useState<ClassHit | null>(null);
+  // Mặc định PERIOD (đóng theo tháng) — khớp thực tế 95% học sinh, thay vì trước đây
+  // form này không hỏi gì cả nên luôn âm thầm thành COURSE (mua đứt N buổi giả từ
+  // totalSessions của lớp). Chỉ hiện lựa chọn COURSE khi thật sự cần (phụ huynh chốt
+  // đóng trọn khóa).
+  const [billingModel, setBillingModel] = useState<"PERIOD" | "COURSE">("PERIOD");
+  const [mainSessionCount, setMainSessionCount] = useState("");
+  const [unitPrice, setUnitPrice] = useState("");
   const [loadingList, setLoadingList] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,8 +124,20 @@ export default function AssignEnrollmentForm({
 
     setSelected(null);
     setSuccess(null);
+    setBillingModel("PERIOD");
+    setMainSessionCount("");
+    setUnitPrice("");
     void loadClasses(q);
   }, [open]);
+
+  function selectClass(item: ClassHit) {
+    const isSame = selected?.id === item.id;
+    setSelected(isSame ? null : item);
+    if (!isSame) {
+      setMainSessionCount(item.totalSessions ? String(item.totalSessions) : "");
+      setUnitPrice(item.tuitionPerSession ? String(item.tuitionPerSession) : "");
+    }
+  }
 
   async function handleSearch(event: React.FormEvent) {
     event.preventDefault();
@@ -127,6 +146,10 @@ export default function AssignEnrollmentForm({
 
   async function handleAssign() {
     if (!selected) return;
+    if (!selected.isRemedial && billingModel === "COURSE" && (!mainSessionCount || Number(mainSessionCount) <= 0)) {
+      setError("Cần nhập số buổi khóa chính khi chọn đóng trọn khóa.");
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -135,7 +158,12 @@ export default function AssignEnrollmentForm({
     const response = await fetch(`/api/classes/${selected.id}/enrollments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ studentId: student.id }),
+      body: JSON.stringify({
+        studentId: student.id,
+        billingModel: selected.isRemedial ? "COURSE" : billingModel,
+        purchasedMainSessionCount: billingModel === "COURSE" ? Number(mainSessionCount) : undefined,
+        tuitionUnitPriceSnapshot: unitPrice ? Number(unitPrice) : undefined,
+      }),
     });
     const result = await response.json().catch(() => ({}));
     setSubmitting(false);
@@ -196,7 +224,7 @@ export default function AssignEnrollmentForm({
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setSelected(isSelected ? null : item)}
+                    onClick={() => selectClass(item)}
                     className={`w-full rounded-3xl border p-4 text-left transition ${isSelected ? "border-primary bg-primary/5 shadow-[0_16px_32px_rgba(17,139,222,0.12)]" : "border-hairline bg-white hover:border-primary/40 hover:bg-canvas"}`}
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -252,7 +280,60 @@ export default function AssignEnrollmentForm({
                   <p className="text-sm font-semibold text-emerald-900">Còn {student.sessionCreditCount ?? 0} buổi bổ trợ khả dụng.</p>
                 </div>
               ) : (
-                <p className="mt-1 text-sm text-emerald-800">Học phí {formatVnd(selected.tuitionPerSession)} / buổi · Tổng {selected.totalSessions ?? "chưa đặt"} buổi</p>
+                <>
+                  {/* Cách thu tiền — mặc định PERIOD (95% học sinh). Trước đây form này
+                      không hỏi gì cả nên luôn âm thầm ghi danh kiểu COURSE. */}
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setBillingModel("PERIOD")}
+                      className={`rounded-xl border p-3 text-left transition ${billingModel === "PERIOD" ? "border-emerald-500 bg-white shadow-sm" : "border-emerald-200 bg-emerald-50/50"}`}
+                    >
+                      <p className="text-sm font-semibold text-ink">Đóng theo tháng</p>
+                      <p className="mt-1 text-xs leading-5 text-ink-muted80">Không cần nhập số buổi — mỗi tháng tự tính theo buổi lớp thực dạy.</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBillingModel("COURSE")}
+                      className={`rounded-xl border p-3 text-left transition ${billingModel === "COURSE" ? "border-emerald-500 bg-white shadow-sm" : "border-emerald-200 bg-emerald-50/50"}`}
+                    >
+                      <p className="text-sm font-semibold text-ink">Đóng trọn khóa</p>
+                      <p className="mt-1 text-xs leading-5 text-ink-muted80">Mua đứt N buổi ngay lúc ghi danh.</p>
+                    </button>
+                  </div>
+
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="form-group">
+                      <span className="label-sm">Đơn giá / buổi</span>
+                      <input
+                        type="number"
+                        min={0}
+                        className="input"
+                        value={unitPrice}
+                        onChange={(event) => setUnitPrice(event.target.value)}
+                        placeholder={selected.tuitionPerSession ? String(selected.tuitionPerSession) : "Chưa cài đặt"}
+                      />
+                    </label>
+                    {billingModel === "COURSE" ? (
+                      <label className="form-group">
+                        <span className="label-sm">Số buổi khóa chính</span>
+                        <input
+                          type="number"
+                          min={1}
+                          className="input"
+                          value={mainSessionCount}
+                          onChange={(event) => setMainSessionCount(event.target.value)}
+                        />
+                      </label>
+                    ) : null}
+                  </div>
+
+                  {billingModel === "COURSE" && mainSessionCount && unitPrice ? (
+                    <p className="mt-2 text-sm font-semibold text-emerald-900">
+                      Tổng {formatVnd(Number(mainSessionCount) * Number(unitPrice))} ({mainSessionCount} buổi)
+                    </p>
+                  ) : null}
+                </>
               )}
             </div>
           ) : null}

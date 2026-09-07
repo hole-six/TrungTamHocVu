@@ -37,6 +37,7 @@ import { canUpdate } from "@/lib/server/role-matrix";
 import { ensureClassRoadmapItems } from "@/lib/server/class-roadmap";
 import { getClassAssignmentRoleType } from "@/lib/server/class-default-assignments";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
+import { getWalletBalance } from "@/lib/server/enrollment-wallet";
 import { buildEnrollmentPipeline } from "@/lib/server/enrollment-pipeline";
 import { formatVnd, formatDate } from "@/lib/export-utils";
 
@@ -421,6 +422,16 @@ export default async function ClassDetailPage({ params }: { params: { id: string
     enrollment,
     snapshot: learningSnapshotByEnrollment.get(enrollment.id)!,
   }));
+  // Ví buổi học (PERIOD) — remainingMainSessions/paidRemainingSessions ở snapshot trên
+  // luôn = 0 cho PERIOD (đúng, vì không có "buổi đã mua" cố định), nên chuyển lớp cho
+  // nhóm này phải đọc số dư Ví thay vì 2 field đó.
+  const walletBalanceByEnrollment = new Map(
+    await Promise.all(
+      cls.enrollments
+        .filter((enrollment) => enrollment.billingModel === "PERIOD")
+        .map(async (enrollment) => [enrollment.id, await getWalletBalance(prisma, enrollment.id)] as const),
+    ),
+  );
   // Chuỗi Lớp A → B → C → D cho từng học viên trong tab "Học viên" — chỉ hiện khi có
   // ≥ 2 lớp, xem lib/server/enrollment-pipeline.ts.
   const chainByEnrollment = new Map(
@@ -1078,9 +1089,20 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                     </span>
                                   </div>
                                   <p className="mt-1 text-xs text-[#64748b]">Vào lớp từ {formatDate(enrollment.enrollDate)}</p>
-                                  <p className="mt-1 text-xs font-semibold text-[#2563eb]">
-                                    Đã học {attendedMainSessions}/{purchasedMainSessions} · còn {remainingMainSessions} buổi · {formatVnd(remainingMainValue)}
-                                  </p>
+                                  {enrollment.billingModel === "PERIOD" ? (
+                                    (() => {
+                                      const wb = walletBalanceByEnrollment.get(enrollment.id) ?? 0;
+                                      return (
+                                        <p className={`mt-1 text-xs font-semibold ${wb < 0 ? "text-rose-700" : wb === 0 ? "text-amber-700" : "text-[#2563eb]"}`}>
+                                          Ví buổi học: {wb < 0 ? `Âm ${Math.abs(wb)} buổi` : `Còn ${wb} buổi`}
+                                        </p>
+                                      );
+                                    })()
+                                  ) : (
+                                    <p className="mt-1 text-xs font-semibold text-[#2563eb]">
+                                      Đã học {attendedMainSessions}/{purchasedMainSessions} · còn {remainingMainSessions} buổi · {formatVnd(remainingMainValue)}
+                                    </p>
+                                  )}
                                   {snapshot.manualExtraSessions > 0 ? (
                                     <p className="mt-1 text-xs font-semibold text-emerald-700">
                                       Có {snapshot.manualExtraSessions} buổi cộng linh động
@@ -1142,15 +1164,19 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                   >
                                     Mở hồ sơ
                                   </Link>
-                                  {canManageClass ? <EnrollmentRowActions enrollmentId={enrollment.id} status={enrollment.status} /> : null}
+                                  {canManageClass ? <EnrollmentRowActions enrollmentId={enrollment.id} status={enrollment.status} billingModel={enrollment.billingModel} walletBalance={walletBalanceByEnrollment.get(enrollment.id)} /> : null}
                                   {canManageClass && enrollment.status === "ACTIVE" ? (
                                     <AddEnrollmentSessionsButton enrollmentId={enrollment.id} studentName={enrollment.student.fullName} />
                                   ) : null}
-                                  {canManageClass && enrollment.status === "ACTIVE" && remainingMainSessions > 0 ? (
+                                  {canManageClass &&
+                                  enrollment.status === "ACTIVE" &&
+                                  (enrollment.billingModel === "PERIOD" || remainingMainSessions > 0) ? (
                                     <TransferEnrollmentButton
                                       enrollmentId={enrollment.id}
                                       currentClassName={cls.className}
                                       currentCourseId={cls.courseId}
+                                      billingModel={enrollment.billingModel}
+                                      walletBalance={walletBalanceByEnrollment.get(enrollment.id)}
                                       remainingSessions={remainingMainSessions}
                                       paidRemainingSessions={snapshot.paidRemainingSessions}
                                       manualExtraRemainingSessions={snapshot.manualExtraRemainingSessions}
@@ -1221,9 +1247,20 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                               </span>
                             </div>
                             <p className="mt-1.5 text-xs text-[#64748b]">Vào lớp từ {formatDate(enrollment.enrollDate)}</p>
-                            <p className="mt-1 text-xs font-semibold text-[#2563eb]">
-                              Đã học {attendedMainSessions}/{purchasedMainSessions} · còn {remainingMainSessions} buổi · {formatVnd(remainingMainValue)}
-                            </p>
+                            {enrollment.billingModel === "PERIOD" ? (
+                              (() => {
+                                const wb = walletBalanceByEnrollment.get(enrollment.id) ?? 0;
+                                return (
+                                  <p className={`mt-1 text-xs font-semibold ${wb < 0 ? "text-rose-700" : wb === 0 ? "text-amber-700" : "text-[#2563eb]"}`}>
+                                    Ví buổi học: {wb < 0 ? `Âm ${Math.abs(wb)} buổi` : `Còn ${wb} buổi`}
+                                  </p>
+                                );
+                              })()
+                            ) : (
+                              <p className="mt-1 text-xs font-semibold text-[#2563eb]">
+                                Đã học {attendedMainSessions}/{purchasedMainSessions} · còn {remainingMainSessions} buổi · {formatVnd(remainingMainValue)}
+                              </p>
+                            )}
                             {snapshot.manualExtraSessions > 0 ? (
                               <p className="mt-1 text-xs font-semibold text-emerald-700">
                                 Có {snapshot.manualExtraSessions} buổi cộng linh động
@@ -1306,15 +1343,19 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                             </svg>
                             Mở hồ sơ học viên
                           </Link>
-                          {canManageClass && <EnrollmentRowActions enrollmentId={enrollment.id} status={enrollment.status} />}
+                          {canManageClass && <EnrollmentRowActions enrollmentId={enrollment.id} status={enrollment.status} billingModel={enrollment.billingModel} walletBalance={walletBalanceByEnrollment.get(enrollment.id)} />}
                           {canManageClass && enrollment.status === "ACTIVE" ? (
                             <AddEnrollmentSessionsButton enrollmentId={enrollment.id} studentName={enrollment.student.fullName} />
                           ) : null}
-                          {canManageClass && enrollment.status === "ACTIVE" && remainingMainSessions > 0 ? (
+                          {canManageClass &&
+                          enrollment.status === "ACTIVE" &&
+                          (enrollment.billingModel === "PERIOD" || remainingMainSessions > 0) ? (
                             <TransferEnrollmentButton
                               enrollmentId={enrollment.id}
                               currentClassName={cls.className}
                               currentCourseId={cls.courseId}
+                              billingModel={enrollment.billingModel}
+                              walletBalance={walletBalanceByEnrollment.get(enrollment.id)}
                               remainingSessions={remainingMainSessions}
                               paidRemainingSessions={snapshot.paidRemainingSessions}
                               manualExtraRemainingSessions={snapshot.manualExtraRemainingSessions}

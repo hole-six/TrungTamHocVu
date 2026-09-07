@@ -72,6 +72,10 @@ type StudentData = {
     scholarshipPct: number;
     shortageAfterCurrentClass?: number;
   } | null;
+  // Ví buổi học — chỉ có giá trị khi currentEnrollment.billingModel === "PERIOD".
+  // Số buổi còn được quyền học vì đã đóng tiền, tách biệt hoàn toàn khỏi tiến độ
+  // điểm danh (kpis.attendanceStats) — xem lib/server/enrollment-wallet.ts.
+  walletBalance?: number | null;
   currentEnrollment?: {
     id: string;
     classId: string;
@@ -260,6 +264,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
 
   const snapshot = data.learningSnapshot;
   const enrollment = data.currentEnrollment;
+  const isCourseEnrollment = enrollment?.billingModel !== "PERIOD";
   const attendance = data.kpis.attendanceStats;
   const canSeeFinance = data.permissions.canSeeFinance;
   const availableCredits = data.sessionCredits.filter((credit: any) => credit.status === "AVAILABLE").length;
@@ -304,18 +309,40 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
             ) : null}
           </div>
 
-          {/* Hai con số nghiệp vụ thật sự cần: buổi đã học và tiền còn nợ */}
+          {/* Hai con số nghiệp vụ thật sự cần. PERIOD (95% học sinh): Ví buổi học — số
+              buổi còn được quyền học vì đã đóng tiền, KHÔNG có "/tổng" vì không có
+              tổng cố định (chốt nghiệp vụ). COURSE: giữ nguyên "N/M buổi". */}
           <div className={`grid gap-3 ${canSeeFinance ? "sm:grid-cols-2" : ""}`}>
             <div className="rounded-xl border border-[#e5eaf7] bg-white p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Buổi đã học</p>
-              <p className="mt-1 text-3xl font-black text-[#0f1729]">
-                {snapshot ? `${snapshot.completedMainSessions}/${snapshot.entitledMainSessions}` : "—"}
-              </p>
-              <p className="mt-0.5 text-sm text-[#64748b]">
-                {snapshot ? `Còn ${snapshot.remainingMainSessions} buổi` : "Chưa ghi danh lớp nào"}
-                {attendance.absent > 0 ? ` · vắng ${attendance.absent}` : ""}
-                {attendance.makeup > 0 ? ` · bù ${attendance.makeup}` : ""}
-              </p>
+              {enrollment?.billingModel === "PERIOD" ? (
+                <>
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Ví buổi học</p>
+                  <p className={`mt-1 text-3xl font-black ${(data.walletBalance ?? 0) < 0 ? "text-[#dc2626]" : "text-[#0f1729]"}`}>
+                    {data.walletBalance == null
+                      ? "—"
+                      : data.walletBalance < 0
+                        ? `Âm ${Math.abs(data.walletBalance)} buổi`
+                        : `Còn ${data.walletBalance} buổi`}
+                  </p>
+                  <p className="mt-0.5 text-sm text-[#64748b]">
+                    {attendance.present} buổi đã học
+                    {attendance.absent > 0 ? ` · vắng ${attendance.absent}` : ""}
+                    {attendance.makeup > 0 ? ` · bù ${attendance.makeup}` : ""}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Buổi đã học</p>
+                  <p className="mt-1 text-3xl font-black text-[#0f1729]">
+                    {snapshot ? `${snapshot.completedMainSessions}/${snapshot.entitledMainSessions}` : "—"}
+                  </p>
+                  <p className="mt-0.5 text-sm text-[#64748b]">
+                    {snapshot ? `Còn ${snapshot.remainingMainSessions} buổi` : "Chưa ghi danh lớp nào"}
+                    {attendance.absent > 0 ? ` · vắng ${attendance.absent}` : ""}
+                    {attendance.makeup > 0 ? ` · bù ${attendance.makeup}` : ""}
+                  </p>
+                </>
+              )}
             </div>
             {canSeeFinance ? (
               <div className="rounded-xl border border-[#e5eaf7] bg-white p-4">
@@ -362,11 +389,15 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                 {enrollment ? "Gán thêm lớp" : "Gán nhập học"}
               </button>
             ) : null}
-            {data.permissions.canManageSchedule && enrollment && snapshot && snapshot.remainingMainSessions > 0 ? (
+            {/* PERIOD chuyển lớp tự do, không cần "còn buổi" (khái niệm đó không tồn
+                tại — quyền học nằm trong Ví). COURSE giữ nguyên điều kiện cũ. */}
+            {data.permissions.canManageSchedule && enrollment && snapshot && (!isCourseEnrollment || snapshot.remainingMainSessions > 0) ? (
               <TransferEnrollmentButton
                 enrollmentId={enrollment.id}
                 currentClassName={enrollment.className}
                 currentCourseId={enrollment.courseId}
+                billingModel={enrollment.billingModel}
+                walletBalance={data.walletBalance}
                 remainingSessions={snapshot.remainingMainSessions}
                 paidRemainingSessions={snapshot.paidRemainingSessions}
                 manualExtraRemainingSessions={snapshot.manualExtraRemainingSessions}
@@ -422,11 +453,20 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                 </Stat>
                 <Stat label="Lịch học">{schedule || null}</Stat>
                 <Stat label="Bắt đầu">{formatDate(enrollment.learningStartDate ?? enrollment.enrollDate)}</Stat>
-                <Stat label="Dự kiến hết buổi">{formatDate(snapshot.expectedStudentEndDate)}</Stat>
+                {/* "Dự kiến hết buổi" suy từ remainingMainSessions — chỉ có nghĩa với
+                    COURSE (tổng buổi cố định). PERIOD không có mốc kết thúc kiểu này. */}
+                {isCourseEnrollment ? (
+                  <Stat label="Dự kiến hết buổi">{formatDate(snapshot.expectedStudentEndDate)}</Stat>
+                ) : null}
                 <Stat label="Cách thu">{enrollment.billingModel === "PERIOD" ? "Theo tháng" : "Trọn khóa"}</Stat>
-                {canSeeFinance ? (
+                {canSeeFinance && isCourseEnrollment ? (
                   <Stat label="Tiền còn lại">
                     {formatVnd(snapshot.remainingValue)} · {formatVnd(snapshot.unitPrice)}/buổi
+                  </Stat>
+                ) : null}
+                {canSeeFinance && !isCourseEnrollment && data.walletBalance != null ? (
+                  <Stat label="Giá trị Ví">
+                    {formatVnd(data.walletBalance * snapshot.unitPrice)} · {formatVnd(snapshot.unitPrice)}/buổi
                   </Stat>
                 ) : null}
                 {enrollment.paidCatchupSessionCount > 0 ? (
@@ -444,7 +484,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                       .join(", ")}
                   </Stat>
                 ) : null}
-                {snapshot.continuationStatus === "NEED_TRANSFER" ? (
+                {isCourseEnrollment && snapshot.continuationStatus === "NEED_TRANSFER" ? (
                   <Stat label="Cần xử lý" wide>
                     <span className="text-amber-700">
                       Lớp hiện tại thiếu {snapshot.shortageAfterCurrentClass} buổi so với số buổi đã mua — cần chuyển
@@ -452,10 +492,19 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                     </span>
                   </Stat>
                 ) : null}
-                {snapshot.continuationStatus === "COMPLETED" ? (
+                {isCourseEnrollment && snapshot.continuationStatus === "COMPLETED" ? (
                   <Stat label="Cần xử lý" wide>
                     <span className="text-emerald-700">
                       Đã học đủ số buổi đã mua. Ghi danh gói mới nếu học tiếp, hoặc để nguyên đến khi lớp kết thúc.
+                    </span>
+                  </Stat>
+                ) : null}
+                {!isCourseEnrollment && data.walletBalance != null && data.walletBalance <= 0 ? (
+                  <Stat label="Cần xử lý" wide>
+                    <span className="text-amber-700">
+                      {data.walletBalance < 0
+                        ? `Ví âm ${Math.abs(data.walletBalance)} buổi — đã học vượt quá tiền đã đóng, cần thu gấp.`
+                        : "Ví đã hết buổi — cần thu học phí tháng mới trước khi học tiếp."}
                     </span>
                   </Stat>
                 ) : null}

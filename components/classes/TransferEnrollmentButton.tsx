@@ -29,6 +29,8 @@ export default function TransferEnrollmentButton({
   classOptions,
   variant = "row",
   onSuccess,
+  billingModel,
+  walletBalance,
 }: {
   enrollmentId: string;
   currentClassName: string;
@@ -40,6 +42,12 @@ export default function TransferEnrollmentButton({
   scholarshipPct?: number;
   defaultTargetClassId?: string | null;
   classOptions: ClassOption[];
+  /** PERIOD không có "buổi còn lại" kiểu COURSE — quy đổi khi chuyển lớp phải dựa
+   *  trên số dư Ví (lib/server/enrollment-wallet.ts), không phải remainingSessions/
+   *  paidRemainingSessions (2 số đó luôn = 0 cho PERIOD sau khi sửa enrollment-learning.ts
+   *  ở gốc, nếu không đọc walletBalance thì nút này sẽ bị khóa cứng cho 95% học sinh). */
+  billingModel?: string;
+  walletBalance?: number | null;
   /** "row" (mặc định) cho dòng bảng học viên trong lớp; "quickaction" cho thanh hành động nhanh ở hồ sơ học viên; "compact" cho hàng nút trong drawer học viên. */
   variant?: "row" | "quickaction" | "compact";
   /** Gọi thêm sau khi chuyển lớp thành công — dùng cho nơi giữ state riêng (vd
@@ -73,11 +81,15 @@ export default function TransferEnrollmentButton({
   // giá quy đổi lấy đúng % học bổng admin vừa chọn (0 nếu để trống), không phải giá gốc — nếu
   // không, số xem trước ở đây và số thật sau khi xác nhận sẽ lệch nhau.
   const newUnitPrice = chosenScholarshipPct > 0 ? computeEffectiveUnitPrice(rawNewUnitPrice, chosenScholarshipPct, 0) : rawNewUnitPrice;
-  const paidSessionsForValue = Math.max(0, paidRemainingSessions ?? remainingSessions);
+  const isPeriod = billingModel === "PERIOD";
+  const paidSessionsForValue = isPeriod ? Math.max(0, walletBalance ?? 0) : Math.max(0, paidRemainingSessions ?? remainingSessions);
   const remainingValue = paidSessionsForValue * Math.max(0, oldUnitPrice);
   const convertedSessions = newUnitPrice > 0 ? Math.floor(remainingValue / newUnitPrice) : 0;
   const remainingCash = newUnitPrice > 0 ? remainingValue - convertedSessions * newUnitPrice : remainingValue;
-  const canSubmit = Boolean(targetClassId) && !loading && (convertedSessions > 0 || manualExtraRemainingSessions > 0);
+  // PERIOD chuyển lớp tự do bất kể ví còn bao nhiêu (chốt nghiệp vụ) — không có "hết
+  // buổi thì chặn" như COURSE. Ví = 0 vẫn cho chuyển, enrollment mới chỉ đơn giản bắt
+  // đầu với ví trống.
+  const canSubmit = Boolean(targetClassId) && !loading && (isPeriod || convertedSessions > 0 || manualExtraRemainingSessions > 0);
 
   async function submit() {
     setLoading(true);
@@ -127,9 +139,11 @@ export default function TransferEnrollmentButton({
             <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Lớp hiện tại</p>
             <p className="mt-1 font-bold text-[#0f1729]">{currentClassName}</p>
             <p className="mt-2 text-sm text-[#64748b]">
-              Còn {remainingSessions} buổi. Phần có tiền: {paidSessionsForValue} buổi x {formatVnd(oldUnitPrice)} = {formatVnd(remainingValue)}
+              {isPeriod
+                ? `Ví còn ${paidSessionsForValue} buổi x ${formatVnd(oldUnitPrice)} = ${formatVnd(remainingValue)}`
+                : `Còn ${remainingSessions} buổi. Phần có tiền: ${paidSessionsForValue} buổi x ${formatVnd(oldUnitPrice)} = ${formatVnd(remainingValue)}`}
             </p>
-            {manualExtraRemainingSessions > 0 ? (
+            {!isPeriod && manualExtraRemainingSessions > 0 ? (
               <p className="mt-1 text-sm font-semibold text-emerald-700">
                 Mang theo {manualExtraRemainingSessions} buổi cộng linh động.
               </p>
@@ -238,7 +252,7 @@ export default function TransferEnrollmentButton({
         title="Xác nhận chuyển lớp?"
         description={`Chuyển từ "${currentClassName}" sang lớp đã chọn, quy đổi ${convertedSessions} buổi${
           remainingCash > 0 ? ` và ghi dư ${formatVnd(remainingCash)}` : ""
-        }${manualExtraRemainingSessions > 0 ? `, mang theo ${manualExtraRemainingSessions} buổi cộng linh động` : ""}${
+        }${!isPeriod && manualExtraRemainingSessions > 0 ? `, mang theo ${manualExtraRemainingSessions} buổi cộng linh động` : ""}${
           scholarshipPct > 0
             ? chosenScholarshipPct > 0
               ? `, mang học bổng ${Math.round(chosenScholarshipPct * 100)}% sang lớp mới`

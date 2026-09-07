@@ -103,6 +103,11 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
     classId: "",
     scholarshipPercent: "",
     scholarshipReason: "",
+    // Mặc định PERIOD (95% học sinh đóng theo tháng) — trước đây wizard này không hỏi
+    // gì cả nên mọi lead chuyển thành học viên đều âm thầm bị ghi danh kiểu COURSE và
+    // thu trọn khóa 1 cục ngay lập tức.
+    billingModel: "PERIOD" as "PERIOD" | "COURSE",
+    purchasedMainSessionCount: "",
   });
 
   const filteredClasses = useMemo(() => classes.filter((item) => !form.courseId || item.courseId === form.courseId), [classes, form.courseId]);
@@ -113,10 +118,16 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
     [students, form.existingStudentId],
   );
 
+  // Chỉ COURSE mới có tổng tiền cố định (mua đứt N buổi ngay lúc ghi danh, N do
+  // form.purchasedMainSessionCount quyết định — KHÔNG phải lấy sẵn từ totalSessions
+  // của lớp, vì đó chỉ là con số dự kiến để đặt tên lớp). PERIOD không có tổng tiền
+  // ước tính vì học phí sinh riêng theo từng tháng, không chốt trước.
   const estimatedTuition = useMemo(() => {
-    if (!selectedClass?.tuitionPerSession || !selectedClass.totalSessions) return null;
-    return selectedClass.tuitionPerSession * selectedClass.totalSessions;
-  }, [selectedClass]);
+    if (form.billingModel !== "COURSE") return null;
+    const sessions = Number(form.purchasedMainSessionCount);
+    if (!selectedClass?.tuitionPerSession || !sessions) return null;
+    return selectedClass.tuitionPerSession * sessions;
+  }, [selectedClass, form.billingModel, form.purchasedMainSessionCount]);
 
   const scholarshipPercentNumber = form.scholarshipPercent ? Number(form.scholarshipPercent) : 0;
   const estimatedDiscount = estimatedTuition ? Math.round((estimatedTuition * scholarshipPercentNumber) / 100) : 0;
@@ -158,6 +169,9 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
     }
     if (step === 2 && form.mode === "ENROLL_NOW" && !form.classId) {
       return "Phải chọn lớp khi nhập học ngay.";
+    }
+    if (step === 2 && form.mode === "ENROLL_NOW" && form.billingModel === "COURSE" && (!form.purchasedMainSessionCount || Number(form.purchasedMainSessionCount) <= 0)) {
+      return "Cần nhập số buổi khóa chính khi chọn đóng trọn khóa.";
     }
     if (step === 3 && form.mode === "ENROLL_NOW" && form.createPortalAccount && !form.guardianEmail.trim()) {
       return "Thiếu email phụ huynh để cấp portal.";
@@ -548,7 +562,20 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
 
                 <label className="form-group">
                   <span className="label">Lớp đang mở</span>
-                  <select className="input" value={form.classId} onChange={(event) => patchForm("classId", event.target.value)}>
+                  <select
+                    className="input"
+                    value={form.classId}
+                    onChange={(event) => {
+                      const nextClassId = event.target.value;
+                      const nextClass = classes.find((item) => item.id === nextClassId);
+                      setForm((prev) => ({
+                        ...prev,
+                        classId: nextClassId,
+                        purchasedMainSessionCount: nextClass?.totalSessions ? String(nextClass.totalSessions) : prev.purchasedMainSessionCount,
+                      }));
+                      setError(null);
+                    }}
+                  >
                     <option value="">-- Có thể để trống nếu mới là lead ban đầu --</option>
                     {filteredClasses.map((item) => (
                       <option key={item.id} value={item.id}>
@@ -563,6 +590,42 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                     <span className="label">Ngày nhập học</span>
                     <input type="date" className="input" value={form.enrollDate} onChange={(event) => patchForm("enrollDate", event.target.value)} />
                   </label>
+                ) : null}
+
+                {form.mode === "ENROLL_NOW" && selectedClass ? (
+                  <div className="form-group md:col-span-2">
+                    <span className="label">Cách thu học phí</span>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => patchForm("billingModel", "PERIOD")}
+                        className={`rounded-2xl border px-4 py-3 text-left transition ${form.billingModel === "PERIOD" ? "border-primary bg-primary/5" : "border-[#e6ebf5] bg-white"}`}
+                      >
+                        <p className="text-sm font-semibold text-ink">Đóng theo tháng</p>
+                        <p className="mt-1 text-xs leading-5 text-ink-muted48">Không chốt tổng tiền trước — mỗi tháng tự tính theo buổi lớp thực dạy.</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => patchForm("billingModel", "COURSE")}
+                        className={`rounded-2xl border px-4 py-3 text-left transition ${form.billingModel === "COURSE" ? "border-primary bg-primary/5" : "border-[#e6ebf5] bg-white"}`}
+                      >
+                        <p className="text-sm font-semibold text-ink">Đóng trọn khóa</p>
+                        <p className="mt-1 text-xs leading-5 text-ink-muted48">Mua đứt N buổi, thu 1 cục ngay lúc ghi danh.</p>
+                      </button>
+                    </div>
+                    {form.billingModel === "COURSE" ? (
+                      <label className="form-group mt-3">
+                        <span className="label">Số buổi khóa chính</span>
+                        <input
+                          type="number"
+                          min={1}
+                          className="input"
+                          value={form.purchasedMainSessionCount}
+                          onChange={(event) => patchForm("purchasedMainSessionCount", event.target.value)}
+                        />
+                      </label>
+                    ) : null}
+                  </div>
                 ) : null}
 
                 {form.mode === "ENROLL_NOW" ? (
@@ -600,12 +663,20 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                     <div className="rounded-2xl border border-[#fed7aa] bg-white p-4">
                       <p className="text-xs uppercase tracking-[0.16em] text-ink-muted48">Cách tính tiền</p>
                       <p className="mt-2 text-sm text-ink">Học phí / buổi: <strong>{formatVnd(selectedClass.tuitionPerSession)}</strong></p>
-                      <p className="mt-1 text-sm text-ink">Tổng buổi khóa: <strong>{selectedClass.totalSessions ?? "—"}</strong></p>
-                      <p className="mt-1 text-sm text-ink">Tạm tính toàn khóa: <strong>{formatVnd(estimatedTuition)}</strong></p>
-                      {scholarshipPercentNumber > 0 ? <p className="mt-1 text-sm text-ink">Sau học bổng: <strong>{formatVnd(estimatedNetTuition)}</strong></p> : null}
-                      <p className="mt-2 text-xs text-ink-muted48">
-                        Công thức đang nhìn ở đây là {formatVnd(selectedClass.tuitionPerSession)} × {selectedClass.totalSessions ?? "—"} buổi.
-                      </p>
+                      {form.billingModel === "COURSE" ? (
+                        <>
+                          <p className="mt-1 text-sm text-ink">Số buổi mua: <strong>{form.purchasedMainSessionCount || "—"}</strong></p>
+                          <p className="mt-1 text-sm text-ink">Tạm tính toàn khóa: <strong>{formatVnd(estimatedTuition)}</strong></p>
+                          {scholarshipPercentNumber > 0 ? <p className="mt-1 text-sm text-ink">Sau học bổng: <strong>{formatVnd(estimatedNetTuition)}</strong></p> : null}
+                          <p className="mt-2 text-xs text-ink-muted48">
+                            Công thức: {formatVnd(selectedClass.tuitionPerSession)} × {form.purchasedMainSessionCount || "—"} buổi, thu 1 cục ngay lúc ghi danh.
+                          </p>
+                        </>
+                      ) : (
+                        <p className="mt-2 text-xs text-ink-muted48">
+                          Đóng theo tháng: không chốt tổng tiền trước. Mỗi tháng hệ thống tự tính đúng số buổi lớp thực dạy (tính từ ngày ghi danh) × {formatVnd(selectedClass.tuitionPerSession)}/buổi, ra hóa đơn tháng đó.
+                        </p>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -658,16 +729,22 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                 </div>
                 <div className="rounded-2xl border border-[#e6ebf5] bg-white p-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-ink-muted48">Tính tiền hiện tại</p>
-                  <p className="mt-2 text-sm text-ink">
-                    {selectedClass ? (
+                  {selectedClass ? (
+                    form.billingModel === "COURSE" ? (
                       <>
-                        Học phí đang lấy theo lớp: <strong>{formatVnd(selectedClass.tuitionPerSession)}</strong>/buổi × <strong>{selectedClass.totalSessions ?? "—"}</strong> buổi
+                        <p className="mt-2 text-sm text-ink">
+                          Đóng trọn khóa: <strong>{formatVnd(selectedClass.tuitionPerSession)}</strong>/buổi × <strong>{form.purchasedMainSessionCount || "—"}</strong> buổi, thu ngay
+                        </p>
+                        <p className="mt-2 text-sm text-ink-muted48">Tạm tính: {formatVnd(estimatedTuition)}{scholarshipPercentNumber > 0 ? ` · sau học bổng còn ${formatVnd(estimatedNetTuition)}` : ""}</p>
                       </>
                     ) : (
-                      "Chưa chốt lớp nên chưa chốt tiền cho học viên."
-                    )}
-                  </p>
-                  {selectedClass ? <p className="mt-2 text-sm text-ink-muted48">Tạm tính: {formatVnd(estimatedTuition)}{scholarshipPercentNumber > 0 ? ` · sau học bổng còn ${formatVnd(estimatedNetTuition)}` : ""}</p> : null}
+                      <p className="mt-2 text-sm text-ink">
+                        Đóng theo tháng: <strong>{formatVnd(selectedClass.tuitionPerSession)}</strong>/buổi — không chốt tổng tiền trước, hóa đơn sinh riêng mỗi tháng theo buổi thực dạy.
+                      </p>
+                    )
+                  ) : (
+                    <p className="mt-2 text-sm text-ink">Chưa chốt lớp nên chưa chốt tiền cho học viên.</p>
+                  )}
                   {!selectedClass ? <p className="mt-2 text-sm text-amber-700">Lead chưa có lớp chỉ là nhu cầu quan tâm, chưa phải hồ sơ học phí.</p> : null}
                 </div>
               </div>
@@ -712,7 +789,8 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Cách tính tiền</p>
             <ul className="mt-3 space-y-3 text-sm text-ink-muted80">
               <li>• Nếu chưa chốt lớp, hệ thống chưa chốt tiền vì chưa có đơn giá và tổng buổi cụ thể.</li>
-              <li>• Khi đã chọn lớp, tiền đang lấy theo `học phí/buổi × tổng số buổi của lớp`.</li>
+              <li>• Đóng trọn khóa: `học phí/buổi × số buổi mua`, thu 1 cục ngay.</li>
+              <li>• Đóng theo tháng (mặc định, khớp 95% học sinh): không chốt tổng tiền trước, mỗi tháng tự tính theo buổi lớp thực dạy.</li>
               <li>• Học bổng nếu có sẽ trừ trực tiếp trên tổng ước tính để nhân sự nhìn ra ngay.</li>
             </ul>
           </div>

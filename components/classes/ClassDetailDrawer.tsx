@@ -348,7 +348,13 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                                   ))}
                                 </p>
                               ) : null}
-                              {s && (
+                              {e.billingModel === "PERIOD" ? (
+                                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                  <span className={`rounded border px-2 py-0.5 text-[10px] font-semibold ${(e.walletBalance ?? 0) < 0 ? "border-rose-200 bg-rose-50 text-rose-700" : (e.walletBalance ?? 0) === 0 ? "border-amber-200 bg-amber-50 text-amber-700" : "border-[#e5eaf7] bg-[#f8faff]"}`}>
+                                    Ví: {(e.walletBalance ?? 0) < 0 ? `Âm ${Math.abs(e.walletBalance ?? 0)}` : `Còn ${e.walletBalance ?? 0}`} buổi
+                                  </span>
+                                </div>
+                              ) : s && (
                                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                                   <span className="rounded border border-[#e5eaf7] bg-[#f8faff] px-2 py-0.5 text-[10px] font-semibold">Đã: {s.completedMainSessions}/{s.entitledMainSessions}</span>
                                   <span className="rounded border border-[#e5eaf7] bg-[#f8faff] px-2 py-0.5 text-[10px] font-semibold">Còn: {s.remainingMainSessions}</span>
@@ -369,20 +375,22 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                             </div>
                             <div className="flex shrink-0 flex-wrap items-start gap-1.5">
                               <Link href={`/students/${e.student.id}`} onClick={onClose} className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-1.5 text-center text-xs font-bold text-sky-700">Hồ sơ</Link>
-                              {data.permissions.canManageClass && <EnrollmentRowActions enrollmentId={e.id} status={e.status} onSuccess={() => void reload()} />}
+                              {data.permissions.canManageClass && <EnrollmentRowActions enrollmentId={e.id} status={e.status} billingModel={e.billingModel} walletBalance={e.walletBalance} onSuccess={() => void reload()} />}
                               {data.permissions.canManageClass && e.status === "ACTIVE" && <AddEnrollmentSessionsButton enrollmentId={e.id} studentName={e.student.fullName} onSuccess={() => void reload()} />}
-                              {data.permissions.canManageClass && e.status === "ACTIVE" && s?.remainingMainSessions > 0 && (
+                              {data.permissions.canManageClass && e.status === "ACTIVE" && (e.billingModel === "PERIOD" || s?.remainingMainSessions > 0) && (
                                 <TransferEnrollmentButton
                                   enrollmentId={e.id}
                                   currentClassName={data.className}
                                   currentCourseId={data.courseId}
-                                  remainingSessions={s.remainingMainSessions}
-                                  paidRemainingSessions={s.paidRemainingSessions}
-                                  manualExtraRemainingSessions={s.manualExtraRemainingSessions}
-                                  oldUnitPrice={s.unitPrice}
-                                  scholarshipPct={s.scholarshipPct}
+                                  remainingSessions={s?.remainingMainSessions ?? 0}
+                                  paidRemainingSessions={s?.paidRemainingSessions}
+                                  manualExtraRemainingSessions={s?.manualExtraRemainingSessions}
+                                  oldUnitPrice={s?.unitPrice}
+                                  scholarshipPct={s?.scholarshipPct}
                                   defaultTargetClassId={data.nextClassId}
                                   classOptions={data.continuationClassOptions}
+                                  billingModel={e.billingModel}
+                                  walletBalance={e.walletBalance}
                                   onSuccess={() => void reload()}
                                 />
                               )}

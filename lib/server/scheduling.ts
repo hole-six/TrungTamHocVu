@@ -166,8 +166,13 @@ export async function runClassEndCreditSweep(): Promise<SweepResult> {
     });
 
     for (const cls of classes) {
+      // PERIOD (95% học sinh) không có khái niệm "buổi dư đã trả trước" — họ chỉ trả
+      // tiền cho buổi đã thực dạy (xem Ví buổi học, lib/server/enrollment-wallet.ts).
+      // expectedEndDate quá hạn không có nghĩa gì với họ (chỉ là dự kiến của lớp, lớp
+      // vẫn có thể đang dạy tiếp bình thường) — sweep này CHỈ áp dụng cho COURSE, nơi
+      // có buổi/tiền trả trước thật sự cần bảo toàn khi lớp bị bỏ quên không ai tất toán.
       const enrollments = await prisma.enrollment.findMany({
-        where: { classId: cls.id, status: "ACTIVE" },
+        where: { classId: cls.id, status: "ACTIVE", billingModel: { not: "PERIOD" } },
       });
 
       for (const enrollment of enrollments) {

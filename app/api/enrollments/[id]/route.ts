@@ -8,8 +8,9 @@ import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { computeEnrollmentSessionProgress } from "@/lib/server/class-generation";
 import { grantRemainingSessionCredits } from "@/lib/server/session-credits";
 import { ensureBillingPeriod, generateChargesForPeriod } from "@/lib/server/billing-generation";
-import { canEditCharges, monthRange } from "@/lib/server/tuition-rules";
+import { canEditCharges } from "@/lib/server/tuition-rules";
 import { getVietnamToday } from "@/lib/server/class-rules";
+import { getWalletBalance, markWalletRefunded } from "@/lib/server/enrollment-wallet";
 
 const WITHDRAWAL_CREDIT_REASON = "Buổi dư do rút lớp giữa khóa";
 
@@ -38,71 +39,40 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     );
   }
 
+  const isPeriod = existing.billingModel === "PERIOD";
+  // "Đã hoàn tiền"/"Giữ lại" — chốt nghiệp vụ mục 3.10: KHÔNG tự động quyết, nhân
+  // viên phải tự chọn khi rút lớp mà ví còn dư. Mặc định "KEEP" (an toàn — không tự
+  // ý coi như đã hoàn tiền nếu frontend chưa hỏi).
+  const walletDecision = body.walletDecision === "REFUND" ? "REFUND" : "KEEP";
+
   let withdrawalRemaining = 0;
-  if (body.status === "WITHDRAWN") {
-    if (existing.billingModel !== "PERIOD") {
-      // COURSE/INSTALLMENT: nếu có classId thì tính theo lịch lớp; nếu là gói tự do thì lấy tổng buổi trừ buổi đã dùng
-      if (existing.classId) {
-        const progress = await computeEnrollmentSessionProgress(existing.classId, existing.enrollDate);
-        withdrawalRemaining = progress.remaining ?? 0;
-      } else {
-        withdrawalRemaining = Math.max(0, (existing.purchasedMainSessionCount ?? 0) - existing.usedSessionCount);
-      }
+  if (body.status === "WITHDRAWN" && !isPeriod) {
+    // COURSE/INSTALLMENT: nếu có classId thì tính theo lịch lớp; nếu là gói tự do thì lấy tổng buổi trừ buổi đã dùng
+    if (existing.classId) {
+      const progress = await computeEnrollmentSessionProgress(existing.classId, existing.enrollDate);
+      withdrawalRemaining = progress.remaining ?? 0;
     } else {
-      // PERIOD: học phí đóng TRỌN cả tháng ngay từ đầu tháng (xác nhận với người dùng)
-      const cls = existing.classId
-        ? await prisma.class.findUnique({ where: { id: existing.classId }, select: { branchId: true } })
-        : null;
-      if (cls && existing.classId) {
-        const today = getVietnamToday();
-        const currentPeriodName = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}`;
-        const { start, end } = monthRange(currentPeriodName);
-        // enrollDate mang giờ-phút-giây lúc ghi danh, còn sessionDate luôn chuẩn hóa về
-        // UTC-midnight — so trực tiếp làm buổi học CÙNG NGÀY ghi danh (đã hoàn thành) bị
-        // loại khỏi periodCompleted, và có thể khiến buổi gốc đã dời lịch bị tính nhầm là
-        // "đẩy ra khỏi tháng" dù buổi thay thế vẫn nằm trong tháng — cấp thừa buổi bổ trợ.
-        const enrollDateStartOfDay = new Date(Date.UTC(existing.enrollDate.getUTCFullYear(), existing.enrollDate.getUTCMonth(), existing.enrollDate.getUTCDate()));
-        const rangeStart = enrollDateStartOfDay > start ? enrollDateStartOfDay : start;
-
-        const [normalSessions, rescheduledOutOfRange, periodCompleted] = await Promise.all([
-          // Buổi bình thường + buổi ĐÃ dời lịch vào ĐÚNG khoảng tháng này (buổi thay thế
-          // của 1 lần đổi lịch từ tháng khác dời vào) — không đếm buổi gốc đã RESCHEDULED
-          // để khỏi đếm trùng với chính buổi thay thế của nó.
-          prisma.classSession.count({
-            where: { classId: existing.classId, status: { notIn: ["CANCELLED", "RESCHEDULED"] }, sessionDate: { gte: rangeStart, lte: end } },
-          }),
-          // Buổi gốc rơi trong tháng này nhưng đã bị ĐỔI LỊCH sang ngày khác — nếu buổi
-          // thay thế cũng rơi trong CHÍNH tháng này thì đã được đếm ở trên rồi (bỏ qua,
-          // tránh đếm trùng); nếu buổi thay thế bị đẩy sang tháng khác (vd cận cuối tháng
-          // dời qua đầu tháng sau) thì buổi gốc vẫn phải tính là 1 buổi thuộc tháng này —
-          // không được để "biến mất" khỏi cả 2 tháng chỉ vì đổi lịch hành chính.
-          prisma.classSession.findMany({
-            where: { classId: existing.classId, status: "RESCHEDULED", sessionDate: { gte: rangeStart, lte: end } },
-            include: { replacedBySession: { select: { sessionDate: true } } },
-          }),
-          prisma.classSession.count({
-            where: { classId: existing.classId, status: "COMPLETED", sessionDate: { gte: rangeStart, lte: end } },
-          }),
-        ]);
-        const pushedOutOfMonthCount = rescheduledOutOfRange.filter((s) => {
-          const replacedDate = s.replacedBySession?.sessionDate;
-          return !replacedDate || replacedDate < rangeStart || replacedDate > end;
-        }).length;
-        const periodTotal = normalSessions + pushedOutOfMonthCount;
-        withdrawalRemaining = Math.max(0, periodTotal - periodCompleted);
-
-        // Chốt phiếu học phí tháng hiện tại NGAY LÚC CÒN ACTIVE — nếu không, các buổi đã
-        // học thật trong tháng (trước ngày rút) sẽ vĩnh viễn không được tính vào phiếu nào
-        // nữa, vì generateChargesForPeriod chỉ xét enrollment đang ACTIVE (xem trước đó).
-        const period = await ensureBillingPeriod(cls.branchId, currentPeriodName);
-        if (canEditCharges(period.status)) {
-          await generateChargesForPeriod(period.id);
-        }
+      withdrawalRemaining = Math.max(0, (existing.purchasedMainSessionCount ?? 0) - existing.usedSessionCount);
+    }
+  } else if (body.status === "WITHDRAWN" && isPeriod && existing.classId) {
+    // PERIOD: KHÔNG tính "buổi dư trong tháng" theo lịch nữa — quyền học nằm trong Ví
+    // buổi học (nạp/trừ liên tục qua nhiều tháng), không phải 1 con số suy ra từ lịch
+    // tháng hiện tại. Chỉ cần chốt phiếu học phí tháng này NGAY LÚC CÒN ACTIVE trước
+    // khi đổi trạng thái — nếu không, buổi đã học thật trong tháng (trước ngày rút)
+    // sẽ vĩnh viễn không được tính vào phiếu nào (generateChargesForPeriod chỉ xét
+    // enrollment đang ACTIVE).
+    const cls = await prisma.class.findUnique({ where: { id: existing.classId }, select: { branchId: true } });
+    if (cls) {
+      const today = getVietnamToday();
+      const currentPeriodName = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}`;
+      const period = await ensureBillingPeriod(cls.branchId, currentPeriodName);
+      if (canEditCharges(period.status)) {
+        await generateChargesForPeriod(period.id);
       }
     }
   }
 
-  const { updated, sessionCredits } = await prisma.$transaction(async (tx) => {
+  const { updated, sessionCredits, walletBalance, walletRefunded } = await prisma.$transaction(async (tx) => {
     const enrollment = await tx.enrollment.update({
       where: { id: params.id },
       data: {
@@ -125,7 +95,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     await syncStudentDerivedFields(existing.studentId, tx);
 
     const grantedCredits =
-      withdrawalRemaining > 0
+      !isPeriod && withdrawalRemaining > 0
         ? await grantRemainingSessionCredits(
             tx,
             { id: enrollment.id, studentId: enrollment.studentId, classId: enrollment.classId ?? "" },
@@ -134,7 +104,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           )
         : null;
 
-    return { updated: enrollment, sessionCredits: grantedCredits };
+    let walletBalanceAfter: number | null = null;
+    let refunded = false;
+    if (isPeriod && body.status === "WITHDRAWN") {
+      const balanceBefore = await getWalletBalance(tx, existing.id);
+      if (balanceBefore > 0 && walletDecision === "REFUND") {
+        await markWalletRefunded(tx, existing.id, `Đã hoàn tiền mặt lúc rút lớp: ${body.reason || "không ghi lý do"}`);
+        refunded = true;
+        walletBalanceAfter = 0;
+      } else {
+        walletBalanceAfter = balanceBefore;
+      }
+    }
+
+    return { updated: enrollment, sessionCredits: grantedCredits, walletBalance: walletBalanceAfter, walletRefunded: refunded };
   });
 
   const syncedStudent = await syncStudentDerivedFields(existing.studentId);
@@ -143,5 +126,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     item: updated,
     student: syncedStudent,
     sessionCreditsGranted: sessionCredits?.granted ?? undefined,
+    // walletBalance > 0 && !walletRefunded: ví còn dư và nhân viên chọn "Giữ lại"
+    // (hoặc chưa được hỏi) — frontend nên hiện lại để nhắc xử lý nếu cần.
+    walletBalance: walletBalance ?? undefined,
+    walletRefunded: walletRefunded || undefined,
   });
 }

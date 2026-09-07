@@ -7,6 +7,7 @@ import { computeOutstandingBalance } from "@/lib/server/balance";
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { getVietnamToday } from "@/lib/server/class-rules";
+import { getWalletBalance } from "@/lib/server/enrollment-wallet";
 
 export async function GET(
   request: Request,
@@ -266,8 +267,12 @@ export async function GET(
 
     // Get learning snapshot
     let learningSnapshot = null;
+    let walletBalance: number | null = null;
     if (currentEnrollment) {
       learningSnapshot = await getEnrollmentLearningSnapshot(prisma, currentEnrollment);
+      if (currentEnrollment.billingModel === "PERIOD") {
+        walletBalance = await getWalletBalance(prisma, currentEnrollment.id);
+      }
     }
 
     // Lớp có thể chuyển tiếp — KHÔNG lọc cứng theo courseId vì "chuyển lớp" còn bao
@@ -353,7 +358,11 @@ export async function GET(
         severity: "critical",
       });
     }
-    if (learningSnapshot?.continuationStatus === "NEED_TRANSFER") {
+    // NEED_TRANSFER/"sắp hết buổi" chỉ có nghĩa cho COURSE (mua đứt N buổi, có khái
+    // niệm "hết") — PERIOD không có tổng buổi cố định nên các cảnh báo này vô nghĩa
+    // với nhóm đó (quyền học nằm trong Ví, xem lib/server/enrollment-wallet.ts).
+    const isCourseEnrollment = currentEnrollment?.billingModel !== "PERIOD";
+    if (isCourseEnrollment && learningSnapshot?.continuationStatus === "NEED_TRANSFER") {
       operationalWarnings.push({
         text: currentEnrollment?.class?.nextClass
           ? `Cần chuyển sang lớp ${currentEnrollment.class.nextClass.className} — còn thiếu ${learningSnapshot.shortageAfterCurrentClass} buổi sau khi lớp hiện tại kết thúc.`
@@ -383,6 +392,7 @@ export async function GET(
       });
     }
     if (
+      isCourseEnrollment &&
       learningSnapshot &&
       learningSnapshot.remainingMainSessions > 0 &&
       learningSnapshot.remainingMainSessions <= 3
@@ -505,6 +515,7 @@ export async function GET(
         attendanceStats,
       },
       learningSnapshot,
+      walletBalance,
       currentEnrollment: currentEnrollment
         ? {
             id: currentEnrollment.id,

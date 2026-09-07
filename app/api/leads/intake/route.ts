@@ -158,6 +158,19 @@ export async function POST(req: NextRequest) {
   const guardianRelation = normalizeText(body.guardianRelation);
   const scholarshipPercent = body.scholarshipPercent !== undefined && body.scholarshipPercent !== "" ? Number(body.scholarshipPercent) : null;
   const scholarshipReason = normalizeText(body.scholarshipReason);
+  // Mặc định PERIOD (95% học sinh đóng theo tháng) — trước đây route này không hề
+  // nhận billingModel nên MỌI lead chuyển thành học viên qua wizard đều âm thầm
+  // thành COURSE (default schema) và bị thu trọn khóa 1 cục ngay lúc ghi danh, bất kể
+  // phụ huynh có muốn vậy hay không. Chỉ COURSE mới cần purchasedMainSessionCount.
+  const billingModel = String(body.billingModel ?? "PERIOD").toUpperCase();
+  if (billingModel !== "COURSE" && billingModel !== "PERIOD") {
+    return NextResponse.json({ error: "Hình thức đóng học phí không hợp lệ." }, { status: 400 });
+  }
+  const purchasedMainSessionCount =
+    billingModel === "COURSE" ? Number(body.purchasedMainSessionCount ?? 0) : null;
+  if (mode === "ENROLL_NOW" && billingModel === "COURSE" && (!Number.isInteger(purchasedMainSessionCount) || (purchasedMainSessionCount ?? 0) <= 0)) {
+    return NextResponse.json({ error: "Cần nhập số buổi khóa chính hợp lệ khi chọn đóng trọn khóa." }, { status: 400 });
+  }
 
   if (scholarshipPercent !== null && (!Number.isFinite(scholarshipPercent) || scholarshipPercent < 0 || scholarshipPercent > 100)) {
     return NextResponse.json({ error: "Phần trăm học bổng không hợp lệ (0-100)." }, { status: 400 });
@@ -294,7 +307,11 @@ export async function POST(req: NextRequest) {
         studentId: student.id,
         classId: selectedClass!.id,
         status: "ACTIVE",
+        billingModel,
+        purchasedMainSessionCount,
+        tuitionUnitPriceSnapshot: billingModel === "COURSE" ? selectedClass!.tuitionPerSession ?? selectedClass!.course?.tuitionPerSession ?? null : null,
         enrollDate,
+        learningStartDate: enrollDate,
         notes: notes ?? interestedCourseNote,
       },
     });
@@ -355,11 +372,13 @@ export async function POST(req: NextRequest) {
     await syncStudentDerivedFields(result.studentId);
   }
 
-  // Ghi danh xong là thu học phí trọn khóa ngay (xem generateCourseCharge) — không
-  // đợi tới kỳ thu tháng sau. Không chặn luồng intake nếu sinh học phí lỗi (vd lớp
+  // COURSE: ghi danh xong thu học phí trọn khóa ngay (generateCourseCharge), không
+  // đợi kỳ thu tháng sau. PERIOD: KHÔNG sinh gì cả — kỳ thu tháng sẽ tự nhặt enrollment
+  // ACTIVE này vào lần chạy tiếp theo (sweep ngày 1 hằng tháng), đúng cách classes/[id]/
+  // enrollments/route.ts đang làm. Không chặn luồng intake nếu sinh học phí lỗi (vd lớp
   // chưa cấu hình tổng buổi), chỉ ghi log để nhân sự tự xử lý sau.
   let billingWarning: string | undefined;
-  if (result.enrollmentId) {
+  if (result.enrollmentId && billingModel === "COURSE") {
     const chargeResult = await generateCourseCharge(result.enrollmentId);
     if ("error" in chargeResult) billingWarning = chargeResult.error;
   }

@@ -7,6 +7,7 @@ import { canView, canViewFullWithOverride, canViewWithOverride } from "@/lib/ser
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
+import { getWalletBalance } from "@/lib/server/enrollment-wallet";
 import StudentsTable from "./StudentsTable";
 import PageGuide from "@/components/ui/PageGuide";
 
@@ -254,7 +255,7 @@ export default async function StudentsPage({
   const currentEnrollments = items
     .map((item) => item.enrollments.find((enrollment) => enrollment.status === "ACTIVE") ?? item.enrollments[0] ?? null)
     .filter((enrollment): enrollment is NonNullable<typeof enrollment> => Boolean(enrollment));
-  const [chargeRows, allocationTotals, bookIssueRows, studentMetaRows, availableSessionCreditRows, learningSnapshots] = await Promise.all([
+  const [chargeRows, allocationTotals, bookIssueRows, studentMetaRows, availableSessionCreditRows, learningSnapshots, walletBalances] = await Promise.all([
     canViewFinance ? prisma.charge.findMany({
       where: { studentId: { in: studentIds } },
       select: {
@@ -326,6 +327,11 @@ export default async function StudentsPage({
             })
           : null,
       })),
+    ),
+    Promise.all(
+      currentEnrollments
+        .filter((enrollment) => enrollment.billingModel === "PERIOD")
+        .map(async (enrollment) => ({ enrollmentId: enrollment.id, balance: await getWalletBalance(prisma, enrollment.id) })),
     ),
   ]);
 
@@ -422,6 +428,7 @@ export default async function StudentsPage({
     availableSessionCreditRows.map((row) => [row.studentId, Math.round(row._avg.unitPriceSnapshot ?? 0)]),
   );
   const learningSnapshotByEnrollment = new Map(learningSnapshots.map((row) => [row.enrollmentId, row.snapshot]));
+  const walletBalanceByEnrollment = new Map(walletBalances.map((row) => [row.enrollmentId, row.balance]));
 
   const normalizedItems = items.map((item) => {
     const primaryGuardian = item.guardians.find((guardianLink) => guardianLink.isPrimary)?.guardian ?? item.guardians[0]?.guardian ?? null;
@@ -435,6 +442,7 @@ export default async function StudentsPage({
       currentClassCode: currentEnrollment?.class?.classCode ?? null,
       currentClassStatus: currentEnrollment?.class?.status ?? null,
       currentBillingModel: currentEnrollment?.billingModel ?? null,
+      currentWalletBalance: currentEnrollment?.billingModel === "PERIOD" ? walletBalanceByEnrollment.get(currentEnrollment.id) ?? 0 : null,
       leadCode: item.lead?.leadCode ?? null,
       outstanding: canViewFinance ? (chargeByStudent.get(item.id) ?? 0) - (paidByStudent.get(item.id) ?? 0) : undefined,
       totalCharged: chargeByStudent.get(item.id) ?? 0,

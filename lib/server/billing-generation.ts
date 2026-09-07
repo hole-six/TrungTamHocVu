@@ -9,6 +9,7 @@ import {
 } from "@/lib/server/tuition-rules";
 import { computeBalanceSnapshot, consumeCreditBalances } from "@/lib/server/balance";
 import { resolvePurchasedMainSessions } from "@/lib/server/enrollment-learning";
+import { getWalletBalance } from "@/lib/server/enrollment-wallet";
 
 type GenerationException = {
   studentId: string;
@@ -338,9 +339,17 @@ export async function generateChargesForPeriod(periodId: string) {
     const enrollDateStartOfDay = new Date(Date.UTC(enrollment.enrollDate.getUTCFullYear(), enrollment.enrollDate.getUTCMonth(), enrollment.enrollDate.getUTCDate()));
     const sessionRangeStart = enrollDateStartOfDay > period.startDate ? enrollDateStartOfDay : period.startDate;
 
-    const sessionCount = await prisma.classSession.count({
-      where: { classId, status: "COMPLETED", sessionDate: { gte: sessionRangeStart, lte: period.endDate } },
+    // Ví buổi học (lib/server/enrollment-wallet.ts): số buổi lớp DỰ KIẾN của tháng này
+    // (đã lên lịch, trừ buổi hủy/đã dời — RESCHEDULED được thay bằng đúng 1 buổi bù
+    // nên không đếm buổi gốc) trừ đi số dư đang có trong ví = số buổi CẦN thu thêm để
+    // ví đầy lại đúng mức dự kiến. Đây là toàn bộ công thức — không cần "deductedCount
+    // do buổi hủy" nữa vì ví tự nhiên không bị trừ khi buổi đó không diễn ra (xem
+    // debitWalletsForCompletedSession) nên phần dư luôn tự mang sang tháng sau.
+    const scheduledSessionCount = await prisma.classSession.count({
+      where: { classId, status: { notIn: ["CANCELLED", "RESCHEDULED"] }, sessionDate: { gte: sessionRangeStart, lte: period.endDate } },
     });
+    const walletBalanceBeforeCharge = await getWalletBalance(prisma, enrollment.id);
+    const sessionCount = Math.max(0, scheduledSessionCount - walletBalanceBeforeCharge);
     const absentCount = await prisma.studentAttendance.count({
       where: {
         studentId,
@@ -407,40 +416,20 @@ export async function generateChargesForPeriod(periodId: string) {
     const scholarshipPct = scholarships.reduce((sum, item) => sum + item.percentage, 0);
     const adjustmentPct = adjustments.reduce((sum, item) => sum + item.percentage, 0);
     const unitPrice = computeEffectiveUnitPrice(basePrice, scholarshipPct, adjustmentPct);
+    // deductedCount giữ lại cho dữ liệu CŨ (trừ tay trước khi có Ví) — không còn cần
+    // cho charge mới, vì buổi dư do trung tâm hủy đã tự nằm trong walletBalanceBeforeCharge
+    // ở trên rồi (không debit ví khi buổi không diễn ra), không phải tính riêng nữa.
     const deductedCount = chargeToUpdate?.deductedCount ?? 0;
 
-    // Buổi đã quy đổi khi chuyển lớp (enrollment.transferredConvertedSessionCount) là
-    // buổi ĐÃ TRẢ TIỀN rồi ở lớp cũ — phải trừ khỏi sessionCount trước khi tính tiền,
-    // nếu không PERIOD sẽ thu tiền buổi đó LẦN NỮA (khác COURSE đã trừ đúng qua
-    // generateCourseCharge). "Đã dùng bao nhiêu" tính ĐỘNG bằng SUM từ các charge PERIOD
-    // KHÁC của chính enrollment này (loại trừ charge đang sửa lại) — không dùng biến đếm
-    // lũy kế lưu sẵn, để không lệch khi 1 kỳ bị sinh lại nhiều lần trước khi POSTED,
-    // đúng triết lý "không Cong don" đã ghi ở đầu tuition-rules.ts.
-    let transferCreditSessionCount = 0;
-    let transferCreditAmount = 0;
-    if (enrollment.transferredConvertedSessionCount > 0) {
-      const alreadyCredited = await prisma.charge.aggregate({
-        where: {
-          enrollmentId: enrollment.id,
-          billingModel: "PERIOD",
-          id: chargeToUpdate ? { not: chargeToUpdate.id } : undefined,
-        },
-        _sum: { transferCreditSessionCount: true },
-      });
-      const remainingTransferSessions = Math.max(
-        0,
-        enrollment.transferredConvertedSessionCount - (alreadyCredited._sum.transferCreditSessionCount ?? 0),
-      );
-      // Khớp đúng công thức computeTuitionAmount(sessionCount, 0, deductedCount, unitPrice)
-      // đang dùng bên dưới — absentCount KHÔNG trừ (chính sách "vắng vẫn tính tiền, được
-      // buổi bổ trợ riêng" đã có sẵn, xem enrollment-learning.ts).
-      const billableBeforeCredit = Math.max(0, sessionCount - deductedCount);
-      transferCreditSessionCount = Math.min(billableBeforeCredit, remainingTransferSessions);
-      transferCreditAmount = transferCreditSessionCount * unitPrice;
-    }
+    // Buổi quy đổi khi chuyển lớp (enrollment.transferredConvertedSessionCount) giờ
+    // đã được cộng THẲNG vào ví của enrollment mới ngay lúc chuyển (xem
+    // transferWalletToNewEnrollment trong lib/server/enrollment-wallet.ts) — nó đã
+    // nằm trong walletBalanceBeforeCharge ở trên, KHÔNG trừ thêm 1 lần nữa ở đây nữa
+    // (khác bản cũ trước khi có Ví, phải tự trừ tay bằng transferCreditAmount).
+    const transferCreditSessionCount = 0;
+    const transferCreditAmount = 0;
 
-    const grossTuitionAmount = computeTuitionAmount(sessionCount, 0, deductedCount, unitPrice);
-    const tuitionAmount = grossTuitionAmount - transferCreditAmount;
+    const tuitionAmount = computeTuitionAmount(sessionCount, 0, deductedCount, unitPrice);
     const materialsAmount = materials._sum.amount ?? 0;
 
     pendingDrafts.push({
@@ -459,7 +448,7 @@ export async function generateChargesForPeriod(periodId: string) {
         absentCount,
         deductedCount,
         unitPrice,
-        mainTuitionAmount: grossTuitionAmount,
+        mainTuitionAmount: tuitionAmount,
         paidCatchupAmount: 0,
         transferCreditAmount,
         transferCreditSessionCount,

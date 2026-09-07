@@ -5,6 +5,7 @@ import { hasPermission } from "@/lib/server/permissions";
 import { computeOutstandingBalance } from "@/lib/server/balance";
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import { canAccessBranch } from "@/lib/branch-filter";
+import { topUpWalletFromPayment } from "@/lib/server/enrollment-wallet";
 
 const CASH_METHOD = "Tiền mặt";
 const MAX_CASH_DISCOUNT_PERCENT = 10;
@@ -109,6 +110,18 @@ export async function POST(req: NextRequest) {
         data: { paymentId: payment.id, chargeId: charge.id, amount: allocAmount },
       });
       remaining -= allocAmount;
+
+      // Ví buổi học: tiền vừa phân bổ cho 1 charge PERIOD thì nạp thẳng vào ví của
+      // đúng enrollment đó — quy đổi 1 lần theo đơn giá của charge này (đã áp học
+      // bổng/điều chỉnh tại thời điểm sinh charge).
+      if (charge.billingModel === "PERIOD" && charge.enrollmentId) {
+        await topUpWalletFromPayment(tx, {
+          enrollmentId: charge.enrollmentId,
+          paymentId: payment.id,
+          amountVnd: allocAmount,
+          unitPrice: charge.unitPrice,
+        });
+      }
     }
 
     if (discountAmount > 0) {

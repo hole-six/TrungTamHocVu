@@ -15,6 +15,7 @@ import {
 import { getHolidayDateSet } from "@/lib/server/holidays";
 import { ensureClassRoadmapItems } from "@/lib/server/class-roadmap";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
+import { getWalletBalance } from "@/lib/server/enrollment-wallet";
 import { buildEnrollmentPipeline } from "@/lib/server/enrollment-pipeline";
 import { isTaskDueOn, computeTaskLogStatus } from "@/lib/server/class-task-rules";
 
@@ -198,7 +199,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
           branchId: cls.branchId,
         },
       });
-      
+
+      const walletBalance = enrollment.billingModel === "PERIOD"
+        ? await getWalletBalance(prisma, enrollment.id)
+        : null;
+
       const classCharges = enrollment.student.charges;
       const total = classCharges.reduce((s, c) => s + c.totalAmount, 0);
       const paid = classCharges.reduce((s, c) => 
@@ -229,6 +234,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         enrollDate: enrollment.enrollDate.toISOString(),
         status: enrollment.status,
         billingModel: enrollment.billingModel,
+        walletBalance,
         student: {
           id: enrollment.student.id,
           studentCode: enrollment.student.studentCode,
@@ -389,15 +395,24 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   }
 
   // Completion stats for CompleteClassButton
+  // PERIOD không có khái niệm "hết buổi" (remainingMainSessions luôn = 0, xem
+  // enrollment-learning.ts) — nếu có lớp tiếp theo thì LUÔN vào nhóm chuyển lớp (quy đổi
+  // qua Ví), không phải nhóm "đã đủ buổi", khớp đúng nhánh xử lý ở api/classes/[id]/complete.
   const activeLearningSnapshots = enrollmentsWithLearning.filter(e => e.status === "ACTIVE");
-  const completionReadyCount = activeLearningSnapshots.filter((item) => item.learningSnapshot.remainingMainSessions <= 0).length;
+  const willTransferPeriodOnComplete = Boolean(cls.nextClassId);
+  const completionReadyCount = activeLearningSnapshots.filter((item) =>
+    item.billingModel === "PERIOD" ? !willTransferPeriodOnComplete : item.learningSnapshot.remainingMainSessions <= 0
+  ).length;
   const completionNeedTransferStudents = activeLearningSnapshots
-    .filter((item) => item.learningSnapshot.remainingMainSessions > 0)
+    .filter((item) =>
+      item.billingModel === "PERIOD" ? willTransferPeriodOnComplete : item.learningSnapshot.remainingMainSessions > 0
+    )
     .map((item) => ({
       enrollmentId: item.id,
       studentName: item.student.fullName,
-      paidRemainingSessions: item.learningSnapshot.paidRemainingSessions,
-      manualExtraRemainingSessions: item.learningSnapshot.manualExtraRemainingSessions,
+      billingModel: item.billingModel,
+      paidRemainingSessions: item.billingModel === "PERIOD" ? Math.max(0, item.walletBalance ?? 0) : item.learningSnapshot.paidRemainingSessions,
+      manualExtraRemainingSessions: item.billingModel === "PERIOD" ? 0 : item.learningSnapshot.manualExtraRemainingSessions,
       oldUnitPrice: item.learningSnapshot.unitPrice,
       scholarshipPct: item.learningSnapshot.scholarshipPct,
     }));

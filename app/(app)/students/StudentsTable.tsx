@@ -30,6 +30,8 @@ type Student = {
   outstanding?: number;
   enrollmentsCount?: number;
   currentBillingModel?: string | null;
+  /** Số dư Ví buổi học của enrollment PERIOD hiện tại — null khi enrollment hiện tại là COURSE. */
+  currentWalletBalance?: number | null;
   totalCharged?: number;
   totalPaid?: number;
   tuitionCharged?: number;
@@ -306,6 +308,25 @@ export default function StudentsTable({
         ],
       },
       render: (_value, row) => {
+        if (row.currentBillingModel === "PERIOD") {
+          const balance = row.currentWalletBalance ?? 0;
+          return (
+            <div className="space-y-1.5">
+              <span
+                className={`inline-flex rounded-lg border px-2.5 py-1 text-xs font-bold ${
+                  balance < 0
+                    ? "border-rose-200 bg-rose-50 text-rose-800"
+                    : balance === 0
+                      ? "border-amber-200 bg-amber-50 text-amber-800"
+                      : "border-slate-200 bg-slate-50 text-slate-700"
+                }`}
+              >
+                {balance < 0 ? `Ví âm ${Math.abs(balance)} buổi` : balance === 0 ? "Ví hết buổi" : `Ví còn ${balance} buổi`}
+              </span>
+              <p className="text-xs text-[#64748b]">Đóng theo tháng — tự tính lại đầu mỗi kỳ</p>
+            </div>
+          );
+        }
         const remaining = row.learningRemainingSessions ?? null;
         const completed = row.learningCompletedSessions ?? null;
         const purchased = row.learningPurchasedSessions ?? null;

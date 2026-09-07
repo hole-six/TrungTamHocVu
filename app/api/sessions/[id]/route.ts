@@ -6,6 +6,7 @@ import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { findLockedPeriodForSession } from "@/lib/server/billing-generation";
 import { BILLING_PERIOD_STATUS_LABEL } from "@/lib/server/tuition-rules";
+import { reverseWalletDebitsForSession } from "@/lib/server/enrollment-wallet";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -46,6 +47,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         data: { status: "AVAILABLE", consumedSessionId: null, consumedAt: null },
       });
       await tx.studentAttendance.deleteMany({ where: { sessionId: params.id } });
+      // Ví buổi học (PERIOD): buổi này hóa ra không diễn ra thật — hoàn lại đúng
+      // những buổi đã trừ cho buổi này, không phải "bù" bằng 1 giao dịch mới.
+      await reverseWalletDebitsForSession(tx, params.id);
     }
 
     return tx.classSession.update({

@@ -35,15 +35,36 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const billingModel = cls.isRemedial ? "COURSE" : requestedBillingModel;
   const enrollDate = body.enrollDate ? new Date(body.enrollDate) : new Date();
   const unitPriceSnapshot = Number(body.tuitionUnitPriceSnapshot ?? cls.tuitionPerSession ?? cls.course?.tuitionPerSession ?? 0);
-  const purchasedMainSessionCount = Number(body.purchasedMainSessionCount ?? cls.totalSessions ?? 0);
-  const paidCatchupSessionCount = Math.max(0, Number(body.paidCatchupSessionCount ?? 0));
+  // PERIOD (95% học sinh) KHÔNG có khái niệm "đã mua N buổi" — quyền học của họ nằm
+  // trong Ví buổi học (nạp mỗi lần đóng tiền), không phải 1 con số cố định lúc ghi
+  // danh. Chỉ COURSE/INSTALLMENT mới cần purchasedMainSessionCount thật (mua đứt N
+  // buổi ngay lúc ghi danh) — ép nó cho PERIOD trước đây là bịa quyền học, gây chặn
+  // nhầm chuyển lớp cho cả nhóm này (xem kế hoạch đã duyệt).
+  const purchasedMainSessionCount =
+    billingModel === "PERIOD" ? null : Number(body.purchasedMainSessionCount ?? cls.totalSessions ?? 0);
+  // Bổ trợ đầu khóa TÍNH PHÍ (khác bổ trợ vắng miễn phí) chỉ được tính tiền qua
+  // generateCourseCharge (1 lần lúc ghi danh) — nhánh PERIOD của generateChargesForPeriod
+  // luôn set paidCatchupAmount=0, không bao giờ thu khoản này. Nếu cho PERIOD lưu số
+  // buổi/đơn giá này thì tiền biến mất âm thầm (nhân viên tưởng đã tính, thực ra không
+  // bao giờ lên hóa đơn) — chặn ngay ở đây thay vì mỗi UI phải tự nhớ ẩn field.
+  const paidCatchupSessionCount = billingModel === "PERIOD" ? 0 : Math.max(0, Number(body.paidCatchupSessionCount ?? 0));
   const paidCatchupUnitPrice = Number(body.paidCatchupUnitPrice ?? unitPriceSnapshot);
   if (!studentId) return NextResponse.json({ error: "Thiếu học viên" }, { status: 400 });
   if (billingModel !== "COURSE" && billingModel !== "PERIOD" && billingModel !== "INSTALLMENT") {
     return NextResponse.json({ error: "Hình thức đóng học phí không hợp lệ" }, { status: 400 });
   }
+  if (billingModel === "PERIOD" && Number(body.paidCatchupSessionCount ?? 0) > 0) {
+    return NextResponse.json(
+      { error: "Đóng theo tháng chưa hỗ trợ tính phí bổ trợ đầu khóa lúc ghi danh — tạo khoản thu riêng sau khi ghi danh nếu cần." },
+      { status: 400 },
+    );
+  }
 
-  if (!cls.isRemedial && (!Number.isInteger(purchasedMainSessionCount) || purchasedMainSessionCount <= 0)) {
+  if (
+    billingModel !== "PERIOD" &&
+    !cls.isRemedial &&
+    (!Number.isInteger(purchasedMainSessionCount) || (purchasedMainSessionCount ?? 0) <= 0)
+  ) {
     return NextResponse.json({ error: "So buoi khoa chinh khong hop le." }, { status: 400 });
   }
   if (!cls.isRemedial && (!Number.isInteger(unitPriceSnapshot) || unitPriceSnapshot < 0)) {

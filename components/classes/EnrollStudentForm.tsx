@@ -205,32 +205,51 @@ export default function EnrollStudentForm({
               <p className="mt-2 text-base font-semibold text-emerald-950">{selected.fullName}</p>
               <p className="mt-1 text-sm text-emerald-800">{selected.studentCode}</p>
               <div className="grid gap-3 border-t border-emerald-200 pt-4 md:grid-cols-2">
+                {/* Đóng theo tháng KHÔNG có "đã mua N buổi" — quyền học nằm trong Ví buổi
+                    học (nạp mỗi lần đóng tiền), không phải 1 tổng cố định lúc ghi danh.
+                    Ẩn "Số buổi" và "Tạm tính Tổng" khi PERIOD để khỏi hiện số gây hiểu
+                    lầm là đã chốt tổng tiền — thực tế học phí sinh theo từng tháng. */}
+                {billingModel !== "PERIOD" ? (
+                  <label className="form-group">
+                    <span className="label-sm">Số buổi khóa chính</span>
+                    <input type="number" min={1} className="input" value={mainSessionCount} onChange={(event) => setMainSessionCount(event.target.value)} />
+                  </label>
+                ) : null}
                 <label className="form-group">
-                  <span className="label-sm">Số buổi khóa chính</span>
-                  <input type="number" min={1} className="input" value={mainSessionCount} onChange={(event) => setMainSessionCount(event.target.value)} />
-                </label>
-                <label className="form-group">
-                  <span className="label-sm">Đơn giá khóa chính</span>
+                  <span className="label-sm">Đơn giá / buổi</span>
                   <CurrencyInput value={unitPrice} onChange={(next) => setUnitPrice(String(next))} />
-                  <span className="text-[10px] leading-tight text-ink-muted48">{formatVnd(Number(unitPrice) || 0)}</span>
+                  <span className="text-[10px] leading-tight text-ink-muted48">
+                    {formatVnd(Number(unitPrice) || 0)}
+                    {billingModel === "PERIOD" ? " — riêng cho học viên này, khác giá mặc định của lớp nếu có chiết khấu" : ""}
+                  </span>
                 </label>
-                <label className="form-group">
-                  <span className="label-sm">Buổi học thêm đầu khóa (tính phí)</span>
-                  <input type="number" min={0} className="input" value={paidCatchupSessionCount} onChange={(event) => setPaidCatchupSessionCount(event.target.value)} />
-                  <span className="text-[10px] leading-tight text-ink-muted48">Khác với "bổ trợ vắng" (miễn phí, sinh ra khi vắng buổi chính) — đây là buổi mua thêm riêng, có tính phí.</span>
-                </label>
-                <label className="form-group">
-                  <span className="label-sm">Đơn giá buổi học thêm đầu khóa</span>
-                  <CurrencyInput value={paidCatchupUnitPrice} onChange={(next) => setPaidCatchupUnitPrice(String(next))} />
-                  <span className="text-[10px] leading-tight text-ink-muted48">{formatVnd(Number(paidCatchupUnitPrice || unitPrice) || 0)}</span>
-                </label>
-                <div className="rounded-xl border border-emerald-200 bg-white px-4 py-3 md:col-span-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Tạm tính</p>
-                  <p className="mt-1 text-sm text-emerald-900">
-                    Học phí khóa chính {formatVnd(mainTuitionAmount)} · buổi học thêm đầu khóa {formatVnd(catchupAmount)}
-                  </p>
-                  <p className="mt-1 text-lg font-bold text-emerald-950">Tổng {formatVnd(enrollmentTotalAmount)}</p>
-                </div>
+                {billingModel !== "PERIOD" ? (
+                  <>
+                    <label className="form-group">
+                      <span className="label-sm">Buổi học thêm đầu khóa (tính phí)</span>
+                      <input type="number" min={0} className="input" value={paidCatchupSessionCount} onChange={(event) => setPaidCatchupSessionCount(event.target.value)} />
+                      <span className="text-[10px] leading-tight text-ink-muted48">Khác với "bổ trợ vắng" (miễn phí, sinh ra khi vắng buổi chính) — đây là buổi mua thêm riêng, có tính phí.</span>
+                    </label>
+                    <label className="form-group">
+                      <span className="label-sm">Đơn giá buổi học thêm đầu khóa</span>
+                      <CurrencyInput value={paidCatchupUnitPrice} onChange={(next) => setPaidCatchupUnitPrice(String(next))} />
+                      <span className="text-[10px] leading-tight text-ink-muted48">{formatVnd(Number(paidCatchupUnitPrice || unitPrice) || 0)}</span>
+                    </label>
+                    <div className="rounded-xl border border-emerald-200 bg-white px-4 py-3 md:col-span-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Tạm tính</p>
+                      <p className="mt-1 text-sm text-emerald-900">
+                        Học phí khóa chính {formatVnd(mainTuitionAmount)} · buổi học thêm đầu khóa {formatVnd(catchupAmount)}
+                      </p>
+                      <p className="mt-1 text-lg font-bold text-emerald-950">Tổng {formatVnd(enrollmentTotalAmount)}</p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-xl border border-emerald-200 bg-white px-4 py-3 md:col-span-2">
+                    <p className="text-sm text-emerald-900">
+                      Không cần nhập số buổi hay tổng tiền — mỗi tháng hệ thống tự tính đúng số buổi lớp thực dạy (tính từ ngày ghi danh) × đơn giá ở trên, ra hóa đơn tháng đó.
+                    </p>
+                  </div>
+                )}
               </div>
               <div className="border-t border-emerald-200 pt-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Kế hoạch đóng học phí</p>
@@ -239,7 +258,16 @@ export default function EnrollStudentForm({
                     <p className="text-sm font-semibold text-ink">Đóng trọn khóa</p>
                     <p className="mt-1 text-xs leading-5 text-ink-muted80">Tạo một khoản thu sau khi ghi danh; các kỳ tháng sau sẽ tự bỏ qua học viên này.</p>
                   </button>
-                  <button type="button" onClick={() => setBillingModel("PERIOD")} className={`rounded-xl border p-3 text-left transition ${billingModel === "PERIOD" ? "border-emerald-500 bg-white shadow-sm" : "border-emerald-200 bg-emerald-50/50"}`}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBillingModel("PERIOD");
+                      // Bổ trợ đầu khóa tính phí chưa hỗ trợ cho PERIOD (server chặn) —
+                      // reset về 0 nếu trước đó staff đã gõ khi đang ở COURSE.
+                      setPaidCatchupSessionCount("0");
+                    }}
+                    className={`rounded-xl border p-3 text-left transition ${billingModel === "PERIOD" ? "border-emerald-500 bg-white shadow-sm" : "border-emerald-200 bg-emerald-50/50"}`}
+                  >
                     <p className="text-sm font-semibold text-ink">Đóng theo tháng</p>
                     <p className="mt-1 text-xs leading-5 text-ink-muted80">Sinh khoản thu theo từng kỳ tháng và chỉ tính các buổi thực tế từ ngày ghi danh.</p>
                   </button>

@@ -10,6 +10,8 @@ import { computeEffectiveUnitPrice } from "@/lib/server/tuition-rules";
 export type CompleteClassTransferStudent = {
   enrollmentId: string;
   studentName: string;
+  billingModel?: string;
+  /** COURSE: buổi còn tiền theo purchasedMainSessionCount. PERIOD: số dư Ví buổi học. */
   paidRemainingSessions: number;
   manualExtraRemainingSessions: number;
   oldUnitPrice: number;
@@ -171,10 +173,10 @@ export default function CompleteClassButton({
             </div>
           ) : (
           <div className="rounded-2xl border border-[#e5eaf7] bg-[#f8faff] p-4 text-sm text-[#334155]">
-            <p>{completedCount} học viên đã đủ buổi sẽ được đánh dấu hoàn thành.</p>
+            <p>{completedCount} học viên sẽ được đánh dấu hoàn thành (đã đủ buổi, hoặc đóng theo tháng mà lớp không có lớp tiếp theo).</p>
             <p className="mt-1">
               {needTransferCount > 0
-                ? `${needTransferCount} học viên còn buổi sẽ chuyển sang ${nextClassName ?? "lớp tiếp theo chưa cấu hình"}.`
+                ? `${needTransferCount} học viên (còn buổi / đóng theo tháng) sẽ chuyển sang ${nextClassName ?? "lớp tiếp theo chưa cấu hình"}.`
                 : "Không có học viên cần chuyển lớp."}
             </p>
             {transferValueAmount > 0 ? <p className="mt-1">Tổng giá trị học phí còn lại: {formatVnd(transferValueAmount)}.</p> : null}
@@ -191,7 +193,7 @@ export default function CompleteClassButton({
                   <div key={item.enrollmentId} className="rounded-2xl border border-[#e5eaf7] bg-white p-3">
                     <p className="font-bold text-[#0f1729]">{item.studentName}</p>
                     <p className="mt-0.5 text-xs text-[#64748b]">
-                      Còn {item.paidRemainingSessions} buổi x {formatVnd(item.oldUnitPrice)} = {formatVnd(item.paidRemainingSessions * item.oldUnitPrice)}
+                      {item.billingModel === "PERIOD" ? "Ví còn" : "Còn"} {item.paidRemainingSessions} buổi x {formatVnd(item.oldUnitPrice)} = {formatVnd(item.paidRemainingSessions * item.oldUnitPrice)}
                       {item.manualExtraRemainingSessions > 0 ? ` · +${item.manualExtraRemainingSessions} buổi cộng linh động` : ""}
                     </p>
 

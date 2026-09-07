@@ -18,6 +18,7 @@ import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/Spotlig
 import { computeOutstandingBalance } from "@/lib/server/balance";
 import { chargeOwnDueAmount, overlapsWindow } from "@/lib/server/tuition-rules";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
+import { getWalletBalance } from "@/lib/server/enrollment-wallet";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import { buildEnrollmentPipeline } from "@/lib/server/enrollment-pipeline";
 import EditableDateField from "@/components/ui/EditableDateField";
@@ -329,6 +330,8 @@ export default async function StudentDetailPage({
   );
   const learningSnapshotByEnrollment = new Map(learningSnapshots.map((item) => [item.enrollmentId, item.snapshot]));
   const currentLearningSnapshot = currentEnrollment ? learningSnapshotByEnrollment.get(currentEnrollment.id) ?? null : null;
+  const isCourseEnrollment = currentEnrollment?.billingModel !== "PERIOD";
+  const currentWalletBalance = currentEnrollment && !isCourseEnrollment ? await getWalletBalance(prisma, currentEnrollment.id) : null;
   const primaryGuardianLink = student.guardians.find((item) => item.isPrimary) ?? student.guardians[0] ?? null;
   const primaryGuardian = primaryGuardianLink?.guardian ?? null;
 
@@ -555,8 +558,16 @@ export default async function StudentDetailPage({
   if (availableCredits.length > 0) {
     operationalWarnings.push({ text: `Còn ${availableCredits.length} buổi bổ trợ chưa dùng.`, severity: "info" });
   }
-  if (currentLearningSnapshot && currentLearningSnapshot.remainingMainSessions > 0 && currentLearningSnapshot.remainingMainSessions <= 3) {
+  if (isCourseEnrollment && currentLearningSnapshot && currentLearningSnapshot.remainingMainSessions > 0 && currentLearningSnapshot.remainingMainSessions <= 3) {
     operationalWarnings.push({ text: `Sắp học xong khóa chính — còn ${currentLearningSnapshot.remainingMainSessions} buổi.`, severity: "info" });
+  }
+  if (!isCourseEnrollment && currentWalletBalance != null && currentWalletBalance <= 0) {
+    operationalWarnings.push({
+      text: currentWalletBalance < 0
+        ? `Ví buổi học âm ${Math.abs(currentWalletBalance)} buổi — đã học vượt quá tiền đã đóng, cần thu gấp.`
+        : "Ví buổi học đã hết — cần thu học phí tháng mới trước khi học tiếp.",
+      severity: currentWalletBalance < 0 ? "critical" : "warning",
+    });
   }
   // Tông màu + tiêu đề của khối "Cần xử lý ngay" lấy TRỰC TIẾP từ operationalWarnings
   // — trước đây có 1 phép tính "primaryOperation" riêng, kiểm tra lại gần như đúng
@@ -723,25 +734,48 @@ export default async function StudentDetailPage({
             </span>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
-              <p className="text-xs font-bold text-[#64748b]">Tiến độ gói học</p>
-              <p className="mt-1 text-xl font-black text-[#0f1729]">
-                {currentEnrollment.usedSessionCount ?? currentLearningSnapshot.completedMainSessions}/{currentEnrollment.purchasedMainSessionCount ?? currentLearningSnapshot.entitledMainSessions}
-              </p>
-              <p className="text-xs text-[#64748b]">
-                Còn {Math.max(0, (currentEnrollment.purchasedMainSessionCount ?? currentLearningSnapshot.entitledMainSessions) - (currentEnrollment.usedSessionCount ?? currentLearningSnapshot.completedMainSessions))} buổi
-              </p>
-              {currentLearningSnapshot.manualExtraSessions > 0 ? (
-                <p className="text-xs font-semibold text-emerald-700">
-                  Gồm {currentLearningSnapshot.manualExtraSessions} buổi cộng linh động
-                </p>
-              ) : null}
-            </div>
-            <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
-              <p className="text-xs font-bold text-[#64748b]">Tiền còn lại</p>
-              <p className="mt-1 text-xl font-black text-[#0f1729]">{formatVnd(currentLearningSnapshot.remainingValue)}</p>
-              <p className="text-xs text-[#64748b]">{formatVnd(currentLearningSnapshot.unitPrice)} / buổi</p>
-            </div>
+            {isCourseEnrollment ? (
+              <>
+                <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
+                  <p className="text-xs font-bold text-[#64748b]">Tiến độ gói học</p>
+                  <p className="mt-1 text-xl font-black text-[#0f1729]">
+                    {currentEnrollment.usedSessionCount ?? currentLearningSnapshot.completedMainSessions}/{currentEnrollment.purchasedMainSessionCount ?? currentLearningSnapshot.entitledMainSessions}
+                  </p>
+                  <p className="text-xs text-[#64748b]">
+                    Còn {Math.max(0, (currentEnrollment.purchasedMainSessionCount ?? currentLearningSnapshot.entitledMainSessions) - (currentEnrollment.usedSessionCount ?? currentLearningSnapshot.completedMainSessions))} buổi
+                  </p>
+                  {currentLearningSnapshot.manualExtraSessions > 0 ? (
+                    <p className="text-xs font-semibold text-emerald-700">
+                      Gồm {currentLearningSnapshot.manualExtraSessions} buổi cộng linh động
+                    </p>
+                  ) : null}
+                </div>
+                <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
+                  <p className="text-xs font-bold text-[#64748b]">Tiền còn lại</p>
+                  <p className="mt-1 text-xl font-black text-[#0f1729]">{formatVnd(currentLearningSnapshot.remainingValue)}</p>
+                  <p className="text-xs text-[#64748b]">{formatVnd(currentLearningSnapshot.unitPrice)} / buổi</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
+                  <p className="text-xs font-bold text-[#64748b]">Ví buổi học</p>
+                  <p className={`mt-1 text-xl font-black ${(currentWalletBalance ?? 0) < 0 ? "text-[#dc2626]" : "text-[#0f1729]"}`}>
+                    {currentWalletBalance == null
+                      ? "—"
+                      : currentWalletBalance < 0
+                        ? `Âm ${Math.abs(currentWalletBalance)} buổi`
+                        : `Còn ${currentWalletBalance} buổi`}
+                  </p>
+                  <p className="text-xs text-[#64748b]">Đóng theo tháng — quy đổi từ tiền đã nộp</p>
+                </div>
+                <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
+                  <p className="text-xs font-bold text-[#64748b]">Giá trị Ví</p>
+                  <p className="mt-1 text-xl font-black text-[#0f1729]">{formatVnd((currentWalletBalance ?? 0) * currentLearningSnapshot.unitPrice)}</p>
+                  <p className="text-xs text-[#64748b]">{formatVnd(currentLearningSnapshot.unitPrice)} / buổi</p>
+                </div>
+              </>
+            )}
             <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
               <p className="text-xs font-bold text-[#64748b]">Bổ trợ đầu khóa</p>
               <p className="mt-1 text-xl font-black text-[#0f1729]">{currentEnrollment.paidCatchupSessionCount} buổi</p>
@@ -750,7 +784,9 @@ export default async function StudentDetailPage({
             <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-3">
               <p className="text-xs font-bold text-[#64748b]">Lớp học hiện tại</p>
               <p className="mt-1 text-sm font-bold text-[#0f1729]">{currentEnrollment.class?.className ?? "Chưa gán lớp cố định"}</p>
-              {currentLearningSnapshot.continuationStatus === "NEED_TRANSFER" ? (
+              {!isCourseEnrollment ? (
+                <p className="text-xs text-[#64748b]">Đóng theo tháng, tự tính lại đầu mỗi kỳ theo Ví</p>
+              ) : currentLearningSnapshot.continuationStatus === "NEED_TRANSFER" ? (
                 <p className="text-xs text-amber-700">Thiếu sau lớp hiện tại: {currentLearningSnapshot.shortageAfterCurrentClass} buổi</p>
               ) : currentLearningSnapshot.continuationStatus === "COMPLETED" && currentEnrollment.class?.status === "ACTIVE" ? (
                 <p className="text-xs font-semibold text-amber-700">Đã học đủ, lớp còn dạy tiếp — cần ghi danh thêm hoặc chờ tự tất toán</p>

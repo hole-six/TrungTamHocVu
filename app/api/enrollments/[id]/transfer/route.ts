@@ -7,6 +7,7 @@ import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { generateCourseCharge } from "@/lib/server/billing-generation";
 import { computeTransferConversion, getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { computeEffectiveUnitPrice } from "@/lib/server/tuition-rules";
+import { transferWalletToNewEnrollment, getWalletBalance } from "@/lib/server/enrollment-wallet";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -40,14 +41,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
   if (existingActive) return NextResponse.json({ error: "Hoc vien da co enrollment dang mo o lop moi." }, { status: 409 });
 
+  // PERIOD (95% học sinh) không có khái niệm "hết buổi" — quyền học nằm trong Ví
+  // buổi học, không phải purchasedMainSessionCount. Chuyển lớp tự do bất kể ví còn
+  // bao nhiêu (chốt nghiệp vụ). Chỉ COURSE mới có "hết buổi thì hết giá trị chuyển"
+  // — giữ nguyên hành vi cũ cho nhóm đó.
+  const isPeriod = existing.billingModel === "PERIOD";
+
   const snapshot = await getEnrollmentLearningSnapshot(prisma, existing);
-  if (snapshot.remainingMainSessions <= 0) {
+  if (!isPeriod && snapshot.remainingMainSessions <= 0) {
     return NextResponse.json({ error: "Hoc vien da hoc du so buoi chinh, khong con gia tri de chuyen lop." }, { status: 409 });
   }
 
   // snapshot.unitPrice đã trừ học bổng/điều chỉnh đang hiệu lực (xem
   // getEnrollmentLearningSnapshot) — dùng đúng số này để quy đổi, không tự lấy lại
-  // giá gốc, nếu không số xem trước và số thực tế chuyển lớp sẽ lệch nhau.
+  // giá gốc, nếu không số xem trước và số thực tế chuyển lớp sẽ lệch nhau. Các
+  // trường scholarshipPct/adjustmentPct/unitPrice không phụ thuộc billingModel nên
+  // dùng chung được cho cả PERIOD lẫn COURSE.
   const oldUnitPrice = snapshot.unitPrice;
 
   // Học bổng gắn theo TỪNG enrollment (không tự động theo học viên) — admin phải
@@ -75,17 +84,36 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     ? computeEffectiveUnitPrice(rawNewUnitPrice, chosenScholarshipPct, snapshot.adjustmentPct)
     : rawNewUnitPrice;
 
-  const conversion = computeTransferConversion(snapshot.paidRemainingSessions, oldUnitPrice, newUnitPrice);
-  if (conversion.convertedSessionCount <= 0 && snapshot.manualExtraRemainingSessions <= 0) {
+  // PERIOD: quy đổi qua Ví (buổi còn dư × giá cũ = tiền → chia giá mới = buổi mới,
+  // chốt nghiệp vụ mục 3.9 — cùng công thức COURSE đang dùng, không dạy nhân viên 2
+  // cách khác nhau). COURSE: giữ đúng công thức cũ dựa trên purchasedMainSessionCount.
+  const walletBalanceBefore = isPeriod ? await getWalletBalance(prisma, existing.id) : 0;
+  const conversion = isPeriod
+    ? (() => {
+        const remainingValue = walletBalanceBefore * Math.max(0, oldUnitPrice);
+        const convertedSessionCount = newUnitPrice > 0 ? Math.floor(remainingValue / newUnitPrice) : 0;
+        return {
+          remainingValue,
+          convertedSessionCount,
+          remainingCashAmount: newUnitPrice > 0 ? remainingValue - convertedSessionCount * newUnitPrice : remainingValue,
+        };
+      })()
+    : computeTransferConversion(snapshot.paidRemainingSessions, oldUnitPrice, newUnitPrice);
+
+  if (!isPeriod && conversion.convertedSessionCount <= 0 && snapshot.manualExtraRemainingSessions <= 0) {
     return NextResponse.json({ error: "Tien con lai khong du quy doi thanh 1 buoi o lop moi." }, { status: 409 });
   }
+  // PERIOD: ví có thể đang = 0 (vừa hết, chưa đóng tháng mới) — vẫn cho chuyển, chỉ
+  // là enrollment mới bắt đầu với ví trống, y hệt ghi danh mới ở bất kỳ lớp nào.
 
   const now = new Date();
   const note = [
     `Chuyen tu ${existing.class.className} sang ${targetClass.className}`,
-    `Con ${snapshot.paidRemainingSessions} buoi co phi x ${oldUnitPrice.toLocaleString("vi-VN")}d = ${conversion.remainingValue.toLocaleString("vi-VN")}d`,
+    isPeriod
+      ? `Con ${walletBalanceBefore} buoi trong vi x ${oldUnitPrice.toLocaleString("vi-VN")}d = ${conversion.remainingValue.toLocaleString("vi-VN")}d`
+      : `Con ${snapshot.paidRemainingSessions} buoi co phi x ${oldUnitPrice.toLocaleString("vi-VN")}d = ${conversion.remainingValue.toLocaleString("vi-VN")}d`,
     conversion.convertedSessionCount > 0 ? `Quy sang ${conversion.convertedSessionCount} buoi x ${newUnitPrice.toLocaleString("vi-VN")}d` : null,
-    snapshot.manualExtraRemainingSessions > 0 ? `Mang theo ${snapshot.manualExtraRemainingSessions} buoi cong linh dong` : null,
+    !isPeriod && snapshot.manualExtraRemainingSessions > 0 ? `Mang theo ${snapshot.manualExtraRemainingSessions} buoi cong linh dong` : null,
     conversion.remainingCashAmount > 0 ? `Du ${conversion.remainingCashAmount.toLocaleString("vi-VN")}d` : null,
     snapshot.scholarshipPct > 0
       ? chosenScholarshipPct > 0
@@ -119,8 +147,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         billingModel: existing.billingModel,
         enrollDate: now,
         learningStartDate: now,
-        purchasedMainSessionCount: conversion.convertedSessionCount,
-        manualExtraSessionCount: snapshot.manualExtraRemainingSessions,
+        purchasedMainSessionCount: isPeriod ? null : conversion.convertedSessionCount,
+        manualExtraSessionCount: isPeriod ? 0 : snapshot.manualExtraRemainingSessions,
+        // Tiến độ điểm danh (đã học/bù bao nhiêu buổi thật) đi xuyên suốt các lớp nối
+        // tiếp của cùng học sinh, không reset về 0 khi chuyển lớp — trước đây thiếu
+        // dòng này nên mỗi lần chuyển lớp tiến độ lại mất, khác hẳn số buổi còn lại.
+        usedSessionCount: existing.usedSessionCount,
         tuitionUnitPriceSnapshot: newUnitPrice,
         paidCatchupSessionCount: 0,
         paidCatchupUnitPrice: newUnitPrice,
@@ -132,6 +164,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         notes: note,
       },
     });
+
+    if (isPeriod) {
+      await transferWalletToNewEnrollment(tx, {
+        fromEnrollmentId: existing.id,
+        toEnrollmentId: nextEnrollment.id,
+        oldUnitPrice,
+        newUnitPrice,
+      });
+    }
 
     if (chosenScholarshipPct > 0) {
       await tx.scholarship.create({
