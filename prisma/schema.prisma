@@ -268,7 +268,11 @@ model Lead {
   address                 String? // DiaChiNha
   meetDate                DateTime? @map("meet_date") // NgayGap
   interestedClassId       String?   @map("interested_class_id") // TenLop quan tâm
-  status                  String    @default("NEW") // NEW→CONTACTING→APPOINTED→TESTED→QUALIFIED/UNQUALIFIED→ENROLLED/LOST
+  // Nguồn sự thật DUY NHẤT của danh sách trạng thái là LEAD_STATUSES trong
+  // lib/server/lead-rules.ts: CONTACTING → QUALIFIED → ENROLLED, hoặc → LOST.
+  // (Bản thiết kế cũ NEW/APPOINTED/TESTED/UNQUALIFIED đã bỏ — đừng dùng lại, UI
+  // không hiểu và ô chọn trạng thái sẽ kẹt.)
+  status                  String    @default("CONTACTING")
   expectedStartDate       DateTime? @map("expected_start_date") // Ngày dự kiến đi học
   actualEnrollDate        DateTime? @map("actual_enroll_date") // Ngày nhập học
   source                  String?

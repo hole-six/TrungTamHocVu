@@ -78,6 +78,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             data: {
               studentId,
               classId: cls.id,
+              // Gắn đúng khóa học của lớp — trước đây bỏ trống nên mọi ghi danh tạo qua giao
+              // diện đều mất liên kết khóa, các màn hình phải tự suy ngược từ class.courseId.
+              courseId: cls.courseId,
               status: "ACTIVE",
               billingModel: "COURSE",
               enrollDate: new Date(),

@@ -7,6 +7,7 @@ import { getValidBranchIdForCreation } from "@/lib/branch-filter";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { provisionGuardianPortalAccount } from "@/lib/server/guardian-accounts";
 import { generateCourseCharge } from "@/lib/server/billing-generation";
+import { attachCourseBookRequirements } from "@/lib/server/enrollment-materials";
 import { getVietnamToday } from "@/lib/server/class-rules";
 
 type IntakeMode = "WAITLIST" | "ENROLL_NOW";
@@ -306,6 +307,9 @@ export async function POST(req: NextRequest) {
       data: {
         studentId: student.id,
         classId: selectedClass!.id,
+        // Gắn đúng khóa học của lớp — trước đây bỏ trống nên mọi ghi danh tạo qua giao
+        // diện đều mất liên kết khóa, các màn hình phải tự suy ngược từ class.courseId.
+        courseId: selectedClass!.courseId,
         status: "ACTIVE",
         billingModel,
         purchasedMainSessionCount,
@@ -315,6 +319,9 @@ export async function POST(req: NextRequest) {
         notes: notes ?? interestedCourseNote,
       },
     });
+
+    // Bộ giáo trình chuẩn của lớp — trước đây chỉ luồng ghi danh tay mới gắn.
+    await attachCourseBookRequirements(tx, { studentId: student.id, classId: selectedClass!.id, enrollmentId: enrollment.id });
 
     await tx.enrollmentStatusHistory.create({
       data: {

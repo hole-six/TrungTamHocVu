@@ -38,6 +38,10 @@ export async function generatePayrollForRun(runId: string) {
 
   let created = 0;
   let updated = 0;
+  // Cảnh báo cấu hình thiếu: có công thật nhưng không có đơn giá nên ra 0đ. Trước đây
+  // trường hợp này im lặng — nhân sự chấm công đủ cả tháng, bảng lương vẫn hiện 0đ mà
+  // không ai biết vì sao, phải tự dò từng hồ sơ nhân viên.
+  const warnings: string[] = [];
 
   for (const employee of employees) {
     const [teachingAssignments, assistantAssignments, timesheetEntries, monthlyBonus] = await Promise.all([
@@ -79,6 +83,15 @@ export async function generatePayrollForRun(runId: string) {
     const assistantAmount = assistantAssignments.reduce((s, a) => s + (a.amount ?? 0), 0);
     const staffDays = timesheetEntries.reduce((s, t) => s + (t.days ?? 0), 0);
     const baseSalaryAmount = Math.round(staffDays * (employee.staffDailyRate ?? 0));
+    if (staffDays > 0 && !employee.staffDailyRate) {
+      warnings.push(`${employee.fullName}: có ${staffDays} ngày công nhưng chưa cấu hình đơn giá ngày công — lương hành chính đang tính 0đ.`);
+    }
+    if (teachingAssignments.length > 0 && teachingAmount === 0) {
+      warnings.push(`${employee.fullName}: có ${teachingAssignments.length} buổi dạy nhưng thành tiền 0đ — kiểm tra đơn giá giờ dạy trong hồ sơ nhân sự.`);
+    }
+    if (assistantAssignments.length > 0 && assistantAmount === 0) {
+      warnings.push(`${employee.fullName}: có ${assistantAssignments.length} buổi trợ giảng nhưng thành tiền 0đ — kiểm tra đơn giá giờ trợ giảng trong hồ sơ nhân sự.`);
+    }
     const assistantRatingBonus = Math.round(assistantAmount * (monthlyBonus?.bonusPercent ?? 0));
 
     const existingLine = await prisma.payrollLine.findUnique({
@@ -163,5 +176,5 @@ export async function generatePayrollForRun(runId: string) {
     await prisma.payrollRun.update({ where: { id: run.id }, data: { status: "CALCULATED", calculatedAt: new Date() } });
   }
 
-  return { created, updated, totalEmployees: employees.length };
+  return { created, updated, totalEmployees: employees.length, warnings };
 }

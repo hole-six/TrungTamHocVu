@@ -375,6 +375,14 @@ export default function LeadsTable({
                   className="h-7 w-full appearance-none bg-transparent py-0 pl-0 pr-0 text-xs font-bold outline-none border-none ring-0 shadow-none focus:outline-none focus:ring-0 focus:border-none focus:shadow-none cursor-pointer"
                   style={{ WebkitAppearance: "none", MozAppearance: "none", outline: "none", boxShadow: "none" }}
                 >
+                  {/* Trạng thái lạ (dữ liệu cũ/import sai) không nằm trong nhóm nào —
+                      phải thêm nó thành 1 option thật, nếu không <select> có value
+                      không khớp option nào sẽ hiển thị option đầu tiên, và nhân viên
+                      bấm đúng option đang hiện thì trình duyệt KHÔNG bắn onChange
+                      (tưởng hệ thống hỏng). Hiện kèm nhãn "cần sửa" để biết mà đổi. */}
+                  {!LEAD_STATUS_FILTER_GROUPS.some((group) => group.key === currentGroupKey) ? (
+                    <option value={currentGroupKey}>{`${value} (không hợp lệ — chọn lại)`}</option>
+                  ) : null}
                   {LEAD_STATUS_FILTER_GROUPS.map((group) => (
                     <option key={group.key} value={group.key}>
                       {group.label}

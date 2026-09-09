@@ -8,6 +8,7 @@ import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { findLockedPeriodForSession } from "@/lib/server/billing-generation";
 import { BILLING_PERIOD_STATUS_LABEL } from "@/lib/server/tuition-rules";
 import { debitWalletsForCompletedSession } from "@/lib/server/enrollment-wallet";
+import { enrolledOnDateFilter, dedupeRosterByStudent } from "@/lib/server/class-roster";
 
 // Điểm danh vẫn cho phép GV/TG (canUpdate("schedule") = false với 2 vai trò này) vì đây
 // là việc dạy học hàng ngày, khác với quản lý lịch/ghi danh — xem giải thích tương tự ở
@@ -27,11 +28,17 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   });
   if (!session) return NextResponse.json({ error: "Không tìm thấy buổi học" }, { status: 404 });
 
-  const activeEnrollments = await prisma.enrollment.findMany({
-    where: { classId: session.classId, status: "ACTIVE" },
-    include: { student: true },
-    orderBy: { student: { fullName: "asc" } },
-  });
+  // Đúng những học viên thuộc về BUỔI NÀY (đã vào lớp trước/đúng ngày đó, chưa rời lớp
+  // tính tới ngày đó) — xem lib/server/class-roster.ts. Trước đây lấy mọi ghi danh đang
+  // ACTIVE của lớp: học viên mới chuyển vào hôm nay vẫn hiện ở buổi vài tháng trước, còn
+  // người đã rút thì biến mất khỏi chính buổi họ đã học thật.
+  const activeEnrollments = dedupeRosterByStudent(
+    await prisma.enrollment.findMany({
+      where: { classId: session.classId, ...enrolledOnDateFilter(session.sessionDate) },
+      include: { student: true },
+      orderBy: { student: { fullName: "asc" } },
+    }),
+  );
 
   const attendanceByStudent = Object.fromEntries(session.attendances.map((a) => [a.studentId, a.status]));
 
@@ -96,6 +103,26 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Thiếu danh sách điểm danh" }, { status: 400 });
   }
 
+  // Chỉ nhận điểm danh cho học viên THỰC SỰ thuộc buổi này. Không có bước này thì một
+  // màn hình mở sẵn từ trước (danh sách cũ) vẫn gửi lên được học viên chưa vào lớp lúc
+  // đó, và hệ thống sẽ cộng tiến độ + trừ ví cho buổi họ chưa từng học.
+  const sessionRoster = dedupeRosterByStudent(
+    await prisma.enrollment.findMany({
+      where: { classId: session.classId, ...enrolledOnDateFilter(session.sessionDate) },
+      select: { id: true, studentId: true, status: true, enrollDate: true, endDate: true, billingModel: true },
+    }),
+  );
+  const rosterStudentIds = new Set(sessionRoster.map((item) => item.studentId));
+  const outsiders = records.filter((item) => !rosterStudentIds.has(item.studentId));
+  if (outsiders.length > 0) {
+    return NextResponse.json(
+      {
+        error: `${outsiders.length} học viên trong danh sách gửi lên không thuộc buổi học này (chưa vào lớp hoặc đã rời lớp trước ngày ${session.sessionDate.toISOString().slice(0, 10)}). Tải lại trang để lấy danh sách đúng.`,
+      },
+      { status: 409 },
+    );
+  }
+
   const existingAttendances = await prisma.studentAttendance.findMany({ where: { sessionId: session.id } });
   const oldStatusByStudent = new Map(existingAttendances.map((a) => [a.studentId, a.status]));
 
@@ -147,7 +174,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           where: {
             studentId: { in: newlyAbsentIds },
             classId: session.classId,
-            status: "ACTIVE",
+            // Cùng phạm vi với danh sách điểm danh — không cấp buổi bổ trợ cho người
+            // chưa vào lớp tại thời điểm buổi đó diễn ra.
+            ...enrolledOnDateFilter(session.sessionDate),
           },
         })
       : Promise.resolve([]),

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canView, canUpdate, canDelete } from "@/lib/server/role-matrix";
-import { canManuallySetStatus, normalizePendingRemedialSessions } from "@/lib/server/lead-rules";
+import { canManuallySetStatus, normalizePendingRemedialSessions, LEAD_STATUSES } from "@/lib/server/lead-rules";
 import { canAccessBranch } from "@/lib/branch-filter";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -46,6 +46,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const data: Record<string, unknown> = {};
 
   if ("status" in body && body.status !== existing.status) {
+    // Chỉ nhận đúng 4 trạng thái hệ thống thật sự hiểu (lib/server/lead-rules.ts).
+    // Trước đây không kiểm, nên trạng thái lạ (NEW/APPOINTED/TESTED/UNQUALIFIED của
+    // bản thiết kế cũ, hoặc do script/import ghi vào) lọt thẳng xuống DB — ô chọn
+    // trạng thái ở /leads khi đó có value không khớp option nào, trình duyệt hiện
+    // option đầu tiên, nhân viên bấm đúng cái đang hiện thì KHÔNG có sự kiện change
+    // nào bắn ra và tưởng hệ thống bị treo.
+    if (!(LEAD_STATUSES as readonly string[]).includes(body.status)) {
+      return NextResponse.json({ error: `Trạng thái "${body.status}" không hợp lệ.` }, { status: 400 });
+    }
     if (!canManuallySetStatus(existing.status, body.status)) {
       return NextResponse.json(
         { error: `Không thể chuyển trạng thái từ "${existing.status}" sang "${body.status}"` },

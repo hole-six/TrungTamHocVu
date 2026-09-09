@@ -5,6 +5,7 @@ import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { ensureBillingPeriod, generateCourseCharge } from "@/lib/server/billing-generation";
+import { attachCourseBookRequirements } from "@/lib/server/enrollment-materials";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -40,8 +41,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // danh. Chỉ COURSE/INSTALLMENT mới cần purchasedMainSessionCount thật (mua đứt N
   // buổi ngay lúc ghi danh) — ép nó cho PERIOD trước đây là bịa quyền học, gây chặn
   // nhầm chuyển lớp cho cả nhóm này (xem kế hoạch đã duyệt).
+  // KHÔNG lấy cls.totalSessions làm mặc định ngầm. Số buổi của gói THEO KHÓA là cam kết
+  // riêng của TỪNG học viên (mỗi người mua số buổi khác nhau nên ngày kết thúc dự kiến
+  // cũng khác nhau) — lớp chỉ là cái "mác" để điểm danh, số buổi của lớp chỉ là dự kiến
+  // lịch. Trước đây thiếu field này thì server âm thầm lấy số của lớp, tức toàn bộ học
+  // phí của học viên đó bị quyết định bởi lớp mà không ai chọn. Form phải gửi rõ số buổi
+  // (giao diện vẫn điền sẵn số của lớp làm gợi ý để nhân viên sửa).
   const purchasedMainSessionCount =
-    billingModel === "PERIOD" ? null : Number(body.purchasedMainSessionCount ?? cls.totalSessions ?? 0);
+    billingModel === "PERIOD" ? null : Number(body.purchasedMainSessionCount ?? 0);
   // Bổ trợ đầu khóa TÍNH PHÍ (khác bổ trợ vắng miễn phí) chỉ được tính tiền qua
   // generateCourseCharge (1 lần lúc ghi danh) — nhánh PERIOD của generateChargesForPeriod
   // luôn set paidCatchupAmount=0, không bao giờ thu khoản này. Nếu cho PERIOD lưu số
@@ -65,7 +72,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     !cls.isRemedial &&
     (!Number.isInteger(purchasedMainSessionCount) || (purchasedMainSessionCount ?? 0) <= 0)
   ) {
-    return NextResponse.json({ error: "So buoi khoa chinh khong hop le." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Chưa nhập số buổi của khóa chính. Gói đóng trọn khóa phải ghi rõ học viên mua bao nhiêu buổi (không lấy mặc định theo lớp)." },
+      { status: 400 },
+    );
   }
   if (!cls.isRemedial && (!Number.isInteger(unitPriceSnapshot) || unitPriceSnapshot < 0)) {
     return NextResponse.json({ error: "Don gia khoa chinh khong hop le." }, { status: 400 });
@@ -168,6 +178,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       data: {
         studentId,
         classId: cls.id,
+        // Gắn đúng khóa học của lớp — trước đây bỏ trống nên mọi ghi danh tạo qua giao
+        // diện đều mất liên kết khóa, các màn hình phải tự suy ngược từ class.courseId.
+        courseId: cls.courseId,
         status: "ACTIVE",
         billingModel,
         enrollDate,
@@ -179,24 +192,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         pricingBasis: cls.isRemedial ? "MANUAL" : "MID_CLASS_FULL_COURSE",
         installments: installmentPlans.length ? { create: installmentPlans } : undefined,
         sessionCredits: newSessionCredits.length ? { create: newSessionCredits } : undefined,
-        bookRequirements:
-          !cls.isRemedial && cls.course?.bookRequirements.length
-            ? {
-                create: cls.course.bookRequirements.map((item) => ({
-                  studentId,
-                  classId: cls.id,
-                  bookId: item.bookId,
-                  courseBookRequirementId: item.id,
-                  quantity: item.quantity,
-                  unitPriceSnapshot: item.book.unitPrice,
-                  totalAmount: item.quantity * item.book.unitPrice,
-                  status: "PENDING",
-                  notes: `Bộ sách chuẩn của khóa ${cls.course?.name ?? cls.className}`,
-                })),
-              }
-            : undefined,
       },
     });
+    // Bộ giáo trình chuẩn của khóa — dùng chung 1 quy tắc với chuyển lớp/kết thúc lớp/CRM.
+    await attachCourseBookRequirements(tx, { studentId, classId: cls.id, enrollmentId: created.id });
+
     await tx.enrollmentStatusHistory.create({
       data: { studentId, enrollmentId: created.id, toStatus: "ACTIVE", changedById: user.id },
     });

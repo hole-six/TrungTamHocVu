@@ -5,16 +5,17 @@ import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { generateCourseCharge } from "@/lib/server/billing-generation";
-import { computeTransferConversion, getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
+import { computeTransferConversionFromValue, getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { computeEffectiveUnitPrice } from "@/lib/server/tuition-rules";
 import { transferWalletToNewEnrollment, getWalletBalance } from "@/lib/server/enrollment-wallet";
+import { attachCourseBookRequirements } from "@/lib/server/enrollment-materials";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Chua dang nhap" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   const role = await getUserRole(user.id);
   if (!canUpdate("schedule", role)) {
-    return NextResponse.json({ error: "Ban khong co quyen chuyen lop hoc vien" }, { status: 403 });
+    return NextResponse.json({ error: "Bạn không có quyền chuyển lớp cho học viên" }, { status: 403 });
   }
 
   const body = await req.json().catch(() => ({}));
@@ -22,24 +23,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     where: { id: params.id },
     include: { class: { include: { course: true, nextClass: { include: { course: true } } } } },
   });
-  if (!existing) return NextResponse.json({ error: "Khong tim thay ghi danh" }, { status: 404 });
-  if (existing.status !== "ACTIVE") return NextResponse.json({ error: "Chi chuyen lop cho enrollment dang ACTIVE." }, { status: 409 });
+  if (!existing) return NextResponse.json({ error: "Không tìm thấy ghi danh" }, { status: 404 });
+  if (existing.status !== "ACTIVE") return NextResponse.json({ error: "Chỉ chuyển lớp được cho ghi danh đang học." }, { status: 409 });
   if (!existing.class) return NextResponse.json({ error: "Gói học chưa được gán vào lớp cụ thể để thực hiện chuyển lớp." }, { status: 400 });
 
   const targetClassId = String(body.targetClassId ?? existing.class.nextClassId ?? "").trim();
-  if (!targetClassId) return NextResponse.json({ error: "Lop hien tai chua cau hinh lop tiep theo." }, { status: 400 });
-  if (targetClassId === existing.classId) return NextResponse.json({ error: "Lop moi phai khac lop hien tai." }, { status: 400 });
+  if (!targetClassId) return NextResponse.json({ error: "Lớp hiện tại chưa cấu hình lớp tiếp theo." }, { status: 400 });
+  if (targetClassId === existing.classId) return NextResponse.json({ error: "Lớp mới phải khác lớp hiện tại." }, { status: 400 });
 
   const targetClass = await prisma.class.findUnique({ where: { id: targetClassId }, include: { course: true } });
-  if (!targetClass) return NextResponse.json({ error: "Khong tim thay lop moi" }, { status: 404 });
+  if (!targetClass) return NextResponse.json({ error: "Không tìm thấy lớp mới" }, { status: 404 });
   if (targetClass.branchId !== existing.class.branchId) {
-    return NextResponse.json({ error: "Lop moi phai cung co so voi lop hien tai." }, { status: 400 });
+    return NextResponse.json({ error: "Lớp mới phải cùng cơ sở với lớp hiện tại." }, { status: 400 });
   }
 
   const existingActive = await prisma.enrollment.findFirst({
     where: { studentId: existing.studentId, classId: targetClass.id, status: { in: ["PENDING", "ACTIVE", "PAUSED"] } },
   });
-  if (existingActive) return NextResponse.json({ error: "Hoc vien da co enrollment dang mo o lop moi." }, { status: 409 });
+  if (existingActive) return NextResponse.json({ error: "Học viên đã có ghi danh đang mở ở lớp mới." }, { status: 409 });
 
   // PERIOD (95% học sinh) không có khái niệm "hết buổi" — quyền học nằm trong Ví
   // buổi học, không phải purchasedMainSessionCount. Chuyển lớp tự do bất kể ví còn
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const snapshot = await getEnrollmentLearningSnapshot(prisma, existing);
   if (!isPeriod && snapshot.remainingMainSessions <= 0) {
-    return NextResponse.json({ error: "Hoc vien da hoc du so buoi chinh, khong con gia tri de chuyen lop." }, { status: 409 });
+    return NextResponse.json({ error: "Học viên đã học đủ số buổi của khóa, không còn giá trị để chuyển lớp." }, { status: 409 });
   }
 
   // snapshot.unitPrice đã trừ học bổng/điều chỉnh đang hiệu lực (xem
@@ -66,12 +67,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // thao tác chuyển lớp này (cấp thêm ưu đãi mới là việc của ScholarshipAdjustmentForm).
   const rawScholarshipPct = Number(body.scholarshipPct ?? 0);
   if (!Number.isFinite(rawScholarshipPct) || rawScholarshipPct < 0 || rawScholarshipPct > snapshot.scholarshipPct) {
-    return NextResponse.json({ error: "Phan tram hoc bong khong hop le." }, { status: 400 });
+    return NextResponse.json({ error: "Phần trăm học bổng không hợp lệ." }, { status: 400 });
   }
   const chosenScholarshipPct = rawScholarshipPct;
   const rawNewUnitPrice = Number(body.newUnitPrice ?? targetClass.tuitionPerSession ?? targetClass.course?.tuitionPerSession ?? 0);
   if (!Number.isInteger(rawNewUnitPrice) || rawNewUnitPrice <= 0) {
-    return NextResponse.json({ error: "Lop moi chua co don gia/buoi hop le." }, { status: 400 });
+    return NextResponse.json({ error: "Lớp mới chưa có đơn giá/buổi hợp lệ." }, { status: 400 });
   }
 
   // Gia dung de quy doi (va gia snapshot cho enrollment moi) phai la gia DA AP DUNG %
@@ -98,29 +99,33 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           remainingCashAmount: newUnitPrice > 0 ? remainingValue - convertedSessionCount * newUnitPrice : remainingValue,
         };
       })()
-    : computeTransferConversion(snapshot.paidRemainingSessions, oldUnitPrice, newUnitPrice);
+    // THEO KHÓA: quy đổi từ giá trị THỰC SỰ CÒN LẠI của học viên — đã bị chặn trần bởi
+    // số tiền học phí thật đã thu (xem transferableValue trong enrollment-learning.ts),
+    // nên học viên đóng thiếu không còn được mang sang lớp mới phần chưa từng đóng.
+    : computeTransferConversionFromValue(snapshot.transferableValue, newUnitPrice);
 
-  if (!isPeriod && conversion.convertedSessionCount <= 0 && snapshot.manualExtraRemainingSessions <= 0) {
-    return NextResponse.json({ error: "Tien con lai khong du quy doi thanh 1 buoi o lop moi." }, { status: 409 });
-  }
+  // Không chặn khi quy đổi ra 0 buổi: học viên còn nợ học phí vẫn phải chuyển lớp được
+  // (nếu không, nhân viên không có đường nào xử lý ca đó từ giao diện). Màn hình chuyển
+  // lớp đã hiện rõ "quy đổi 0 buổi" trước khi bấm xác nhận, và khoản nợ cũ giữ nguyên
+  // trên charge cũ để tiếp tục thu.
   // PERIOD: ví có thể đang = 0 (vừa hết, chưa đóng tháng mới) — vẫn cho chuyển, chỉ
   // là enrollment mới bắt đầu với ví trống, y hệt ghi danh mới ở bất kỳ lớp nào.
 
   const now = new Date();
   const note = [
-    `Chuyen tu ${existing.class.className} sang ${targetClass.className}`,
+    `Chuyển từ ${existing.class.className} sang ${targetClass.className}`,
     isPeriod
       ? `Con ${walletBalanceBefore} buoi trong vi x ${oldUnitPrice.toLocaleString("vi-VN")}d = ${conversion.remainingValue.toLocaleString("vi-VN")}d`
-      : `Con ${snapshot.paidRemainingSessions} buoi co phi x ${oldUnitPrice.toLocaleString("vi-VN")}d = ${conversion.remainingValue.toLocaleString("vi-VN")}d`,
-    conversion.convertedSessionCount > 0 ? `Quy sang ${conversion.convertedSessionCount} buoi x ${newUnitPrice.toLocaleString("vi-VN")}d` : null,
-    !isPeriod && snapshot.manualExtraRemainingSessions > 0 ? `Mang theo ${snapshot.manualExtraRemainingSessions} buoi cong linh dong` : null,
-    conversion.remainingCashAmount > 0 ? `Du ${conversion.remainingCashAmount.toLocaleString("vi-VN")}d` : null,
+      : `Còn ${snapshot.transferableSessions} buổi đã có tiền × ${oldUnitPrice.toLocaleString("vi-VN")}đ = ${conversion.remainingValue.toLocaleString("vi-VN")}đ (đã thu ${(snapshot.paidTuitionAmount ?? 0).toLocaleString("vi-VN")}đ học phí, đã học ${snapshot.completedMainSessions} buổi)`,
+    conversion.convertedSessionCount > 0 ? `Quy đổi thành ${conversion.convertedSessionCount} buổi × ${newUnitPrice.toLocaleString("vi-VN")}đ` : null,
+    !isPeriod && snapshot.manualExtraRemainingSessions > 0 ? `Mang theo ${snapshot.manualExtraRemainingSessions} buổi cộng linh động` : null,
+    conversion.remainingCashAmount > 0 ? `Dư ${conversion.remainingCashAmount.toLocaleString("vi-VN")}đ chuyển thành số dư của học viên` : null,
     snapshot.scholarshipPct > 0
       ? chosenScholarshipPct > 0
         ? `Mang hoc bong ${Math.round(chosenScholarshipPct * 100)}% sang lop moi (truoc do ${Math.round(snapshot.scholarshipPct * 100)}%)`
         : `Khong mang hoc bong ${Math.round(snapshot.scholarshipPct * 100)}% sang lop moi`
       : null,
-    body.reason ? `Ly do: ${String(body.reason).trim()}` : null,
+    body.reason ? `Lý do: ${String(body.reason).trim()}` : null,
   ].filter(Boolean).join(" · ");
 
   const created = await prisma.$transaction(async (tx) => {
@@ -143,6 +148,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       data: {
         studentId: existing.studentId,
         classId: targetClass.id,
+        // Gắn đúng khóa học của lớp — trước đây bỏ trống nên mọi ghi danh tạo qua giao
+        // diện đều mất liên kết khóa, các màn hình phải tự suy ngược từ class.courseId.
+        courseId: targetClass.courseId,
         status: "ACTIVE",
         billingModel: existing.billingModel,
         enrollDate: now,
@@ -161,9 +169,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         transferredValueAmount: conversion.remainingValue,
         transferredConvertedSessionCount: conversion.convertedSessionCount,
         transferredRemainingCashAmount: conversion.remainingCashAmount,
+        // Nhãn gói hiển thị trên hồ sơ học viên — trước đây chuyển lớp xong bị bỏ trống,
+        // khiến màn hình học viên hiện "Gói học" chung chung thay vì tên khóa thật.
+        packageLabel: isPeriod
+          ? `${targetClass.course?.name ?? targetClass.className} (đóng theo tháng)`
+          : conversion.convertedSessionCount > 0
+            ? `${targetClass.course?.name ?? targetClass.className} ${conversion.convertedSessionCount} buổi (chuyển lớp)`
+            : `${targetClass.course?.name ?? targetClass.className} (chuyển lớp — chưa có buổi đã đóng)`,
         notes: note,
       },
     });
+
+    // Bộ giáo trình chuẩn của lớp mới — trước đây chỉ luồng ghi danh tay mới gắn.
+    await attachCourseBookRequirements(tx, { studentId: existing.studentId, classId: targetClass.id, enrollmentId: nextEnrollment.id });
 
     if (isPeriod) {
       await transferWalletToNewEnrollment(tx, {
@@ -192,7 +210,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         data: {
           studentId: existing.studentId,
           amount: conversion.remainingCashAmount,
-          reason: `Tien le sau quy doi chuyen lop: ${existing.class?.className ?? "Gói cũ"} -> ${targetClass.className}`,
+          reason: `Tiền lẻ sau quy đổi chuyển lớp: ${existing.class?.className ?? "Gói cũ"} → ${targetClass.className}`,
         },
       });
     }

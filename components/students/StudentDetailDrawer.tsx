@@ -64,6 +64,8 @@ type StudentData = {
     entitledMainSessions: number;
     remainingMainSessions: number;
     paidRemainingSessions: number;
+    /** Số buổi còn quy đổi được sang lớp mới — đã chặn trần bởi tiền học phí thật đã thu. */
+    transferableSessions: number;
     manualExtraRemainingSessions: number;
     continuationStatus: string;
     expectedStudentEndDate: Date | null;
@@ -399,7 +401,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                 billingModel={enrollment.billingModel}
                 walletBalance={data.walletBalance}
                 remainingSessions={snapshot.remainingMainSessions}
-                paidRemainingSessions={snapshot.paidRemainingSessions}
+                paidRemainingSessions={snapshot.transferableSessions}
                 manualExtraRemainingSessions={snapshot.manualExtraRemainingSessions}
                 oldUnitPrice={snapshot.unitPrice}
                 scholarshipPct={snapshot.scholarshipPct}

@@ -95,6 +95,9 @@ export async function POST(req: NextRequest) {
       orderBy: [{ billingPeriod: { startDate: "asc" } }, { createdAt: "asc" }],
     });
 
+    // Mỗi đồng tiền mặt phân bổ thực chất giảm được nhiều hơn 1 đồng công nợ khi có
+    // chiết khấu — dùng đúng tỉ lệ này để quy ra số buổi nạp vào ví.
+    const walletValueMultiplier = amount > 0 ? (amount + discountAmount) / amount : 1;
     let remaining = amount;
     for (const charge of openCharges) {
       if (remaining <= 0) break;
@@ -115,11 +118,19 @@ export async function POST(req: NextRequest) {
       // đúng enrollment đó — quy đổi 1 lần theo đơn giá của charge này (đã áp học
       // bổng/điều chỉnh tại thời điểm sinh charge).
       if (charge.billingModel === "PERIOD" && charge.enrollmentId) {
+        // Chiết khấu tiền mặt là GIẢM GIÁ, không phải trả thiếu: công nợ được giảm cả
+        // phần chiết khấu (totalDebtReduction = tiền mặt + chiết khấu). Nếu nạp ví chỉ
+        // theo tiền mặt thì học viên đã thanh toán xong N buổi nhưng chỉ được quyền học
+        // N-1 buổi — mất đúng phần đã giảm giá, và ví âm sớm hơn thực tế.
+        // Quy đổi theo đúng giá trị đã giảm nợ của khoản phân bổ này.
         await topUpWalletFromPayment(tx, {
           enrollmentId: charge.enrollmentId,
           paymentId: payment.id,
-          amountVnd: allocAmount,
+          amountVnd: Math.round(allocAmount * walletValueMultiplier),
           unitPrice: charge.unitPrice,
+          note: discountAmount > 0
+            ? `Gồm phần chiết khấu tiền mặt ${discountPercent}% (đã giảm ${discountAmount.toLocaleString("vi-VN")}đ)`
+            : undefined,
         });
       }
     }

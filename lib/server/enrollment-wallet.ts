@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { getEnrollmentsForSession } from "./class-roster";
 
 // Ví buổi học — chỉ áp dụng cho Enrollment.billingModel = "PERIOD". Xem kế hoạch đã
 // duyệt (phiên 2026-09-07): tách biệt hoàn toàn khỏi Class.totalSessions (chỉ là dự
@@ -30,12 +31,20 @@ export async function ensureWallet(tx: Prisma.TransactionClient, enrollmentId: s
 // thành. Idempotent qua khóa duy nhất (walletId, sessionId) — gọi lại nhiều lần
 // (sửa điểm danh, chạy lại API) không bao giờ trừ 2 lần cho cùng 1 buổi.
 export async function debitWalletsForCompletedSession(tx: Prisma.TransactionClient, sessionId: string) {
-  const session = await tx.classSession.findUnique({ where: { id: sessionId }, select: { classId: true } });
+  const session = await tx.classSession.findUnique({
+    where: { id: sessionId },
+    select: { classId: true, sessionDate: true },
+  });
   if (!session) return;
 
-  const enrollments = await tx.enrollment.findMany({
-    where: { classId: session.classId, billingModel: "PERIOD", status: "ACTIVE" },
-    select: { id: true },
+  // Chỉ trừ những ghi danh THỰC SỰ thuộc về buổi này (đã vào lớp trước/đúng ngày đó và
+  // chưa rời lớp tính tới ngày đó) — xem lib/server/class-roster.ts. Trước đây lấy mọi
+  // ghi danh đang ACTIVE của lớp nên hoàn thành lại một buổi cũ sẽ trừ ví của cả những
+  // học viên mới chuyển vào sau buổi đó.
+  const enrollments = await getEnrollmentsForSession(tx, {
+    classId: session.classId,
+    sessionDate: session.sessionDate,
+    billingModel: "PERIOD",
   });
 
   for (const enrollment of enrollments) {

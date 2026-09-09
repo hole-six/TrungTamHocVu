@@ -32,6 +32,31 @@ export default function TimesheetsWorkspace({
   const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState<string | null>(null);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  // Chấm công cả tháng theo ca chuẩn (xem app/api/timesheet-entries/bulk-month).
+  // Chấm theo NGOẠI LỆ: điền sẵn toàn bộ ngày công bình thường, nhân sự chỉ sửa lại
+  // ngày bất thường — thay cho việc mở từng người × từng ngày × 4 ô giờ.
+  async function fillMonth() {
+    setBulkLoading(true);
+    setBulkError(null);
+    setBulkMessage(null);
+    const response = await fetch("/api/timesheet-entries/bulk-month", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month }),
+    });
+    const result = await response.json().catch(() => ({}));
+    setBulkLoading(false);
+    if (!response.ok) {
+      setBulkError(result.error ?? "Không chấm công hàng loạt được.");
+      return;
+    }
+    setBulkMessage(result.message ?? "Đã chấm công cả tháng.");
+    router.refresh();
+  }
 
   // Lọc ngay ở client: toàn bộ nhân sự của tháng đã nằm sẵn trong props (vài chục
   // người), không cần vòng đi server chỉ để tìm theo tên.
@@ -127,6 +152,25 @@ export default function TimesheetsWorkspace({
           }}
         />
       </div>
+
+      {canEditTimesheet ? (
+        <div className="rounded-xl border border-[#dbe7ff] bg-[#f8faff] p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-[#0f1729]">Chấm công nhanh cả tháng</p>
+              <p className="mt-0.5 text-xs text-[#64748b]">
+                Điền sẵn ngày công theo ca hành chính (08:00–12:00, 13:00–17:00) cho toàn bộ nhân sự hưởng lương tháng,
+                bỏ qua Chủ nhật và ngày lễ. Ngày đã chấm trước đó được giữ nguyên — sau đó chỉ cần sửa lại ngày nghỉ/bất thường.
+              </p>
+            </div>
+            <button type="button" onClick={fillMonth} disabled={bulkLoading} className="btn-primary shrink-0 disabled:opacity-60">
+              {bulkLoading ? "Đang chấm..." : `Chấm công tháng ${month}`}
+            </button>
+          </div>
+          {bulkMessage ? <p className="mt-2 text-sm font-semibold text-emerald-700">{bulkMessage}</p> : null}
+          {bulkError ? <p className="mt-2 text-sm font-semibold text-red-600">{bulkError}</p> : null}
+        </div>
+      ) : null}
 
       <DataTableResponsive
         data={pagedEmployees}

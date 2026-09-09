@@ -176,6 +176,20 @@ export default async function CalendarPage({
     return d;
   });
 
+  // Ngày nghỉ trung tâm (bảng Holiday) — cùng nguồn với lúc sinh lịch buổi học, nên
+  // ngày lễ đã khai báo thì vốn không có buổi nào được sinh ra. Trước đây lịch tổng
+  // không hiện gì cả, nhìn vào chỉ thấy "hôm đó trống" mà không biết vì sao trống.
+  // Không lọc theo cơ sở khi tài khoản đang xem TẤT CẢ cơ sở (activeBranchId = null) —
+  // nếu không, đúng người có quyền xem rộng nhất lại là người không thấy ngày nghỉ nào.
+  const holidayRows = await prisma.holiday.findMany({
+    where: {
+      ...(activeBranchId ? { branchId: activeBranchId } : {}),
+      date: { gte: days[0], lte: days[days.length - 1] },
+    },
+    select: { date: true, name: true },
+  });
+  const holidayByDate = new Map(holidayRows.map((item) => [item.date.toISOString().slice(0, 10), item.name]));
+
   const sessionsByDay = days.map((date) => {
     const iso = date.toISOString().slice(0, 10);
     const daySessions = sessions.filter((session) => session.sessionDate.toISOString().slice(0, 10) === iso);
@@ -183,6 +197,7 @@ export default async function CalendarPage({
     const missingAssignments = daySessions.filter((session) => session.assignments.length === 0).length;
     return {
       date,
+      holidayName: holidayByDate.get(iso) ?? null,
       sessions: daySessions,
       completed,
       missingAssignments,
@@ -246,7 +261,9 @@ export default async function CalendarPage({
               <article
                 key={iso}
                 className={`min-h-[735px] rounded-[17px] border p-3 shadow-[0_6px_18px_rgba(45,73,112,0.035)] ${
-                  isToday
+                  day.holidayName
+                    ? "border-slate-300 bg-slate-100"
+                    : isToday
                     ? "border-[#6dc0ff] bg-white shadow-[0_8px_24px_rgba(19,137,232,0.08)]"
                     : isFocus
                       ? "border-[#dce7f3] bg-[#fafdff]"
@@ -261,7 +278,10 @@ export default async function CalendarPage({
                     {day.sessions.length} buổi · {day.totalStudents} lượt học viên
                   </p>
                 </div>
-                  {isToday ? <span className="absolute right-0 top-0 rounded-full bg-sky-600 px-2 py-0.5 text-[11px] font-bold text-white">Hôm nay</span> : null}
+                  {day.holidayName ? (
+                    <span className="absolute right-0 top-0 rounded-full bg-slate-700 px-2 py-0.5 text-[11px] font-bold text-white">{day.holidayName}</span>
+                  ) : null}
+                  {isToday && !day.holidayName ? <span className="absolute right-0 top-0 rounded-full bg-sky-600 px-2 py-0.5 text-[11px] font-bold text-white">Hôm nay</span> : null}
                   {isFocus && !isToday ? <span className="absolute right-0 top-0 rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-700">Đang xem</span> : null}
                 </div>
 

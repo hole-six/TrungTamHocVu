@@ -24,3 +24,7 @@ __pycache__/
 
 # Logs
 *.log
+ui-shots/
+# Bản sao lưu CSDL tạo trong lúc kiểm thử — không bao giờ commit
+*.db.*bak
+*.bak

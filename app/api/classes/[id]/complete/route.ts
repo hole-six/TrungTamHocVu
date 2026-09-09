@@ -6,11 +6,12 @@ import { canUpdate } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { generateCourseCharge } from "@/lib/server/billing-generation";
 import {
-  computeTransferConversion,
+  computeTransferConversionFromValue,
   getEnrollmentLearningSnapshot,
 } from "@/lib/server/enrollment-learning";
 import { computeEffectiveUnitPrice } from "@/lib/server/tuition-rules";
 import { getWalletBalance, transferWalletToNewEnrollment } from "@/lib/server/enrollment-wallet";
+import { attachCourseBookRequirements } from "@/lib/server/enrollment-materials";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -68,6 +69,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     id: string;
     branchId: string;
     className: string;
+    courseId: string | null;
     tuitionPerSession: number | null;
     isRemedial: boolean;
     status: string;
@@ -186,17 +188,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
               remainingCashAmount: newUnitPrice > 0 ? remainingValue - convertedSessionCount * newUnitPrice : remainingValue,
             };
           })()
-        : computeTransferConversion(snapshot.paidRemainingSessions, oldUnitPrice, newUnitPrice);
+        : computeTransferConversionFromValue(snapshot.transferableValue, newUnitPrice);
 
-      if (!enrollmentIsPeriod && conversion.convertedSessionCount <= 0 && snapshot.manualExtraRemainingSessions <= 0) {
-        throw new Error(`Học viên ${enrollment.studentId} không còn đủ tiền hoặc buổi cộng thêm để chuyển lớp.`);
-      }
+      // KHÔNG chặn khi quy đổi ra 0 buổi. Lớp đang đóng lại, học viên bắt buộc phải có
+      // chỗ đi tiếp — chặn ở đây nghĩa là 1 người còn nợ học phí sẽ khóa luôn thao tác
+      // kết thúc lớp của CẢ lớp, và người đó bị kẹt lại trong lớp đã đóng. Đúng nghiệp
+      // vụ: vẫn chuyển sang lớp mới với đúng giá trị đang có (có thể là 0), khoản nợ cũ
+      // vẫn nằm nguyên trên charge cũ để kế toán tiếp tục thu.
 
       const note = [
         `Kết thúc lớp ${cls.className}, chuyển sang ${targetClass.className}`,
         enrollmentIsPeriod
           ? `Còn ${walletBalanceBefore} buổi trong ví x ${oldUnitPrice.toLocaleString("vi-VN")}đ = ${conversion.remainingValue.toLocaleString("vi-VN")}đ`
-          : `Còn tiền: ${snapshot.paidRemainingSessions} buổi x ${oldUnitPrice.toLocaleString("vi-VN")}đ = ${conversion.remainingValue.toLocaleString("vi-VN")}đ`,
+          : `Còn tiền: ${snapshot.transferableSessions} buổi × ${oldUnitPrice.toLocaleString("vi-VN")}đ = ${conversion.remainingValue.toLocaleString("vi-VN")}đ (đã thu ${(snapshot.paidTuitionAmount ?? 0).toLocaleString("vi-VN")}đ học phí)`,
         conversion.convertedSessionCount > 0 ? `Quy đổi ${conversion.convertedSessionCount} buổi ở lớp mới` : null,
         !enrollmentIsPeriod && snapshot.manualExtraRemainingSessions > 0 ? `Mang theo ${snapshot.manualExtraRemainingSessions} buổi cộng linh động` : null,
         conversion.remainingCashAmount > 0 ? `Dư ${conversion.remainingCashAmount.toLocaleString("vi-VN")}đ` : null,
@@ -232,6 +236,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         data: {
           studentId: enrollment.studentId,
           classId: targetClass.id,
+          // Gắn đúng khóa học của lớp — trước đây bỏ trống nên mọi ghi danh tạo qua giao
+          // diện đều mất liên kết khóa, các màn hình phải tự suy ngược từ class.courseId.
+          courseId: targetClass.courseId,
           status: "ACTIVE",
           billingModel: enrollment.billingModel,
           enrollDate: now,
@@ -249,11 +256,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           transferredValueAmount: conversion.remainingValue,
           transferredConvertedSessionCount: conversion.convertedSessionCount,
           transferredRemainingCashAmount: conversion.remainingCashAmount,
+          // Nhãn gói hiển thị trên hồ sơ học viên (xem ghi chú cùng chỗ ở route chuyển lớp đơn lẻ).
+          packageLabel: enrollmentIsPeriod
+            ? `${targetClass.className} (đóng theo tháng)`
+            : conversion.convertedSessionCount > 0
+              ? `${targetClass.className} ${conversion.convertedSessionCount} buổi (chuyển lớp)`
+              : `${targetClass.className} (chuyển lớp — chưa có buổi đã đóng)`,
           notes: note,
         },
       });
       createdEnrollmentIds.push(nextEnrollment.id);
       createdEnrollmentBillingModel.set(nextEnrollment.id, enrollment.billingModel);
+
+      // Bộ giáo trình chuẩn của lớp mới — trước đây chỉ luồng ghi danh tay mới gắn.
+      await attachCourseBookRequirements(tx, { studentId: enrollment.studentId, classId: targetClass.id, enrollmentId: nextEnrollment.id });
 
       if (enrollmentIsPeriod) {
         await transferWalletToNewEnrollment(tx, {
@@ -303,6 +319,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // generateCourseCharge cho enrollment COURSE, tránh cảnh báo vô nghĩa
     // "enrollment đang ở mode PERIOD" hiện lên cho mọi ca chuyển lớp PERIOD.
     if (createdEnrollmentBillingModel.get(enrollmentId) !== "COURSE") continue;
+    // Chuyển sang với 0 buổi (học viên còn nợ, không còn tiền quy đổi) thì chưa có gì
+    // để lập phiếu — bỏ qua thay vì đẩy ra cảnh báo "chưa cấu hình tổng số buổi" gây
+    // hiểu nhầm là lỗi cấu hình lớp.
+    const created = await prisma.enrollment.findUnique({ where: { id: enrollmentId }, select: { purchasedMainSessionCount: true } });
+    if (!created?.purchasedMainSessionCount) continue;
     const chargeResult = await generateCourseCharge(enrollmentId);
     if (chargeResult && "error" in chargeResult && chargeResult.error) billingWarnings.push(chargeResult.error);
   }

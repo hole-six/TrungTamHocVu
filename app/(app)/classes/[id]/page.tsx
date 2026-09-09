@@ -456,7 +456,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
     .map((item) => ({
       enrollmentId: item.enrollment.id,
       studentName: item.enrollment.student.fullName,
-      paidRemainingSessions: item.snapshot.paidRemainingSessions,
+      paidRemainingSessions: item.snapshot.transferableSessions,
       manualExtraRemainingSessions: item.snapshot.manualExtraRemainingSessions,
       oldUnitPrice: item.snapshot.unitPrice,
       scholarshipPct: item.snapshot.scholarshipPct,
@@ -1178,7 +1178,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                       billingModel={enrollment.billingModel}
                                       walletBalance={walletBalanceByEnrollment.get(enrollment.id)}
                                       remainingSessions={remainingMainSessions}
-                                      paidRemainingSessions={snapshot.paidRemainingSessions}
+                                      paidRemainingSessions={snapshot.transferableSessions}
                                       manualExtraRemainingSessions={snapshot.manualExtraRemainingSessions}
                                       oldUnitPrice={unitPrice}
                                       scholarshipPct={snapshot.scholarshipPct}
@@ -1357,7 +1357,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                               billingModel={enrollment.billingModel}
                               walletBalance={walletBalanceByEnrollment.get(enrollment.id)}
                               remainingSessions={remainingMainSessions}
-                              paidRemainingSessions={snapshot.paidRemainingSessions}
+                              paidRemainingSessions={snapshot.transferableSessions}
                               manualExtraRemainingSessions={snapshot.manualExtraRemainingSessions}
                               oldUnitPrice={unitPrice}
                               scholarshipPct={snapshot.scholarshipPct}

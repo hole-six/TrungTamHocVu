@@ -383,7 +383,7 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                                   currentClassName={data.className}
                                   currentCourseId={data.courseId}
                                   remainingSessions={s?.remainingMainSessions ?? 0}
-                                  paidRemainingSessions={s?.paidRemainingSessions}
+                                  paidRemainingSessions={s?.transferableSessions}
                                   manualExtraRemainingSessions={s?.manualExtraRemainingSessions}
                                   oldUnitPrice={s?.unitPrice}
                                   scholarshipPct={s?.scholarshipPct}

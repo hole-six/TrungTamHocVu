@@ -63,11 +63,16 @@ export default function PayrollRunActions({
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  // Cảnh báo cấu hình thiếu do server trả về (vd có ngày công nhưng chưa có đơn giá
+  // ngày công nên lương ra 0đ) — phải hiện thẳng ở đây, nếu không nhân sự chỉ thấy
+  // bảng lương 0đ mà không biết vì sao.
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   async function generate() {
     setLoading("GENERATE");
     setError(null);
     setResult(null);
+    setWarnings([]);
 
     const res = await fetch(`/api/payroll-runs/${runId}/generate`, { method: "POST" });
     const data = await res.json();
@@ -79,6 +84,7 @@ export default function PayrollRunActions({
     }
 
     setResult(`Đã tạo ${data.created} dòng mới, cập nhật ${data.updated} dòng trên ${data.totalEmployees} nhân sự.`);
+    setWarnings(Array.isArray(data.warnings) ? data.warnings : []);
     router.refresh();
   }
 
@@ -172,6 +178,18 @@ export default function PayrollRunActions({
       ) : null}
 
       {result ? <p className="text-sm text-emerald-700">{result}</p> : null}
+      {warnings.length > 0 ? (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
+          <p className="text-sm font-bold text-amber-900">
+            {warnings.length} nhân sự có công nhưng chưa ra tiền — cần bổ sung đơn giá trong hồ sơ nhân sự:
+          </p>
+          <ul className="mt-1.5 space-y-1">
+            {warnings.map((item, index) => (
+              <li key={index} className="text-sm text-amber-900">• {item}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
       {canDelete ? (

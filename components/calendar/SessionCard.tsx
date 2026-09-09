@@ -31,7 +31,7 @@ function statusBadgeClass(status: string) {
 function statusAccentClass(status: string) {
   if (status === "COMPLETED") return "border-l-[#18a96b]";
   if (status === "CONFIRMED") return "border-l-[#1389e8]";
-  if (status === "CANCELLED") return "border-l-rose-400";
+  if (status === "CANCELLED") return "border-l-slate-300";
   if (status === "RESCHEDULED") return "border-l-[#ef8200]";
   return "border-l-slate-300";
 }
@@ -64,6 +64,10 @@ const ICON_USERS = (
  * sửa 1 nơi là đồng bộ cả hai, không còn lệch nội dung giữa 2 layout.
  */
 export default function SessionCard({ session, variant }: { session: SessionCardData; variant: "grid" | "list" }) {
+  // Buổi trung tâm cho nghỉ: tối màu toàn bộ thẻ + gạch ngang tên lớp, để nhìn lịch
+  // tuần là biết ngay hôm đó lớp không diễn ra mà không phải đọc chữ trạng thái.
+  const isOff = session.status === "CANCELLED";
+  const dimClass = isOff ? "opacity-60 grayscale" : "";
   const teacherNames = session.assignments
     .filter((assignment) => assignment.role === "TEACHER")
     .map((assignment) => assignment.employee.shortName || assignment.employee.fullName);
@@ -76,7 +80,7 @@ export default function SessionCard({ session, variant }: { session: SessionCard
     return (
       <Link
         href={`/classes/${session.classId}/sessions/${session.id}`}
-        className="block rounded-2xl border border-hairline bg-white p-4 transition active:scale-[0.98] active:bg-canvas-parchment"
+        className={`block rounded-2xl border border-hairline p-4 transition active:scale-[0.98] active:bg-canvas-parchment ${isOff ? "bg-slate-50" : "bg-white"} ${dimClass}`}
       >
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="flex-1">
@@ -125,7 +129,7 @@ export default function SessionCard({ session, variant }: { session: SessionCard
   return (
     <Link
       href={`/classes/${session.classId}/sessions/${session.id}`}
-      className={`block rounded-[14px] border border-l-4 border-[#d5e4f3] bg-white p-3 transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_18px_40px_-30px_rgba(14,116,144,0.45)] ${statusAccentClass(session.status)}`}
+      className={`block rounded-[14px] border border-l-4 border-[#d5e4f3] p-3 transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_18px_40px_-30px_rgba(14,116,144,0.45)] ${isOff ? "bg-slate-50" : "bg-white"} ${dimClass} ${statusAccentClass(session.status)}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div>

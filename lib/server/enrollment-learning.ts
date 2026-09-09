@@ -103,12 +103,58 @@ export function computeEnrollmentTuitionPlan(enrollment: EnrollmentWithClass, un
   };
 }
 
+// Tiền HỌC PHÍ thực thu của riêng 1 ghi danh (không tính tiền giáo trình — sách đã
+// giao là hàng đã nhận, không quy đổi thành buổi học ở lớp mới được).
+//
+// Vì sao cần: giá trị mang sang lớp mới của gói THEO KHÓA trước đây tính bằng
+// "số buổi còn được hưởng × đơn giá" — tức mặc định học viên đã đóng đủ tiền cả
+// khóa. Học viên mới đóng một phần vẫn được quy đổi y như đóng đủ, tức hệ thống tự
+// tạo ra giá trị chưa từng thu được. Chốt nghiệp vụ của chủ trung tâm: SỐ TIỀN THU
+// VÀO mới là số tiền đích đến cuối cùng.
+export async function computeEnrollmentPaidTuitionAmount(
+  prismaClient: Prisma.TransactionClient,
+  enrollment: { id: string; studentId: string; classId?: string | null },
+): Promise<number> {
+  const charges = await prismaClient.charge.findMany({
+    where: {
+      OR: [
+        { enrollmentId: enrollment.id },
+        // Charge cũ sinh trước khi có cột enrollmentId — nhận diện lại theo học viên +
+        // lớp để không bỏ sót tiền đã thu của chính ghi danh này.
+        ...(enrollment.classId
+          ? [{ enrollmentId: null, studentId: enrollment.studentId, classId: enrollment.classId }]
+          : []),
+      ],
+    },
+    select: {
+      tuitionAmount: true,
+      materialsAmount: true,
+      allocations: {
+        where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } },
+        select: { amount: true },
+      },
+    },
+  });
+
+  let paidTuition = 0;
+  for (const charge of charges) {
+    const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
+    if (paid <= 0) continue;
+    // 1 khoản thu phân bổ vào charge trả cho CẢ học phí lẫn giáo trình — chia theo tỉ
+    // lệ để chỉ lấy đúng phần học phí.
+    const ownDue = charge.tuitionAmount + charge.materialsAmount;
+    paidTuition += ownDue > 0 ? Math.round((paid * charge.tuitionAmount) / ownDue) : paid;
+  }
+  return paidTuition;
+}
+
 export function computeLearningSnapshot(
   enrollment: EnrollmentWithClass,
   completedMainSessions: number,
   futureMainSessions: ClassSessionLite[],
   unitPriceOverride?: number,
   holidayDates?: Set<string>,
+  paidTuitionAmount?: number,
 ) {
   const plan = computeEnrollmentTuitionPlan(enrollment, unitPriceOverride);
   const manualExtraSessions = resolveManualExtraSessions(enrollment);
@@ -134,6 +180,28 @@ export function computeLearningSnapshot(
         ? "ON_TRACK"
         : "NEED_TRANSFER";
 
+  // Giá trị ĐƯỢC PHÉP mang sang lớp mới (chỉ áp dụng gói THEO KHÓA — gói theo tháng
+  // dùng Ví buổi học, bản thân ví đã chỉ tăng khi có tiền thu thật).
+  //
+  // Lấy giá trị NHỎ HƠN giữa 2 cách tính:
+  //   (a) theo quyền lợi: số buổi còn lại × đơn giá  — cách cũ, đúng khi đã đóng đủ;
+  //   (b) theo tiền thật: tiền học phí đã thu − giá trị số buổi đã dạy.
+  // Đóng đủ thì (b) ≥ (a) nên kết quả không đổi so với trước. Đóng thiếu thì (b) nhỏ
+  // hơn và được chọn — chặn đúng chỗ hệ thống từng "tặng" giá trị chưa hề thu được.
+  // KHÔNG sửa lại paidRemainingSessions tại chỗ: manualExtraRemainingSessions được
+  // suy ra từ nó, hạ số này xuống sẽ thổi phồng số buổi cộng linh động miễn phí.
+  const entitlementTransferValue = remainingValue;
+  const moneyTransferValue =
+    paidTuitionAmount === undefined
+      ? null
+      : Math.max(0, paidTuitionAmount - completedMainSessions * plan.unitPrice);
+  const transferableValue = isPeriod
+    ? 0
+    : moneyTransferValue === null
+      ? entitlementTransferValue
+      : Math.min(entitlementTransferValue, moneyTransferValue);
+  const transferableSessions = plan.unitPrice > 0 ? Math.floor(transferableValue / plan.unitPrice) : 0;
+
   return {
     ...plan,
     completedMainSessions,
@@ -143,6 +211,9 @@ export function computeLearningSnapshot(
     paidRemainingSessions,
     manualExtraRemainingSessions,
     remainingValue,
+    paidTuitionAmount: paidTuitionAmount ?? null,
+    transferableValue,
+    transferableSessions,
     expectedStudentEndDate,
     continuationStatus,
     futureMainSessionCount: futureMainSessions.length,
@@ -160,7 +231,7 @@ export async function getEnrollmentLearningSnapshot(
   // ĐẾM BUỔI THEO LỊCH ĐÃ QUA (không phân biệt có mặt/vắng)
   // Logic: Qua ngày = tính buổi, vắng thì được buổi bổ trợ riêng
   // KHÔNG đếm theo attendance.status = "PRESENT" vì sẽ làm chậm tiến độ
-  const [completedMainSessions, futureMainSessions, scholarships, adjustments] = await Promise.all([
+  const [completedMainSessions, futureMainSessions, scholarships, adjustments, paidTuitionAmount] = await Promise.all([
     enrollment.classId
       ? prismaClient.classSession.count({
           where: {
@@ -189,6 +260,7 @@ export async function getEnrollmentLearningSnapshot(
       where: { studentId: enrollment.studentId, OR: [{ enrollmentId: null }, { enrollmentId: enrollment.id }] },
       select: { percentage: true, effectiveFrom: true, effectiveTo: true },
     }),
+    computeEnrollmentPaidTuitionAmount(prismaClient, enrollment),
   ]);
 
   // Học phí "còn lại quy đổi" (chuyển lớp / kết thúc lớp) phải dựa trên số tiền học
@@ -211,9 +283,25 @@ export async function getEnrollmentLearningSnapshot(
   // luồng chuyển lớp biết CÓ học bổng hay không mà mở tuỳ chọn giữ nguyên/không giữ
   // khi ghi danh vào lớp mới — thay vì âm thầm mất học bổng sau khi chuyển.
   return {
-    ...computeLearningSnapshot(enrollment, completedMainSessions, futureMainSessions, effectiveUnitPrice, holidayDates),
+    ...computeLearningSnapshot(enrollment, completedMainSessions, futureMainSessions, effectiveUnitPrice, holidayDates, paidTuitionAmount),
     scholarshipPct,
     adjustmentPct,
+  };
+}
+
+// Quy đổi từ SỐ TIỀN sang số buổi ở lớp mới. Đây là dạng gốc — chuyển lớp luôn đi qua
+// tiền (chốt nghiệp vụ: tiền thu vào là đích đến cuối cùng), số buổi chỉ là cách hiển
+// thị lại số tiền đó theo đơn giá của lớp đang xét.
+export function computeTransferConversionFromValue(remainingValue: number, newUnitPrice: number) {
+  const value = Math.max(0, remainingValue);
+  if (newUnitPrice <= 0) {
+    return { remainingValue: value, convertedSessionCount: 0, remainingCashAmount: value };
+  }
+  const convertedSessionCount = Math.floor(value / newUnitPrice);
+  return {
+    remainingValue: value,
+    convertedSessionCount,
+    remainingCashAmount: value - convertedSessionCount * newUnitPrice,
   };
 }
 

@@ -86,10 +86,11 @@ export default function TransferEnrollmentButton({
   const remainingValue = paidSessionsForValue * Math.max(0, oldUnitPrice);
   const convertedSessions = newUnitPrice > 0 ? Math.floor(remainingValue / newUnitPrice) : 0;
   const remainingCash = newUnitPrice > 0 ? remainingValue - convertedSessions * newUnitPrice : remainingValue;
-  // PERIOD chuyển lớp tự do bất kể ví còn bao nhiêu (chốt nghiệp vụ) — không có "hết
-  // buổi thì chặn" như COURSE. Ví = 0 vẫn cho chuyển, enrollment mới chỉ đơn giản bắt
-  // đầu với ví trống.
-  const canSubmit = Boolean(targetClassId) && !loading && (isPeriod || convertedSessions > 0 || manualExtraRemainingSessions > 0);
+  // Luôn cho chuyển miễn đã chọn lớp đích — kể cả khi quy đổi ra 0 buổi (ví đã hết,
+  // hoặc gói theo khóa còn nợ học phí nên không còn tiền để mang sang). Chặn ở đây
+  // đồng nghĩa nhân viên không có đường nào xử lý học viên đang nợ, còn học viên thì
+  // kẹt lại lớp cũ. Số "quy đổi 0 buổi" đã hiện rõ ngay bên trên nút xác nhận.
+  const canSubmit = Boolean(targetClassId) && !loading;
 
   async function submit() {
     setLoading(true);
@@ -131,8 +132,8 @@ export default function TransferEnrollmentButton({
       <ResponsiveDrawer
         open={open}
         onClose={() => setOpen(false)}
-        title="Chuyển lớp theo tiền còn lại"
-        description="Hệ thống quy phần buổi đã mua thành tiền, rồi quy sang số buổi ở lớp mới. Buổi cộng linh động còn dư sẽ được mang theo riêng."
+        title="Chuyển lớp theo số tiền đã thu"
+        description="Giá trị mang sang lớp mới = số tiền học phí ĐÃ THU của lớp cũ trừ đi giá trị số buổi đã dạy, rồi quy ra số buổi theo đơn giá lớp mới. Buổi cộng linh động còn dư được mang theo riêng."
       >
         <div className="space-y-4">
           <div className="rounded-2xl border border-[#e5eaf7] bg-[#f8faff] p-4">
@@ -140,9 +141,18 @@ export default function TransferEnrollmentButton({
             <p className="mt-1 font-bold text-[#0f1729]">{currentClassName}</p>
             <p className="mt-2 text-sm text-[#64748b]">
               {isPeriod
-                ? `Ví còn ${paidSessionsForValue} buổi x ${formatVnd(oldUnitPrice)} = ${formatVnd(remainingValue)}`
-                : `Còn ${remainingSessions} buổi. Phần có tiền: ${paidSessionsForValue} buổi x ${formatVnd(oldUnitPrice)} = ${formatVnd(remainingValue)}`}
+                ? `Ví còn ${paidSessionsForValue} buổi × ${formatVnd(oldUnitPrice)} = ${formatVnd(remainingValue)}`
+                : `Còn ${remainingSessions} buổi theo gói đã đăng ký. Phần ĐÃ CÓ TIỀN: ${paidSessionsForValue} buổi × ${formatVnd(oldUnitPrice)} = ${formatVnd(remainingValue)}`}
             </p>
+            {/* Chênh lệch giữa "buổi theo gói" và "buổi đã có tiền" luôn phải giải thích
+                ngay tại chỗ — nếu không, nhân viên thấy số buổi tụt xuống sẽ tưởng hệ
+                thống tính sai, trong khi thực chất là học viên còn nợ học phí. */}
+            {!isPeriod && remainingSessions > paidSessionsForValue ? (
+              <p className="mt-1 rounded-lg bg-amber-50 px-2.5 py-2 text-sm font-semibold text-amber-800">
+                {remainingSessions - paidSessionsForValue} buổi chưa được mang sang vì học viên chưa đóng đủ học phí lớp cũ.
+                Khoản nợ đó vẫn giữ nguyên trên phiếu học phí cũ — thu đủ rồi chuyển lại sẽ ra số buổi cao hơn.
+              </p>
+            ) : null}
             {!isPeriod && manualExtraRemainingSessions > 0 ? (
               <p className="mt-1 text-sm font-semibold text-emerald-700">
                 Mang theo {manualExtraRemainingSessions} buổi cộng linh động.

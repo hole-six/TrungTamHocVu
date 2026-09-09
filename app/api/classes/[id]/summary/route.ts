@@ -411,7 +411,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       enrollmentId: item.id,
       studentName: item.student.fullName,
       billingModel: item.billingModel,
-      paidRemainingSessions: item.billingModel === "PERIOD" ? Math.max(0, item.walletBalance ?? 0) : item.learningSnapshot.paidRemainingSessions,
+      paidRemainingSessions: item.billingModel === "PERIOD" ? Math.max(0, item.walletBalance ?? 0) : item.learningSnapshot.transferableSessions,
       manualExtraRemainingSessions: item.billingModel === "PERIOD" ? 0 : item.learningSnapshot.manualExtraRemainingSessions,
       oldUnitPrice: item.learningSnapshot.unitPrice,
       scholarshipPct: item.learningSnapshot.scholarshipPct,
