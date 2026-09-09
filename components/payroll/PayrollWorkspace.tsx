@@ -277,6 +277,13 @@ export default function PayrollWorkspace({
           ) : null}
           {!run && permissions.canManagePayrollRuns ? <NewPayrollRunForm defaultPeriod={period} /> : null}
           <PayrollExportButton period={period} rows={rows} runStatus={run?.status ?? null} totals={totals} />
+          {/* In 1 phát ra PDF: bảng công + lương, thấy rõ tiền của TỪNG loại công
+              (giờ dạy / giờ trợ giảng / ngày công hành chính) chứ không chỉ tổng. */}
+          {run ? (
+            <Link href={`/payroll/print?period=${period}`} target="_blank" className={ACTION_CLASS}>
+              In bảng công &amp; lương (PDF)
+            </Link>
+          ) : null}
           {permissions.canManageEmployees ? <NewEmployeeForm /> : null}
           {permissions.canManageEmployees ? <PayrollRateCsvTools items={rows} /> : null}
         </div>

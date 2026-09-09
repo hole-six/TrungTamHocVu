@@ -113,9 +113,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const allowedRoutes = await getFilteredNavItems(session.userId);
 
   // Filter NAV_ITEMS based on user permissions
-  const filteredNavItems = allowedRoutes === null
+  // Mục "Nhân sự & Lương" gộp 3 trang (hồ sơ / chấm công / lương) thành 1 mục menu.
+  // Nhưng mỗi vai trò chỉ vào được một phần: Giáo vụ chỉ có Chấm công, Giáo viên chỉ
+  // xem Lương của mình. Nếu cứ trỏ cứng vào /employees thì đúng những vai trò đó sẽ
+  // mất luôn đường vào menu — nên trỏ tới trang ĐẦU TIÊN họ có quyền.
+  const HR_GROUP_HREFS = ["/employees", "/timesheets", "/payroll"];
+  const filteredNavItems = (allowedRoutes === null
     ? NAV_ITEMS
-    : NAV_ITEMS.filter(item => allowedRoutes.includes(item.href));
+    : NAV_ITEMS.filter((item) => {
+        if (item.href !== "/employees") return allowedRoutes.includes(item.href);
+        return HR_GROUP_HREFS.some((href) => allowedRoutes.includes(href));
+      })
+  ).map((item) => {
+    if (item.href !== "/employees" || allowedRoutes === null) return item;
+    const firstAllowed = HR_GROUP_HREFS.find((href) => allowedRoutes.includes(href));
+    return firstAllowed && firstAllowed !== item.href ? { ...item, href: firstAllowed } : item;
+  });
   const navBadges = await getNavBadges(user, userRole, activeBranchId);
 
   return (

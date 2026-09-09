@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import FormGuide from "@/components/ui/FormGuide";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import { useToast } from "@/components/ui/Toast";
 
 type RosterRow = {
   enrollmentId: string;
@@ -72,6 +73,7 @@ export default function AttendanceForm({
   isRemedial?: boolean;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [roster, setRoster] = useState(initialRoster);
   const [loading, setLoading] = useState(false);
   const [withdrawingEnrollmentId, setWithdrawingEnrollmentId] = useState<string | null>(null);
@@ -148,7 +150,7 @@ export default function AttendanceForm({
       router.refresh();
 
       const granted = Number(data.sessionCreditsGranted ?? 0);
-      window.alert(
+      toast.success(
         granted > 0 ? `Đã rút lớp ${row.fullName} và cộng ${granted} buổi bổ trợ còn lại.` : `Đã rút lớp ${row.fullName}.`
       );
     } finally {
@@ -173,7 +175,12 @@ export default function AttendanceForm({
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      setError(data.error ?? "Không thể lưu điểm danh.");
+      const message = data.error ?? "Không thể lưu điểm danh.";
+      setError(message);
+      // 409 = hệ thống NGĂN vì mâu thuẫn dữ liệu (học viên không thuộc buổi này, kỳ thu
+      // đã chốt sổ...) — phải nổi lên rõ, không để lọt thành dòng chữ nhỏ cuối form.
+      if (response.status === 409) toast.blocked(message);
+      else toast.error(message);
       return;
     }
 
@@ -182,7 +189,7 @@ export default function AttendanceForm({
 
     const autoCompleted: { studentId: string; fullName: string }[] = data.autoCompleted ?? [];
     if (autoCompleted.length > 0) {
-      window.alert(
+      toast.info(
         `Đã lưu điểm danh. Học viên đã dùng hết buổi bổ trợ và tự động hoàn thành lớp bổ trợ: ${autoCompleted
           .map((item) => item.fullName)
           .join(", ")}.`,

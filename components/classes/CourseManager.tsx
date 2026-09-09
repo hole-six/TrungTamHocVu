@@ -6,6 +6,7 @@ import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 import NumberRangeFilterPopover from "@/components/ui/NumberRangeFilterPopover";
 import { formatVnd } from "@/lib/export-utils";
+import { useToast } from "@/components/ui/Toast";
 
 type BookOption = {
   id: string;
@@ -324,6 +325,7 @@ function CourseForm({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [form, setForm] = useState({
     code: course?.code ?? "",
     name: course?.name ?? "",
@@ -427,6 +429,7 @@ function CourseForm({
 
 export default function CourseManager({ courses, books }: { courses: Course[]; books: BookOption[] }) {
   const router = useRouter();
+  const toast = useToast();
   const [openCreate, setOpenCreate] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -474,7 +477,7 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
     setDeletingId(null);
 
     if (!response.ok) {
-      window.alert(result.error ?? "Không thể xóa khóa học.");
+      toast.blocked(result.error ?? "Không thể xóa khóa học.");
       return;
     }
 

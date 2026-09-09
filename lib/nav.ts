@@ -52,18 +52,13 @@ export const NAV_ITEMS: NavItem[] = [
     sections: [],
   },
   {
+    // Hồ sơ nhân sự → chấm công của họ → lương trả cho công đó là MỘT chuỗi việc, không
+    // phải 3 mục menu rời. Gộp về 1 mục, các bước là tab bên trong (components/hr/HrTabs.tsx).
     href: "/employees",
-    label: "Nhân sự",
+    label: "Nhân sự & Lương",
     status: "live",
-    description: "Danh sách nhân viên: mã NV, liên hệ, vị trí, lương và hợp đồng lao động — độc lập với từng tháng lương.",
-    sections: ["Hợp đồng lao động"],
-  },
-  {
-    href: "/timesheets",
-    label: "Chấm công",
-    status: "live",
-    description: "Chấm công theo tháng cho nhân sự hành chính/văn phòng; công dạy của giáo viên và trợ giảng lấy từ buổi học đã phân công.",
-    sections: ["Duyệt & khóa công tháng", "Đi muộn/về sớm/OT tự động"],
+    description: "Hồ sơ nhân viên, chấm công theo tháng và tính lương — đi theo 3 tab trong cùng một màn. Công dạy của giáo viên/trợ giảng lấy tự động từ buổi học đã phân công.",
+    sections: ["Hồ sơ nhân sự", "Chấm công", "Lương", "Hợp đồng lao động", "Phiếu lương PDF"],
   },
   {
     href: "/tuition",
@@ -92,13 +87,6 @@ export const NAV_ITEMS: NavItem[] = [
     status: "live",
     description: "Sổ quỹ thu/chi ngoài học phí, theo danh mục (nguồn: Thu-Chi).",
     sections: ["Duyệt phiếu trước khi xác nhận", "Đính kèm chứng từ"],
-  },
-  {
-    href: "/payroll",
-    label: "Lương nhân viên",
-    status: "live",
-    description: "Phân công GV/TG theo buổi, chấm công hành chính, tính lương theo tháng (nguồn: Report_Cong_Luong).",
-    sections: ["Phiếu lương PDF"],
   },
   {
     href: "/teacher-tasks",

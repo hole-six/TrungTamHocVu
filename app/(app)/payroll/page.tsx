@@ -1,13 +1,14 @@
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { getUserRole } from "@/lib/permissions";
+import { getUserRole , getAllowedHrTabs } from "@/lib/permissions";
 import { canCreate, canUpdate, canView } from "@/lib/server/role-matrix";
 import { canEditPayroll } from "@/lib/server/payroll-rules";
 import { evaluatePayrollRunChecklist } from "@/lib/server/payroll-checklist";
 import { buildPayrollEmployeeRows } from "@/lib/server/payroll-row-builder";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import PayrollWorkspace from "@/components/payroll/PayrollWorkspace";
+import HrTabs from "@/components/hr/HrTabs";
 
 function currentMonthString() {
   const now = new Date();
@@ -131,8 +132,12 @@ export default async function PayrollPage({
   const initialEmployeeId =
     searchParams?.employeeId && rows.some((row) => row.id === searchParams.employeeId) ? searchParams.employeeId : null;
 
+  const hrTabs = user ? await getAllowedHrTabs(user.id) : [];
+
   return (
-    <PayrollWorkspace
+    <div className="space-y-4">
+      <HrTabs allowed={hrTabs} />
+      <PayrollWorkspace
       rows={rows}
       tableRows={tableRows}
       period={period}
@@ -147,5 +152,6 @@ export default async function PayrollPage({
       search={search}
       position={position}
     />
+    </div>
   );
 }

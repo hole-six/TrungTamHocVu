@@ -2,10 +2,11 @@ import { notFound } from "next/navigation";
 import TimesheetsWorkspace from "@/components/timesheets/TimesheetsWorkspace";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { getUserRole } from "@/lib/permissions";
+import { getUserRole , getAllowedHrTabs } from "@/lib/permissions";
 import { canView, canCreate, canDelete } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import { monthRange } from "@/lib/server/tuition-rules";
+import HrTabs from "@/components/hr/HrTabs";
 
 function currentMonthString() {
   const now = new Date();
@@ -98,13 +99,18 @@ export default async function TimesheetsPage({ searchParams }: { searchParams?: 
     orderBy: { fullName: "asc" },
   });
 
+  const hrTabs = user ? await getAllowedHrTabs(user.id) : [];
+
   return (
-    <TimesheetsWorkspace
+    <div className="space-y-4">
+      <HrTabs allowed={hrTabs} />
+      <TimesheetsWorkspace
       month={month}
       today={new Date().toISOString().slice(0, 10)}
       canEditTimesheet={canCreate("timesheet", role)}
       canDeleteTimesheet={canDelete("timesheet", role)}
       employees={employees.map(mapEmployee)}
     />
+    </div>
   );
 }

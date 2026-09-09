@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { getUserRoleAndOverride } from "@/lib/permissions";
+import { getUserRoleAndOverride , getAllowedHrTabs } from "@/lib/permissions";
 import { canCreateWithOverride, canUpdateWithOverride, canViewWithOverride } from "@/lib/server/role-matrix";
 import { computeContractStatus } from "@/lib/server/payroll-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import EmployeesTable from "./EmployeesTable";
 import NewEmployeeForm from "@/components/payroll/NewEmployeeForm";
+import HrTabs from "@/components/hr/HrTabs";
 
 // Trang "NHÂN SỰ" — trước đây hoàn toàn chưa có (chỉ có form thêm/sửa nhân viên
 // nhúng trong /payroll, không có 1 danh sách riêng cho thông tin nhân sự cơ bản:
@@ -31,8 +32,11 @@ export default async function EmployeesPage() {
     contractStatus: computeContractStatus(employee.resignDate, contracts[0]?.expiryDate ?? null),
   }));
 
+  const hrTabs = await getAllowedHrTabs(user.id);
+
   return (
     <div className="space-y-4">
+      <HrTabs allowed={hrTabs} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-black tracking-tight text-[#0f1729] sm:text-2xl">Nhân sự</h1>
         {canCreateWithOverride("hr", role, override) ? <NewEmployeeForm /> : null}

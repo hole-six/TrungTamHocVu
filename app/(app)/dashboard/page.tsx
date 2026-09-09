@@ -271,7 +271,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     showCrm ? getTestOverview(activeBranchId) : Promise.resolve(null),
     showCrm ? getRecentAutoCompletions(activeBranchId) : Promise.resolve([]),
   ]);
-  const branchBreakdown = role === "DIRECTOR" ? await getBranchBreakdown() : null;
+  // SUPER_ADMIN (tài khoản admin) cũng phải thấy phần này như DIRECTOR — xem ghi chú
+  // ở getUserRole trong lib/permissions.ts.
+  const branchBreakdown = role === "DIRECTOR" || role === "SUPER_ADMIN" ? await getBranchBreakdown() : null;
   const sessionsValue = (role === "TEACHER" || role === "TEACHING_ASSISTANT") ? stats.mySessionsToday : stats.branchSessionsToday;
   const quickActions = enrichQuickActions(shell.quickActions, role, stats, operational);
   const now = new Date();

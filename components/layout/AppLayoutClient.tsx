@@ -5,6 +5,7 @@ import { StudentDrawerProvider, useStudentDrawer } from "@/contexts/StudentDrawe
 import { ClassDrawerProvider, useClassDrawer } from "@/contexts/ClassDrawerContext";
 import StudentDetailDrawer from "@/components/students/StudentDetailDrawer";
 import ClassDetailDrawer from "@/components/classes/ClassDetailDrawer";
+import { ToastProvider } from "@/components/ui/Toast";
 
 function GlobalStudentDrawer() {
   const { drawerStudentId, closeDrawer } = useStudentDrawer();
@@ -36,12 +37,14 @@ function GlobalClassDrawer() {
 
 export function AppLayoutClient({ children }: { children: ReactNode }) {
   return (
-    <StudentDrawerProvider>
-      <ClassDrawerProvider>
-        {children}
-        <GlobalStudentDrawer />
-        <GlobalClassDrawer />
-      </ClassDrawerProvider>
-    </StudentDrawerProvider>
+    <ToastProvider>
+      <StudentDrawerProvider>
+        <ClassDrawerProvider>
+          {children}
+          <GlobalStudentDrawer />
+          <GlobalClassDrawer />
+        </ClassDrawerProvider>
+      </StudentDrawerProvider>
+    </ToastProvider>
   );
 }

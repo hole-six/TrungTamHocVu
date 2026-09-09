@@ -21,6 +21,7 @@ import TestQuickAction from "@/components/leads/TestQuickAction";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 import { useStudentDrawer } from "@/contexts/StudentDrawerContext";
 import LeadDetailDrawer from "@/components/leads/LeadDetailDrawer";
+import { useToast } from "@/components/ui/Toast";
 
 type LatestTest = {
   id: string;
@@ -135,6 +136,7 @@ export default function LeadsTable({
   enrolledCount = 0,
 }: LeadsTableProps) {
   const router = useRouter();
+  const toast = useToast();
   const searchParams = useSearchParams();
   const { openDrawer } = useStudentDrawer();
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
@@ -191,7 +193,7 @@ export default function LeadsTable({
     setStatusSavingId(null);
     if (!response.ok) {
       const result = await response.json().catch(() => ({}));
-      window.alert(result.error ?? "Không thể đổi trạng thái lead.");
+      toast.blocked(result.error ?? "Không thể đổi trạng thái lead.");
       return;
     }
     setData((current) => current.map((item) => (item.id === leadId ? { ...item, status: nextStatus } : item)));
@@ -204,7 +206,7 @@ export default function LeadsTable({
     const result = await response.json().catch(() => ({}));
     setConvertingId(null);
     if (!response.ok) {
-      window.alert(result.error ?? "Không thể chuyển đổi thành học viên.");
+      toast.blocked(result.error ?? "Không thể chuyển đổi thành học viên.");
       return;
     }
     openDrawer(result.item.id);

@@ -101,8 +101,20 @@ export async function getUserRole(userId: string): Promise<string | null> {
       roleRef: true,
     },
   });
+  if (!user) return null;
 
-  return user?.roleRef?.code || null;
+  // Hệ thống có 2 tầng kiểm quyền chạy song song:
+  //   - hasPermission() (lib/server/permissions.ts) BỎ QUA mọi kiểm tra khi
+  //     user.role === "admin" — đây là ý định gốc của Super Admin, đã ghi rõ trong
+  //     prisma/seeds/roles-permissions.ts.
+  //   - role-matrix.ts chỉ nhìn roleRef.code, trước đây KHÔNG biết tới ngoại lệ đó.
+  // Hệ quả: cùng một tài khoản admin thì toàn quyền ở tầng này nhưng bị chặn ở tầng
+  // kia — nút "Thêm nhân viên" ở trang Nhân sự không hiện ra vì roleRef là DIRECTOR
+  // (hr = APPROVE_VIEW), dù đó là tài khoản quản trị cao nhất. Trả về SUPER_ADMIN để
+  // hai tầng nói cùng một thứ tiếng (role-matrix đã có sẵn SUPER_ADMIN = FULL).
+  if (user.role === "admin") return "SUPER_ADMIN";
+
+  return user.roleRef?.code || null;
 }
 
 /**
@@ -229,4 +241,14 @@ export async function canAccessRoute(userId: string, route: string): Promise<boo
 
   // Check if route is in allowed list
   return allowedRoutes.some((allowed) => route.startsWith(allowed));
+}
+
+// Các tab thuộc cụm Nhân sự & Lương mà user được vào — dùng cho components/hr/HrTabs.tsx
+// và cho việc chọn đích của mục menu gộp (xem app/(app)/layout.tsx).
+export const HR_TAB_ROUTES = ["/employees", "/timesheets", "/payroll"] as const;
+
+export async function getAllowedHrTabs(userId: string): Promise<string[]> {
+  const allowedRoutes = await getFilteredNavItems(userId);
+  if (allowedRoutes === null) return [...HR_TAB_ROUTES];
+  return HR_TAB_ROUTES.filter((route) => allowedRoutes.includes(route));
 }
