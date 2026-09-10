@@ -14,7 +14,7 @@ import {
 } from "@/lib/server/class-rules";
 import { getHolidayDateSet } from "@/lib/server/holidays";
 import { ensureClassRoadmapItems } from "@/lib/server/class-roadmap";
-import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
+import { getEnrollmentLearningSnapshot, enrollmentNeedsTransferOnComplete } from "@/lib/server/enrollment-learning";
 import { getWalletBalance } from "@/lib/server/enrollment-wallet";
 import { buildEnrollmentPipeline } from "@/lib/server/enrollment-pipeline";
 import { isTaskDueOn, computeTaskLogStatus } from "@/lib/server/class-task-rules";
@@ -281,7 +281,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   // làm dở hơn (không hỏi chuyển lớp/giữ học bổng, chỉ tất toán + cấp số dư). Cùng điều
   // kiện với app/(app)/classes/[id]/page.tsx — 2 nơi tính riêng vì chưa có chỗ dùng chung.
   const activeNeedTransferCount = enrollmentsWithLearning.filter(
-    (item) => item.status === "ACTIVE" && item.learningSnapshot.remainingMainSessions > 0,
+    (item) =>
+      item.status === "ACTIVE" &&
+      enrollmentNeedsTransferOnComplete({
+        billingModel: item.billingModel,
+        remainingMainSessions: item.learningSnapshot.remainingMainSessions,
+        hasNextClass: Boolean(cls.nextClassId),
+      }),
   ).length;
   const daysToExpectedEnd = cls.expectedEndDate ? (cls.expectedEndDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000) : null;
   if (cls.status === "ACTIVE" && daysToExpectedEnd !== null && daysToExpectedEnd >= 0 && daysToExpectedEnd <= 7 && activeNeedTransferCount > 0) {
@@ -399,14 +405,15 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   // enrollment-learning.ts) — nếu có lớp tiếp theo thì LUÔN vào nhóm chuyển lớp (quy đổi
   // qua Ví), không phải nhóm "đã đủ buổi", khớp đúng nhánh xử lý ở api/classes/[id]/complete.
   const activeLearningSnapshots = enrollmentsWithLearning.filter(e => e.status === "ACTIVE");
-  const willTransferPeriodOnComplete = Boolean(cls.nextClassId);
-  const completionReadyCount = activeLearningSnapshots.filter((item) =>
-    item.billingModel === "PERIOD" ? !willTransferPeriodOnComplete : item.learningSnapshot.remainingMainSessions <= 0
-  ).length;
+  const needsTransfer = (item: (typeof activeLearningSnapshots)[number]) =>
+    enrollmentNeedsTransferOnComplete({
+      billingModel: item.billingModel,
+      remainingMainSessions: item.learningSnapshot.remainingMainSessions,
+      hasNextClass: Boolean(cls.nextClassId),
+    });
+  const completionReadyCount = activeLearningSnapshots.filter((item) => !needsTransfer(item)).length;
   const completionNeedTransferStudents = activeLearningSnapshots
-    .filter((item) =>
-      item.billingModel === "PERIOD" ? willTransferPeriodOnComplete : item.learningSnapshot.remainingMainSessions > 0
-    )
+    .filter(needsTransfer)
     .map((item) => ({
       enrollmentId: item.id,
       studentName: item.student.fullName,
@@ -482,11 +489,19 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     } : null,
     defaultTeachers,
     defaultAssistants,
+    // Trả về ĐÚNG hình dạng mà ClassDefaultAssignmentManager khai báo (có object
+    // `employee` và `notes`). Trước đây chỗ này chỉ trả phẳng employeeId/employeeName,
+    // nên khi mở lớp ĐÃ gắn nhân sự mặc định từ drawer, component đọc
+    // item.employee.shortName trên undefined và làm trắng cả trang /classes — trong
+    // khi mở từ trang /classes/[id] lại chạy được vì trang đó truyền thẳng dữ liệu
+    // Prisma (có include employee). Giữ lại employeeName cho các chỗ đọc kiểu cũ.
     defaultAssignments: cls.defaultAssignments.map(a => ({
       id: a.id,
       role: a.role,
+      notes: a.notes ?? null,
       employeeId: a.employee.id,
       employeeName: a.employee.fullName,
+      employee: { fullName: a.employee.fullName, shortName: a.employee.shortName },
       isActive: a.isActive,
     })),
     projectedSchedule,

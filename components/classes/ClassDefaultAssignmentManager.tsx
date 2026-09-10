@@ -11,16 +11,25 @@ type Employee = {
   position: string | null;
 };
 
+// employee/notes để optional CÓ CHỦ Ý: dữ liệu vào đây tới từ 2 nguồn khác nhau —
+// trang /classes/[id] truyền thẳng bản ghi Prisma, còn drawer lấy qua API summary.
+// Một nguồn thiếu trường là đủ làm trắng nguyên trang; khai báo optional buộc mọi chỗ
+// đọc phải có đường lui thay vì đổ vỡ.
 type DefaultAssignment = {
   id: string;
   role: string;
-  notes: string | null;
+  notes?: string | null;
   employeeId: string;
-  employee: {
+  employeeName?: string;
+  employee?: {
     fullName: string;
-    shortName: string;
-  };
+    shortName: string | null;
+  } | null;
 };
+
+function assignmentDisplayName(item: DefaultAssignment): string {
+  return item.employee?.shortName || item.employee?.fullName || item.employeeName || "Nhân sự không còn trong hệ thống";
+}
 
 type AssignmentDraft = {
   key: string;
@@ -221,7 +230,7 @@ export default function ClassDefaultAssignmentManager({
               {summary.teachers.length > 0 ? (
                 summary.teachers.map((item) => (
                   <div key={item.id} className="border-b border-hairline py-2 last:border-0">
-                    <p className="text-sm font-medium text-ink">{item.employee.shortName || item.employee.fullName}</p>
+                    <p className="text-sm font-medium text-ink">{assignmentDisplayName(item)}</p>
                     {item.notes ? <p className="mt-1 text-xs text-ink-muted48">{item.notes}</p> : null}
                   </div>
                 ))
@@ -240,7 +249,7 @@ export default function ClassDefaultAssignmentManager({
               {summary.assistants.length > 0 ? (
                 summary.assistants.map((item) => (
                   <div key={item.id} className="border-b border-hairline py-2 last:border-0">
-                    <p className="text-sm font-medium text-ink">{item.employee.shortName || item.employee.fullName}</p>
+                    <p className="text-sm font-medium text-ink">{assignmentDisplayName(item)}</p>
                     {item.notes ? <p className="mt-1 text-xs text-ink-muted48">{item.notes}</p> : null}
                   </div>
                 ))

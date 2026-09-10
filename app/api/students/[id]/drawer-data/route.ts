@@ -191,14 +191,39 @@ export async function GET(
       .filter((issue) => issue.paymentStatus !== "PAID")
       .reduce((sum, issue) => sum + issue.amount, 0);
 
-    const attendanceStats = student.attendances.reduce(
-      (acc, attendance) => {
-        if (attendance.status === "PRESENT") acc.present += 1;
-        if (attendance.status === "ABSENT") acc.absent += 1;
-        if (attendance.status === "MAKEUP") acc.makeup += 1;
-        return acc;
+    // Đếm điểm danh trên TOÀN BỘ bản ghi, không dùng student.attendances (danh sách đó
+    // có take: 20 để hiển thị buổi gần đây) — trước đây học viên học 34 buổi vẫn chỉ
+    // được cộng tối đa 20, nên ô "buổi đã học / vắng" hiện sai.
+    //
+    // Tách theo TỪNG LỚP vì lớp chỉ là cái mác: một học viên đi qua nhiều lớp, nên
+    // "vắng 5 buổi" gộp chung không nói được vắng ở đâu. Người vận hành cần biết vắng
+    // lớp nào để xếp buổi bổ trợ đúng chỗ.
+    const attendanceRows = await prisma.studentAttendance.findMany({
+      where: { studentId: student.id },
+      select: {
+        status: true,
+        session: { select: { classId: true, class: { select: { classCode: true, className: true } } } },
       },
-      { present: 0, absent: 0, makeup: 0 }
+    });
+    const attendanceStats = { present: 0, absent: 0, makeup: 0 };
+    const byClass = new Map<string, { classId: string; classCode: string; className: string; present: number; absent: number; makeup: number }>();
+    for (const row of attendanceRows) {
+      const bucket =
+        row.status === "PRESENT" ? "present" : row.status === "ABSENT" ? "absent" : row.status === "MAKEUP" ? "makeup" : null;
+      if (!bucket) continue;
+      attendanceStats[bucket] += 1;
+
+      const cls = row.session?.class;
+      const classId = row.session?.classId;
+      if (!classId || !cls) continue;
+      const current =
+        byClass.get(classId) ??
+        { classId, classCode: cls.classCode, className: cls.className, present: 0, absent: 0, makeup: 0 };
+      current[bucket] += 1;
+      byClass.set(classId, current);
+    }
+    const attendanceByClass = [...byClass.values()].sort(
+      (left, right) => right.present + right.absent + right.makeup - (left.present + left.absent + left.makeup),
     );
 
     // Calculate charges summaries
@@ -513,6 +538,7 @@ export async function GET(
         chargesCount: student.charges.length,
         unpaidBookAmount,
         attendanceStats,
+        attendanceByClass,
       },
       learningSnapshot,
       walletBalance,

@@ -8,6 +8,7 @@ import {
   monthKey,
 } from "@/lib/server/tuition-rules";
 import { computeBalanceSnapshot, consumeCreditBalances } from "@/lib/server/balance";
+import { settleChargesFromAdvancePayments } from "@/lib/server/advance-payment";
 import { resolvePurchasedMainSessions } from "@/lib/server/enrollment-learning";
 import { getWalletBalance } from "@/lib/server/enrollment-wallet";
 
@@ -558,6 +559,11 @@ export async function generateChargesForPeriod(periodId: string) {
           });
         }
       }
+
+      // Học viên đã đóng trước (tiền còn nằm trên phiếu thu, chưa gắn phiếu học phí
+      // nào) thì phiếu vừa sinh phải tự trừ vào khoản đó ngay — đúng như cột "HP tồn
+      // tháng trước" âm trong file quản lý thật, phụ huynh không phải đóng lại.
+      await settleChargesFromAdvancePayments(tx, studentId);
     });
   }
 
@@ -751,6 +757,8 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
         data: { chargeId: createdCharge.id },
       });
     }
+
+    await settleChargesFromAdvancePayments(tx, enrollment.studentId);
 
     return createdCharge;
   });

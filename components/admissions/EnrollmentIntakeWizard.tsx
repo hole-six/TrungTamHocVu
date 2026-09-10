@@ -568,11 +568,16 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                     onChange={(event) => {
                       const nextClassId = event.target.value;
                       const nextClass = classes.find((item) => item.id === nextClassId);
+                      // Đổi lớp thì XÓA số buổi đang nhập chứ không chép số buổi của
+                      // lớp mới vào: số buổi do người ghi danh quyết định cho từng học
+                      // viên, lớp chỉ là cái mác xếp lịch (số dự kiến của lớp hiện làm
+                      // gợi ý ngay dưới ô nhập).
                       setForm((prev) => ({
                         ...prev,
                         classId: nextClassId,
-                        purchasedMainSessionCount: nextClass?.totalSessions ? String(nextClass.totalSessions) : prev.purchasedMainSessionCount,
+                        purchasedMainSessionCount: nextClassId === prev.classId ? prev.purchasedMainSessionCount : "",
                       }));
+                      void nextClass;
                       setError(null);
                     }}
                   >
@@ -615,14 +620,22 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                     </div>
                     {form.billingModel === "COURSE" ? (
                       <label className="form-group mt-3">
-                        <span className="label">Số buổi khóa chính</span>
+                        <span className="label">Số buổi học viên này đăng ký</span>
                         <input
                           type="number"
                           min={1}
                           className="input"
                           value={form.purchasedMainSessionCount}
                           onChange={(event) => patchForm("purchasedMainSessionCount", event.target.value)}
+                          placeholder="Nhập số buổi phụ huynh đã chốt"
                         />
+                        {/* Số buổi của lớp chỉ là GỢI Ý, không tự điền vào ô trên: mỗi
+                            học viên một cam kết riêng, nên ngày kết thúc cũng khác nhau. */}
+                        <span className="hint">
+                          {selectedClass?.totalSessions
+                            ? `Lớp ${selectedClass.className} dự kiến ${selectedClass.totalSessions} buổi — chỉ để tham khảo, học viên đăng ký bao nhiêu thì nhập bấy nhiêu.`
+                            : "Lớp chưa đặt số buổi dự kiến. Nhập theo đúng số buổi phụ huynh đã chốt."}
+                        </span>
                       </label>
                     ) : null}
                   </div>

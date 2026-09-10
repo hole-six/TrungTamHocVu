@@ -58,6 +58,16 @@ type StudentData = {
       absent: number;
       makeup: number;
     };
+    // Vắng ở LỚP NÀO, không chỉ vắng mấy buổi — học viên đi qua nhiều lớp nên con số
+    // gộp chung không đủ để xếp buổi bổ trợ đúng chỗ.
+    attendanceByClass?: {
+      classId: string;
+      classCode: string;
+      className: string;
+      present: number;
+      absent: number;
+      makeup: number;
+    }[];
   };
   learningSnapshot?: {
     completedMainSessions: number;
@@ -268,6 +278,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
   const enrollment = data.currentEnrollment;
   const isCourseEnrollment = enrollment?.billingModel !== "PERIOD";
   const attendance = data.kpis.attendanceStats;
+  const attendanceByClass = data.kpis.attendanceByClass ?? [];
   const canSeeFinance = data.permissions.canSeeFinance;
   const availableCredits = data.sessionCredits.filter((credit: any) => credit.status === "AVAILABLE").length;
   const primaryGuardian = data.allGuardians.find((item) => item.isPrimary)?.guardian ?? null;
@@ -365,6 +376,27 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
               </div>
             ) : null}
           </div>
+
+          {/* Học/vắng theo TỪNG LỚP. Chỉ hiện khi học viên đã đi qua nhiều hơn 1 lớp —
+              một lớp thì con số ở ô trên đã nói đủ, thêm nữa chỉ rối. */}
+          {attendanceByClass.length > 1 ? (
+            <div className="rounded-xl border border-[#e5eaf7] bg-white px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Học và vắng theo từng lớp</p>
+              <ul className="mt-2 space-y-1.5">
+                {attendanceByClass.map((row) => (
+                  <li key={row.classId} className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                    <Link href={`/classes/${row.classId}`} className="font-bold text-[#0f1729] hover:underline">
+                      {row.className}
+                    </Link>
+                    <span className="text-xs text-[#64748b]">{row.classCode}</span>
+                    <span className="text-[#0f1729]">đã học {row.present}</span>
+                    {row.absent > 0 ? <span className="font-semibold text-rose-700">vắng {row.absent}</span> : null}
+                    {row.makeup > 0 ? <span className="font-semibold text-emerald-700">bù {row.makeup}</span> : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           {data.operationalWarnings.length > 0 ? (
             <ul className="space-y-1.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">

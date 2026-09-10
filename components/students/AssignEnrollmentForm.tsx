@@ -169,7 +169,11 @@ export default function AssignEnrollmentForm({
     const isSame = selected?.id === item.id;
     setSelected(isSame ? null : item);
     if (!isSame) {
-      setMainSessionCount(item.totalSessions ? String(item.totalSessions) : "");
+      // KHÔNG điền sẵn số buổi từ lớp. Số buổi là cam kết của TỪNG học viên, do người
+      // ghi danh quyết định — lớp chỉ là cái mác để xếp thời khóa biểu. Điền sẵn theo
+      // lớp thì trên thực tế không ai sửa, và lớp lại thành người quyết định số buổi.
+      // Số buổi dự kiến của lớp vẫn hiện ngay bên cạnh làm gợi ý.
+      setMainSessionCount("");
       setUnitPrice(item.tuitionPerSession ? String(item.tuitionPerSession) : "");
     }
   }
@@ -352,14 +356,22 @@ export default function AssignEnrollmentForm({
                     </label>
                     {billingModel === "COURSE" ? (
                       <label className="form-group">
-                        <span className="label-sm">Số buổi khóa chính</span>
+                        <span className="label-sm">Số buổi học viên này đăng ký</span>
                         <input
                           type="number"
                           min={1}
                           className="input"
                           value={mainSessionCount}
                           onChange={(event) => setMainSessionCount(event.target.value)}
+                          placeholder="Nhập số buổi phụ huynh đã chốt"
                         />
+                        {/* Số buổi của lớp chỉ là GỢI Ý, không tự điền: mỗi học viên một
+                            cam kết riêng nên ngày kết thúc cũng khác nhau. */}
+                        <span className="text-[10px] leading-tight text-ink-muted48">
+                          {selected.totalSessions
+                            ? `Lớp dự kiến ${selected.totalSessions} buổi — chỉ để tham khảo.`
+                            : "Lớp chưa đặt số buổi dự kiến."}
+                        </span>
                       </label>
                     ) : null}
                   </div>

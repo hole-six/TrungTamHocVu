@@ -134,6 +134,52 @@ async function main() {
     progressMismatch.slice(0, 6).join("; "),
   );
 
+  // ---- 8. Tiền đóng trước phải được dùng hết trước khi còn phiếu học phí chưa thu ----
+  // Tiền đã thu mà chưa gắn vào phiếu nào (đóng trước / thu dư) là chuyện bình thường,
+  // NHƯNG chỉ khi học viên đó không còn phiếu học phí nào thiếu tiền. Nếu vừa còn nợ
+  // vừa còn tiền dư treo thì nghĩa là bước tự trừ tiền đóng trước đã không chạy —
+  // phụ huynh sẽ bị đòi lại đúng khoản họ đã đóng. Xem lib/server/advance-payment.ts.
+  const studentsWithMoney = await prisma.student.findMany({
+    where: { OR: [{ payments: { some: {} } }, { charges: { some: {} } }] },
+    select: {
+      id: true,
+      fullName: true,
+      payments: {
+        where: { status: { notIn: ["VOIDED", "REFUNDED"] } },
+        select: { amount: true, allocations: { select: { amount: true } } },
+      },
+      charges: {
+        select: {
+          tuitionAmount: true,
+          materialsAmount: true,
+          allocations: {
+            where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } },
+            select: { amount: true },
+          },
+        },
+      },
+    },
+  });
+  const strandedAdvance = studentsWithMoney
+    .map((student) => {
+      const advance = student.payments.reduce(
+        (sum, payment) => sum + payment.amount - payment.allocations.reduce((s, a) => s + a.amount, 0),
+        0,
+      );
+      const unpaid = student.charges.reduce((sum, charge) => {
+        const due = charge.tuitionAmount + charge.materialsAmount - charge.allocations.reduce((s, a) => s + a.amount, 0);
+        return sum + Math.max(0, due);
+      }, 0);
+      return { name: student.fullName, advance, unpaid };
+    })
+    .filter((item) => item.advance > 0 && item.unpaid > 0);
+  check(
+    strandedAdvance.length === 0,
+    `Tiền đóng trước không bị treo khi vẫn còn nợ (${studentsWithMoney.length} học viên)`,
+    strandedAdvance.slice(0, 6).map((item) => `${item.name}: dư ${vnd(item.advance)} nhưng vẫn nợ ${vnd(item.unpaid)}`).join("; "),
+  );
+
+
   console.log(failed === 0 ? "\n==> TOÀN BỘ BẤT BIẾN VỀ TIỀN ĐỀU ĐÚNG." : `\n==> CÓ ${failed} BẤT BIẾN BỊ SAI.`);
   await prisma.$disconnect();
   if (failed > 0) process.exit(1);

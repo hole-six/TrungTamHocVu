@@ -36,7 +36,7 @@ import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { ensureClassRoadmapItems } from "@/lib/server/class-roadmap";
 import { getClassAssignmentRoleType } from "@/lib/server/class-default-assignments";
-import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
+import { getEnrollmentLearningSnapshot, enrollmentNeedsTransferOnComplete } from "@/lib/server/enrollment-learning";
 import { getWalletBalance } from "@/lib/server/enrollment-wallet";
 import { buildEnrollmentPipeline } from "@/lib/server/enrollment-pipeline";
 import { formatVnd, formatDate } from "@/lib/export-utils";
@@ -450,9 +450,18 @@ export default async function ClassDetailPage({ params }: { params: { id: string
       ),
     ]),
   );
-  const completionReadyCount = activeLearningSnapshots.filter((item) => item.snapshot.remainingMainSessions <= 0).length;
+  // Dùng CHUNG quy tắc với drawer lớp và route kết thúc lớp — xem
+  // enrollmentNeedsTransferOnComplete. Trước đây trang này thiếu hẳn nhánh cho gói theo
+  // tháng nên hai màn hình cùng một lớp lại ra hai danh sách khác nhau.
+  const needsTransferOnComplete = (item: (typeof activeLearningSnapshots)[number]) =>
+    enrollmentNeedsTransferOnComplete({
+      billingModel: item.enrollment.billingModel,
+      remainingMainSessions: item.snapshot.remainingMainSessions,
+      hasNextClass: Boolean(cls.nextClassId),
+    });
+  const completionReadyCount = activeLearningSnapshots.filter((item) => !needsTransferOnComplete(item)).length;
   const completionNeedTransferStudents = activeLearningSnapshots
-    .filter((item) => item.snapshot.remainingMainSessions > 0)
+    .filter(needsTransferOnComplete)
     .map((item) => ({
       enrollmentId: item.enrollment.id,
       studentName: item.enrollment.student.fullName,

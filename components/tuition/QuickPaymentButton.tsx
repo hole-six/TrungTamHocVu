@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
@@ -25,6 +25,7 @@ const GUIDE_SECTIONS = [
     title: "Cách nhập an toàn",
     items: [
       "Số tiền thực thu là số tiền trung tâm nhận thực tế, không phải số công nợ đang treo.",
+      "Phụ huynh đóng chẵn hoặc đóng trước cho kỳ sau thì cứ nhập đúng số đã cầm — phần vượt công nợ sẽ được giữ lại và tự trừ vào học phí kỳ sau.",
       "Nếu có chiết khấu tiền mặt thì hệ thống sẽ tự giảm công nợ thêm phần chiết khấu, nên phải nhập đúng lý do.",
       "Diễn giải và ghi chú nên đủ rõ để người sau tra lại biết đây là khoản thu nào, từ ai, của kỳ nào.",
     ],
@@ -33,7 +34,8 @@ const GUIDE_SECTIONS = [
   {
     title: "Các lỗi phải tránh",
     items: [
-      "Không nhập số tiền lớn hơn công nợ còn lại.",
+      "Không nhập số tiền khác với số tiền thật đã nhận, kể cả khi phụ huynh đóng thừa.",
+      "Không dùng chiết khấu cho phần tiền đóng trước — chiết khấu chỉ giảm được phần đang thực nợ.",
       "Không dùng chiết khấu tiền mặt cho các hình thức khác như chuyển khoản nếu quy trình nội bộ không cho phép.",
       "Không xác nhận đã thu khi phụ huynh mới hứa chuyển khoản nhưng chưa có bằng chứng đã nhận tiền.",
     ],
@@ -67,9 +69,35 @@ export default function QuickPaymentButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Công nợ và tiền đóng trước lấy từ đúng nguồn với API thu tiền — suggestedAmount chỉ
+  // dùng làm số gợi ý điền sẵn, vì tùy chỗ gọi mà nó là công nợ cả học viên hay chỉ là
+  // phần còn thiếu của một phiếu học phí.
+  const [balance, setBalance] = useState<{ outstanding: number; advanceBalance: number } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void fetch(`/api/students/${studentId}/balance`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        setBalance({ outstanding: Number(data.outstanding) || 0, advanceBalance: Number(data.advanceBalance) || 0 });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, studentId]);
 
   const numericAmount = Number(amount) || 0;
-  const maxReceivable = Math.max(0, suggestedAmount);
+  // Công nợ đang treo. KHÔNG còn là trần thu tiền: phụ huynh đóng chẵn hoặc đóng trước
+  // cho kỳ sau là chuyện hàng ngày, phần vượt được giữ lại thành tiền đóng trước và tự
+  // trừ vào phiếu học phí kỳ sau — xem lib/server/advance-payment.ts.
+  const outstanding = Math.max(0, balance ? balance.outstanding : suggestedAmount);
+  const advanceAmount = Math.max(0, numericAmount - outstanding);
+  // Chiết khấu là giảm giá trên khoản ĐANG NỢ, không phải tiền mặt thật, nên chỉ được
+  // giảm tối đa phần nợ mà tiền mặt chưa trả hết.
+  const maxDiscountAmount = Math.max(0, outstanding - numericAmount);
   const numericDiscountPercent = Math.min(MAX_CASH_DISCOUNT_PERCENT, Math.max(0, Number(discountPercent) || 0));
   const cashDiscountActive = method === CASH_METHOD && enableCashDiscount && numericDiscountPercent > 0;
   const discountAmount = cashDiscountActive ? Math.round((numericAmount * numericDiscountPercent) / 100) : 0;
@@ -87,12 +115,11 @@ export default function QuickPaymentButton({
       setError("Số tiền thực thu phải lớn hơn 0.");
       return false;
     }
-    if (numericAmount > maxReceivable) {
-      setError(`Số tiền thực thu không được lớn hơn công nợ còn lại ${formatVnd(maxReceivable)}.`);
-      return false;
-    }
-    if (totalDebtReduction > maxReceivable) {
-      setError(`Tổng số tiền giảm công nợ sau chiết khấu là ${formatVnd(totalDebtReduction)}, đang vượt công nợ còn lại ${formatVnd(maxReceivable)}.`);
+    if (discountAmount > maxDiscountAmount) {
+      setError(
+        `Chiết khấu ${formatVnd(discountAmount)} vượt phần công nợ còn lại sau tiền mặt (${formatVnd(maxDiscountAmount)}). ` +
+          "Giảm % chiết khấu hoặc giảm số tiền thu.",
+      );
       return false;
     }
     if (cashDiscountActive && !discountReason.trim()) {
@@ -159,20 +186,30 @@ export default function QuickPaymentButton({
       >
         <form onSubmit={handleFormSubmit} className="space-y-5">
           <div className="rounded-3xl border-2 border-rose-200 bg-gradient-to-r from-rose-50 via-amber-50 to-orange-50 px-5 py-4 text-sm text-rose-800 shadow-[0_16px_34px_rgba(244,63,94,0.08)]">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-rose-700">Giới hạn thu tiền</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-rose-700">Công nợ đang treo</p>
             <p className="mt-2 text-base font-semibold">
-              Còn được thu tối đa <strong>{formatVnd(maxReceivable)}</strong>.
+              Học viên còn nợ <strong>{formatVnd(outstanding)}</strong>.
             </p>
             {cashDiscountActive ? <p className="mt-1 text-sm text-rose-700">Tổng giảm công nợ sau chiết khấu hiện là <strong>{formatVnd(totalDebtReduction)}</strong>.</p> : null}
+            {balance && balance.advanceBalance > 0 ? (
+              <p className="mt-2 text-sm text-rose-700">
+                Đang có sẵn <strong>{formatVnd(balance.advanceBalance)}</strong> tiền đóng trước chưa dùng tới.
+              </p>
+            ) : null}
+            {advanceAmount > 0 ? (
+              <p className="mt-2 rounded-2xl bg-white/80 px-3 py-2 text-sm font-semibold text-[#8a5a00]">
+                Thu dư {formatVnd(advanceAmount)} — hệ thống giữ lại làm tiền đóng trước và tự trừ vào học phí kỳ sau.
+              </p>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <label className="space-y-2">
               <span className="label-sm">Số tiền thực thu</span>
-              <CurrencyInput required min={1} max={maxReceivable > 0 ? maxReceivable : undefined} value={amount} onChange={(next) => setAmount(String(next))} />
+              <CurrencyInput required min={1} value={amount} onChange={(next) => setAmount(String(next))} />
               <p className="text-xs text-ink-muted48">
                 {amount ? `Sẽ ghi nhận đã thu ${formatVnd(Number(amount) || 0)}. ` : ""}
-                Không được nhập lớn hơn {formatVnd(maxReceivable)}.
+                Nhập đúng số tiền thật đã nhận, kể cả khi nhiều hơn công nợ {formatVnd(outstanding)}.
               </p>
             </label>
 
@@ -261,7 +298,7 @@ export default function QuickPaymentButton({
           {error ? <div className="alert-danger">{error}</div> : null}
 
           <div className="flex gap-3 border-t border-hairline pt-4">
-            <button type="submit" disabled={loading || maxReceivable <= 0} className="btn-primary">
+            <button type="submit" disabled={loading} className="btn-primary">
               {loading ? "Đang lưu..." : "Xác nhận đã thu"}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
@@ -274,7 +311,7 @@ export default function QuickPaymentButton({
       <ConfirmDialog
         open={confirmOpen}
         title="Xác nhận đã thu tiền?"
-        description={`Ghi nhận đã thu ${formatVnd(numericAmount)} bằng ${method}${cashDiscountActive ? `, kèm chiết khấu ${numericDiscountPercent}% (giảm công nợ tổng cộng ${formatVnd(totalDebtReduction)})` : ""}. Chỉ xác nhận khi tiền đã thực sự vào tay hoặc đã có bằng chứng chuyển khoản rõ ràng.`}
+        description={`Ghi nhận đã thu ${formatVnd(numericAmount)} bằng ${method}${cashDiscountActive ? `, kèm chiết khấu ${numericDiscountPercent}% (giảm công nợ tổng cộng ${formatVnd(totalDebtReduction)})` : ""}.${advanceAmount > 0 ? ` Trong đó ${formatVnd(advanceAmount)} là tiền đóng trước, sẽ tự trừ vào học phí kỳ sau.` : ""} Chỉ xác nhận khi tiền đã thực sự vào tay hoặc đã có bằng chứng chuyển khoản rõ ràng.`}
         confirmLabel="Xác nhận đã thu"
         loading={loading}
         onConfirm={submit}

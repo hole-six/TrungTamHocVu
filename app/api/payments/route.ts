@@ -6,6 +6,7 @@ import { computeOutstandingBalance } from "@/lib/server/balance";
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import { canAccessBranch } from "@/lib/branch-filter";
 import { topUpWalletFromPayment } from "@/lib/server/enrollment-wallet";
+import { computeAdvanceBalance } from "@/lib/server/advance-payment";
 
 const CASH_METHOD = "Tiền mặt";
 const MAX_CASH_DISCOUNT_PERCENT = 10;
@@ -50,7 +51,6 @@ export async function POST(req: NextRequest) {
 
   const paymentNo = `PM${crypto.randomUUID().slice(0, 10).toUpperCase()}`;
   const discountAmount = Math.round((amount * discountPercent) / 100);
-  const totalDebtReduction = amount + discountAmount;
   const discountNote =
     discountAmount > 0
       ? `Đã giảm ${discountAmount.toLocaleString("vi-VN")}đ do chiết khấu tiền mặt ${discountPercent}%${discountReason ? ` · Lý do: ${discountReason}` : ""}`
@@ -60,17 +60,21 @@ export async function POST(req: NextRequest) {
   const result = await prisma.$transaction(async (tx) => {
     const currentOutstanding = await computeOutstandingBalance(studentId, tx);
 
-    if (currentOutstanding <= 0) {
-      throw new Error("Học viên hiện không còn công nợ để thu.");
-    }
-    if (amount > currentOutstanding) {
+    // ĐÓNG TRƯỚC / THU DƯ ĐƯỢC PHÉP. Trước đây chỗ này chặn thẳng hai ca "chưa có công
+    // nợ" và "thu vượt công nợ", khiến nhân viên không ghi nhận được đúng số tiền đã
+    // cầm của phụ huynh — trong khi ở file quản lý thật của trung tâm, "TT dư" là một
+    // tình trạng bình thường (260 dòng mang số dư âm ở cột "HP tồn tháng trước").
+    // Nay phần vượt công nợ nằm lại trên phiếu thu ở dạng chưa phân bổ và sẽ tự trừ
+    // vào phiếu học phí kỳ sau — xem lib/server/advance-payment.ts.
+    //
+    // Riêng CHIẾT KHẤU thì vẫn phải chặn: chiết khấu là giảm giá trên khoản đang nợ,
+    // không phải tiền mặt thật, nên không thể giảm nhiều hơn phần nợ mà tiền mặt chưa
+    // trả hết. Nếu không chặn, phần chiết khấu thừa sẽ thành credit ảo không có gốc.
+    const maxDiscountAmount = Math.max(0, currentOutstanding - amount);
+    if (discountAmount > maxDiscountAmount) {
       throw new Error(
-        `Số tiền thực thu ${amount.toLocaleString("vi-VN")}đ đang vượt công nợ còn lại ${currentOutstanding.toLocaleString("vi-VN")}đ.`,
-      );
-    }
-    if (totalDebtReduction > currentOutstanding) {
-      throw new Error(
-        `Tổng số tiền giảm công nợ sau chiết khấu là ${totalDebtReduction.toLocaleString("vi-VN")}đ, đang vượt công nợ còn lại ${currentOutstanding.toLocaleString("vi-VN")}đ.`,
+        `Chiết khấu ${discountAmount.toLocaleString("vi-VN")}đ vượt phần công nợ còn lại sau tiền mặt ` +
+          `(${maxDiscountAmount.toLocaleString("vi-VN")}đ). Giảm % chiết khấu hoặc giảm số tiền thu.`,
       );
     }
 
@@ -174,6 +178,7 @@ export async function POST(req: NextRequest) {
     return {
       payment,
       unallocated: remaining,
+      advanceBalance: await computeAdvanceBalance(tx, studentId),
       cashTransactionId: cashTxn.id,
       discountAmount,
       discountNote,
@@ -193,6 +198,7 @@ export async function POST(req: NextRequest) {
     {
       item: result.payment,
       unallocated: result.unallocated,
+      advanceBalance: result.advanceBalance,
       cashTransactionId: result.cashTransactionId,
       discountAmount: result.discountAmount,
       discountNote: result.discountNote,

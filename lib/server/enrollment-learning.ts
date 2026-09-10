@@ -78,7 +78,14 @@ export function resolvePurchasedMainSessions(enrollment: EnrollmentWithClass) {
   // về class.totalSessions (số buổi DỰ KIẾN của lớp) cho mọi enrollment, khiến toàn bộ
   // hàm bên dưới (entitledMainSessions/remainingMainSessions/continuationStatus) bịa
   // ra quyền học giả cho PERIOD — đây là chỗ sửa gốc, chỉ COURSE mới fallback.
-  if (enrollment.billingModel === "PERIOD") return enrollment.purchasedMainSessionCount ?? 0;
+  // PERIOD: BỎ QUA hẳn purchasedMainSessionCount kể cả khi dữ liệu có số. Dữ liệu cũ
+  // đang chép nguyên class.totalSessions vào cột này cho 100% ghi danh theo tháng, nên
+  // chỉ chặn ở lúc GHI là không đủ — mọi màn hình đọc lại vẫn dựng ra "đã học 27/48"
+  // trong khi quyền học thật nằm ở Ví buổi học. Xem scripts/repair_period_session_count.ts.
+  if (enrollment.billingModel === "PERIOD") return 0;
+  // COURSE: số buổi do NGƯỜI GHI DANH quyết định. class.totalSessions chỉ còn là đường
+  // lui cho ghi danh cũ chưa có số riêng — ghi danh mới bắt buộc nhập (xem
+  // app/api/classes/[id]/enrollments/route.ts).
   return enrollment.purchasedMainSessionCount ?? enrollment.class?.totalSessions ?? 0;
 }
 
@@ -320,4 +327,26 @@ export function computeTransferConversion(
     convertedSessionCount,
     remainingCashAmount: remainingValue - convertedSessionCount * newUnitPrice,
   };
+}
+
+// Kết thúc lớp: ghi danh nào phải CHUYỂN (mang tiền/buổi còn lại sang lớp mới), ghi
+// danh nào coi như XONG.
+//
+// Phải là MỘT quy tắc duy nhất vì có tới 3 nơi hỏi cùng câu hỏi này — trang chi tiết
+// lớp, drawer lớp (api summary) và chính route kết thúc lớp. Trước đây mỗi nơi tự
+// viết lại: api/summary có nhánh riêng cho gói theo tháng, còn trang chi tiết lớp thì
+// không, nên khi quyền học của gói theo tháng chuyển hẳn về Ví buổi học, trang đó tụt
+// mất toàn bộ học viên theo tháng khỏi danh sách chuyển lớp trong im lặng.
+//
+// Quy tắc: gói theo tháng KHÔNG có khái niệm "hết buổi" (remainingMainSessions luôn 0,
+// quyền học nằm ở ví) — có lớp tiếp theo thì luôn chuyển, quy đổi qua ví. Gói theo
+// khóa thì cứ còn buổi chưa học là còn phải chuyển. Khớp đúng nhánh xử lý ở
+// app/api/classes/[id]/complete/route.ts.
+export function enrollmentNeedsTransferOnComplete(params: {
+  billingModel: string;
+  remainingMainSessions: number;
+  hasNextClass: boolean;
+}): boolean {
+  if (params.billingModel === "PERIOD") return params.hasNextClass;
+  return params.remainingMainSessions > 0;
 }

@@ -22,6 +22,9 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "TACH",
   },
+  // Chrome đã bỏ apple-mobile-web-app-capable và cảnh báo trên mọi trang. appleWebApp
+  // ở trên vẫn giữ cho iOS; thẻ chuẩn mới khai báo thêm ở đây để hết cảnh báo.
+  other: { "mobile-web-app-capable": "yes" },
   icons: {
     icon: [{ url: "/pwa-icons/favicon-32.png", sizes: "32x32", type: "image/png" }],
     apple: [{ url: "/pwa-icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
