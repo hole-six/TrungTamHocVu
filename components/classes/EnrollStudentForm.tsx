@@ -77,12 +77,47 @@ export default function EnrollStudentForm({
   const [installments, setInstallments] = useState<InstallmentDraft[]>(() => splitInstallments(courseTotalAmount, 3));
   const [mainSessionCount, setMainSessionCount] = useState(String(defaultMainSessionCount || ""));
   const [unitPrice, setUnitPrice] = useState(String(defaultUnitPrice || ""));
+  // Ghi danh giữa chừng là việc hàng ngày — phải hỏi rõ NGÀY BẮT ĐẦU HỌC (không mặc
+  // định hôm nay), vì tháng đầu chỉ thu từ ngày đó trở đi (xem generateChargesForPeriod).
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [preview, setPreview] = useState<null | {
+    unitPrice: number;
+    firstMonth: { periodName: string; sessionCount: number; amount: number };
+    firstSession: { date: string; startTime: string | null; endTime: string | null; orderInClass: number } | null;
+    sessionsAlreadyTaught: number;
+    expectedEndDate: string | null;
+    purchasedAmount: number | null;
+  }>(null);
   const [paidCatchupSessionCount, setPaidCatchupSessionCount] = useState("0");
   const [paidCatchupUnitPrice, setPaidCatchupUnitPrice] = useState(String(defaultUnitPrice || ""));
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Xem trước theo lớp + ngày bắt đầu + số buổi mua. Dùng chung đúng cách đếm buổi với
+  // lúc sinh học phí thật, để số hiện ở đây không lệch số thu sau này.
+  useEffect(() => {
+    if (!open || !startDate) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const sessions = billingModel === "PERIOD" ? 0 : Number(mainSessionCount) || 0;
+        const response = await fetch(
+          `/api/classes/${classId}/enrollment-preview?date=${startDate}&sessions=${sessions}`,
+          { signal: controller.signal },
+        );
+        if (!response.ok) return;
+        setPreview(await response.json());
+      } catch {
+        /* huỷ do gõ tiếp — bỏ qua */
+      }
+    }, 250);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [open, classId, startDate, billingModel, mainSessionCount]);
 
   // Luôn hiện sẵn 1 danh sách học viên duyệt được khi mở form (không bắt gõ tìm trước
   // mới thấy ai) — gõ vào ô tìm sẽ lọc lại theo tên/mã, debounce 300ms.
@@ -123,6 +158,7 @@ export default function EnrollStudentForm({
       body: JSON.stringify({
         studentId: selected.id,
         billingModel,
+        enrollDate: startDate,
         purchasedMainSessionCount: Number(mainSessionCount),
         tuitionUnitPriceSnapshot: Number(unitPrice),
         paidCatchupSessionCount: Number(paidCatchupSessionCount),
@@ -204,6 +240,62 @@ export default function EnrollStudentForm({
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Sẵn sàng ghi danh</p>
               <p className="mt-2 text-base font-semibold text-emerald-950">{selected.fullName}</p>
               <p className="mt-1 text-sm text-emerald-800">{selected.studentCode}</p>
+              <label className="form-group border-t border-emerald-200 pt-4">
+                <span className="label-sm">Ngày bắt đầu học</span>
+                <input type="date" className="input" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+                <span className="text-[10px] leading-tight text-ink-muted48">
+                  Tháng đầu chỉ thu từ ngày này trở đi — các buổi lớp đã dạy trước đó không tính tiền.
+                </span>
+              </label>
+
+              {/* Trả lời thẳng 2 câu nhân viên luôn phải tự tính tay khi ghi danh giữa
+                  chừng: học viên vào từ buổi nào, và tháng đầu thu bao nhiêu. Số ở đây
+                  đếm bằng ĐÚNG cách mà lúc sinh học phí thật dùng. */}
+              {preview ? (
+                <div className="rounded-xl border border-emerald-300 bg-white/70 p-3 text-sm">
+                  <p className="font-bold text-emerald-900">Vào lớp từ ngày này thì:</p>
+                  <ul className="mt-1.5 space-y-1 text-emerald-900">
+                    <li>
+                      • Buổi đầu tiên:{" "}
+                      {preview.firstSession ? (
+                        <strong>
+                          {new Date(preview.firstSession.date).toLocaleDateString("vi-VN")}
+                          {preview.firstSession.startTime ? ` lúc ${preview.firstSession.startTime}` : ""} — buổi thứ{" "}
+                          {preview.firstSession.orderInClass} của lớp
+                        </strong>
+                      ) : (
+                        <strong>lớp chưa có buổi nào sau ngày này</strong>
+                      )}
+                    </li>
+                    {preview.sessionsAlreadyTaught > 0 ? (
+                      <li>• Lớp đã dạy {preview.sessionsAlreadyTaught} buổi trước đó — không thu tiền phần này.</li>
+                    ) : null}
+                    {billingModel === "PERIOD" ? (
+                      <li>
+                        • Tháng {preview.firstMonth.periodName}: còn{" "}
+                        <strong>{preview.firstMonth.sessionCount} buổi</strong> ={" "}
+                        <strong>{formatVnd(preview.firstMonth.amount)}</strong> (tự sinh vào kỳ thu, không thu nguyên tháng)
+                      </li>
+                    ) : (
+                      <>
+                        <li>
+                          • Mua {Number(mainSessionCount) || 0} buổi ={" "}
+                          <strong>{formatVnd(preview.purchasedAmount ?? 0)}</strong> — thu một lần khi ghi danh
+                        </li>
+                        <li>
+                          • Dự kiến học xong:{" "}
+                          <strong>
+                            {preview.expectedEndDate
+                              ? new Date(preview.expectedEndDate).toLocaleDateString("vi-VN")
+                              : "chưa đủ dữ liệu lịch để ước tính"}
+                          </strong>
+                        </li>
+                      </>
+                    )}
+                  </ul>
+                </div>
+              ) : null}
+
               <div className="grid gap-3 border-t border-emerald-200 pt-4 md:grid-cols-2">
                 {/* Đóng theo tháng KHÔNG có "đã mua N buổi" — quyền học nằm trong Ví buổi
                     học (nạp mỗi lần đóng tiền), không phải 1 tổng cố định lúc ghi danh.

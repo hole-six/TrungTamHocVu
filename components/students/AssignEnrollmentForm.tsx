@@ -88,6 +88,17 @@ export default function AssignEnrollmentForm({
   const [billingModel, setBillingModel] = useState<"PERIOD" | "COURSE">("PERIOD");
   const [mainSessionCount, setMainSessionCount] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
+  // Cùng quy tắc với form ghi danh phía lớp (components/classes/EnrollStudentForm.tsx):
+  // phải hỏi rõ ngày bắt đầu học và cho thấy trước sẽ thu bao nhiêu cho tháng đầu.
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [preview, setPreview] = useState<null | {
+    unitPrice: number;
+    firstMonth: { periodName: string; sessionCount: number; amount: number };
+    firstSession: { date: string; startTime: string | null; orderInClass: number } | null;
+    sessionsAlreadyTaught: number;
+    expectedEndDate: string | null;
+    purchasedAmount: number | null;
+  }>(null);
   const [loadingList, setLoadingList] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -130,6 +141,30 @@ export default function AssignEnrollmentForm({
     void loadClasses(q);
   }, [open]);
 
+  useEffect(() => {
+    if (!selected || !startDate) {
+      setPreview(null);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const sessions = billingModel === "COURSE" ? Number(mainSessionCount) || 0 : 0;
+        const response = await fetch(
+          `/api/classes/${selected.id}/enrollment-preview?date=${startDate}&sessions=${sessions}`,
+          { signal: controller.signal },
+        );
+        if (response.ok) setPreview(await response.json());
+      } catch {
+        /* huỷ do đổi lựa chọn — bỏ qua */
+      }
+    }, 250);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [selected, startDate, billingModel, mainSessionCount]);
+
   function selectClass(item: ClassHit) {
     const isSame = selected?.id === item.id;
     setSelected(isSame ? null : item);
@@ -159,6 +194,7 @@ export default function AssignEnrollmentForm({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        enrollDate: startDate,
         studentId: student.id,
         billingModel: selected.isRemedial ? "COURSE" : billingModel,
         purchasedMainSessionCount: billingModel === "COURSE" ? Number(mainSessionCount) : undefined,
@@ -328,10 +364,58 @@ export default function AssignEnrollmentForm({
                     ) : null}
                   </div>
 
-                  {billingModel === "COURSE" && mainSessionCount && unitPrice ? (
-                    <p className="mt-2 text-sm font-semibold text-emerald-900">
-                      Tổng {formatVnd(Number(mainSessionCount) * Number(unitPrice))} ({mainSessionCount} buổi)
-                    </p>
+                  <label className="form-group mt-3">
+                    <span className="label-sm">Ngày bắt đầu học</span>
+                    <input type="date" className="input" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+                    <span className="text-[10px] leading-tight text-ink-muted48">
+                      Tháng đầu chỉ thu từ ngày này trở đi — buổi lớp đã dạy trước đó không tính tiền.
+                    </span>
+                  </label>
+
+                  {/* Cùng nội dung với form ghi danh phía lớp: vào từ buổi nào, thu bao nhiêu. */}
+                  {preview ? (
+                    <div className="mt-2 rounded-xl border border-emerald-300 bg-white/70 p-3 text-sm text-emerald-900">
+                      <p className="font-bold">Vào lớp từ ngày này thì:</p>
+                      <ul className="mt-1.5 space-y-1">
+                        <li>
+                          • Buổi đầu tiên:{" "}
+                          {preview.firstSession ? (
+                            <strong>
+                              {new Date(preview.firstSession.date).toLocaleDateString("vi-VN")}
+                              {preview.firstSession.startTime ? ` lúc ${preview.firstSession.startTime}` : ""} — buổi thứ{" "}
+                              {preview.firstSession.orderInClass} của lớp
+                            </strong>
+                          ) : (
+                            <strong>lớp chưa có buổi nào sau ngày này</strong>
+                          )}
+                        </li>
+                        {preview.sessionsAlreadyTaught > 0 ? (
+                          <li>• Lớp đã dạy {preview.sessionsAlreadyTaught} buổi trước đó — không thu tiền phần này.</li>
+                        ) : null}
+                        {billingModel === "PERIOD" ? (
+                          <li>
+                            • Tháng {preview.firstMonth.periodName}: còn{" "}
+                            <strong>{preview.firstMonth.sessionCount} buổi</strong> ={" "}
+                            <strong>{formatVnd(preview.firstMonth.amount)}</strong>
+                          </li>
+                        ) : (
+                          <>
+                            <li>
+                              • Mua {Number(mainSessionCount) || 0} buổi ={" "}
+                              <strong>{formatVnd(preview.purchasedAmount ?? 0)}</strong> — thu một lần khi ghi danh
+                            </li>
+                            <li>
+                              • Dự kiến học xong:{" "}
+                              <strong>
+                                {preview.expectedEndDate
+                                  ? new Date(preview.expectedEndDate).toLocaleDateString("vi-VN")
+                                  : "chưa đủ dữ liệu lịch để ước tính"}
+                              </strong>
+                            </li>
+                          </>
+                        )}
+                      </ul>
+                    </div>
                   ) : null}
                 </>
               )}

@@ -46,6 +46,31 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         where: { consumedSessionId: params.id, status: "CONSUMED" },
         data: { status: "AVAILABLE", consumedSessionId: null, consumedAt: null },
       });
+
+      // Buổi bổ trợ được cấp VÌ VẮNG chính buổi này: buổi không diễn ra thì không ai
+      // vắng cả — thu hồi, nếu không học viên được tặng buổi bù cho một buổi chưa từng
+      // xảy ra. Chỉ thu hồi buổi CHƯA DÙNG; buổi đã dùng để học bù rồi thì để nguyên
+      // (cùng nguyên tắc với sửa điểm danh vắng->có mặt ở attendance route).
+      await tx.sessionCredit.updateMany({
+        where: { sourceSessionId: params.id, status: "AVAILABLE" },
+        data: { status: "VOIDED" },
+      });
+
+      // Tiến độ điểm danh phải lùi lại đúng số người đã được tính có mặt ở buổi này —
+      // xóa bản ghi điểm danh mà không trừ usedSessionCount thì tiến độ học của học
+      // viên bị đội lên vĩnh viễn (buổi không diễn ra vẫn tính là đã học).
+      const attendedRows = await tx.studentAttendance.findMany({
+        where: { sessionId: params.id, status: { in: ["PRESENT", "MAKEUP"] }, enrollmentId: { not: null } },
+        select: { enrollmentId: true },
+      });
+      for (const row of attendedRows) {
+        if (!row.enrollmentId) continue;
+        await tx.enrollment.update({
+          where: { id: row.enrollmentId },
+          data: { usedSessionCount: { decrement: 1 } },
+        });
+      }
+
       await tx.studentAttendance.deleteMany({ where: { sessionId: params.id } });
       // Ví buổi học (PERIOD): buổi này hóa ra không diễn ra thật — hoàn lại đúng
       // những buổi đã trừ cho buổi này, không phải "bù" bằng 1 giao dịch mới.
