@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { DataTableResponsive } from "@/components/ui/DataTable";
 import type { Column } from "@/components/ui/DataTable";
 import { formatVnd } from "@/lib/export-utils";
@@ -53,6 +54,14 @@ export default function EmployeesTable({
   canAddTimesheet: boolean;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  // Cho phép mở thẳng hồ sơ 1 người qua /employees?open=<id> — dùng cho các cảnh báo ở
+  // nơi khác (vd "chưa cấu hình đơn giá" ở bảng lương) bấm được sang đúng người cần sửa,
+  // thay vì chỉ báo tên rồi để nhân sự tự đi tìm.
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const requested = searchParams.get("open");
+    if (requested) setOpenId(requested);
+  }, [searchParams]);
   const selected = initialData.find((item) => item.id === openId) ?? null;
 
   const columns: Column<EmployeeRow>[] = [

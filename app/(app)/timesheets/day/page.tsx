@@ -153,7 +153,14 @@ export default async function TimesheetDayPage({ searchParams }: { searchParams?
                         )}
                       </div>
                       {session.assignments.length === 0 ? (
-                        <p className="mt-1.5 text-xs font-semibold text-amber-700">Chưa phân công giáo viên/trợ giảng — buổi này sẽ không sinh ra tiền công cho ai.</p>
+                        // Bấm được sang thẳng màn buổi học để phân công — cảnh báo mà
+                        // không đi tiếp được thì nhân sự vẫn phải tự mò lại đúng buổi đó.
+                        <Link
+                          href={`/classes/${session.class.id}/sessions/${session.id}`}
+                          className="mt-1.5 inline-block rounded-lg bg-amber-100 px-2.5 py-1.5 text-xs font-bold text-amber-800 underline-offset-2 hover:underline"
+                        >
+                          Chưa phân công giáo viên/trợ giảng — buổi này không sinh tiền công cho ai. Bấm để phân công →
+                        </Link>
                       ) : (
                         <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#334155]">
                           {session.assignments.map((assignment) => (

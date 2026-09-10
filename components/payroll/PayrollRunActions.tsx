@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
+import Link from "next/link";
 
 const NEXT: Record<string, { to: string; label: string; confirm: string } | null> = {
   DRAFT: null,
@@ -66,7 +67,7 @@ export default function PayrollRunActions({
   // Cảnh báo cấu hình thiếu do server trả về (vd có ngày công nhưng chưa có đơn giá
   // ngày công nên lương ra 0đ) — phải hiện thẳng ở đây, nếu không nhân sự chỉ thấy
   // bảng lương 0đ mà không biết vì sao.
-  const [warnings, setWarnings] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<{ employeeId: string; employeeName: string; message: string }[]>([]);
 
   async function generate() {
     setLoading("GENERATE");
@@ -185,7 +186,15 @@ export default function PayrollRunActions({
           </p>
           <ul className="mt-1.5 space-y-1">
             {warnings.map((item, index) => (
-              <li key={index} className="text-sm text-amber-900">• {item}</li>
+              <li key={index} className="text-sm text-amber-900">
+                •{" "}
+                {/* Bấm thẳng vào tên để mở hồ sơ người đó mà sửa đơn giá — không bắt
+                    nhân sự tự đi tìm lại đúng người trong danh sách. */}
+                <Link href={`/employees?open=${item.employeeId}`} className="font-bold underline underline-offset-2 hover:text-amber-950">
+                  {item.employeeName}
+                </Link>{" "}
+                {item.message}
+              </li>
             ))}
           </ul>
         </div>
