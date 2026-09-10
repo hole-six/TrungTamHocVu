@@ -54,6 +54,10 @@ export default function NewEmployeeForm() {
   }
 
   const rateUnit = form.payMode === "SESSION" ? "ca" : "giờ";
+  // Thực tế ở trung tâm (đối chiếu file quản lý 2026): 13 giáo viên / 8 trợ giảng,
+  // chỉ 1 người làm cả hai vai và đơn giá 2 vai GIỐNG HỆT nhau. Nên mặc định hỏi
+  // ĐÚNG 1 đơn giá cho việc đứng lớp, chỉ mở ra 2 ô khi thật sự trả khác nhau.
+  const [splitRates, setSplitRates] = useState(false);
 
   return (
     <>
@@ -95,13 +99,31 @@ export default function NewEmployeeForm() {
               </select>
             </label>
             <label className="space-y-1">
-              <span className="label-sm">Đơn giá dạy / {rateUnit}</span>
-              <input type="number" className="input" value={form.teachingHourlyRate} onChange={(e) => set("teachingHourlyRate", e.target.value)} />
+              <span className="label-sm">Đơn giá đứng lớp / {rateUnit}</span>
+              <input
+                type="number"
+                className="input"
+                value={form.teachingHourlyRate}
+                onChange={(e) => {
+                  set("teachingHourlyRate", e.target.value);
+                  // Mặc định trả cùng giá cho cả dạy lẫn trợ giảng — đúng thực tế đang dùng.
+                  if (!splitRates) set("assistantHourlyRate", e.target.value);
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setSplitRates((current) => !current)}
+                className="text-[11px] font-semibold text-[#2563eb] hover:underline"
+              >
+                {splitRates ? "Dùng chung 1 đơn giá" : "Trả khác nhau khi trợ giảng?"}
+              </button>
             </label>
-            <label className="space-y-1">
-              <span className="label-sm">Đơn giá TG / {rateUnit}</span>
-              <input type="number" className="input" value={form.assistantHourlyRate} onChange={(e) => set("assistantHourlyRate", e.target.value)} />
-            </label>
+            {splitRates ? (
+              <label className="space-y-1">
+                <span className="label-sm">Đơn giá trợ giảng / {rateUnit}</span>
+                <input type="number" className="input" value={form.assistantHourlyRate} onChange={(e) => set("assistantHourlyRate", e.target.value)} />
+              </label>
+            ) : null}
             <label className="space-y-1">
               <span className="label-sm">Đơn giá 1 công HC</span>
               <input type="number" className="input" value={form.staffDailyRate} onChange={(e) => set("staffDailyRate", e.target.value)} />

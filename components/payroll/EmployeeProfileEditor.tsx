@@ -53,6 +53,13 @@ export default function EmployeeProfileEditor({
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Mở sẵn ô thứ 2 nếu hồ sơ đang thật sự có 2 đơn giá khác nhau (dữ liệu cũ) — nếu
+  // không, người sửa sẽ tưởng hệ thống làm mất mức trợ giảng đã nhập trước đó.
+  const [splitRates, setSplitRates] = useState(
+    employee.assistantHourlyRate != null &&
+      employee.teachingHourlyRate != null &&
+      employee.assistantHourlyRate !== employee.teachingHourlyRate,
+  );
   const [form, setForm] = useState({
     fullName: employee.fullName,
     position: employee.position ?? "",
@@ -204,20 +211,45 @@ export default function EmployeeProfileEditor({
               <option value="SESSION">Theo ca</option>
             </select>
           </label>
+          {/* Một người một đơn giá là thực tế đang dùng (đối chiếu file quản lý: chỉ 1
+              người làm cả 2 vai và trả cùng giá) — gõ 1 lần áp cho cả dạy lẫn trợ giảng,
+              chỉ tách đôi khi thật sự trả khác nhau. */}
           <label className="space-y-1">
             <span className="text-xs font-medium text-ink-muted48">
-              {form.payMode === "SESSION" ? "Đơn giá dạy/ca" : "Đơn giá dạy/giờ"}
+              {form.payMode === "SESSION" ? "Đơn giá đứng lớp/ca" : "Đơn giá đứng lớp/giờ"}
             </span>
-            <input className="input" type="number" value={form.teachingHourlyRate} onChange={(e) => setForm((f) => ({ ...f, teachingHourlyRate: e.target.value }))} />
-            <p className="form-hint">{form.teachingHourlyRate ? formatVnd(Number(form.teachingHourlyRate) || 0) : ""}</p>
+            <input
+              className="input"
+              type="number"
+              value={form.teachingHourlyRate}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  teachingHourlyRate: e.target.value,
+                  assistantHourlyRate: splitRates ? f.assistantHourlyRate : e.target.value,
+                }))
+              }
+            />
+            <div className="flex items-center justify-between gap-2">
+              <p className="form-hint">{form.teachingHourlyRate ? formatVnd(Number(form.teachingHourlyRate) || 0) : ""}</p>
+              <button
+                type="button"
+                onClick={() => setSplitRates((current) => !current)}
+                className="text-[11px] font-semibold text-[#2563eb] hover:underline"
+              >
+                {splitRates ? "Dùng chung 1 đơn giá" : "Trả khác khi trợ giảng?"}
+              </button>
+            </div>
           </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-ink-muted48">
-              {form.payMode === "SESSION" ? "Đơn giá TG/ca" : "Đơn giá TG/giờ"}
-            </span>
-            <input className="input" type="number" value={form.assistantHourlyRate} onChange={(e) => setForm((f) => ({ ...f, assistantHourlyRate: e.target.value }))} />
-            <p className="form-hint">{form.assistantHourlyRate ? formatVnd(Number(form.assistantHourlyRate) || 0) : ""}</p>
-          </label>
+          {splitRates ? (
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-ink-muted48">
+                {form.payMode === "SESSION" ? "Đơn giá trợ giảng/ca" : "Đơn giá trợ giảng/giờ"}
+              </span>
+              <input className="input" type="number" value={form.assistantHourlyRate} onChange={(e) => setForm((f) => ({ ...f, assistantHourlyRate: e.target.value }))} />
+              <p className="form-hint">{form.assistantHourlyRate ? formatVnd(Number(form.assistantHourlyRate) || 0) : ""}</p>
+            </label>
+          ) : null}
           <label className="space-y-1">
             <span className="text-xs font-medium text-ink-muted48">Đơn giá 1 công HC</span>
             <input className="input" type="number" value={form.staffDailyRate} onChange={(e) => setForm((f) => ({ ...f, staffDailyRate: e.target.value }))} />
