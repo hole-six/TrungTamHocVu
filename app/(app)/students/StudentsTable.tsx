@@ -68,6 +68,8 @@ type Student = {
 };
 
 type StudentsTableProps = {
+  /** "am" | "sap-het" — chip lọc theo Ví buổi học đang bật. */
+  walletFilter?: string;
   initialData: Student[];
   total: number;
   page: number;
@@ -84,6 +86,10 @@ type StudentsTableProps = {
     debt: number;
     needTransfer: number;
     endingSoon: number;
+    /** Nhóm đóng theo tháng: đã học vượt quá tiền đã đóng (ví < 0). */
+    walletNegative: number;
+    /** Nhóm đóng theo tháng: ví còn <= 2 buổi, cần gọi thu tháng mới. */
+    walletLow: number;
   };
 };
 
@@ -109,6 +115,7 @@ export default function StudentsTable({
   searchQuery = "",
   status = "",
   stats,
+  walletFilter = "",
 }: StudentsTableProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -525,8 +532,17 @@ export default function StudentsTable({
             { label: "Tất cả", value: stats.total, href: "/students", active: !status, activeClass: "bg-primary text-white", idleValueClass: "text-primary" },
             { label: "Đang học", value: stats.active, href: "/students?status=ACTIVE", active: status === "ACTIVE", activeClass: "bg-emerald-500 text-white", idleValueClass: "text-emerald-700" },
             { label: "Đã nghỉ", value: stats.left, href: "/students?status=LEFT", active: status === "LEFT", activeClass: "bg-rose-500 text-white", idleValueClass: "text-rose-700" },
-            { label: "Cần chuyển", value: stats.needTransfer, href: null, active: false, activeClass: "", idleValueClass: "text-amber-700" },
-            { label: "Sắp hết", value: stats.endingSoon, href: null, active: false, activeClass: "", idleValueClass: "text-sky-700" },
+            // Ví buổi học là thước đo của 95% học viên (đóng theo tháng) — 2 chip này
+            // bấm được để lọc ra đúng nhóm cần gọi thu, thay cho 2 chip cũ theo mô hình
+            // khóa vốn luôn bằng 0 với nhóm đó.
+            { label: "Ví âm", value: stats.walletNegative, href: "/students?wallet=am", active: walletFilter === "am", activeClass: "bg-rose-600 text-white", idleValueClass: "text-rose-700" },
+            { label: "Ví sắp hết", value: stats.walletLow, href: "/students?wallet=sap-het", active: walletFilter === "sap-het", activeClass: "bg-amber-500 text-white", idleValueClass: "text-amber-700" },
+            ...(stats.needTransfer > 0
+              ? [{ label: "Cần chuyển", value: stats.needTransfer, href: null, active: false, activeClass: "", idleValueClass: "text-amber-700" }]
+              : []),
+            ...(stats.endingSoon > 0
+              ? [{ label: "Sắp hết khóa", value: stats.endingSoon, href: null, active: false, activeClass: "", idleValueClass: "text-sky-700" }]
+              : []),
             { label: "Portal", value: stats.portal, href: null, active: false, activeClass: "", idleValueClass: "text-sky-700" },
             ...(canViewFinance
               ? [{ label: "Công nợ", value: stats.debt, href: null, active: false, activeClass: "", idleValueClass: "text-amber-700" }]

@@ -55,11 +55,13 @@ async function computeGlobalStudentStats(where: Prisma.StudentWhereInput) {
     select: {
       id: true,
       guardians: { select: { isPrimary: true, guardian: { select: { user: { select: { isActive: true } } } } } },
+      // Lấy theo ĐÚNG thứ tự mà bảng bên dưới dùng để chọn "ghi danh hiện tại"
+      // (ACTIVE trước, rồi mới tới ghi danh gần nhất). Trước đây ô thống kê chỉ lấy
+      // enrollment ACTIVE nên học viên đã rút lớp mà ví còn ÂM (vẫn đang nợ tiền) không
+      // được đếm, trong khi bấm vào chip lọc thì họ lại hiện ra — hai nơi ra hai con số.
       enrollments: {
-        where: { status: "ACTIVE" },
         include: { class: { include: { nextClass: true, scheduleRules: { where: { isActive: true }, orderBy: { weekday: "asc" } } } } },
-        orderBy: { enrollDate: "desc" },
-        take: 1,
+        orderBy: [{ status: "asc" }, { enrollDate: "desc" }],
       },
     },
   });
@@ -90,6 +92,12 @@ async function computeGlobalStudentStats(where: Prisma.StudentWhereInput) {
   let debtCount = 0;
   let needTransferCount = 0;
   let endingSoonCount = 0;
+  // Chỉ số theo VÍ BUỔI HỌC — nhóm đóng theo tháng (95% học viên) không có khái niệm
+  // "còn N buổi của khóa", nên 2 chỉ số cũ (cần chuyển lớp / sắp hết khóa) luôn bằng 0
+  // với họ. Cái thật sự cần hành động là: ai đã học vượt tiền đã đóng (ví âm) và ai
+  // sắp hết ví để gọi thu tháng mới.
+  let walletNegativeCount = 0;
+  let walletLowCount = 0;
 
   await Promise.all(
     students.map(async (student) => {
@@ -99,7 +107,22 @@ async function computeGlobalStudentStats(where: Prisma.StudentWhereInput) {
       const outstanding = (chargeByStudent.get(student.id) ?? 0) - (paidByStudent.get(student.id) ?? 0);
       if (outstanding > 0) debtCount++;
 
-      const enrollment = student.enrollments[0];
+      const activeEnrollment = student.enrollments.find((item) => item.status === "ACTIVE");
+      const currentEnrollment = activeEnrollment ?? student.enrollments[0];
+      if (!currentEnrollment || !currentEnrollment.class) return;
+
+      // Ví: tính trên ghi danh HIỆN TẠI kể cả đã rút lớp — ví âm là tiền còn phải thu,
+      // ví dương của người đã nghỉ là tiền còn phải hoàn, cả hai đều cần hành động.
+      if (currentEnrollment.billingModel === "PERIOD") {
+        const balance = await getWalletBalance(prisma, currentEnrollment.id);
+        if (balance < 0) walletNegativeCount++;
+        else if (balance <= 2) walletLowCount++;
+        return;
+      }
+
+      // Các chỉ số theo mô hình khóa chỉ có nghĩa với người ĐANG học — học viên đã rút
+      // mà còn buổi chưa học không phải là ca "cần chuyển lớp".
+      const enrollment = activeEnrollment;
       if (!enrollment || !enrollment.class) return;
       const snapshot = await getEnrollmentLearningSnapshot(prisma, { ...enrollment, class: { ...enrollment.class, course: null } });
       if (snapshot.continuationStatus === "NEED_TRANSFER") {
@@ -110,7 +133,7 @@ async function computeGlobalStudentStats(where: Prisma.StudentWhereInput) {
     }),
   );
 
-  return { portalCount, debtCount, needTransferCount, endingSoonCount };
+  return { portalCount, debtCount, needTransferCount, endingSoonCount, walletNegativeCount, walletLowCount };
 }
 
 export default async function StudentsPage({
@@ -130,6 +153,7 @@ export default async function StudentsPage({
     outstandingTo?: string;
     sessionCreditFrom?: string;
     sessionCreditTo?: string;
+    wallet?: string;
   };
 }) {
   const user = await getCurrentUser();
@@ -150,6 +174,8 @@ export default async function StudentsPage({
   const nameFilter = searchParams.name?.trim() ?? "";
   const classNameFilter = searchParams.className?.trim() ?? "";
   const guardianFilter = searchParams.guardian?.trim() ?? "";
+  // Lọc theo Ví buổi học: "am" = đang âm (đã học vượt tiền đã đóng), "sap-het" = còn <= 2 buổi.
+  const walletFilter = searchParams.wallet?.trim() ?? "";
   // continuationStatus/outstanding không phải cột thật (tính SAU khi query, từ charge +
   // enrollment snapshot) — không lọc được bằng Prisma `where` trực tiếp. Áp dụng bằng
   // cách: tính đủ cho TOÀN BỘ danh sách khớp các filter còn lại (không phân trang ở
@@ -214,7 +240,7 @@ export default async function StudentsPage({
       : {}),
   };
 
-  const needsComputedFilter = Boolean(continuationStatusFilter || outstandingFrom || outstandingTo || sessionCreditFrom || sessionCreditTo);
+  const needsComputedFilter = Boolean(continuationStatusFilter || outstandingFrom || outstandingTo || sessionCreditFrom || sessionCreditTo || walletFilter);
 
   const [items, grouped, countResult] = await Promise.all([
     prisma.student.findMany({
@@ -476,6 +502,14 @@ export default async function StudentsPage({
   // continuationStatus/outstanding lọc ở đây (sau khi đã tính xong, xem ghi chú ở
   // needsComputedFilter) rồi mới cắt trang — vẫn trên server, chưa gửi gì ra browser.
   let filteredItems = normalizedItems;
+  // Lọc theo Ví buổi học — chỉ áp cho nhóm đóng theo tháng (nhóm khác không có ví).
+  if (walletFilter === "am") {
+    filteredItems = filteredItems.filter((item) => item.currentWalletBalance != null && item.currentWalletBalance < 0);
+  } else if (walletFilter === "sap-het") {
+    filteredItems = filteredItems.filter(
+      (item) => item.currentWalletBalance != null && item.currentWalletBalance >= 0 && item.currentWalletBalance <= 2,
+    );
+  }
   if (continuationStatusFilter) {
     filteredItems = filteredItems.filter((item) => item.continuationStatus === continuationStatusFilter);
   }
@@ -498,7 +532,8 @@ export default async function StudentsPage({
     : filteredItems;
 
   const stats = Object.fromEntries(grouped.map((row) => [row.status, row._count._all])) as Record<string, number>;
-  const { portalCount, debtCount, needTransferCount, endingSoonCount } = await computeGlobalStudentStats(where);
+  const { portalCount, debtCount, needTransferCount, endingSoonCount, walletNegativeCount, walletLowCount } =
+    await computeGlobalStudentStats(where);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -530,7 +565,10 @@ export default async function StudentsPage({
           debt: debtCount,
           needTransfer: needTransferCount,
           endingSoon: endingSoonCount,
+          walletNegative: walletNegativeCount,
+          walletLow: walletLowCount,
         }}
+        walletFilter={walletFilter}
       />
     </div>
   );

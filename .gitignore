@@ -28,3 +28,5 @@ ui-shots/
 # Bản sao lưu CSDL tạo trong lúc kiểm thử — không bao giờ commit
 *.db.*bak
 *.bak
+# File Excel quan ly do nguoi dung tha vao thu muc lam viec - khong commit
+*.xlsx

@@ -420,6 +420,12 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                 {editingProfile ? "Đóng sửa hồ sơ" : "Sửa hồ sơ"}
               </button>
             ) : null}
+            {/* Trang hồ sơ đầy đủ có những thứ drawer không chứa hết (lịch sử chuyển lớp,
+                toàn bộ phiếu thu, bảng buổi bổ trợ, hành trình học). Trước đây không có
+                đường nào đi tới từ danh sách học viên nên gần như không ai mở tới. */}
+            <Link href={`/students/${studentId}`} className={ACTION_CLASS}>
+              Mở hồ sơ đầy đủ
+            </Link>
           </div>
 
           {editingProfile && data.permissions.canEditStudent ? (
