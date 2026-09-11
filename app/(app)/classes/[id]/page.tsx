@@ -24,6 +24,7 @@ import ClassTaskManager from "@/components/classes/ClassTaskManager";
 import ClassRecurringTaskManager from "@/components/classes/ClassRecurringTaskManager";
 import ClassQuickActions from "@/components/classes/ClassQuickActions";
 import RescheduleSessionButton from "@/components/classes/RescheduleSessionButton";
+import CancelSessionButton from "@/components/classes/CancelSessionButton";
 import ClassDefaultAssignmentManager from "@/components/classes/ClassDefaultAssignmentManager";
 import RemedialBulkAssignPanel from "@/components/classes/RemedialBulkAssignPanel";
 import SessionLinkWithDrawer from "@/components/classes/SessionLinkWithDrawer";
@@ -840,6 +841,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                       Điểm danh / nhật ký
                                     </SessionLinkWithDrawer>
                                     {canManageClass && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession ? <RescheduleSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} /> : null}
+                                    {canManageClass && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession ? <CancelSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} /> : null}
                                   </div>
                                 ) : canManageClass ? (
                                   <span className="text-xs text-[#f59e0b] font-semibold">Sinh buổi trước</span>
@@ -966,6 +968,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                               {canManageClass && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession && (
                                 <div className="shrink-0">
                                   <RescheduleSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} />
+                                  <CancelSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} />
                                 </div>
                               )}
                             </>

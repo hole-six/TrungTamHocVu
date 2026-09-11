@@ -11,6 +11,7 @@ import EnrollmentRowActions from "./EnrollmentRowActions";
 import TransferEnrollmentButton from "./TransferEnrollmentButton";
 import AddEnrollmentSessionsButton from "./AddEnrollmentSessionsButton";
 import RescheduleSessionButton from "./RescheduleSessionButton";
+import CancelSessionButton from "./CancelSessionButton";
 import ScheduleRuleManager from "./ScheduleRuleManager";
 import ClassDefaultAssignmentManager from "./ClassDefaultAssignmentManager";
 import ClassTaskManager from "./ClassTaskManager";
@@ -276,7 +277,10 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                             <span className="font-semibold text-[#64748b]">Điểm danh <strong className="text-[#0f1729]">{slot.session.attendances?.length || 0}</strong></span>
                             <span className="font-semibold text-[#64748b]">Nhật ký <strong className="text-[#0f1729]">{slot.session.journal?.publishedAt ? "Gửi" : slot.session.journal ? "Nháp" : "Chưa"}</strong></span>
                             {data.permissions.canManageClass && slot.session.status !== "CANCELLED" && (
-                              <RescheduleSessionButton sessionId={slot.session.id} sessionDateLabel={formatDate(slot.session.sessionDate)} onSuccess={() => void reload()} />
+                              <>
+                                <RescheduleSessionButton sessionId={slot.session.id} sessionDateLabel={formatDate(slot.session.sessionDate)} onSuccess={() => void reload()} />
+                                <CancelSessionButton sessionId={slot.session.id} sessionDateLabel={formatDate(slot.session.sessionDate)} onSuccess={() => void reload()} />
+                              </>
                             )}
                             <SessionLinkWithDrawer
                               sessionId={slot.session.id}
