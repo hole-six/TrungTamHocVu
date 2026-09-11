@@ -20,6 +20,7 @@ const KIND_TRANSFER_IN = "TRANSFER_IN";
 const KIND_TRANSFER_OUT = "TRANSFER_OUT";
 const KIND_REFUND = "REFUND";
 const KIND_MANUAL = "MANUAL";
+const KIND_FORFEIT = "FORFEIT";
 
 export async function ensureWallet(tx: Prisma.TransactionClient, enrollmentId: string) {
   const existing = await tx.enrollmentWallet.findUnique({ where: { enrollmentId } });
@@ -148,6 +149,31 @@ export async function transferWalletToNewEnrollment(
 // Kết thúc enrollment còn dư ví — nhân viên tự chọn (chốt nghiệp vụ mục 3.10, KHÔNG
 // tự động hóa). "Đã hoàn tiền": đóng ví về 0, việc chuyển tiền mặt thật diễn ra
 // NGOÀI hệ thống. "Giữ lại": không đổi gì, ví treo nguyên trên enrollment đã đóng.
+// BỎ DỞ THÌ MẤT TIỀN — chính sách của trung tâm: tiền đã thu KHÔNG hoàn lại khi học
+// viên tự nghỉ giữa chừng. Buổi còn dư trong ví chỉ được mang sang tháng sau khi học
+// viên VẪN HỌC TIẾP (và phần dư đó là do trung tâm cho nghỉ, xem debitWalletsForCompletedSession).
+//
+// Cố ý GHI MỘT DÒNG GIAO DỊCH thay vì đặt thẳng balance = 0: số dư ví phải luôn khớp
+// tổng sổ giao dịch (bất biến số 1 trong scripts/check_money_integrity.ts), và quan
+// trọng hơn là phải tra lại được đã mất bao nhiêu buổi, ngày nào, vì lý do gì — nếu
+// sau này trung tâm quyết định châm chước cho học viên quay lại thì còn căn cứ.
+export async function forfeitWallet(tx: Prisma.TransactionClient, enrollmentId: string, note?: string) {
+  const wallet = await ensureWallet(tx, enrollmentId);
+  if (wallet.balance <= 0) return { forfeitedSessions: 0 };
+
+  const forfeitedSessions = wallet.balance;
+  await tx.enrollmentWalletTxn.create({
+    data: {
+      walletId: wallet.id,
+      kind: KIND_FORFEIT,
+      amount: -forfeitedSessions,
+      note: note ?? "Bỏ dở giữa chừng — không hoàn tiền theo chính sách trung tâm",
+    },
+  });
+  await tx.enrollmentWallet.update({ where: { id: wallet.id }, data: { balance: 0 } });
+  return { forfeitedSessions };
+}
+
 export async function markWalletRefunded(tx: Prisma.TransactionClient, enrollmentId: string, note?: string) {
   const wallet = await ensureWallet(tx, enrollmentId);
   if (wallet.balance <= 0) return { refundedSessions: 0 };

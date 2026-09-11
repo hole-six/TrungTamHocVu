@@ -5,14 +5,11 @@ import { canTransitionEnrollment } from "@/lib/server/class-rules";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
-import { computeEnrollmentSessionProgress } from "@/lib/server/class-generation";
-import { grantRemainingSessionCredits } from "@/lib/server/session-credits";
 import { ensureBillingPeriod, generateChargesForPeriod } from "@/lib/server/billing-generation";
 import { canEditCharges } from "@/lib/server/tuition-rules";
 import { getVietnamToday } from "@/lib/server/class-rules";
-import { getWalletBalance, markWalletRefunded } from "@/lib/server/enrollment-wallet";
+import { forfeitWallet } from "@/lib/server/enrollment-wallet";
 
-const WITHDRAWAL_CREDIT_REASON = "Buổi dư do rút lớp giữa khóa";
 
 function canManageEnrollmentStatus(role: string | null) {
   return canUpdate("schedule", role) || role === "TEACHER" || role === "TEACHING_ASSISTANT";
@@ -41,20 +38,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const isPeriod = existing.billingModel === "PERIOD";
   // "Đã hoàn tiền"/"Giữ lại" — chốt nghiệp vụ mục 3.10: KHÔNG tự động quyết, nhân
-  // viên phải tự chọn khi rút lớp mà ví còn dư. Mặc định "KEEP" (an toàn — không tự
-  // ý coi như đã hoàn tiền nếu frontend chưa hỏi).
-  const walletDecision = body.walletDecision === "REFUND" ? "REFUND" : "KEEP";
-
-  let withdrawalRemaining = 0;
-  if (body.status === "WITHDRAWN" && !isPeriod) {
-    // COURSE/INSTALLMENT: nếu có classId thì tính theo lịch lớp; nếu là gói tự do thì lấy tổng buổi trừ buổi đã dùng
-    if (existing.classId) {
-      const progress = await computeEnrollmentSessionProgress(existing.classId, existing.enrollDate);
-      withdrawalRemaining = progress.remaining ?? 0;
-    } else {
-      withdrawalRemaining = Math.max(0, (existing.purchasedMainSessionCount ?? 0) - existing.usedSessionCount);
-    }
-  } else if (body.status === "WITHDRAWN" && isPeriod && existing.classId) {
+  // CHÍNH SÁCH TRUNG TÂM: BỎ DỞ THÌ KHÔNG HOÀN TIỀN.
+  //
+  // Tiền đã thu chỉ được trừ đi trong đúng một trường hợp — TRUNG TÂM cho nghỉ buổi
+  // nào thì buổi đó không bị trừ khỏi ví, phần dư tự mang sang tháng sau (xem
+  // debitWalletsForCompletedSession). Còn học viên tự nghỉ giữa chừng thì phần đã
+  // đóng mất luôn, không hoàn tiền mặt và cũng không quy đổi thành buổi bổ trợ.
+  //
+  // Trước đây code làm NGƯỢC lại: gói theo khóa thì cấp SessionCredit cho toàn bộ số
+  // buổi chưa học (tức trả lại giá trị dưới dạng buổi bổ trợ), gói theo tháng thì hỏi
+  // nhân viên "hoàn tiền hay giữ lại". Cả hai đều trái chính sách.
+  if (body.status === "WITHDRAWN" && isPeriod && existing.classId) {
     // PERIOD: KHÔNG tính "buổi dư trong tháng" theo lịch nữa — quyền học nằm trong Ví
     // buổi học (nạp/trừ liên tục qua nhiều tháng), không phải 1 con số suy ra từ lịch
     // tháng hiện tại. Chỉ cần chốt phiếu học phí tháng này NGAY LÚC CÒN ACTIVE trước
@@ -72,7 +66,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
   }
 
-  const { updated, sessionCredits, walletBalance, walletRefunded } = await prisma.$transaction(async (tx) => {
+  const { updated, forfeitedSessions } = await prisma.$transaction(async (tx) => {
     const enrollment = await tx.enrollment.update({
       where: { id: params.id },
       data: {
@@ -104,30 +98,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     await syncStudentDerivedFields(existing.studentId, tx);
 
-    const grantedCredits =
-      !isPeriod && withdrawalRemaining > 0
-        ? await grantRemainingSessionCredits(
-            tx,
-            { id: enrollment.id, studentId: enrollment.studentId, classId: enrollment.classId ?? "" },
-            withdrawalRemaining,
-            WITHDRAWAL_CREDIT_REASON
-          )
-        : null;
-
-    let walletBalanceAfter: number | null = null;
-    let refunded = false;
+    // Gói theo khóa: KHÔNG cấp buổi bổ trợ cho phần chưa học nữa (xem chính sách ở trên).
+    // Gói theo tháng: buổi còn dư trong ví coi như mất, nhưng ghi hẳn một dòng giao dịch
+    // để tra lại được mất bao nhiêu, ngày nào, lý do gì.
+    let forfeitedSessions = 0;
     if (isPeriod && body.status === "WITHDRAWN") {
-      const balanceBefore = await getWalletBalance(tx, existing.id);
-      if (balanceBefore > 0 && walletDecision === "REFUND") {
-        await markWalletRefunded(tx, existing.id, `Đã hoàn tiền mặt lúc rút lớp: ${body.reason || "không ghi lý do"}`);
-        refunded = true;
-        walletBalanceAfter = 0;
-      } else {
-        walletBalanceAfter = balanceBefore;
-      }
+      const result = await forfeitWallet(
+        tx,
+        existing.id,
+        `Rút lớp, không hoàn tiền theo chính sách trung tâm${body.reason ? `: ${body.reason}` : ""}`,
+      );
+      forfeitedSessions = result.forfeitedSessions;
     }
 
-    return { updated: enrollment, sessionCredits: grantedCredits, walletBalance: walletBalanceAfter, walletRefunded: refunded };
+    return { updated: enrollment, forfeitedSessions };
   });
 
   const syncedStudent = await syncStudentDerivedFields(existing.studentId);
@@ -135,10 +119,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({
     item: updated,
     student: syncedStudent,
-    sessionCreditsGranted: sessionCredits?.granted ?? undefined,
-    // walletBalance > 0 && !walletRefunded: ví còn dư và nhân viên chọn "Giữ lại"
-    // (hoặc chưa được hỏi) — frontend nên hiện lại để nhắc xử lý nếu cần.
-    walletBalance: walletBalance ?? undefined,
-    walletRefunded: walletRefunded || undefined,
+    // Số buổi còn dư bị mất khi rút lớp — frontend hiện lại để nhân viên nói rõ với
+    // phụ huynh ngay lúc đó, tránh tranh cãi về sau.
+    forfeitedSessions: forfeitedSessions || undefined,
   });
 }

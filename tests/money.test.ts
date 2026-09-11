@@ -28,6 +28,7 @@ import {
   reverseWalletDebitsForSession,
   getWalletBalance,
   transferWalletToNewEnrollment,
+  forfeitWallet,
 } from "@/lib/server/enrollment-wallet";
 import { settleChargesFromAdvancePayments, computeAdvanceBalance } from "@/lib/server/advance-payment";
 import { getEnrollmentsForSession } from "@/lib/server/class-roster";
@@ -307,6 +308,42 @@ async function main() {
       expectEqual(await check("2026-08-25"), 1, "buổi trước ngày bắt đầu nghỉ");
       expectEqual(await check("2026-09-01"), 0, "đúng ngày bắt đầu nghỉ");
       expectEqual(await check("2026-12-01"), 0, "buổi rất xa sau đó");
+    });
+  });
+
+  // ---------------------------------------------------------------- 6e
+  // CHÍNH SÁCH TRUNG TÂM: BỎ DỞ THÌ MẤT TIỀN, KHÔNG HOÀN.
+  // Tiền đã thu chỉ được trừ đi khi TRUNG TÂM cho nghỉ (buổi đó không trừ ví, phần dư
+  // mang sang tháng sau). Học viên tự nghỉ giữa chừng thì mất luôn.
+  await test("Rút lớp: buổi còn dư MẤT, không hoàn — và vẫn tra lại được mất bao nhiêu", async () => {
+    const branch = await seedBranch(db);
+    const cls = await seedClass(db, branch.id);
+    const student = await seedStudent(db, branch.id, "Bỏ dở");
+    const enrollment = await seedEnrollment(db, {
+      studentId: student.id, classId: cls.id, billingModel: "PERIOD", enrollDate: day("2026-01-05"),
+    });
+    const payment = await seedPayment(db, { studentId: student.id, amount: 10 * UNIT });
+
+    await db.$transaction(async (tx) => {
+      await topUpWalletFromPayment(tx, {
+        enrollmentId: enrollment.id, paymentId: payment.id, amountVnd: 10 * UNIT, unitPrice: UNIT,
+      });
+      expectEqual(await getWalletBalance(tx, enrollment.id), 10, "ví trước khi rút lớp");
+
+      const result = await forfeitWallet(tx, enrollment.id, "Rút lớp, không hoàn tiền");
+      expectEqual(result.forfeitedSessions, 10, "số buổi bị mất");
+      expectEqual(await getWalletBalance(tx, enrollment.id), 0, "ví sau khi rút lớp");
+
+      // Phải để lại DẤU VẾT: số dư khớp sổ giao dịch và tra được đã mất bao nhiêu.
+      const wallet = await tx.enrollmentWallet.findUniqueOrThrow({
+        where: { enrollmentId: enrollment.id },
+        include: { transactions: true },
+      });
+      const tongSo = wallet.transactions.reduce((sum, item) => sum + item.amount, 0);
+      expectEqual(tongSo, wallet.balance, "số dư ví vẫn khớp sổ giao dịch");
+      const dongMat = wallet.transactions.find((item) => item.kind === "FORFEIT");
+      expectEqual(dongMat?.amount, -10, "có dòng ghi nhận mất 10 buổi");
+      expectTrue(Boolean(dongMat?.note), "dòng đó có ghi lý do");
     });
   });
 

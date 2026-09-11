@@ -50,29 +50,30 @@ function WalletWithdrawDialog({
         aria-label="Đóng"
       />
       <div className="relative z-[91] w-full max-w-md rounded-[28px] border border-[#dbe7ff] bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.16)]">
-        <h3 className="text-xl font-bold tracking-tight text-[#12304a]">Học viên còn dư Ví buổi học</h3>
+        <h3 className="text-xl font-bold tracking-tight text-[#12304a]">Học viên còn dư {walletBalance} buổi</h3>
+        {/* CHÍNH SÁCH TRUNG TÂM: bỏ dở thì KHÔNG hoàn tiền. Trước đây hộp này hỏi nhân
+            viên chọn "Đã hoàn tiền" hay "Giữ lại" — cả hai đều trái chính sách, và tệ
+            hơn là đặt một quyết định về tiền lên vai người đang bận nghe điện thoại.
+            Nay chỉ còn nói rõ hậu quả để họ báo lại phụ huynh ngay lúc đó. */}
         <p className="mt-2 text-sm leading-6 text-[#64748b]">
-          Ví còn <strong className="text-[#0f1729]">{walletBalance} buổi</strong> chưa học khi rút lớp. Chọn cách xử lý số buổi
-          này — việc chuyển tiền mặt thật (nếu có) diễn ra ngoài hệ thống, ở đây chỉ ghi nhận trạng thái.
+          Rút lớp giữa chừng thì số buổi này <strong className="text-[#0f1729]">mất, không hoàn tiền</strong> theo chính sách
+          trung tâm. Hệ thống vẫn ghi lại đầy đủ mất bao nhiêu buổi và vì lý do gì để tra cứu về sau.
         </p>
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-semibold text-amber-900">Nên báo phụ huynh trước khi bấm.</p>
+          <p className="mt-1 text-xs text-amber-800">
+            Nếu phụ huynh muốn giữ lại số buổi này, đừng rút lớp — dùng <strong>Bảo lưu</strong> để tạm nghỉ, hoặc
+            <strong> Chuyển lớp</strong> để mang nguyên giá trị sang lớp khác.
+          </p>
+        </div>
         <div className="mt-5 space-y-2">
           <button
             type="button"
             onClick={onRefund}
             disabled={loading}
-            className="w-full rounded-xl border-2 border-rose-200 bg-rose-50 px-4 py-2.5 text-left text-sm font-bold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-xl border-2 border-rose-200 bg-rose-50 px-4 py-2.5 text-center text-sm font-bold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Đã hoàn tiền
-            <span className="block text-xs font-normal text-rose-600">Đóng ví về 0, ghi nhận đã hoàn {walletBalance} buổi cho phụ huynh.</span>
-          </button>
-          <button
-            type="button"
-            onClick={onKeep}
-            disabled={loading}
-            className="w-full rounded-xl border-2 border-[#dbe7ff] bg-[#f8faff] px-4 py-2.5 text-left text-sm font-bold text-[#0f1729] transition hover:bg-[#eef3ff] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Giữ lại
-            <span className="block text-xs font-normal text-[#64748b]">Treo nguyên ví, dùng nếu học viên quay lại học sau này.</span>
+            {loading ? "Đang xử lý..." : `Vẫn rút lớp, chấp nhận mất ${walletBalance} buổi`}
           </button>
         </div>
         <button type="button" onClick={onClose} disabled={loading} className="btn-ghost mt-4 w-full">
@@ -93,7 +94,7 @@ export default function EnrollmentRowActions({
 }: {
   enrollmentId: string;
   status: string;
-  /** PERIOD còn dư Ví lúc rút lớp — mở thêm lựa chọn hoàn tiền/giữ lại (mục 3.10). */
+  /** PERIOD còn dư Ví lúc rút lớp — hiện cảnh báo số buổi sẽ mất trước khi xác nhận. */
   billingModel?: string;
   walletBalance?: number | null;
   onSuccess?: () => void;
@@ -102,13 +103,13 @@ export default function EnrollmentRowActions({
   const [loading, setLoading] = useState(false);
   const [walletChoiceOpen, setWalletChoiceOpen] = useState(false);
 
-  async function withdrawEnrollment(walletDecision?: "REFUND" | "KEEP") {
+  async function withdrawEnrollment() {
     setLoading(true);
 
     const res = await fetch(`/api/enrollments/${enrollmentId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "WITHDRAWN", ...(walletDecision ? { walletDecision } : {}) }),
+      body: JSON.stringify({ status: "WITHDRAWN" }),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -148,8 +149,8 @@ export default function EnrollmentRowActions({
           open={walletChoiceOpen}
           walletBalance={walletBalance ?? 0}
           loading={loading}
-          onRefund={() => void withdrawEnrollment("REFUND")}
-          onKeep={() => void withdrawEnrollment("KEEP")}
+          onRefund={() => void withdrawEnrollment()}
+          onKeep={() => void withdrawEnrollment()}
           onClose={() => {
             if (loading) return;
             setWalletChoiceOpen(false);
@@ -162,7 +163,10 @@ export default function EnrollmentRowActions({
   return (
     <ConfirmActionButton
       title="Xác nhận rút lớp?"
-      description="Các buổi chưa học đủ điều kiện sẽ được chuyển thành buổi bổ trợ cho học viên."
+      description={
+        "Rút lớp giữa chừng thì phần học phí đã đóng cho các buổi chưa học sẽ MẤT, không hoàn tiền và không quy đổi thành buổi bổ trợ — đúng chính sách trung tâm. " +
+        "Nếu phụ huynh chỉ muốn tạm nghỉ thì dùng Bảo lưu; nếu muốn giữ giá trị đã đóng thì dùng Chuyển lớp."
+      }
       confirmLabel="Rút lớp"
       tone="danger"
       disabled={loading}

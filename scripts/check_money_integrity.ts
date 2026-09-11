@@ -180,6 +180,36 @@ async function main() {
   );
 
 
+  // ---- 9. Rút lớp KHÔNG được sinh ra giá trị trả lại ----
+  // Chính sách trung tâm: tiền đã đóng thì không hoàn, và phần chưa học cũng không quy
+  // đổi thành buổi bổ trợ. Buổi bổ trợ chỉ có 2 nguồn hợp lệ: VẮNG BUỔI (miễn phí, bù
+  // đúng buổi đã đóng tiền mà nghỉ) và MUA THÊM có phí. Nếu xuất hiện buổi bổ trợ sinh
+  // từ việc rút lớp hoặc từ tiền lẻ chuyển lớp, tức là có chỗ đang lặng lẽ trả lại giá
+  // trị cho người bỏ dở — xem app/api/enrollments/[id]/route.ts.
+  const refundLikeCredits = await prisma.sessionCredit.findMany({
+    where: { origin: { in: ["WITHDRAWAL_REMAINING", "TRANSFER_REMAINING"] }, status: { not: "VOIDED" } },
+    include: { student: true },
+  });
+  check(
+    refundLikeCredits.length === 0,
+    "Rút lớp không sinh buổi bổ trợ trả lại",
+    refundLikeCredits.slice(0, 6).map((item) => `${item.student.fullName} (${item.origin})`).join("; "),
+  );
+
+  // ---- 10. Buổi bổ trợ do VẮNG phải MIỄN PHÍ ----
+  // Học viên nghỉ thì vẫn bị tính tiền buổi đó vì lớp đã dạy, nhưng nội dung được học
+  // bù MIỄN PHÍ — thu thêm lần nữa là thu hai lần cho cùng một buổi.
+  const paidAbsenceCredits = await prisma.sessionCredit.findMany({
+    where: { origin: "ABSENCE", paidAmount: { gt: 0 } },
+    include: { student: true },
+  });
+  check(
+    paidAbsenceCredits.length === 0,
+    "Buổi bổ trợ do vắng đều miễn phí",
+    paidAbsenceCredits.slice(0, 6).map((item) => `${item.student.fullName}: ${vnd(item.paidAmount)}`).join("; "),
+  );
+
+
   console.log(failed === 0 ? "\n==> TOÀN BỘ BẤT BIẾN VỀ TIỀN ĐỀU ĐÚNG." : `\n==> CÓ ${failed} BẤT BIẾN BỊ SAI.`);
   await prisma.$disconnect();
   if (failed > 0) process.exit(1);
