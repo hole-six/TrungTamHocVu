@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { PLACEMENT_TEST_STATUSES } from "@/lib/server/lead-rules";
+import { applyPlacementTestToLeadStatus } from "@/lib/server/lead-status-sync";
 
 // Cập nhật 1 lịch hẹn test đã có — dùng khi buổi hẹn (scheduledDate) đã tới ngày và
 // nhân sự ghi nhận kết quả thực tế (testDate/status/result), thay vì tạo dòng mới.
@@ -32,11 +33,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data.status = body.status;
   }
 
-  const updated = await prisma.placementTest.update({ where: { id: params.id }, data });
+  const { updated, leadSync } = await prisma.$transaction(async (tx) => {
+    const updatedTest = await tx.placementTest.update({ where: { id: params.id }, data });
 
-  // Không tự đổi trạng thái lead theo ngày test — "đã hẹn"/"đã test" nằm trong
-  // CONTACTING, tiến trình test theo dõi bằng PlacementTest.status (xem ghi chú ở
-  // app/api/leads/[id]/placement-test/route.ts).
+    // Kết quả test đổi thì TRẠNG THÁI LEAD phải đổi theo — trước đây hai chỗ này rời
+    // nhau, chọn "Đạt" ở ô test nhưng ngoài danh sách lead vẫn nằm ở "Đã liên hệ".
+    const sync = await applyPlacementTestToLeadStatus(tx, {
+      leadId: existing.leadId,
+      previousTestStatus: existing.status,
+      nextTestStatus: updatedTest.status,
+      employeeId: user.employeeId ?? null,
+    });
 
-  return NextResponse.json({ item: updated });
+    return { updated: updatedTest, leadSync: sync };
+  });
+
+  return NextResponse.json({ item: updated, leadStatus: leadSync.leadStatus, leadStatusMessage: leadSync.message });
 }

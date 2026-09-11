@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/Toast";
 import { PLACEMENT_TEST_STATUSES, PLACEMENT_TEST_STATUS_LABEL } from "@/lib/server/lead-rules";
 import DatePicker from "@/components/ui/DatePicker";
 
@@ -40,6 +41,7 @@ export default function TestQuickAction({
   onSaved?: () => void;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -92,6 +94,10 @@ export default function TestQuickAction({
       setError(data.error ?? "Không thể lưu.");
       return;
     }
+    // Kết quả test kéo theo trạng thái lead — phải nói rõ ra, nếu không nhân sự tưởng
+    // hệ thống không làm gì và đi bấm lại trạng thái ở chỗ khác.
+    const testData = await res.json().catch(() => ({}));
+    const leadStatusMessage: string | null = testData?.leadStatusMessage ?? null;
 
     // Lớp dự kiến giờ chọn từ danh mục lớp có sẵn (Lead.interestedClassId, đã là FK
     // thật) thay vì gõ tay tự do (PlacementTest.suggestedClass) — luôn ghi lại cùng
@@ -116,6 +122,7 @@ export default function TestQuickAction({
 
     setSaving(false);
     setOpen(false);
+    if (leadStatusMessage) toast.success(leadStatusMessage, "Đã đồng bộ trạng thái lead");
     onSaved?.();
     router.refresh();
   }

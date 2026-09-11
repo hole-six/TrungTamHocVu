@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { calculateAge, suggestGradeLevel } from "@/lib/server/lead-rules";
+import { applyPlacementTestToLeadStatus } from "@/lib/server/lead-status-sync";
 
 // Ghi nhận kết quả test đầu vào — tương ứng bước "Lead hoàn tất test / Lưu kết quả"
 // trong Master Spec §6. Trạng thái lead do nhân sự tự quyết định, không suy luận thay
@@ -24,23 +25,33 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const suggestedClass = body.suggestedClass || suggestGradeLevel(calculateAge(lead.dob));
   const testDate = body.testDate ? new Date(body.testDate) : null;
 
-  const test = await prisma.placementTest.create({
-    data: {
+  const { test, leadSync } = await prisma.$transaction(async (tx) => {
+    const created = await tx.placementTest.create({
+      data: {
+        leadId: lead.id,
+        scheduledDate: body.scheduledDate ? new Date(body.scheduledDate) : null,
+        testDate,
+        status: body.status || "SCHEDULED",
+        suggestedClass,
+        result: body.result || null,
+        notes: body.notes || null,
+      },
+    });
+
+    // Lần ghi nhận đầu tiên đã có kết quả (vd test xong mới nhập liệu) thì trạng thái
+    // lead phải đi theo luôn — xem lib/server/lead-status-sync.ts.
+    const sync = await applyPlacementTestToLeadStatus(tx, {
       leadId: lead.id,
-      scheduledDate: body.scheduledDate ? new Date(body.scheduledDate) : null,
-      testDate,
-      status: body.status || "SCHEDULED",
-      suggestedClass,
-      result: body.result || null,
-      notes: body.notes || null,
-    },
+      previousTestStatus: null,
+      nextTestStatus: created.status,
+      employeeId: user.employeeId ?? null,
+    });
+
+    return { test: created, leadSync: sync };
   });
 
-  // KHÔNG tự đổi trạng thái lead theo lịch test nữa: "đã hẹn test" và "đã test xong"
-  // đều nằm trong CONTACTING (xem LEAD_STATUSES ở lib/server/lead-rules.ts), còn tiến
-  // trình test cụ thể đã có trạng thái riêng trên chính PlacementTest
-  // (SCHEDULED/PASSED/FAILED...). Việc lead có Đạt hay không là đánh giá của nhân sự
-  // trên kết quả, nên để họ tự bấm QUALIFIED/LOST.
-
-  return NextResponse.json({ item: test }, { status: 201 });
+  return NextResponse.json(
+    { item: test, leadStatus: leadSync.leadStatus, leadStatusMessage: leadSync.message },
+    { status: 201 },
+  );
 }
