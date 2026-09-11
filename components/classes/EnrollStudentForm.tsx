@@ -75,7 +75,16 @@ export default function EnrollStudentForm({
   const [selected, setSelected] = useState<StudentHit | null>(null);
   const [billingModel, setBillingModel] = useState<"COURSE" | "PERIOD" | "INSTALLMENT">("COURSE");
   const [installments, setInstallments] = useState<InstallmentDraft[]>(() => splitInstallments(courseTotalAmount, 3));
-  const [mainSessionCount, setMainSessionCount] = useState(String(defaultMainSessionCount || ""));
+  // Người dùng đã tự sửa số tiền từng đợt hay chưa. Khi CHƯA sửa thì các đợt phải tự
+  // chia lại theo tổng tiền THẬT của học viên (số buổi họ đăng ký × đơn giá) — nếu cứ
+  // giữ bản chia theo tổng của lớp thì vừa mở form đã báo lệch tiền.
+  const [installmentsTouched, setInstallmentsTouched] = useState(false);
+  // KHÔNG điền sẵn số buổi của lớp (defaultMainSessionCount). Số buổi là cam kết của
+  // TỪNG học viên, do người ghi danh chốt với phụ huynh — lớp chỉ là cái mác xếp lịch.
+  // Điền sẵn thì thực tế không ai sửa, và lớp lại thành người quyết định số buổi, kéo
+  // theo ngày kết thúc của mọi học viên giống hệt nhau. Số của lớp hiện làm gợi ý ngay
+  // dưới ô nhập.
+  const [mainSessionCount, setMainSessionCount] = useState("");
   const [unitPrice, setUnitPrice] = useState(String(defaultUnitPrice || ""));
   // Ghi danh giữa chừng là việc hàng ngày — phải hỏi rõ NGÀY BẮT ĐẦU HỌC (không mặc
   // định hôm nay), vì tháng đầu chỉ thu từ ngày đó trở đi (xem generateChargesForPeriod).
@@ -84,6 +93,14 @@ export default function EnrollStudentForm({
     unitPrice: number;
     firstMonth: { periodName: string; sessionCount: number; amount: number };
     firstSession: { date: string; startTime: string | null; endTime: string | null; orderInClass: number } | null;
+    selectableSessions?: {
+      id: string;
+      date: string;
+      startTime: string | null;
+      endTime: string | null;
+      orderInClass: number;
+      isPast: boolean;
+    }[];
     sessionsAlreadyTaught: number;
     expectedEndDate: string | null;
     purchasedAmount: number | null;
@@ -188,6 +205,14 @@ export default function EnrollStudentForm({
   const installmentsSum = installments.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   const installmentsDiff = enrollmentTotalAmount - installmentsSum;
   const installmentsMismatch = billingModel === "INSTALLMENT" && installmentsDiff !== 0;
+  const installmentCount = installments.length;
+
+  // Chia đều lại các đợt theo tổng tiền thật, chừng nào người dùng chưa tự sửa tay.
+  useEffect(() => {
+    if (installmentsTouched) return;
+    if (enrollmentTotalAmount <= 0) return;
+    setInstallments(splitInstallments(enrollmentTotalAmount, installmentCount || 3));
+  }, [enrollmentTotalAmount, installmentCount, installmentsTouched]);
 
   return (
     <>
@@ -240,8 +265,37 @@ export default function EnrollStudentForm({
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Sẵn sàng ghi danh</p>
               <p className="mt-2 text-base font-semibold text-emerald-950">{selected.fullName}</p>
               <p className="mt-1 text-sm text-emerald-800">{selected.studentCode}</p>
-              <label className="form-group border-t border-emerald-200 pt-4">
-                <span className="label-sm">Ngày bắt đầu học</span>
+              {/* Chọn ĐÍCH DANH buổi đầu tiên của học viên này — xem enrollment-preview. */}
+              {(preview?.selectableSessions?.length ?? 0) > 0 ? (
+                <label className="form-group border-t border-emerald-200 pt-4">
+                  <span className="label-sm">Bắt đầu từ buổi nào</span>
+                  <select
+                    className="input"
+                    value={preview?.selectableSessions?.find((item) => item.date === startDate)?.id ?? ""}
+                    onChange={(event) => {
+                      const picked = preview?.selectableSessions?.find((item) => item.id === event.target.value);
+                      if (picked) setStartDate(picked.date);
+                    }}
+                  >
+                    <option value="">-- Chọn buổi học đầu tiên của học viên --</option>
+                    {preview?.selectableSessions?.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        Buổi {item.orderInClass} · {new Date(item.date).toLocaleDateString("vi-VN")}
+                        {item.startTime ? ` · ${item.startTime}` : ""}
+                        {item.isPast ? " (đã qua)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-[10px] leading-tight text-ink-muted48">
+                    Buổi đã hủy không nằm trong danh sách. Tháng đầu chỉ thu từ buổi này trở đi.
+                  </span>
+                </label>
+              ) : null}
+
+              <label className={`form-group ${(preview?.selectableSessions?.length ?? 0) > 0 ? "mt-3" : "border-t border-emerald-200 pt-4"}`}>
+                <span className="label-sm">
+                  {(preview?.selectableSessions?.length ?? 0) > 0 ? "Hoặc nhập thẳng ngày bắt đầu" : "Ngày bắt đầu học"}
+                </span>
                 <input type="date" className="input" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
                 <span className="text-[10px] leading-tight text-ink-muted48">
                   Tháng đầu chỉ thu từ ngày này trở đi — các buổi lớp đã dạy trước đó không tính tiền.
@@ -268,7 +322,10 @@ export default function EnrollStudentForm({
                       )}
                     </li>
                     {preview.sessionsAlreadyTaught > 0 ? (
-                      <li>• Lớp đã dạy {preview.sessionsAlreadyTaught} buổi trước đó — không thu tiền phần này.</li>
+                      <li>
+                        • Lớp đã dạy {preview.sessionsAlreadyTaught} buổi trước đó — không thu tiền phần này,{" "}
+                        <strong>nhưng học viên chưa học nội dung buổi 1–{preview.sessionsAlreadyTaught}</strong>. Cân nhắc xếp buổi bổ trợ.
+                      </li>
                     ) : null}
                     {billingModel === "PERIOD" ? (
                       <li>
@@ -303,8 +360,20 @@ export default function EnrollStudentForm({
                     lầm là đã chốt tổng tiền — thực tế học phí sinh theo từng tháng. */}
                 {billingModel !== "PERIOD" ? (
                   <label className="form-group">
-                    <span className="label-sm">Số buổi khóa chính</span>
-                    <input type="number" min={1} className="input" value={mainSessionCount} onChange={(event) => setMainSessionCount(event.target.value)} />
+                    <span className="label-sm">Số buổi học viên này đăng ký</span>
+                    <input
+                      type="number"
+                      min={1}
+                      className="input"
+                      value={mainSessionCount}
+                      onChange={(event) => setMainSessionCount(event.target.value)}
+                      placeholder="Nhập số buổi phụ huynh đã chốt"
+                    />
+                    <span className="text-[10px] leading-tight text-ink-muted48">
+                      {defaultMainSessionCount > 0
+                        ? `Lớp dự kiến ${defaultMainSessionCount} buổi — chỉ để tham khảo.`
+                        : "Lớp chưa đặt số buổi dự kiến."}
+                    </span>
                   </label>
                 ) : null}
                 <label className="form-group">
@@ -379,10 +448,10 @@ export default function EnrollStudentForm({
                         <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2">
                           <input aria-label={`Tháng thu đợt ${index + 1}`} type="month" value={item.dueMonth} onChange={(event) => setInstallments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, dueMonth: event.target.value } : row))} className="input-sm" />
                           <span className="flex flex-col">
-                            <CurrencyInput min={1} value={item.amount} onChange={(next) => setInstallments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, amount: String(next) } : row))} className="input-sm" />
+                            <CurrencyInput min={1} value={item.amount} onChange={(next) => { setInstallmentsTouched(true); setInstallments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, amount: String(next) } : row)); }} className="input-sm" />
                             <span className="text-[10px] leading-tight text-ink-muted48">{formatVnd(Number(item.amount) || 0)}</span>
                           </span>
-                          {installments.length > 2 ? <button type="button" onClick={() => setInstallments((current) => current.filter((_, rowIndex) => rowIndex !== index))} className="btn-ghost-sm px-3 text-red-600">×</button> : <span />}
+                          {installments.length > 2 ? <button type="button" onClick={() => { setInstallmentsTouched(true); setInstallments((current) => current.filter((_, rowIndex) => rowIndex !== index)); }} className="btn-ghost-sm px-3 text-red-600">×</button> : <span />}
                         </div>
                       ))}
                     </div>

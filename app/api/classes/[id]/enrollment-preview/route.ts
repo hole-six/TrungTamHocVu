@@ -46,6 +46,30 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const monthEnd = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth() + 1, 0, 23, 59, 59, 999));
   const countFrom = startDate > monthStart ? startDate : monthStart;
 
+  // Danh sách buổi để người ghi danh CHỌN ĐÍCH DANH buổi học đầu tiên, thay vì chọn một
+  // ngày rồi để hệ thống tự suy ra buổi nào. Lớp chỉ là cái mác xếp lịch, nên cái thật
+  // sự cần chốt là "học viên này bắt đầu từ buổi nào" — đặc biệt khi lớp đã chạy được
+  // một đoạn, hoặc buổi liền trước bị hủy.
+  const allSessions = await prisma.classSession.findMany({
+    where: { classId: params.id, status: { notIn: ["CANCELLED", "RESCHEDULED"] } },
+    orderBy: { sessionDate: "asc" },
+    select: { id: true, sessionDate: true, startTime: true, endTime: true, status: true },
+  });
+  // Cho chọn lùi tối đa 45 ngày (ghi danh muộn, nhập bù hồ sơ) và toàn bộ buổi phía trước.
+  const windowStart = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
+  const selectableSessions = allSessions
+    .map((session, index) => ({
+      id: session.id,
+      date: session.sessionDate.toISOString().slice(0, 10),
+      startTime: session.startTime,
+      endTime: session.endTime,
+      status: session.status,
+      orderInClass: index + 1,
+      isPast: session.sessionDate < new Date(),
+    }))
+    .filter((session) => new Date(`${session.date}T00:00:00.000Z`) >= windowStart)
+    .slice(0, 60);
+
   const [firstSession, sessionsThisMonth, sessionsBefore, totalSessionsSoFar] = await Promise.all([
     prisma.classSession.findFirst({
       where: { classId: cls.id, status: { notIn: ["CANCELLED", "RESCHEDULED"] }, sessionDate: { gte: startDate } },
@@ -72,6 +96,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json({
     startDate: dateParam,
     unitPrice,
+    selectableSessions,
     // Gói theo tháng: tháng đầu chỉ thu từ ngày vào lớp trở đi.
     firstMonth: {
       periodName: `${startDate.getUTCFullYear()}-${String(startDate.getUTCMonth() + 1).padStart(2, "0")}`,

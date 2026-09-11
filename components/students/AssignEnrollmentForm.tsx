@@ -95,6 +95,14 @@ export default function AssignEnrollmentForm({
     unitPrice: number;
     firstMonth: { periodName: string; sessionCount: number; amount: number };
     firstSession: { date: string; startTime: string | null; orderInClass: number } | null;
+    selectableSessions?: {
+      id: string;
+      date: string;
+      startTime: string | null;
+      endTime: string | null;
+      orderInClass: number;
+      isPast: boolean;
+    }[];
     sessionsAlreadyTaught: number;
     expectedEndDate: string | null;
     purchasedAmount: number | null;
@@ -376,8 +384,39 @@ export default function AssignEnrollmentForm({
                     ) : null}
                   </div>
 
+                  {/* Chọn ĐÍCH DANH buổi học đầu tiên. Trước đây chỉ chọn được một ngày
+                      rồi để hệ thống tự suy ra buổi nào — với lớp đã chạy giữa chừng hoặc
+                      có buổi bị hủy thì người ghi danh phải tự mở lịch lớp đếm tay. */}
+                  {(preview?.selectableSessions?.length ?? 0) > 0 ? (
+                    <label className="form-group mt-3">
+                      <span className="label-sm">Bắt đầu từ buổi nào</span>
+                      <select
+                        className="input"
+                        value={preview?.selectableSessions?.find((item) => item.date === startDate)?.id ?? ""}
+                        onChange={(event) => {
+                          const picked = preview?.selectableSessions?.find((item) => item.id === event.target.value);
+                          if (picked) setStartDate(picked.date);
+                        }}
+                      >
+                        <option value="">-- Chọn buổi học đầu tiên của học viên --</option>
+                        {preview?.selectableSessions?.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            Buổi {item.orderInClass} · {new Date(item.date).toLocaleDateString("vi-VN")}
+                            {item.startTime ? ` · ${item.startTime}` : ""}
+                            {item.isPast ? " (đã qua)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-[10px] leading-tight text-ink-muted48">
+                        Buổi đã hủy không nằm trong danh sách. Tháng đầu chỉ thu từ buổi này trở đi.
+                      </span>
+                    </label>
+                  ) : null}
+
                   <label className="form-group mt-3">
-                    <span className="label-sm">Ngày bắt đầu học</span>
+                    <span className="label-sm">
+                      {(preview?.selectableSessions?.length ?? 0) > 0 ? "Hoặc nhập thẳng ngày bắt đầu" : "Ngày bắt đầu học"}
+                    </span>
                     <input type="date" className="input" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
                     <span className="text-[10px] leading-tight text-ink-muted48">
                       Tháng đầu chỉ thu từ ngày này trở đi — buổi lớp đã dạy trước đó không tính tiền.
@@ -402,7 +441,10 @@ export default function AssignEnrollmentForm({
                           )}
                         </li>
                         {preview.sessionsAlreadyTaught > 0 ? (
-                          <li>• Lớp đã dạy {preview.sessionsAlreadyTaught} buổi trước đó — không thu tiền phần này.</li>
+                          <li>
+                        • Lớp đã dạy {preview.sessionsAlreadyTaught} buổi trước đó — không thu tiền phần này,{" "}
+                        <strong>nhưng học viên chưa học nội dung buổi 1–{preview.sessionsAlreadyTaught}</strong>. Cân nhắc xếp buổi bổ trợ.
+                      </li>
                         ) : null}
                         {billingModel === "PERIOD" ? (
                           <li>
