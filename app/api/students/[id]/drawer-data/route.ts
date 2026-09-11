@@ -545,6 +545,8 @@ export async function GET(
       currentEnrollment: currentEnrollment
         ? {
             id: currentEnrollment.id,
+            // Trạng thái ghi danh để drawer biết hiện "Bảo lưu" hay "Đi học lại".
+            status: currentEnrollment.status,
             classId: currentEnrollment.classId,
             className: currentEnrollment.class?.className ?? currentEnrollment.packageLabel ?? "Gói học",
             courseId: currentEnrollment.class?.courseId ?? currentEnrollment.courseId ?? null,

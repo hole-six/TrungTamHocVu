@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import StudentEditForm from "@/components/students/StudentEditForm";
 import AssignEnrollmentForm from "@/components/students/AssignEnrollmentForm";
+import PauseEnrollmentButton from "@/components/students/PauseEnrollmentButton";
+import EnrollmentRowActions from "@/components/classes/EnrollmentRowActions";
 import StudentFinanceDesk from "@/components/students/StudentFinanceDesk";
 import StudentSessionCredits from "@/components/students/StudentSessionCredits";
 import MakeupRequestPanel from "@/components/students/MakeupRequestPanel";
@@ -656,6 +658,25 @@ export default async function StudentDetailPage({
               />
             )}
             {canManageFinance && <QuickPaymentButton studentId={student.id} suggestedAmount={outstanding} autoOpen={autoOpenTuition} />}
+            {/* Phụ huynh gọi báo nghỉ là việc hằng ngày, và lúc đó giáo vụ đang mở ĐÚNG
+                hồ sơ học viên này. Trước đây "Rút lớp" chỉ có ở trang chi tiết lớp nên
+                họ phải đi tìm xem em đó học lớp nào rồi dò trong danh sách lớp — còn
+                "Bảo lưu" thì không có ở đâu cả. Đưa cả hai về đây, ngay cạnh nút gán lớp. */}
+            {canManageSchedule && currentEnrollment ? (
+              <>
+                <PauseEnrollmentButton
+                  enrollmentId={currentEnrollment.id}
+                  status={currentEnrollment.status}
+                  studentName={student.fullName}
+                />
+                <EnrollmentRowActions
+                  enrollmentId={currentEnrollment.id}
+                  status={currentEnrollment.status}
+                  billingModel={currentEnrollment.billingModel}
+                  walletBalance={currentWalletBalance ?? undefined}
+                />
+              </>
+            ) : null}
             {currentEnrollment?.classId && (
               <Link href={`/classes/${currentEnrollment.classId}`} className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] hover:-translate-y-0.5 transition-all">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sm:w-[18px] sm:h-[18px]"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>

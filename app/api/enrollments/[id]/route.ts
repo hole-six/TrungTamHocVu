@@ -78,6 +78,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       data: {
         status: body.status,
         endDate: ["COMPLETED", "WITHDRAWN", "TRANSFERRED"].includes(body.status) ? new Date() : existing.endDate,
+        // BẢO LƯU: ghi lại KHOẢNG nghỉ, không chỉ đổi trạng thái. Bắt đầu nghỉ thì mở
+        // một khoảng mới (chưa có ngày kết thúc); đi học lại thì đóng khoảng đó lại.
+        // Nhờ vậy danh sách điểm danh của các buổi đã diễn ra trong kỳ nghỉ vẫn đúng
+        // mãi về sau — xem lib/server/class-roster.ts.
+        ...(body.status === "PAUSED"
+          ? { pausedFrom: body.pausedFrom ? new Date(body.pausedFrom) : new Date(), pausedTo: null }
+          : {}),
+        ...(existing.status === "PAUSED" && body.status === "ACTIVE"
+          ? { pausedTo: body.pausedTo ? new Date(body.pausedTo) : new Date() }
+          : {}),
       },
     });
 

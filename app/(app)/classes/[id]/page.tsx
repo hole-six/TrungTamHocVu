@@ -27,6 +27,7 @@ import ClassRecurringTaskManager from "@/components/classes/ClassRecurringTaskMa
 import ClassQuickActions from "@/components/classes/ClassQuickActions";
 import RescheduleSessionButton from "@/components/classes/RescheduleSessionButton";
 import CancelSessionButton from "@/components/classes/CancelSessionButton";
+import PauseEnrollmentButton from "@/components/students/PauseEnrollmentButton";
 import ClassDefaultAssignmentManager from "@/components/classes/ClassDefaultAssignmentManager";
 import RemedialBulkAssignPanel from "@/components/classes/RemedialBulkAssignPanel";
 import SessionLinkWithDrawer from "@/components/classes/SessionLinkWithDrawer";
@@ -355,7 +356,10 @@ export default async function ClassDetailPage({ params }: { params: { id: string
     cls.startDate && suggestedEnd && cls.scheduleRules.length > 0
       ? generateSessionDates(cls.scheduleRules, cls.startDate, suggestedEnd, holidayDates)
       : [];
-  const projectedSchedule = (cls.totalSessions ? projectedSlots.slice(0, cls.totalSessions) : projectedSlots).map((slot, index) => ({
+  // KHÔNG cắt danh sách buổi theo totalSessions nữa. Đó là số buổi DỰ KIẾN, còn lịch
+  // thật có thể dài hơn (buổi bù, lớp kéo dài) — cắt đi là giấu mất chính những buổi
+  // đang diễn ra, giáo vụ mở lớp ra không thấy buổi hôm nay đâu.
+  const projectedSchedule = projectedSlots.map((slot, index) => ({
     number: index + 1,
     sessionDate: slot.sessionDate,
     startTime: slot.startTime,
@@ -1183,7 +1187,10 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                   >
                                     Mở hồ sơ
                                   </Link>
-                                  {canManageClass ? <EnrollmentRowActions enrollmentId={enrollment.id} status={enrollment.status} billingModel={enrollment.billingModel} walletBalance={walletBalanceByEnrollment.get(enrollment.id)} /> : null}
+                                  {canManageClass ? <>
+                                    <PauseEnrollmentButton enrollmentId={enrollment.id} status={enrollment.status} studentName={enrollment.student.fullName} />
+                                    <EnrollmentRowActions enrollmentId={enrollment.id} status={enrollment.status} billingModel={enrollment.billingModel} walletBalance={walletBalanceByEnrollment.get(enrollment.id)} />
+                                  </> : null}
                                   {canManageClass && enrollment.status === "ACTIVE" ? (
                                     <AddEnrollmentSessionsButton enrollmentId={enrollment.id} studentName={enrollment.student.fullName} />
                                   ) : null}
@@ -1367,7 +1374,10 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                             </svg>
                             Mở hồ sơ học viên
                           </Link>
-                          {canManageClass && <EnrollmentRowActions enrollmentId={enrollment.id} status={enrollment.status} billingModel={enrollment.billingModel} walletBalance={walletBalanceByEnrollment.get(enrollment.id)} />}
+                          {canManageClass && <>
+                                    <PauseEnrollmentButton enrollmentId={enrollment.id} status={enrollment.status} studentName={enrollment.student.fullName} />
+                                    <EnrollmentRowActions enrollmentId={enrollment.id} status={enrollment.status} billingModel={enrollment.billingModel} walletBalance={walletBalanceByEnrollment.get(enrollment.id)} />
+                                  </>}
                           {canManageClass && enrollment.status === "ACTIVE" ? (
                             <AddEnrollmentSessionsButton enrollmentId={enrollment.id} studentName={enrollment.student.fullName} />
                           ) : null}

@@ -762,6 +762,19 @@ model Enrollment {
   billingModel                     String    @default("COURSE") @map("billing_model") // COURSE | PERIOD
   enrollDate                       DateTime  @map("enroll_date")
   endDate                          DateTime? @map("end_date")
+  // BẢO LƯU (tạm nghỉ có thời hạn) — khác hẳn rút lớp: ghi danh vẫn còn, chỗ trong lớp
+  // vẫn giữ, chỉ là trong khoảng thời gian này học viên KHÔNG thuộc buổi học nào.
+  //
+  // Vì sao phải lưu thành KHOẢNG (từ ngày / đến ngày) chứ không chỉ một trạng thái:
+  // danh sách điểm danh của một buổi luôn được tính lại theo NGÀY của buổi đó (xem
+  // lib/server/class-roster.ts). Nếu chỉ đánh dấu trạng thái rồi lúc đi học lại xóa dấu
+  // đi, những buổi đã diễn ra TRONG kỳ nghỉ sẽ tự động có tên họ trở lại — mở lại một
+  // buổi cũ là trừ ví cho buổi họ chưa từng học. Có mốc từ/đến thì lịch sử đúng vĩnh viễn.
+  //
+  // Hiện chỉ lưu kỳ nghỉ GẦN NHẤT; nghỉ nhiều lần thì mốc cũ bị ghi đè. Đủ cho vận hành
+  // hiện tại, khi nào cần lịch sử đầy đủ thì tách thành bảng riêng.
+  pausedFrom                       DateTime? @map("paused_from")
+  pausedTo                         DateTime? @map("paused_to")
   purchasedMainSessionCount        Int?      @map("purchased_main_session_count")
   manualExtraSessionCount          Int       @default(0) @map("manual_extra_session_count")
   tuitionUnitPriceSnapshot         Int?      @map("tuition_unit_price_snapshot")

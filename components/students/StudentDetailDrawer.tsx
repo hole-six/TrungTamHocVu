@@ -10,6 +10,8 @@ import ScholarshipAdjustmentForm from "./ScholarshipAdjustmentForm";
 import AssignEnrollmentForm from "./AssignEnrollmentForm";
 import AddGuardianForm from "./AddGuardianForm";
 import TransferEnrollmentButton from "@/components/classes/TransferEnrollmentButton";
+import PauseEnrollmentButton from "@/components/students/PauseEnrollmentButton";
+import EnrollmentRowActions from "@/components/classes/EnrollmentRowActions";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import { Section, Row, Stat, ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { formatVnd, formatDate } from "@/lib/export-utils";
@@ -90,6 +92,7 @@ type StudentData = {
   walletBalance?: number | null;
   currentEnrollment?: {
     id: string;
+    status: string;
     classId: string;
     className: string;
     courseId?: string | null;
@@ -425,6 +428,26 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
             ) : null}
             {/* PERIOD chuyển lớp tự do, không cần "còn buổi" (khái niệm đó không tồn
                 tại — quyền học nằm trong Ví). COURSE giữ nguyên điều kiện cũ. */}
+            {/* Drawer trước đây có "Chuyển lớp" nhưng không có "Rút lớp" và cũng không có
+                "Bảo lưu" — cùng một chỗ mà việc có việc không. Cho đủ bộ để giáo vụ xử lý
+                trọn cuộc gọi của phụ huynh mà không phải đi sang màn khác. */}
+            {data.permissions.canManageSchedule && enrollment ? (
+              <>
+                <PauseEnrollmentButton
+                  enrollmentId={enrollment.id}
+                  status={enrollment.status}
+                  studentName={data.fullName}
+                  onSuccess={() => void reload()}
+                />
+                <EnrollmentRowActions
+                  enrollmentId={enrollment.id}
+                  status={enrollment.status}
+                  billingModel={enrollment.billingModel}
+                  walletBalance={data.walletBalance ?? undefined}
+                  onSuccess={() => void reload()}
+                />
+              </>
+            ) : null}
             {data.permissions.canManageSchedule && enrollment && snapshot && (!isCourseEnrollment || snapshot.remainingMainSessions > 0) ? (
               <TransferEnrollmentButton
                 enrollmentId={enrollment.id}

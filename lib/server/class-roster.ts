@@ -15,7 +15,8 @@ import type { Prisma } from "@prisma/client";
 // Quy tắc: một ghi danh được tính cho buổi ngày D khi
 //   (1) đã vào lớp không muộn hơn D  → enrollDate <= D
 //   (2) chưa rời lớp tính đến D      → endDate = null hoặc endDate >= D
-//   (3) không phải PENDING (chưa thực sự vào học).
+//   (3) không phải PENDING (chưa thực sự vào học),
+//   (4) không đang trong kỳ BẢO LƯU tính tới ngày đó.
 //
 // MỖI HỌC VIÊN CHỈ ĐƯỢC TÍNH 1 LẦN cho 1 buổi. Ngày chuyển lớp, ghi danh cũ (endDate =
 // hôm nay) và ghi danh mới (enrollDate = hôm nay) cùng thỏa điều kiện trên — nếu không
@@ -54,9 +55,23 @@ export function dedupeRosterByStudent<T extends RosterEnrollment>(enrollments: T
 
 export function enrolledOnDateFilter(sessionDate: Date): Prisma.EnrollmentWhereInput {
   return {
-    status: { not: "PENDING" },
-    enrollDate: { lte: sessionDate },
-    OR: [{ endDate: null }, { endDate: { gte: sessionDate } }],
+    AND: [
+      { status: { not: "PENDING" } },
+      { enrollDate: { lte: sessionDate } },
+      { OR: [{ endDate: null }, { endDate: { gte: sessionDate } }] },
+      // (4) không đang BẢO LƯU tại ngày đó. Dùng khoảng pausedFrom/pausedTo chứ không
+      // dùng trạng thái hiện tại: học viên nghỉ tháng 9 rồi tháng 10 đi học lại thì
+      // những buổi THÁNG 9 vẫn phải vắng bóng họ vĩnh viễn — nếu xét theo trạng thái
+      // hiện tại (đã ACTIVE trở lại) thì mở lại một buổi tháng 9 là trừ ví cho buổi họ
+      // chưa từng học.
+      {
+        OR: [
+          { pausedFrom: null },
+          { pausedFrom: { gt: sessionDate } },
+          { AND: [{ pausedTo: { not: null } }, { pausedTo: { lt: sessionDate } }] },
+        ],
+      },
+    ],
   };
 }
 
@@ -75,4 +90,36 @@ export async function getEnrollmentsForSession(
     orderBy: { enrollDate: "asc" },
   });
   return dedupeRosterByStudent(rows);
+}
+
+// Bản THUẦN của cùng quy tắc trên, dùng khi đã có sẵn danh sách ghi danh trong bộ nhớ
+// và cần hỏi cho NHIỀU buổi cùng lúc (thời khóa biểu tuần/tháng) — hỏi từng buổi bằng
+// getEnrollmentsForSession sẽ thành hàng trăm truy vấn.
+//
+// PHẢI khớp từng điều kiện với enrolledOnDateFilter ở trên. Sửa một bên thì sửa cả hai,
+// nếu không lịch và danh sách điểm danh lại nói hai con số khác nhau cho cùng một buổi —
+// đúng lỗi mà file này sinh ra để dẹp.
+export function isEnrolledOnDate(
+  enrollment: Pick<RosterEnrollment, "status" | "enrollDate" | "endDate"> & {
+    pausedFrom?: Date | null;
+    pausedTo?: Date | null;
+  },
+  sessionDate: Date,
+): boolean {
+  if (enrollment.status === "PENDING") return false;
+  if (enrollment.enrollDate > sessionDate) return false;
+  if (enrollment.endDate && enrollment.endDate < sessionDate) return false;
+  if (enrollment.pausedFrom && enrollment.pausedFrom <= sessionDate) {
+    const resumed = enrollment.pausedTo && enrollment.pausedTo < sessionDate;
+    if (!resumed) return false;
+  }
+  return true;
+}
+
+/** Sĩ số THẬT của một buổi, đã khử trùng theo học viên. */
+export function countRosterOnDate<T extends RosterEnrollment & { pausedFrom?: Date | null; pausedTo?: Date | null }>(
+  enrollments: T[],
+  sessionDate: Date,
+): number {
+  return dedupeRosterByStudent(enrollments.filter((item) => isEnrolledOnDate(item, sessionDate))).length;
 }

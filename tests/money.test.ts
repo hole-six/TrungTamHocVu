@@ -258,6 +258,58 @@ async function main() {
     });
   });
 
+  // ---------------------------------------------------------------- 6c
+  // BẢO LƯU: trong kỳ nghỉ thì không thuộc buổi nào, nhưng buổi TRƯỚC và SAU kỳ nghỉ
+  // vẫn phải có tên. Đây là lý do phải lưu thành khoảng từ/đến chứ không chỉ một
+  // trạng thái — xem ghi chú trên model Enrollment.
+  await test("Bảo lưu: mất tên trong kỳ nghỉ, còn nguyên trước và sau đó", async () => {
+    const branch = await seedBranch(db);
+    const cls = await seedClass(db, branch.id);
+    const student = await seedStudent(db, branch.id, "Bảo lưu hè");
+    // Nghỉ từ 1/7 tới 31/7, hiện đã đi học lại (status ACTIVE) — lịch sử vẫn phải đúng.
+    await seedEnrollment(db, {
+      studentId: student.id,
+      classId: cls.id,
+      billingModel: "PERIOD",
+      enrollDate: day("2026-01-05"),
+      status: "ACTIVE",
+      pausedFrom: day("2026-07-01"),
+      pausedTo: day("2026-07-31"),
+    });
+
+    await db.$transaction(async (tx) => {
+      const check = async (iso: string) =>
+        (await getEnrollmentsForSession(tx, { classId: cls.id, sessionDate: day(iso), billingModel: "PERIOD" })).length;
+      expectEqual(await check("2026-06-20"), 1, "buổi TRƯỚC kỳ nghỉ");
+      expectEqual(await check("2026-07-10"), 0, "buổi TRONG kỳ nghỉ");
+      expectEqual(await check("2026-08-05"), 1, "buổi SAU kỳ nghỉ");
+    });
+  });
+
+  // ---------------------------------------------------------------- 6d
+  await test("Đang bảo lưu (chưa hẹn ngày học lại) thì không thuộc buổi nào từ đó về sau", async () => {
+    const branch = await seedBranch(db);
+    const cls = await seedClass(db, branch.id);
+    const student = await seedStudent(db, branch.id, "Đang nghỉ");
+    await seedEnrollment(db, {
+      studentId: student.id,
+      classId: cls.id,
+      billingModel: "PERIOD",
+      enrollDate: day("2026-01-05"),
+      status: "PAUSED",
+      pausedFrom: day("2026-09-01"),
+      pausedTo: null,
+    });
+
+    await db.$transaction(async (tx) => {
+      const check = async (iso: string) =>
+        (await getEnrollmentsForSession(tx, { classId: cls.id, sessionDate: day(iso), billingModel: "PERIOD" })).length;
+      expectEqual(await check("2026-08-25"), 1, "buổi trước ngày bắt đầu nghỉ");
+      expectEqual(await check("2026-09-01"), 0, "đúng ngày bắt đầu nghỉ");
+      expectEqual(await check("2026-12-01"), 0, "buổi rất xa sau đó");
+    });
+  });
+
   // ---------------------------------------------------------------- 7
   await test("Đóng dư giữ lại được, kỳ sau tự trừ vào phiếu mới", async () => {
     const branch = await seedBranch(db);

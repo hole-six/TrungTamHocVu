@@ -57,6 +57,8 @@ export async function seedEnrollment(
     purchasedMainSessionCount?: number | null;
     unitPrice?: number | null;
     status?: string;
+    pausedFrom?: Date | null;
+    pausedTo?: Date | null;
   },
 ) {
   return db.enrollment.create({
@@ -69,6 +71,8 @@ export async function seedEnrollment(
       purchasedMainSessionCount: params.purchasedMainSessionCount ?? null,
       tuitionUnitPriceSnapshot: params.unitPrice ?? null,
       status: params.status ?? "ACTIVE",
+      pausedFrom: params.pausedFrom ?? null,
+      pausedTo: params.pausedTo ?? null,
     },
   });
 }
