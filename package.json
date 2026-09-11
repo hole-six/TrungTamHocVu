@@ -29,6 +29,8 @@
     "prisma:studio": "prisma studio",
     "check:money": "tsx scripts/check_money_integrity.ts",
     "test:money": "tsx tests/money.test.ts",
+    "test:payroll": "tsx tests/payroll.test.ts",
+    "test": "npm run test:money && npm run test:payroll",
     "check:ui": "node scripts/ui_smoke.mjs"
   },
   "prisma": {

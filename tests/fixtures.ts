@@ -142,3 +142,69 @@ export async function seedPayment(
     },
   });
 }
+
+export async function seedEmployee(
+  db: PrismaClient,
+  branchId: string,
+  params?: {
+    fullName?: string;
+    payMode?: "HOURLY" | "SESSION";
+    teachingHourlyRate?: number | null;
+    assistantHourlyRate?: number | null;
+    staffDailyRate?: number | null;
+  },
+) {
+  return db.employee.create({
+    data: {
+      branchId,
+      employeeCode: nextCode("NV"),
+      fullName: params?.fullName ?? "Nhân sự thử",
+      shortName: params?.fullName ?? "NV thử",
+      payMode: params?.payMode ?? "HOURLY",
+      teachingHourlyRate: params?.teachingHourlyRate ?? null,
+      assistantHourlyRate: params?.assistantHourlyRate ?? null,
+      staffDailyRate: params?.staffDailyRate ?? null,
+      workStatus: "ACTIVE",
+    },
+  });
+}
+
+export async function seedSessionAssignment(
+  db: PrismaClient,
+  params: {
+    sessionId: string;
+    employeeId: string;
+    role: "TEACHER" | "ASSISTANT" | "ASSISTANT2";
+    hours: number;
+    hourlyRate: number;
+  },
+) {
+  return db.sessionAssignment.create({
+    data: {
+      sessionId: params.sessionId,
+      employeeId: params.employeeId,
+      role: params.role,
+      hours: params.hours,
+      hourlyRate: params.hourlyRate,
+      amount: Math.round(params.hours * params.hourlyRate),
+    },
+  });
+}
+
+export async function seedTimesheetEntry(
+  db: PrismaClient,
+  params: { employeeId: string; workDate: Date; days: number; hours?: number },
+) {
+  return db.timesheetEntry.create({
+    data: {
+      employeeId: params.employeeId,
+      workDate: params.workDate,
+      days: params.days,
+      hours: params.hours ?? params.days * 8,
+    },
+  });
+}
+
+export async function seedPayrollRun(db: PrismaClient, branchId: string, periodName: string, status = "DRAFT") {
+  return db.payrollRun.create({ data: { branchId, periodName, status } });
+}

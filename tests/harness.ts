@@ -16,23 +16,43 @@ import path from "node:path";
 const TEST_DB_PATH = path.join(process.cwd(), "prisma", "test.db");
 const TEST_DB_URL = `file:${TEST_DB_PATH.split(String.fromCharCode(92)).join("/")}`;
 
-export function createTestDatabase(): PrismaClient {
+// Dọn file cũ, trỏ DATABASE_URL sang CSDL test rồi dựng lại bằng đúng migration thật.
+//
+// Phải đặt process.env.DATABASE_URL TRƯỚC khi bất kỳ module nào import @/lib/prisma:
+// lib/prisma.ts tạo PrismaClient ngay lúc nạp module và đọc env tại đúng thời điểm đó.
+// Vì vậy các bộ test cần dùng hàm nghiệp vụ xài prisma singleton (vd lương) phải gọi
+// prepareTestDatabase() trước, rồi mới await import() các module đó.
+export function prepareTestDatabase(): string {
   for (const suffix of ["", "-journal"]) {
     const file = TEST_DB_PATH + suffix;
     if (fs.existsSync(file)) fs.unlinkSync(file);
   }
+  process.env.DATABASE_URL = TEST_DB_URL;
   execFileSync("npx", ["prisma", "migrate", "deploy"], {
     env: { ...process.env, DATABASE_URL: TEST_DB_URL },
     stdio: "pipe",
     shell: process.platform === "win32",
   });
+  return TEST_DB_URL;
+}
+
+export function createTestDatabase(): PrismaClient {
+  prepareTestDatabase();
   return new PrismaClient({ datasources: { db: { url: TEST_DB_URL } } });
 }
 
+// Xóa được thì xóa, không xóa được cũng KHÔNG làm hỏng lần chạy: file này nằm trong
+// .gitignore và luôn bị dựng lại từ đầu ở lần chạy sau. Trên Windows, một client chưa
+// kịp ngắt hẳn là đủ để unlink báo EBUSY — để lỗi đó làm đỏ cả bộ test thì kết quả
+// test mất ý nghĩa.
 export function dropTestDatabase() {
   for (const suffix of ["", "-journal"]) {
     const file = TEST_DB_PATH + suffix;
-    if (fs.existsSync(file)) fs.unlinkSync(file);
+    try {
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+    } catch {
+      // bỏ qua
+    }
   }
 }
 
