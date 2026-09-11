@@ -28,6 +28,7 @@
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:studio": "prisma studio",
     "check:money": "tsx scripts/check_money_integrity.ts",
+    "test:money": "tsx tests/money.test.ts",
     "check:ui": "node scripts/ui_smoke.mjs"
   },
   "prisma": {

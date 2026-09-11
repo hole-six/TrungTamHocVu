@@ -30,3 +30,7 @@ ui-shots/
 *.bak
 # File Excel quan ly do nguoi dung tha vao thu muc lam viec - khong commit
 *.xlsx
+
+# CSDL dùng riêng cho test tự động (tests/harness.ts dựng lại mỗi lần chạy)
+prisma/test.db
+prisma/test.db-journal

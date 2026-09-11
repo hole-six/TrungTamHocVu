@@ -33,9 +33,16 @@ export async function ensureWallet(tx: Prisma.TransactionClient, enrollmentId: s
 export async function debitWalletsForCompletedSession(tx: Prisma.TransactionClient, sessionId: string) {
   const session = await tx.classSession.findUnique({
     where: { id: sessionId },
-    select: { classId: true, sessionDate: true },
+    select: { classId: true, sessionDate: true, status: true },
   });
   if (!session) return;
+  // Chỉ buổi ĐÃ DẠY THẬT mới được trừ ví. Trước đây hàm này tin người gọi đã kiểm tra
+  // trạng thái hộ — đúng với API điểm danh (đặt COMPLETED ngay trước khi gọi), nhưng
+  // sai với mọi chỗ gọi khác (script seed gọi thẳng theo id buổi). Buổi trung tâm cho
+  // nghỉ mà vẫn trừ ví là thu tiền học viên cho một buổi chưa từng diễn ra — đúng cột
+  // "Số buổi nghỉ trừ ngoại lệ" trong file quản lý. Quy tắc phải nằm TRONG hàm, không
+  // nằm ở người gọi.
+  if (session.status !== "COMPLETED") return;
 
   // Chỉ trừ những ghi danh THỰC SỰ thuộc về buổi này (đã vào lớp trước/đúng ngày đó và
   // chưa rời lớp tính tới ngày đó) — xem lib/server/class-roster.ts. Trước đây lấy mọi
