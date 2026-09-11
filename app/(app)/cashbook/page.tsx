@@ -1,3 +1,4 @@
+import NoPermission from "@/components/ui/NoPermission";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
@@ -87,7 +88,7 @@ export default async function CashbookPage({
   const activeBranchId = await getCurrentBranchId();
 
   if (!canView("cashbook", role)) {
-    notFound();
+    return <NoPermission module="Thu chi" />;
   }
 
   const canManageCashbook = canUpdate("cashbook", role);
@@ -154,7 +155,22 @@ export default async function CashbookPage({
 
   const txnIds = transactions.map((item) => item.id);
   const [paymentPostings, refundPostings, stockPostings, handlers] = await Promise.all([
-    prisma.paymentCashPosting.findMany({ where: { cashTransactionId: { in: txnIds } }, select: { cashTransactionId: true } }),
+    // Kèm LỚP của khoản thu học phí. File quản lý của trung tâm có hẳn cột "Lớp" ở nửa
+    // thu, vì câu hỏi thường gặp nhất khi soát sổ quỹ là "khoản này của lớp nào".
+    // CashTransaction không lưu classId (và không nên lưu — sẽ lệch khi phiếu thu phân
+    // bổ cho nhiều lớp), nhưng suy ra được qua phiếu thu → phân bổ → phiếu học phí → lớp.
+    prisma.paymentCashPosting.findMany({
+      where: { cashTransactionId: { in: txnIds } },
+      select: {
+        cashTransactionId: true,
+        payment: {
+          select: {
+            student: { select: { fullName: true } },
+            allocations: { select: { charge: { select: { class: { select: { classCode: true, className: true } } } } } },
+          },
+        },
+      },
+    }),
     prisma.refundCashPosting.findMany({ where: { cashTransactionId: { in: txnIds } }, select: { cashTransactionId: true } }),
     prisma.stockCashPosting.findMany({ where: { cashTransactionId: { in: txnIds } }, select: { cashTransactionId: true } }),
     prisma.user.findMany({
@@ -171,6 +187,20 @@ export default async function CashbookPage({
     ...stockPostings.map((item) => item.cashTransactionId),
   ]);
   const handlerNameById = new Map(handlers.map((item) => [item.id, item.fullName]));
+
+  // Một phiếu thu có thể phân bổ cho nhiều lớp (học viên học 2 lớp) — gom lại thành
+  // danh sách, không ép về một lớp duy nhất cho gọn rồi hiển thị sai.
+  const classNamesByTxn = new Map<string, string>();
+  for (const posting of paymentPostings) {
+    const names = [
+      ...new Set(
+        (posting.payment?.allocations ?? [])
+          .map((allocation) => allocation.charge?.class?.className)
+          .filter((name): name is string => Boolean(name)),
+      ),
+    ];
+    if (names.length > 0) classNamesByTxn.set(posting.cashTransactionId, names.join(", "));
+  }
 
   const totalThu = transactionsForTotals.filter((item) => item.type === "THU" && item.status !== "VOIDED").reduce((sum, item) => sum + item.amount, 0);
   const totalChi = transactionsForTotals.filter((item) => item.type === "CHI" && item.status !== "VOIDED").reduce((sum, item) => sum + item.amount, 0);
@@ -202,6 +232,7 @@ export default async function CashbookPage({
     status: transaction.status,
     categoryId: transaction.categoryId,
     categoryName: transaction.category?.name ?? null,
+    className: classNamesByTxn.get(transaction.id) ?? null,
     handledByName: transaction.handledById ? handlerNameById.get(transaction.handledById) ?? null : null,
     isDerived: derivedIds.has(transaction.id),
   }));

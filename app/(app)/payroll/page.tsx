@@ -1,3 +1,4 @@
+import NoPermission from "@/components/ui/NoPermission";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
@@ -40,7 +41,7 @@ export default async function PayrollPage({
     redirect(`/payroll/employees/${user.employeeId}`);
   }
 
-  if (!canView("hr", role)) notFound();
+  if (!canView("hr", role)) return <NoPermission module="Bảng lương" hint="Nếu bạn là nhân sự có lương, phiếu lương của riêng bạn vẫn xem được ở mục Nhân sự." />;
 
   const canManageEmployees = canCreate("hr", role);
   const canManagePayrollRuns = canUpdate("hr", role);

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
+import { canView } from "@/lib/server/role-matrix";
 import { getAppShellConfig, type AppQuickAction } from "@/lib/app-shell";
 import { getReportsDashboardData } from "@/lib/server/reporting";
 import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
@@ -157,19 +158,28 @@ async function getRecentAutoCompletions(activeBranchId: string | null) {
 
 // ─── UI components ─────────────────────────────────────────────────────────
 
+// href để trống = người này không có quyền vào trang đó, nên ô vẫn hiện số nhưng KHÔNG
+// bấm được, thay vì dẫn họ tới một trang 404 trắng.
 function KpiCard({ label, value, sub, icon, color, href }: {
   label: string; value: string; sub: string; icon: React.ReactNode;
-  color: string; href: string;
+  color: string; href?: string;
 }) {
+  const cardClass = "group rounded-xl border border-[#e5eaf7] bg-white p-4 shadow-sm transition-all block sm:rounded-2xl sm:p-5";
+  const Wrapper = ({ children }: { children: React.ReactNode }) =>
+    href ? (
+      <Link href={href} className={`${cardClass} hover:shadow-lg hover:-translate-y-1`}>{children}</Link>
+    ) : (
+      <div className={cardClass}>{children}</div>
+    );
   return (
-    <Link href={href} className="group rounded-xl border border-[#e5eaf7] bg-white p-4 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all block sm:rounded-2xl sm:p-5">
+    <Wrapper>
       <div className={`flex h-10 w-10 items-center justify-center rounded-lg border border-[#e5eaf7] bg-white shadow-md mb-3 sm:h-12 sm:w-12 sm:rounded-xl sm:mb-4`}>
         <span style={{ color }}>{icon}</span>
       </div>
       <p className="text-[10px] font-bold uppercase tracking-wide text-[#64748b] mb-1 sm:text-xs">{label}</p>
       <p className="text-xl font-black text-[#0f1729] mb-0.5 sm:text-2xl sm:mb-1">{value}</p>
       <p className="text-[10px] font-semibold text-[#64748b] sm:text-xs">{sub}</p>
-    </Link>
+    </Wrapper>
   );
 }
 
@@ -260,6 +270,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
   const shell = getAppShellConfig(role);
   const stats = await getStats(user, activeBranchId);
   const showCrm = role !== "TEACHER" && role !== "TEACHING_ASSISTANT";
+  // Trang này trỏ CỨNG sang Thu chi và Lương. Menu bên trái đã lọc theo quyền, nhưng
+  // dashboard thì không — giáo vụ thấy thẻ "Thu chi →", "Mở lương →" rồi bấm vào nhận
+  // một trang 404 trắng, không biết là hệ thống hỏng hay mình không được phép. Ẩn đúng
+  // những lối đi họ không mở được.
+  const canSeeCashbook = canView("cashbook", role);
+  const canSeePayroll = canView("hr", role);
   // Không chọn tháng -> "Tổng hợp" (hành vi mặc định trước đây, xlsx: "không click thì
   // tự tổng hợp"). Chọn tháng -> mọi số liệu theo tháng lọc đúng tháng đó.
   const selectedMonth = searchParams.month && /^\d{4}-\d{2}$/.test(searchParams.month) ? searchParams.month : "";
@@ -330,7 +346,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
           color="#ea580c" href="/leads"
           icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>} />
         <KpiCard label="Bảng lương chưa chốt" value={String(stats.openPayrollRuns)} sub={`${stats.openBillingPeriods} bảng học phí chưa chốt`}
-          color="#ef4444" href="/payroll"
+          color="#ef4444" href={canSeePayroll ? "/payroll" : undefined}
           icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>} />
       </div>
 
@@ -452,7 +468,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
           {/* Cash flow */}
           <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
-            <SectionHeading action={<Link href="/cashbook" className="text-sm font-bold text-[#f97316]">Thu chi →</Link>}>
+            <SectionHeading action={canSeeCashbook ? <Link href="/cashbook" className="text-sm font-bold text-[#f97316]">Thu chi →</Link> : null}>
               {selectedMonth ? `Dòng tiền tháng ${selectedMonth}` : "Dòng tiền (tất cả)"}
             </SectionHeading>
             <div className="space-y-3">
@@ -670,7 +686,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
           {/* Payroll breakdown */}
           {operational.payrollBreakdown && (
             <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm lg:col-span-2">
-              <SectionHeading action={<Link href="/payroll" className="text-sm font-bold text-[#f97316]">Mở lương →</Link>}>
+              <SectionHeading action={canSeePayroll ? <Link href="/payroll" className="text-sm font-bold text-[#f97316]">Mở lương →</Link> : null}>
                 Công GV/TG — kỳ {operational.payrollBreakdown.periodName}
               </SectionHeading>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -1,3 +1,4 @@
+import NoPermission from "@/components/ui/NoPermission";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
@@ -17,7 +18,7 @@ export default async function EmployeesPage() {
   const user = await getCurrentUser();
   if (!user) notFound();
   const { role, override } = await getUserRoleAndOverride(user.id, "hr");
-  if (!canViewWithOverride("hr", role, override)) notFound();
+  if (!canViewWithOverride("hr", role, override)) return <NoPermission module="Hồ sơ nhân sự" />;
 
   const activeBranchId = await getCurrentBranchId();
   const employees = await prisma.employee.findMany({

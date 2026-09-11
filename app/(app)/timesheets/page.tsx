@@ -1,3 +1,4 @@
+import NoPermission from "@/components/ui/NoPermission";
 import { notFound } from "next/navigation";
 import TimesheetsWorkspace from "@/components/timesheets/TimesheetsWorkspace";
 import { prisma } from "@/lib/prisma";
@@ -75,7 +76,7 @@ function mapEmployee(employee: {
 export default async function TimesheetsPage({ searchParams }: { searchParams?: { month?: string } }) {
   const user = await getCurrentUser();
   const role = user ? await getUserRole(user.id) : null;
-  if (!canView("timesheet", role)) notFound();
+  if (!canView("timesheet", role)) return <NoPermission module="Chấm công" />;
   const activeBranchId = await getCurrentBranchId();
 
   // Chấm công đi theo THÁNG giống lương — cùng một mốc thời gian để đối chiếu công/lương,
