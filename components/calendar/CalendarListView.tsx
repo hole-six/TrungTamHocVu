@@ -38,7 +38,15 @@ function formatRowDate(value: string | Date) {
 
 // Dạng danh sách phẳng — mỗi buổi học 1 dòng, gộp tất cả các ngày trong tuần vào
 // một bảng dài duy nhất, thay vì phải dò 7 cột lưới để tìm 1 buổi cụ thể.
-export default function CalendarListView({ rows }: { rows: CalendarListRow[] }) {
+// rosterCountBySession: sĩ số THẬT của từng buổi, do trang lịch tính theo quy tắc chung
+// ở lib/server/class-roster.ts (xem ghi chú trong SessionCard).
+export default function CalendarListView({
+  rows,
+  rosterCountBySession,
+}: {
+  rows: CalendarListRow[];
+  rosterCountBySession?: Record<string, number>;
+}) {
   if (rows.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-[#cbdcef] bg-[#fcfdff] px-6 py-16 text-center">
@@ -71,7 +79,7 @@ export default function CalendarListView({ rows }: { rows: CalendarListRow[] }) 
               const assistantNames = row.assignments
                 .filter((a) => a.role !== "TEACHER")
                 .map((a) => a.employee.shortName || a.employee.fullName);
-              const enrollmentCount = row.class._count?.enrollments ?? 0;
+              const enrollmentCount = rosterCountBySession?.[row.id] ?? row.class._count?.enrollments ?? 0;
               const isToday = new Date(row.sessionDate).toISOString().slice(0, 10) === TODAY_YMD;
 
               return (

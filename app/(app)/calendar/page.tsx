@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { countRosterOnDate } from "@/lib/server/class-roster";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { getCurrentBranchId } from "@/lib/branch-filter";
@@ -153,13 +154,11 @@ export default async function CalendarPage({
       class: {
         include: {
           course: true,
-          _count: {
-            select: {
-              enrollments: {
-                where: { status: "ACTIVE" },
-              },
-            },
-          },
+          // KHÔNG dùng _count enrollments ở đây nữa. Nó đếm toàn bộ học viên ĐANG HỌC
+          // của lớp rồi dán cùng một con số lên MỌI buổi, quá khứ lẫn tương lai — buổi
+          // từ tháng 1 hiện sĩ số của hôm nay, em mới vào tuần này đã được đếm vào buổi
+          // ba tháng trước, em đang bảo lưu vẫn bị đếm. Đo trên dữ liệu thật: 33/304 buổi
+          // sai. Sĩ số thật tính theo đúng quy tắc của danh sách điểm danh, xem bên dưới.
         },
       },
       assignments: {
@@ -169,6 +168,29 @@ export default async function CalendarPage({
     },
     orderBy: [{ sessionDate: "asc" }, { startTime: "asc" }],
   });
+
+  // Sĩ số THẬT của từng buổi: lấy một lượt ghi danh của các lớp đang hiện trên lịch rồi
+  // tính trong bộ nhớ theo đúng quy tắc "ai thuộc về buổi ngày đó" (lib/server/class-roster.ts)
+  // — hỏi từng buổi một sẽ thành hàng trăm truy vấn cho một tuần lịch.
+  const rosterEnrollments = await prisma.enrollment.findMany({
+    where: { classId: { in: [...new Set(sessions.map((item) => item.classId))] } },
+    select: {
+      id: true, studentId: true, classId: true, status: true,
+      enrollDate: true, endDate: true, billingModel: true, pausedFrom: true, pausedTo: true,
+    },
+  });
+  const enrollmentsByClass = new Map<string, typeof rosterEnrollments>();
+  for (const item of rosterEnrollments) {
+    if (!item.classId) continue;
+    enrollmentsByClass.set(item.classId, [...(enrollmentsByClass.get(item.classId) ?? []), item]);
+  }
+  const rosterCountBySession = new Map<string, number>();
+  for (const session of sessions) {
+    rosterCountBySession.set(
+      session.id,
+      countRosterOnDate(enrollmentsByClass.get(session.classId) ?? [], session.sessionDate),
+    );
+  }
 
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
@@ -201,7 +223,7 @@ export default async function CalendarPage({
       sessions: daySessions,
       completed,
       missingAssignments,
-      totalStudents: daySessions.reduce((sum, session) => sum + (session.class._count?.enrollments ?? 0), 0),
+      totalStudents: daySessions.reduce((sum, session) => sum + (rosterCountBySession.get(session.id) ?? 0), 0),
     };
   });
 
@@ -247,7 +269,7 @@ export default async function CalendarPage({
 
       <div data-tour="calendar-week">
       {view === "list" ? (
-        <CalendarListView rows={sessions} />
+        <CalendarListView rows={sessions} rosterCountBySession={Object.fromEntries(rosterCountBySession)} />
       ) : (
       <>
       <div className="hidden overflow-x-auto pb-2 md:block [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -298,7 +320,7 @@ export default async function CalendarPage({
 
                 <div className="space-y-[10px]">
                   {day.sessions.map((session) => (
-                    <SessionCard key={session.id} session={session} variant="grid" />
+                    <SessionCard key={session.id} session={session} variant="grid" rosterCount={rosterCountBySession.get(session.id) ?? 0} />
                   ))}
 
                   {day.sessions.length === 0 ? (
@@ -379,7 +401,7 @@ export default async function CalendarPage({
               {/* Sessions list */}
               <div className="space-y-3">
                 {day.sessions.map((session) => (
-                  <SessionCard key={session.id} session={session} variant="list" />
+                  <SessionCard key={session.id} session={session} variant="list" rosterCount={rosterCountBySession.get(session.id) ?? 0} />
                 ))}
 
                 {day.sessions.length === 0 && (

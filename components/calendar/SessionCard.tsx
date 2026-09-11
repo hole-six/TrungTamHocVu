@@ -63,7 +63,10 @@ const ICON_USERS = (
  * độc lập (khác cả icon: chữ nhãn ở bản desktop, emoji ở bản mobile) — gộp về đây để
  * sửa 1 nơi là đồng bộ cả hai, không còn lệch nội dung giữa 2 layout.
  */
-export default function SessionCard({ session, variant }: { session: SessionCardData; variant: "grid" | "list" }) {
+// rosterCount = sĩ số THẬT của đúng buổi này, do trang lịch tính theo quy tắc chung ở
+// lib/server/class-roster.ts. Trước đây card tự lấy class._count.enrollments — tức tổng
+// học viên đang học của lớp — nên mọi buổi của cùng một lớp đều hiện chung một con số.
+export default function SessionCard({ session, variant, rosterCount }: { session: SessionCardData; variant: "grid" | "list"; rosterCount?: number }) {
   // Buổi trung tâm cho nghỉ: tối màu toàn bộ thẻ + gạch ngang tên lớp, để nhìn lịch
   // tuần là biết ngay hôm đó lớp không diễn ra mà không phải đọc chữ trạng thái.
   const isOff = session.status === "CANCELLED";
@@ -74,7 +77,7 @@ export default function SessionCard({ session, variant }: { session: SessionCard
   const assistantNames = session.assignments
     .filter((assignment) => assignment.role !== "TEACHER")
     .map((assignment) => assignment.employee.shortName || assignment.employee.fullName);
-  const enrollmentCount = session.class._count?.enrollments ?? 0;
+  const enrollmentCount = rosterCount ?? session.class._count?.enrollments ?? 0;
 
   if (variant === "list") {
     return (
