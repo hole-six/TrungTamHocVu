@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Type-check
+    name: Type-check & test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +28,15 @@ jobs:
       - run: npx prisma generate
 
       - run: npx tsc --noEmit
+
+      # CHẶN DEPLOY KHI TIỀN TÍNH SAI. Job deploy có "needs: verify" nên bước này hỏng
+      # là VPS không được đụng tới — sai sót về học phí/ví/lương bị giữ lại ở đây thay
+      # vì lên production rồi mới phát hiện.
+      #
+      # Không cần DATABASE_URL hay secret nào: bộ test tự dựng một CSDL SQLite riêng
+      # (prisma/test.db) từ đúng migration thật rồi xóa đi — xem tests/harness.ts.
+      - name: Chạy test học phí, ví buổi học và lương
+        run: npm test
 
   deploy:
     name: Deploy qua SSH
