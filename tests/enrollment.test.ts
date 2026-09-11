@@ -155,6 +155,75 @@ async function main() {
     expectEqual(countRosterOnDate(rows, day("2026-07-15")), 2, "tháng 7: 2 em (em mới đã vào)");
   });
 
+  // ---------------------------------------------------------------- 6
+  // HẾT BUỔI THÌ LÀM GÌ — mua thêm buổi vào chính lớp đang học (50 → 55).
+  // Khác "Cộng buổi linh động" (cố ý không thu tiền): mua thêm phải RA TIỀN, nếu không
+  // trung tâm dạy thêm 5 buổi mà không thu đồng nào.
+  await test("Mua thêm buổi: tăng đúng số buổi và cộng đúng tiền vào phiếu khóa", async () => {
+    const branch = await fx.seedBranch(db);
+    const cls = await fx.seedClass(db, branch.id, { tuitionPerSession: UNIT });
+    const period = await fx.seedBillingPeriod(db, branch.id, "2026-03");
+    const student = await fx.seedStudent(db, branch.id, "Mua thêm buổi");
+    const enrollment = await fx.seedEnrollment(db, {
+      studentId: student.id, classId: cls.id, billingModel: "COURSE",
+      enrollDate: day("2026-03-02"), purchasedMainSessionCount: 50, unitPrice: UNIT,
+    });
+    await generateCourseCharge(enrollment.id, { billingPeriodId: period.id });
+
+    const truoc = await db.charge.findFirst({ where: { enrollmentId: enrollment.id } });
+    expectEqual(truoc?.sessionCount, 50, "phiếu ban đầu 50 buổi");
+    expectEqual(truoc?.tuitionAmount, 50 * UNIT, "tiền ban đầu " + vnd(50 * UNIT));
+
+    // Mua thêm 5 buổi — đúng ví dụ 50 đổi thành 55.
+    await db.enrollment.update({ where: { id: enrollment.id }, data: { purchasedMainSessionCount: { increment: 5 } } });
+    await db.charge.update({
+      where: { id: truoc!.id },
+      data: {
+        sessionCount: truoc!.sessionCount + 5,
+        mainTuitionAmount: truoc!.mainTuitionAmount + 5 * UNIT,
+        tuitionAmount: truoc!.tuitionAmount + 5 * UNIT,
+        totalAmount: truoc!.totalAmount + 5 * UNIT,
+      },
+    });
+
+    const sau = await db.charge.findFirst({ where: { enrollmentId: enrollment.id } });
+    const e2 = await db.enrollment.findUnique({ where: { id: enrollment.id } });
+    expectEqual(e2?.purchasedMainSessionCount, 55, "số buổi đã mua nay là 55");
+    expectEqual(sau?.sessionCount, 55, "phiếu ghi 55 buổi");
+    expectEqual(sau?.tuitionAmount, 55 * UNIT, "tiền nay " + vnd(55 * UNIT));
+    // Chỉ có ĐÚNG MỘT phiếu cho cả khóa — không đẻ phiếu thứ hai làm phụ huynh thấy 2 tổng.
+    expectEqual(await db.charge.count({ where: { enrollmentId: enrollment.id } }), 1, "vẫn chỉ 1 phiếu học phí");
+  });
+
+  // ---------------------------------------------------------------- 7
+  // HỌC XONG TRỌN VẸN: giữ nguyên lịch sử trong lớp, nhưng không còn tên ở buổi sau.
+  await test("Đã học xong: giữ lịch sử, không còn trong điểm danh buổi sau", async () => {
+    const branch = await fx.seedBranch(db);
+    const cls = await fx.seedClass(db, branch.id, { tuitionPerSession: UNIT });
+    const student = await fx.seedStudent(db, branch.id, "Học xong");
+    const enrollment = await fx.seedEnrollment(db, {
+      studentId: student.id, classId: cls.id, billingModel: "COURSE",
+      enrollDate: day("2026-01-05"), purchasedMainSessionCount: 10,
+    });
+    // Kết thúc đúng cách: đánh dấu hoàn thành và chốt ngày rời lớp, giống PATCH của API.
+    await db.enrollment.update({
+      where: { id: enrollment.id },
+      data: { status: "COMPLETED", endDate: day("2026-06-30") },
+    });
+
+    await db.$transaction(async (tx) => {
+      const truoc = await getEnrollmentsForSession(tx, { classId: cls.id, sessionDate: day("2026-05-10") });
+      expectEqual(truoc.length, 1, "buổi đã học trước đó vẫn còn tên (lịch sử giữ nguyên)");
+      const sau = await getEnrollmentsForSession(tx, { classId: cls.id, sessionDate: day("2026-08-10") });
+      expectEqual(sau.length, 0, "buổi sau khi kết thúc không còn tên");
+    });
+
+    // Vẫn nằm trong danh sách lớp để tra cứu, chỉ là được làm mờ (isEnrollmentInactive).
+    const { isEnrollmentInactive } = await import("@/lib/server/class-rules");
+    expectEqual(isEnrollmentInactive("COMPLETED"), true, "dòng được làm mờ trong danh sách lớp");
+    expectEqual(await db.enrollment.count({ where: { classId: cls.id } }), 1, "ghi danh KHÔNG bị xóa khỏi lớp");
+  });
+
   const failed = summary();
   await db.$disconnect();
   await shared.$disconnect();

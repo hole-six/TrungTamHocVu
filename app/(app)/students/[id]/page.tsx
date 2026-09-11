@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import StudentEditForm from "@/components/students/StudentEditForm";
 import AssignEnrollmentForm from "@/components/students/AssignEnrollmentForm";
 import PauseEnrollmentButton from "@/components/students/PauseEnrollmentButton";
+import FinishEnrollmentActions from "@/components/students/FinishEnrollmentActions";
 import EnrollmentRowActions from "@/components/classes/EnrollmentRowActions";
 import StudentFinanceDesk from "@/components/students/StudentFinanceDesk";
 import StudentSessionCredits from "@/components/students/StudentSessionCredits";
@@ -668,6 +669,17 @@ export default async function StudentDetailPage({
                   enrollmentId={currentEnrollment.id}
                   status={currentEnrollment.status}
                   studentName={student.fullName}
+                />
+                {/* Hết buổi đã mua thì có 2 lối đi nữa ngoài chuyển/rút lớp: mua thêm
+                    buổi học tiếp ở chính lớp này, hoặc đánh dấu đã học xong. */}
+                <FinishEnrollmentActions
+                  enrollmentId={currentEnrollment.id}
+                  status={currentEnrollment.status}
+                  billingModel={currentEnrollment.billingModel}
+                  studentName={student.fullName}
+                  unitPrice={currentLearningSnapshot?.unitPrice ?? 0}
+                  purchasedSessions={currentLearningSnapshot?.entitledMainSessions ?? 0}
+                  usedSessions={currentLearningSnapshot?.completedMainSessions ?? 0}
                 />
                 <EnrollmentRowActions
                   enrollmentId={currentEnrollment.id}
