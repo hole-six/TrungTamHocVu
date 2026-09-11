@@ -11,6 +11,8 @@ import {
   computeSessionTiming,
   SESSION_STATUS_LABEL,
   ENROLLMENT_STATUS_LABEL,
+  isEnrollmentInactive,
+  INACTIVE_ROW_CLASS,
 } from "@/lib/server/class-rules";
 import { getHolidayDateSet } from "@/lib/server/holidays";
 import DetailTabs from "@/components/ui/DetailTabs";
@@ -1083,7 +1085,12 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                         const remainingMainSessions = snapshot.remainingMainSessions;
                         const remainingMainValue = snapshot.remainingValue;
                         return (
-                          <tr key={enrollment.id} className="border-b border-[#f0f4f8] align-top hover:bg-[#f8faff] last:border-0 transition-colors">
+                          <tr
+                            key={enrollment.id}
+                            className={`border-b border-[#f0f4f8] align-top hover:bg-[#f8faff] last:border-0 transition-colors ${
+                              isEnrollmentInactive(enrollment.status) ? INACTIVE_ROW_CLASS : ""
+                            }`}
+                          >
                             <td className="py-4 px-5">
                               <div className="flex items-start gap-3">
                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#f97316] to-[#ea580c] text-sm font-bold text-white shadow-md">
@@ -1237,7 +1244,12 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                     const remainingMainValue = snapshot.remainingValue;
 
                     return (
-                      <div key={enrollment.id} className="rounded-2xl border border-[#e5eaf7] bg-white p-4 shadow-sm">
+                      <div
+                        key={enrollment.id}
+                        className={`rounded-2xl border border-[#e5eaf7] bg-white p-4 shadow-sm ${
+                          isEnrollmentInactive(enrollment.status) ? INACTIVE_ROW_CLASS : ""
+                        }`}
+                      >
                         {/* Student Header with Avatar & Name */}
                         <div className="flex items-start gap-3 mb-3 pb-3 border-b border-[#e5eaf7]">
                           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#f97316] to-[#ea580c] text-base font-bold text-white shadow-md">

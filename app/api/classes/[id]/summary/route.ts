@@ -52,8 +52,12 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
           journal: true,
         },
       },
+      // Lấy CẢ học viên đã nghỉ, không chỉ ACTIVE. Trước đây drawer lọc cứng ACTIVE
+      // nên người rút lớp BIẾN MẤT khỏi drawer trong khi trang chi tiết lớp vẫn hiện
+      // họ — cùng một lớp mà hai màn hình ra hai danh sách khác nhau. Xóa hẳn khỏi
+      // màn hình cũng sai nghiệp vụ: họ đã học thật, đã đóng tiền thật, có thể còn
+      // nợ hoặc còn dư ví; phải nhìn thấy được và phân biệt bằng màu.
       enrollments: {
-        where: { status: "ACTIVE" },
         include: {
           student: {
             include: {
@@ -117,13 +121,21 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const roadmapItems = await ensureClassRoadmapItems(cls.id, cls.totalSessions);
 
   // Calculate stats
-  const activeEnrollments = cls.enrollments;
+  // Thống kê của lớp chỉ tính người ĐANG học — người đã nghỉ vẫn hiện trong danh
+  // sách (làm mờ) nhưng không được cộng vào sĩ số.
+  const activeEnrollments = cls.enrollments.filter((item) => item.status === "ACTIVE");
   const completedSessions = cls.sessions.filter(s => s.status === "COMPLETED").length;
   
   // Calculate total outstanding and overdue count
   let totalOutstanding = 0;
   let overdueEnrollments = 0;
+  // Duyệt theo HỌC VIÊN, không theo ghi danh: charges đã lọc sẵn theo lớp này, nên một
+  // người từng rút rồi ghi danh lại lớp cũ sẽ có 2 ghi danh nhưng CHUNG một bộ phiếu
+  // học phí — duyệt theo ghi danh là cộng đôi công nợ của chính họ.
+  const seenStudentIds = new Set<string>();
   for (const enrollment of cls.enrollments) {
+    if (seenStudentIds.has(enrollment.studentId)) continue;
+    seenStudentIds.add(enrollment.studentId);
     const charges = enrollment.student.charges;
     const total = charges.reduce((s, c) => s + c.totalAmount, 0);
     const paid = charges.reduce((s, c) => 

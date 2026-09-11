@@ -184,3 +184,20 @@ export const SESSION_STATUS_LABEL: Record<string, string> = {
   CANCELLED: "Đã hủy",
   RESCHEDULED: "Đã dời lịch",
 };
+
+// Học viên KHÔNG CÒN HỌC ở lớp này nữa — rút, chuyển đi, hoặc đã hoàn thành.
+//
+// Dùng để LÀM MỜ dòng của họ trong danh sách lớp thay vì xóa khỏi màn hình. Xóa hẳn là
+// sai nghiệp vụ: họ đã học thật, đã đóng tiền thật, có thể còn nợ hoặc còn dư ví, và
+// lịch sử điểm danh những buổi họ đã học vẫn phải tra ra được. Nhưng để nguyên như
+// người đang học cũng sai: nhân sự nhìn nhầm rồi gọi điện nhắc học phí người đã nghỉ.
+//
+// Họ tự động không nằm trong danh sách điểm danh của các buổi SAU ngày rời lớp nhờ
+// endDate (xem lib/server/class-roster.ts), nên không cần lọc thêm ở tầng giao diện.
+export function isEnrollmentInactive(status: string): boolean {
+  return status === "WITHDRAWN" || status === "TRANSFERRED" || status === "COMPLETED";
+}
+
+// Lớp CSS làm mờ dòng — dùng chung để trang chi tiết lớp và drawer lớp trông giống
+// nhau, thay vì mỗi nơi tự chọn một kiểu mờ khác nhau.
+export const INACTIVE_ROW_CLASS = "opacity-55 grayscale";

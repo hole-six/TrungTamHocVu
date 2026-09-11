@@ -222,6 +222,42 @@ async function main() {
     });
   });
 
+  // ---------------------------------------------------------------- 6b
+  // Học viên rút lớp: KHÔNG còn trong danh sách điểm danh của các buổi SAU ngày nghỉ,
+  // nhưng VẪN thuộc về những buổi họ đã học thật trước đó — nếu biến mất khỏi cả lịch
+  // sử thì buổi cũ nhìn vào bị thiếu người và không tra lại được ai đã học.
+  await test("Học viên đã nghỉ: mất khỏi buổi sau, còn nguyên ở buổi đã học", async () => {
+    const branch = await seedBranch(db);
+    const cls = await seedClass(db, branch.id);
+    const student = await seedStudent(db, branch.id, "Đã rút");
+    const leftOn = day("2026-02-15");
+    await seedEnrollment(db, {
+      studentId: student.id,
+      classId: cls.id,
+      billingModel: "PERIOD",
+      enrollDate: day("2026-01-05"),
+      endDate: leftOn,
+      status: "WITHDRAWN",
+    });
+
+    await db.$transaction(async (tx) => {
+      const before = await getEnrollmentsForSession(tx, {
+        classId: cls.id, sessionDate: day("2026-02-10"), billingModel: "PERIOD",
+      });
+      expectEqual(before.length, 1, "buổi TRƯỚC ngày nghỉ vẫn có tên họ");
+
+      const onLastDay = await getEnrollmentsForSession(tx, {
+        classId: cls.id, sessionDate: leftOn, billingModel: "PERIOD",
+      });
+      expectEqual(onLastDay.length, 1, "đúng ngày nghỉ vẫn tính là có học");
+
+      const after = await getEnrollmentsForSession(tx, {
+        classId: cls.id, sessionDate: day("2026-02-20"), billingModel: "PERIOD",
+      });
+      expectEqual(after.length, 0, "buổi SAU ngày nghỉ không còn tên họ");
+    });
+  });
+
   // ---------------------------------------------------------------- 7
   await test("Đóng dư giữ lại được, kỳ sau tự trừ vào phiếu mới", async () => {
     const branch = await seedBranch(db);

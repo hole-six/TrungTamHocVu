@@ -12,6 +12,7 @@ import TransferEnrollmentButton from "./TransferEnrollmentButton";
 import AddEnrollmentSessionsButton from "./AddEnrollmentSessionsButton";
 import RescheduleSessionButton from "./RescheduleSessionButton";
 import CancelSessionButton from "./CancelSessionButton";
+import { isEnrollmentInactive, INACTIVE_ROW_CLASS } from "@/lib/server/class-rules";
 import ScheduleRuleManager from "./ScheduleRuleManager";
 import ClassDefaultAssignmentManager from "./ClassDefaultAssignmentManager";
 import ClassTaskManager from "./ClassTaskManager";
@@ -313,7 +314,16 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                 </div>
               </Section>
 
-              <Section title="Học viên" hint={`${data.enrollments.length} học viên`}>
+              <Section
+                title="Học viên"
+                hint={(() => {
+                  // Nói rõ bao nhiêu người ĐANG học, bao nhiêu người đã nghỉ — tổng gộp
+                  // chung sẽ làm sĩ số lớp nhìn cao hơn thực tế.
+                  const total = data.enrollments.length;
+                  const left = data.enrollments.filter((item: any) => isEnrollmentInactive(item.status)).length;
+                  return left > 0 ? `${total - left} đang học · ${left} đã nghỉ` : `${total} học viên`;
+                })()}
+              >
                 <div className="space-y-4">
                   {data.isRemedial && data.permissions.canManageClass && data.remedialCandidates?.length > 0 && (
                     <RemedialBulkAssignPanel classId={data.id} candidates={data.remedialCandidates} futureSessions={data.remedialFutureSessions} onSuccess={() => void reload()} bare />
@@ -330,8 +340,11 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                   <div className="divide-y divide-[#f1f5f9]">
                     {data.enrollments.map((e: any) => {
                       const s = e.learningSnapshot;
+                      // Học viên đã nghỉ vẫn hiện nhưng LÀM MỜ — cùng quy tắc với trang
+                      // chi tiết lớp (xem isEnrollmentInactive trong class-rules.ts).
+                      const inactive = isEnrollmentInactive(e.status);
                       return (
-                        <div key={e.id} className="py-3 first:pt-0 last:pb-0">
+                        <div key={e.id} className={`py-3 first:pt-0 last:pb-0 ${inactive ? INACTIVE_ROW_CLASS : ""}`}>
                           <div className="flex justify-between gap-3">
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-1.5">
