@@ -41,6 +41,11 @@ export async function getBatchInvoiceViewData(periodId: string) {
       studentId: true,
       classId: true,
       billingModel: true,
+      // Học bổng để in đúng mức giảm trên phiếu của CHÍNH kỳ này.
+      scholarships: {
+        select: { percentage: true, effectiveFrom: true, effectiveTo: true },
+        orderBy: { effectiveFrom: "desc" },
+      },
     },
   });
   const enrollmentMap = new Map(activeEnrollments.map((item) => [`${item.studentId}:${item.classId}`, item]));
@@ -65,6 +70,16 @@ export async function getBatchInvoiceViewData(periodId: string) {
       id: c.id,
       enrollmentId: enrollment?.id ?? null,
       sessionCount: c.sessionCount,
+      // Xem InvoicePdfCharge trong lib/server/invoice-pdf.ts: ba số này để phiếu tự giải
+      // thích được "tổng buổi tháng - buổi dư tháng trước = buổi thu tiền" và in đúng
+      // mức giảm, y như mẫu giấy trung tâm đang phát.
+      scheduledSessionCount: c.scheduledSessionCount,
+      carriedSessionCount: c.carriedSessionCount,
+      scholarshipPercent:
+        enrollment?.scholarships?.find(
+          (item) =>
+            item.effectiveFrom <= period.endDate && (!item.effectiveTo || item.effectiveTo >= period.startDate),
+        )?.percentage ?? 0,
       absentCount: c.absentCount,
       deductedCount: c.deductedCount,
       unitPrice: c.unitPrice,

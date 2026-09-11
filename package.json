@@ -30,7 +30,8 @@
     "check:money": "tsx scripts/check_money_integrity.ts",
     "test:money": "tsx tests/money.test.ts",
     "test:payroll": "tsx tests/payroll.test.ts",
-    "test": "npm run test:money && npm run test:payroll",
+    "test:billing": "tsx tests/billing.test.ts",
+    "test": "npm run test:money && npm run test:payroll && npm run test:billing",
     "check:ui": "node scripts/ui_smoke.mjs"
   },
   "prisma": {

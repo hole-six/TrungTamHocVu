@@ -32,6 +32,12 @@ function resolvePythonCommand() {
 export type InvoicePdfCharge = {
   id: string;
   sessionCount: number;
+  // Số buổi lớp dự kiến dạy trong kỳ và số buổi dư mang sang từ kỳ trước — để phiếu tự
+  // giải thích "tổng buổi - buổi dư = buổi thu tiền", đúng mẫu giấy của trung tâm.
+  scheduledSessionCount: number;
+  carriedSessionCount: number;
+  // Mức học bổng đang hiệu lực (0..1) — mẫu giấy in ngay trong nhãn: "Học phí tháng 7 (VNĐ) (0)".
+  scholarshipPercent: number;
   absentCount: number;
   deductedCount: number;
   unitPrice: number;
@@ -387,6 +393,7 @@ async function ensureInvoiceForCharge(chargeId: string) {
       billingPeriod: true,
       allocations: true,
       invoice: true,
+      enrollment: { include: { scholarships: { orderBy: { effectiveFrom: "desc" } } } },
     },
   });
 
@@ -401,6 +408,16 @@ async function ensureInvoiceForCharge(chargeId: string) {
   return {
     id: charge.id,
     sessionCount: charge.sessionCount,
+    scheduledSessionCount: charge.scheduledSessionCount,
+    carriedSessionCount: charge.carriedSessionCount,
+    // Học bổng đang hiệu lực TẠI KỲ NÀY (không lấy đại mức mới nhất): phiếu tháng cũ
+    // phải in đúng mức giảm của tháng đó, nếu không phụ huynh đối chiếu lại sẽ lệch.
+    scholarshipPercent:
+      charge.enrollment?.scholarships.find(
+        (item) =>
+          item.effectiveFrom <= charge.billingPeriod.endDate &&
+          (!item.effectiveTo || item.effectiveTo >= charge.billingPeriod.startDate),
+      )?.percentage ?? 0,
     absentCount: charge.absentCount,
     deductedCount: charge.deductedCount,
     unitPrice: charge.unitPrice,

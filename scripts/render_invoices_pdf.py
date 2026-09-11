@@ -93,6 +93,25 @@ def get_branch_short_name(name):
     return "".join(word[0].upper() for word in words[:3])
 
 
+def get_previous_month_number(period_name):
+    """Số THÁNG liền trước kỳ này — mẫu giấy ghi rõ "nợ tính đến tháng 6" cho phiếu
+    tháng 7, chứ không ghi chung chung "đầu kỳ"."""
+    try:
+        year, month = [int(part) for part in period_name.split("-")[:2]]
+    except (ValueError, IndexError):
+        return ""
+    return str(12 if month == 1 else month - 1)
+
+
+def format_scholarship_percent(value):
+    """Mức giảm in ngay trong nhãn dòng học phí, đúng kiểu "(0)" của phiếu giấy.
+    value là tỉ lệ 0..1 (Scholarship.percentage), None coi như không giảm."""
+    if not value:
+        return "0"
+    percent = float(value) * 100
+    return str(int(percent)) if percent == int(percent) else f"{percent:.1f}"
+
+
 def get_due_date_label(period_name):
     try:
         year, month = period_name.split("-")
@@ -227,6 +246,9 @@ def draw_invoice_page(c, charge, payment_profile):
     remaining = max((charge.get("totalAmount") or 0) - paid, 0)
     total_sessions = (charge.get("sessionCount") or 0) + (charge.get("absentCount") or 0) + (charge.get("deductedCount") or 0)
     month_number = period_name.split("-")[1] if "-" in period_name else ""
+    previous_month_number = get_previous_month_number(period_name)
+    # Mẫu giấy để mức giảm ngay trong nhãn dòng học phí: "Học phí tháng 7 (VNĐ) (0)".
+    scholarship_percent_label = format_scholarship_percent(charge.get("scholarshipPercent"))
     is_course = charge.get("billingModel") == "COURSE"
     due_date = get_due_date_label(period_name)
 
@@ -267,7 +289,9 @@ def draw_invoice_page(c, charge, payment_profile):
     draw_text(c, "Học phí tháng trước:" if not is_course else "Công nợ trước khóa:", outer_x + 8, current_y, size=11, bold=True)
     current_y -= 6
     previous_rows = [[
-        "Học phí nợ tính đến đầu kỳ (VND)" if not is_course else "Công nợ / tồn trước khi vào phiếu này (VND)",
+        # Mẫu giấy ghi rõ THÁNG nào ("Học phí nợ tính đến tháng 6"), không ghi chung chung
+        # "đầu kỳ" — phụ huynh đối chiếu với phiếu tháng trước là ra ngay.
+        f"Học phí nợ tính đến tháng {previous_month_number} (VND)" if not is_course else "Công nợ / tồn trước khi vào phiếu này (VND)",
         format_vnd(charge.get("openingBalance", 0)),
     ]]
     current_y = draw_table(
@@ -287,13 +311,32 @@ def draw_invoice_page(c, charge, payment_profile):
     current_y -= 6
 
     if not is_course:
-        month_rows = [
-            [f"Số buổi nghỉ tháng {month_number}", str(charge.get("absentCount", 0))],
-            [f"Tổng số buổi tháng {month_number}", str(total_sessions)],
-            ["Số buổi tính phí", str(charge.get("sessionCount", 0))],
-            ["Tiền giáo trình (VND)", format_vnd(charge.get("materialsAmount", 0))],
-            [f"Học phí {period_name} (VND)", format_vnd(charge.get("tuitionAmount", 0))],
-        ]
+        # Đúng thứ tự và cách diễn đạt của phiếu giấy trung tâm đang phát:
+        #     Số buổi nghỉ tháng {trước}   = số buổi còn dư mang sang (trung tâm cho nghỉ)
+        #     Tổng số buổi tháng {này}     = số buổi lớp dự kiến dạy trong tháng
+        #     -> Học phí = (tổng - dư) x đơn giá
+        # Nhờ vậy phụ huynh CỘNG TRỪ RA ĐƯỢC. Trước đây phiếu in "Tổng số buổi" bằng
+        # chính số buổi THU nên có ca lớp dạy 4 buổi mà phiếu ghi tổng 1 buổi, không ai
+        # kiểm lại được và cũng không thấy phần dư đã được trừ.
+        #
+        # Phiếu CŨ (sinh trước khi có 2 cột này) có scheduled = 0 — lùi về cách in cũ
+        # thay vì in ra số 0 sai lệch.
+        scheduled = charge.get("scheduledSessionCount") or 0
+        carried = charge.get("carriedSessionCount") or 0
+        if scheduled > 0:
+            month_rows = [
+                [f"Số buổi nghỉ tháng {previous_month_number}", str(carried)],
+                [f"Tổng số buổi tháng {month_number}", str(scheduled)],
+                ["Tiền giáo trình (VND)", format_vnd(charge.get("materialsAmount", 0))],
+                [f"Học phí tháng {month_number} (VND) ({scholarship_percent_label})", format_vnd(charge.get("tuitionAmount", 0))],
+            ]
+        else:
+            month_rows = [
+                [f"Tổng số buổi tháng {month_number}", str(total_sessions)],
+                ["Số buổi tính phí", str(charge.get("sessionCount", 0))],
+                ["Tiền giáo trình (VND)", format_vnd(charge.get("materialsAmount", 0))],
+                [f"Học phí tháng {month_number} (VND) ({scholarship_percent_label})", format_vnd(charge.get("tuitionAmount", 0))],
+            ]
     else:
         month_rows = [
             ["Tổng số buổi toàn khóa", str(total_sessions)],

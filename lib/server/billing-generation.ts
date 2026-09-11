@@ -33,6 +33,8 @@ type PendingChargeDraft =
       installmentId: string;
       chargePayload: {
         sessionCount: number;
+        scheduledSessionCount?: number;
+        carriedSessionCount?: number;
         absentCount: number;
         deductedCount: number;
         unitPrice: number;
@@ -58,6 +60,8 @@ type PendingChargeDraft =
       issueEnd: Date;
       chargePayload: {
         sessionCount: number;
+        scheduledSessionCount?: number;
+        carriedSessionCount?: number;
         absentCount: number;
         deductedCount: number;
         unitPrice: number;
@@ -446,6 +450,13 @@ export async function generateChargesForPeriod(periodId: string) {
       issueEnd: period.endDate,
       chargePayload: {
         sessionCount,
+        // Lưu lại ĐÚNG hai con số đã dùng để ra sessionCount, để phiếu báo học phí tự
+        // giải thích được: tổng buổi lớp dự kiến dạy trong kỳ, trừ số buổi còn dư mang
+        // sang từ kỳ trước, ra số buổi thực thu. Không lưu thì sau này không dựng lại
+        // được (số dư ví đã thay đổi) và phiếu chỉ còn mỗi con số cuối, phụ huynh không
+        // kiểm được.
+        scheduledSessionCount,
+        carriedSessionCount: walletBalanceBeforeCharge,
         absentCount,
         deductedCount,
         unitPrice,

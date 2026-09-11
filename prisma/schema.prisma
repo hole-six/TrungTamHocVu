@@ -1043,7 +1043,17 @@ model Charge {
   // thu tiền, gắn enrollment CŨ) chặn charge mới của enrollment MỚI — xem
   // generateCourseCharge trong billing-generation.ts.
   enrollmentId               String?  @map("enrollment_id")
-  sessionCount               Int      @default(0) @map("session_count") // So buoi
+  sessionCount               Int      @default(0) @map("session_count") // So buoi THU TIEN
+  // Hai cột dưới đây để PHIẾU BÁO HỌC PHÍ tự giải thích được con số, đúng như mẫu giấy
+  // trung tâm đang phát cho phụ huynh: "Tổng số buổi tháng 7" trừ "Số buổi nghỉ tháng 6"
+  // ra đúng số buổi thu tiền. Trước đây chỉ lưu sessionCount (số buổi THU), nên phiếu in
+  // ra ghi "Tổng số buổi tháng 8 = 1" trong khi lớp dạy 4 buổi — phụ huynh không có cách
+  // nào tự kiểm, và cũng không thấy được 3 buổi dư tháng trước đã được trừ.
+  // scheduledSessionCount: số buổi lớp DỰ KIẾN dạy trong kỳ (tính từ ngày học viên vào
+  // lớp, đã bỏ buổi hủy/đã dời). carriedSessionCount: số buổi còn dư trong ví mang sang
+  // từ kỳ trước, chính là phần được trừ. Xem generateChargesForPeriod.
+  scheduledSessionCount      Int      @default(0) @map("scheduled_session_count")
+  carriedSessionCount        Int      @default(0) @map("carried_session_count")
   absentCount                Int      @default(0) @map("absent_count") // Buoi nghi
   deductedCount              Int      @default(0) @map("deducted_count") // Buoi tru
   unitPrice                  Int      @map("unit_price") // ĐG (đã áp học bổng/điều chỉnh)
