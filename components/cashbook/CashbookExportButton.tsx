@@ -6,6 +6,7 @@ type Transaction = {
   txnDate: string;
   type: "THU" | "CHI";
   categoryName: string | null;
+  className?: string | null;
   amount: number;
   description: string | null;
   status: string;
@@ -69,6 +70,7 @@ export default function CashbookExportButton({
             { key: "txnDate", label: "Ngay" },
             { key: "type", label: "Loai" },
             { key: "categoryName", label: "Danh muc" },
+            { key: "className", label: "Lop" },
             { key: "amountIn", label: "Thu vao" },
             { key: "amountOut", label: "Chi ra" },
             { key: "description", label: "Dien giai" },
@@ -78,6 +80,7 @@ export default function CashbookExportButton({
             txnDate: formatDate(item.txnDate),
             type: item.type,
             categoryName: item.categoryName ?? "",
+            className: item.className ?? "",
             amountIn: item.type === "THU" ? formatVnd(item.amount) : "",
             amountOut: item.type === "CHI" ? formatVnd(item.amount) : "",
             description: item.description ?? "",

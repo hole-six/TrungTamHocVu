@@ -187,7 +187,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       ? generateSessionDates(cls.scheduleRules, cls.startDate, suggestedEnd, holidayDates)
       : [];
       
-  const projectedSchedule = (cls.totalSessions ? projectedSlots.slice(0, cls.totalSessions) : projectedSlots).map((slot, index) => ({
+  // KHÔNG cắt danh sách buổi theo totalSessions nữa. Đó là số buổi DỰ KIẾN, còn lịch
+  // thật có thể dài hơn (buổi bù, lớp kéo dài) — cắt đi là giấu mất chính những buổi
+  // đang diễn ra, giáo vụ mở lớp ra không thấy buổi hôm nay đâu.
+  const projectedSchedule = projectedSlots.map((slot, index) => ({
     number: index + 1,
     sessionDate: slot.sessionDate.toISOString(),
     startTime: slot.startTime,

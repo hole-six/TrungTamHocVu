@@ -79,8 +79,13 @@ export const ROLE_MATRIX: Record<ModuleKey, Record<RoleCode, AccessLevel>> = {
     SUPER_ADMIN: "FULL", BOARD: "VIEW", BRANCH_MANAGER: "FULL", REGISTRAR: "FULL", ADMISSIONS: "UPDATE_VIEW", ACCOUNTANT: "VIEW_LIMITED",
     HR: "NONE", TEACHER: "VIEW_LIMITED", TEACHING_ASSISTANT: "VIEW_LIMITED", DIRECTOR: "FULL", RECEPTIONIST: "FULL",
   },
+  // REGISTRAR (giáo vụ) nâng từ VIEW lên UPDATE_VIEW: ở cơ sở chính giáo vụ là người
+  // đứng quầy thu tiền mặt của phụ huynh — đúng như dòng "Thanh toán tiền mặt tại các
+  // cơ sở" in trên phiếu báo học phí. Trước đây họ chỉ xem được, nên phụ huynh đến nộp
+  // thì không ai ghi nhận được ngay tại chỗ. Vẫn KHÔNG cho tạo/xóa phiếu học phí
+  // (create_charge) — việc lập và chốt kỳ thu vẫn thuộc kế toán.
   tuition: {
-    SUPER_ADMIN: "FULL", BOARD: "VIEW", BRANCH_MANAGER: "APPROVE_VIEW", REGISTRAR: "VIEW", ADMISSIONS: "VIEW_LIMITED", ACCOUNTANT: "FULL",
+    SUPER_ADMIN: "FULL", BOARD: "VIEW", BRANCH_MANAGER: "APPROVE_VIEW", REGISTRAR: "UPDATE_VIEW", ADMISSIONS: "VIEW_LIMITED", ACCOUNTANT: "FULL",
     HR: "NONE", TEACHER: "NONE", TEACHING_ASSISTANT: "NONE", DIRECTOR: "APPROVE_VIEW", RECEPTIONIST: "VIEW_LIMITED",
   },
   cashbook: {

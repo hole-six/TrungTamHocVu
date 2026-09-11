@@ -191,7 +191,16 @@ export default function EnrollStudentForm({
       return;
     }
 
-    setSuccess(`Đã ghi danh ${selected.fullName} vào lớp.`);
+    // GHI DANH NHIỀU NGƯỜI LIÊN TIẾP (đầu khóa thường có cả chục em vào cùng lúc):
+    // giữ nguyên form đang mở và GIỮ LẠI các lựa chọn vừa nhập — số buổi, đơn giá, kiểu
+    // thu, ngày/buổi bắt đầu — chỉ xóa phần chọn học viên. Người thứ hai trở đi chỉ cần
+    // gõ tên rồi bấm, nhanh gần bằng ghi danh hàng loạt.
+    //
+    // Cố tình KHÔNG làm ghi danh hàng loạt thật (chọn nhiều học viên rồi ghi một lượt):
+    // mỗi em một cam kết riêng về số buổi, học bổng và ngày bắt đầu, làm hàng loạt thì
+    // buộc phải áp chung một bộ giá trị cho cả nhóm — quay lại đúng cái vừa gỡ bỏ, là
+    // để lớp quyết định số buổi thay cho người ghi danh.
+    setSuccess(`Đã ghi danh ${selected.fullName} vào lớp. Chọn học viên tiếp theo để ghi danh với cùng thiết lập này.`);
     setSelected(null);
     setResults([]);
     setQ("");

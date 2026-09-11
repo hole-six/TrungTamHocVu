@@ -4,9 +4,20 @@ function buildDefaultRoadmapTitle(sessionNumber: number) {
   return `Buổi ${sessionNumber}`;
 }
 
+// totalSessions là SỐ BUỔI DỰ KIẾN của lớp, không phải trần cứng: lớp chạy chậm hơn kế
+// hoạch, có buổi bù, hoặc kéo dài thêm là chuyện bình thường. Nếu lộ trình chỉ sinh đúng
+// totalSessions mục thì những buổi vượt kế hoạch sẽ không có giáo án nào gắn vào, và
+// trang lớp hiện buổi trống trơn mà không ai hiểu vì sao.
+//
+// Vì vậy lộ trình dài bằng SỐ LỚN HƠN giữa: số buổi dự kiến và số buổi lớp đã thật sự
+// lên lịch. Cách này cũng là bước cần thiết nếu sau này bỏ hẳn totalSessions.
 export async function ensureClassRoadmapItems(classId: string, totalSessions: number | null | undefined) {
-  const normalizedTotal = Number(totalSessions ?? 0);
-  if (!Number.isInteger(normalizedTotal) || normalizedTotal <= 0) return [];
+  const plannedTotal = Number(totalSessions ?? 0);
+  const scheduledCount = await prisma.classSession.count({
+    where: { classId, status: { notIn: ["CANCELLED", "RESCHEDULED"] } },
+  });
+  const normalizedTotal = Math.max(Number.isInteger(plannedTotal) ? plannedTotal : 0, scheduledCount);
+  if (normalizedTotal <= 0) return [];
 
   const existing = await prisma.classRoadmapItem.findMany({
     where: { classId },

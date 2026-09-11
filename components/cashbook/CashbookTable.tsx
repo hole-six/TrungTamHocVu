@@ -24,6 +24,8 @@ type CashRow = {
   status: string;
   categoryId: string | null;
   categoryName: string | null;
+  /** Lớp của khoản thu học phí — suy ra từ phiếu thu, xem app/(app)/cashbook/page.tsx. */
+  className?: string | null;
   handledByName: string | null;
   isDerived: boolean;
 };
@@ -103,6 +105,11 @@ export default function CashbookTable({
       render: (value, row) => (
         <div className="space-y-1">
           <p className="font-medium text-ink">{value ?? "Chưa có diễn giải"}</p>
+          {/* Lớp chỉ có ở khoản thu học phí — khoản chi và thu khác thì không có, nên
+              chỉ hiện khi thật sự suy ra được, tránh dòng trống vô nghĩa. */}
+          {row.className ? (
+            <p className="text-xs font-semibold text-[#2563eb]">Lớp: {row.className}</p>
+          ) : null}
           <p className="text-xs text-ink-muted48">{row.handledByName ? `Người xử lý: ${row.handledByName}` : "Chưa rõ người xử lý"}</p>
         </div>
       ),
