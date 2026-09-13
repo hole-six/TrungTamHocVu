@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import ShiftPicker from "@/components/timesheets/ShiftPicker";
 import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
+import { formatShift, shiftHours, type ShiftTimes } from "@/lib/timesheet-shifts";
 
 type Entry = {
   id: string;
@@ -15,25 +17,10 @@ type Entry = {
   notes: string | null;
 };
 
-const DEFAULT_TIMES = { checkInAm: "", checkOutAm: "", checkInPm: "", checkOutPm: "" };
-
-function hoursFromRange(start: string, end: string) {
-  if (!start || !end) return 0;
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = end.split(":").map(Number);
-  if ([sh, sm, eh, em].some((item) => Number.isNaN(item))) return 0;
-  return Math.max(0, eh + em / 60 - (sh + sm / 60));
-}
-
-function computeHours(row: { checkInAm: string; checkOutAm: string; checkInPm: string; checkOutPm: string }) {
-  return hoursFromRange(row.checkInAm, row.checkOutAm) + hoursFromRange(row.checkInPm, row.checkOutPm);
-}
-
 /**
- * Form chấm công cho 1 nhân viên ở 1 ngày cụ thể — nội dung mở ra khi bấm "Xem thêm"
- * trên dòng đó. Trước đây form này dùng chung 1 state `draft` ở component cha cho MỌI
- * dòng (chỉ 1 dòng mở tại 1 thời điểm) — giờ mỗi dòng tự quản lý state riêng, không còn
- * ràng buộc "chỉ mở được 1 dòng" nhưng đổi lại không còn state dùng chung dễ rối.
+ * Form chấm công cho 1 nhân viên ở 1 ngày cụ thể — dùng trong màn lương (sửa công của
+ * kỳ lương). Giờ vào/ra chọn qua ShiftPicker dùng chung với màn chấm công: có ca mẫu,
+ * ghi rõ "Sáng — vào/ra", "Chiều — vào/ra" và tổng giờ/công ngay dưới ô nhập.
  */
 export default function TimesheetEntryForm({
   employeeId,
@@ -53,18 +40,16 @@ export default function TimesheetEntryForm({
   onSaved: () => void;
 }) {
   const router = useRouter();
-  const [draft, setDraft] = useState({
-    checkInAm: existing?.checkInAm ?? DEFAULT_TIMES.checkInAm,
-    checkOutAm: existing?.checkOutAm ?? DEFAULT_TIMES.checkOutAm,
-    checkInPm: existing?.checkInPm ?? DEFAULT_TIMES.checkInPm,
-    checkOutPm: existing?.checkOutPm ?? DEFAULT_TIMES.checkOutPm,
-    notes: existing?.notes ?? "",
+  const [times, setTimes] = useState<ShiftTimes>({
+    checkInAm: existing?.checkInAm ?? "",
+    checkOutAm: existing?.checkOutAm ?? "",
+    checkInPm: existing?.checkInPm ?? "",
+    checkOutPm: existing?.checkOutPm ?? "",
   });
+  const [notes, setNotes] = useState(existing?.notes ?? "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const previewHours = computeHours(draft);
 
   async function save() {
     setSaving(true);
@@ -73,7 +58,7 @@ export default function TimesheetEntryForm({
     const response = await fetch("/api/timesheet-entries", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId, workDate: selectedDate, ...draft }),
+      body: JSON.stringify({ employeeId, workDate: selectedDate, ...times, notes }),
     });
     const result = await response.json().catch(() => ({}));
     setSaving(false);
@@ -105,43 +90,21 @@ export default function TimesheetEntryForm({
 
   return (
     <div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <label className="space-y-1">
-          <span className="label text-xs">Giờ vào (ca 1)</span>
-          <input type="time" className="input" value={draft.checkInAm} onChange={(event) => setDraft((d) => ({ ...d, checkInAm: event.target.value }))} />
-        </label>
-        <label className="space-y-1">
-          <span className="label text-xs">Giờ ra (ca 1)</span>
-          <input type="time" className="input" value={draft.checkOutAm} onChange={(event) => setDraft((d) => ({ ...d, checkOutAm: event.target.value }))} />
-        </label>
-        <label className="space-y-1">
-          <span className="label text-xs">Giờ vào (ca 2, nếu có)</span>
-          <input type="time" className="input" value={draft.checkInPm} onChange={(event) => setDraft((d) => ({ ...d, checkInPm: event.target.value }))} />
-        </label>
-        <label className="space-y-1">
-          <span className="label text-xs">Giờ ra (ca 2, nếu có)</span>
-          <input type="time" className="input" value={draft.checkOutPm} onChange={(event) => setDraft((d) => ({ ...d, checkOutPm: event.target.value }))} />
-        </label>
-        <div className="space-y-1">
-          <span className="label text-xs">Giờ / công tính được</span>
-          <p className="input flex items-center bg-white font-semibold text-ink">
-            {previewHours.toFixed(2)} giờ · {(Math.round((previewHours / 8) * 100) / 100).toFixed(2)} công
-          </p>
-        </div>
-      </div>
+      <ShiftPicker value={times} onChange={setTimes} />
+
       <label className="mt-3 block space-y-1">
         <span className="label text-xs">Ghi chú ngày công</span>
         <input
           className="input"
-          value={draft.notes}
-          onChange={(event) => setDraft((d) => ({ ...d, notes: event.target.value }))}
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
           placeholder="Ví dụ: đi muộn 15 phút, nghỉ phép buổi sáng, hỗ trợ sự kiện cuối giờ..."
         />
       </label>
       {error ? <p className="mt-2 text-xs text-red-600">{error}</p> : null}
       <div className="mt-3 flex items-center gap-2">
-        <button type="button" onClick={save} disabled={saving} className={ACTION_CLASS}>
-          {saving ? "Đang lưu..." : "Lưu chấm công"}
+        <button type="button" onClick={save} disabled={saving || shiftHours(times) <= 0} className={ACTION_CLASS}>
+          {saving ? "Đang lưu..." : `Lưu chấm công ${formatShift(times)}`}
         </button>
         {existing && canDeleteTimesheet ? (
           <ConfirmActionButton
