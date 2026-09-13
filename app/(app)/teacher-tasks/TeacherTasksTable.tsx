@@ -34,6 +34,9 @@ type TeacherTasksTableProps = {
   page: number;
   pageSize: number;
   canDecide: boolean;
+  /** Đếm theo trạng thái trên TOÀN chi nhánh (không theo bộ lọc đang chọn) — để chip
+   *  "Chưa nộp" vẫn hiện đúng số khi đang lọc "Đã nộp" và ngược lại. */
+  counts: { total: number; notSubmitted: number; submitted: number };
 };
 
 const SCORE_DECISION_OPTIONS: { value: string; label: string }[] = [
@@ -57,6 +60,7 @@ export default function TeacherTasksTable({
   page,
   pageSize,
   canDecide,
+  counts,
 }: TeacherTasksTableProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -300,10 +304,40 @@ export default function TeacherTasksTable({
     },
   ];
 
+  // Tổng / Chưa nộp / Đã nộp nằm CÙNG HÀNG với ô tìm kiếm, dạng chip bấm để lọc — giống
+  // /students. Trước đây là 3 thẻ to riêng một hàng phía trên bảng, chỉ để nhìn chứ không
+  // bấm lọc được, phải xuống ô lọc "Trạng thái" trong đầu cột mới lọc.
+  const chips = [
+    { key: "", label: "Tất cả", value: counts.total, activeClass: "bg-primary text-white", idleValueClass: "text-primary" },
+    { key: "NOT_SUBMITTED", label: "Chưa nộp", value: counts.notSubmitted, activeClass: "bg-rose-500 text-white", idleValueClass: "text-rose-700" },
+    { key: "SUBMITTED", label: "Đã nộp", value: counts.submitted, activeClass: "bg-emerald-500 text-white", idleValueClass: "text-emerald-700" },
+  ];
+  const headerActions = (
+    <div className="flex flex-wrap items-center gap-2">
+      {chips.map((chip) => {
+        const active = status === chip.key;
+        return (
+          <button
+            key={chip.label}
+            type="button"
+            onClick={() => updateParams({ status: chip.key || null })}
+            className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+              active ? `${chip.activeClass} border-transparent` : "border-[#dbe7ff] bg-white text-ink hover:border-primary/30"
+            }`}
+          >
+            <span>{chip.label}</span>
+            <span className={active ? "text-white" : chip.idleValueClass}>{chip.value}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
     <DataTableResponsive
       data={initialData}
       columns={columns}
+      headerActions={headerActions}
       searchable
       searchPlaceholder="Tìm theo tên/mã nhân sự, tên lớp, yêu cầu..."
       onSearch={handleSearch}

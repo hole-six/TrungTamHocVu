@@ -35,6 +35,8 @@ export type TimesheetEmployee = {
   employeeCode: string;
   position: string | null;
   workStatus: string;
+  /** HOURLY | SESSION | MONTHLY — chỉ MONTHLY (hành chính/văn phòng) chấm công ngày. */
+  payMode: string;
   timesheetEntries: Entry[];
   sessionAssignments: SessionAssignmentRow[];
 };
@@ -58,6 +60,7 @@ export default function TimesheetEmployeeDrawer({
   onClose,
   employee,
   month,
+  today,
   canDeleteTimesheet,
   canEdit,
 }: {
@@ -66,6 +69,9 @@ export default function TimesheetEmployeeDrawer({
   employee: TimesheetEmployee;
   /** "YYYY-MM" — tháng đang xem, quyết định ngày mặc định của form chấm công mới. */
   month: string;
+  /** "YYYY-MM-DD" hôm nay theo giờ VN, tính ở server — new Date().toISOString() ở trình
+   *  duyệt ra ngày UTC, từ 0h–7h sáng sẽ điền nhầm ngày hôm qua. */
+  today: string;
   canDeleteTimesheet: boolean;
   canEdit: boolean;
 }) {
@@ -80,7 +86,6 @@ export default function TimesheetEmployeeDrawer({
   // Ngày mặc định khi bấm "Chấm công một ngày": hôm nay nếu hôm nay thuộc tháng đang
   // xem, ngược lại là ngày 1 của tháng đó — tránh vô tình chấm nhầm sang tháng khác.
   function defaultDate() {
-    const today = new Date().toISOString().slice(0, 10);
     return today.startsWith(month) ? today : `${month}-01`;
   }
 

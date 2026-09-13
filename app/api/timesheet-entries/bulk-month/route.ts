@@ -104,13 +104,29 @@ export async function POST(req: NextRequest) {
   const holidayDates = await getHolidayDateSet(branchId);
   const today = new Date();
 
+  // date (YYYY-MM-DD): chấm ĐÚNG MỘT NGÀY thay vì cả tháng — dùng cho nút "Chấm hôm nay"
+  // ở bảng chấm công, để nút đó đi qua cùng mọi chốt an toàn của route này (kỳ công đã
+  // khóa, ngày lễ, không đè ngày đã chấm) thay vì gọi thẳng PUT từng dòng. Người dùng chọn
+  // rõ ngày nên KHÔNG lọc theo thứ trong tuần (chấm được cả Chủ nhật nếu có đi làm).
+  const singleDate = String(body.date ?? "").trim();
+  if (singleDate && (!/^\d{4}-\d{2}-\d{2}$/.test(singleDate) || !singleDate.startsWith(month))) {
+    return NextResponse.json({ error: "Ngày chấm công phải thuộc đúng tháng đang chấm." }, { status: 400 });
+  }
+
   const workDates: Date[] = [];
-  for (let cursor = new Date(start); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
-    const day = new Date(cursor);
-    if (day > today) break;
-    if (!weekdays.includes(day.getUTCDay())) continue;
-    if (holidayDates.has(day.toISOString().slice(0, 10))) continue;
-    workDates.push(day);
+  if (singleDate) {
+    if (holidayDates.has(singleDate)) {
+      return NextResponse.json({ error: `Ngày ${singleDate} là ngày lễ của cơ sở, không chấm công tự động.` }, { status: 400 });
+    }
+    workDates.push(new Date(`${singleDate}T00:00:00.000Z`));
+  } else {
+    for (let cursor = new Date(start); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+      const day = new Date(cursor);
+      if (day > today) break;
+      if (!weekdays.includes(day.getUTCDay())) continue;
+      if (holidayDates.has(day.toISOString().slice(0, 10))) continue;
+      workDates.push(day);
+    }
   }
   if (workDates.length === 0) {
     return NextResponse.json({ error: "Không có ngày công nào trong khoảng đã chọn." }, { status: 400 });
@@ -156,6 +172,8 @@ export async function POST(req: NextRequest) {
     created,
     updated,
     skipped,
-    message: `Đã chấm công tháng ${month} cho ${employees.length} nhân sự: tạo mới ${created} ngày, cập nhật ${updated}, giữ nguyên ${skipped} ngày đã có.`,
+    message: singleDate
+      ? `Đã chấm công ngày ${singleDate.split("-").reverse().join("/")} cho ${created + updated} nhân sự${skipped > 0 ? `, ${skipped} người đã chấm từ trước nên giữ nguyên` : ""}.`
+      : `Đã chấm công tháng ${month} cho ${employees.length} nhân sự: tạo mới ${created} ngày, cập nhật ${updated}, giữ nguyên ${skipped} ngày đã có.`,
   });
 }

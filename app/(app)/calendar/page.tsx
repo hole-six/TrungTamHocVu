@@ -6,6 +6,7 @@ import { getCurrentBranchId } from "@/lib/branch-filter";
 import CalendarFilters from "@/components/calendar/CalendarFilters";
 import SessionCard from "@/components/calendar/SessionCard";
 import CalendarListView from "@/components/calendar/CalendarListView";
+import { getVietnamToday } from "@/lib/server/class-rules";
 import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 
@@ -39,7 +40,6 @@ const ICON_CALENDAR = (
 );
 
 const WEEKDAY_SHORT = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-const TODAY_YMD = new Date().toISOString().slice(0, 10);
 
 function startOfWeek(date: Date): Date {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -99,6 +99,11 @@ export default async function CalendarPage({
   const role = user ? await getUserRole(user.id) : null;
   const activeBranchId = await getCurrentBranchId();
 
+  // "Hôm nay" tính MỖI REQUEST theo giờ Việt Nam. Trước đây là hằng số cấp module
+  // (new Date().toISOString()): bản build production chỉ tính 1 lần lúc server khởi
+  // động nên qua nửa đêm vẫn tô ngày cũ tới lần deploy sau, và theo giờ UTC nên từ
+  // 0h–7h sáng giờ VN lệch mất một ngày.
+  const TODAY_YMD = getVietnamToday().toISOString().slice(0, 10);
   const q = searchParams.q?.trim() ?? "";
   const timePreset = searchParams.timePreset?.trim() ?? "all";
   const view = searchParams.view === "list" ? "list" : "grid";
@@ -269,7 +274,7 @@ export default async function CalendarPage({
 
       <div data-tour="calendar-week">
       {view === "list" ? (
-        <CalendarListView rows={sessions} rosterCountBySession={Object.fromEntries(rosterCountBySession)} />
+        <CalendarListView rows={sessions} rosterCountBySession={Object.fromEntries(rosterCountBySession)} todayYmd={TODAY_YMD} />
       ) : (
       <>
       <div className="hidden overflow-x-auto pb-2 md:block [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -286,7 +291,7 @@ export default async function CalendarPage({
                   day.holidayName
                     ? "border-slate-300 bg-slate-100"
                     : isToday
-                    ? "border-[#6dc0ff] bg-white shadow-[0_8px_24px_rgba(19,137,232,0.08)]"
+                    ? "border-2 border-red-500 bg-red-50/60 shadow-[0_10px_28px_-10px_rgba(220,38,38,0.35)]"
                     : isFocus
                       ? "border-[#dce7f3] bg-[#fafdff]"
                       : "border-[#dce7f3] bg-[rgba(255,255,255,0.86)]"
@@ -303,7 +308,7 @@ export default async function CalendarPage({
                   {day.holidayName ? (
                     <span className="absolute right-0 top-0 rounded-full bg-slate-700 px-2 py-0.5 text-[11px] font-bold text-white">{day.holidayName}</span>
                   ) : null}
-                  {isToday && !day.holidayName ? <span className="absolute right-0 top-0 rounded-full bg-sky-600 px-2 py-0.5 text-[11px] font-bold text-white">Hôm nay</span> : null}
+                  {isToday && !day.holidayName ? <span className="absolute right-0 top-0 rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-black text-white">Hôm nay</span> : null}
                   {isFocus && !isToday ? <span className="absolute right-0 top-0 rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-700">Đang xem</span> : null}
                 </div>
 
@@ -320,7 +325,7 @@ export default async function CalendarPage({
 
                 <div className="space-y-[10px]">
                   {day.sessions.map((session) => (
-                    <SessionCard key={session.id} session={session} variant="grid" rosterCount={rosterCountBySession.get(session.id) ?? 0} />
+                    <SessionCard key={session.id} session={session} variant="grid" rosterCount={rosterCountBySession.get(session.id) ?? 0} isToday={isToday} />
                   ))}
 
                   {day.sessions.length === 0 ? (
@@ -355,7 +360,7 @@ export default async function CalendarPage({
                   isFocus
                     ? "border-primary bg-primary text-white shadow-md"
                     : isToday
-                      ? "border-sky-300 bg-sky-50 text-sky-700"
+                      ? "border-2 border-red-500 bg-red-50 font-black text-red-700"
                       : "border-hairline bg-white text-ink hover:border-primary/30"
                 }`}
               >
@@ -375,7 +380,7 @@ export default async function CalendarPage({
           return (
             <div key={iso} className="space-y-4">
               {/* Day header */}
-              <div className={`rounded-2xl border p-4 ${isToday ? "border-sky-200 bg-sky-50" : "border-hairline bg-white"}`}>
+              <div className={`rounded-2xl p-4 ${isToday ? "border-2 border-red-500 bg-red-50" : "border border-hairline bg-white"}`}>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted48">
@@ -383,7 +388,7 @@ export default async function CalendarPage({
                     </p>
                     <p className="mt-1 text-lg font-bold text-ink">{day.sessions.length} buổi học</p>
                   </div>
-                  {isToday && <span className="rounded-full bg-sky-600 px-3 py-1 text-xs font-bold text-white">Hôm nay</span>}
+                  {isToday && <span className="rounded-full bg-red-600 px-3 py-1 text-xs font-black text-white">Hôm nay</span>}
                 </div>
                 
                 <div className="mt-3 grid grid-cols-2 gap-2">
@@ -401,7 +406,7 @@ export default async function CalendarPage({
               {/* Sessions list */}
               <div className="space-y-3">
                 {day.sessions.map((session) => (
-                  <SessionCard key={session.id} session={session} variant="list" rosterCount={rosterCountBySession.get(session.id) ?? 0} />
+                  <SessionCard key={session.id} session={session} variant="list" rosterCount={rosterCountBySession.get(session.id) ?? 0} isToday={isToday} />
                 ))}
 
                 {day.sessions.length === 0 && (

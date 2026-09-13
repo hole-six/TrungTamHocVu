@@ -35,6 +35,30 @@ export default function TimesheetsWorkspace({
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkMessage, setBulkMessage] = useState<string | null>(null);
   const [bulkError, setBulkError] = useState<string | null>(null);
+  // Đang chấm hôm nay cho ai: id nhân sự, "ALL" = cả cơ sở, null = không.
+  const [todayLoading, setTodayLoading] = useState<string | null>(null);
+
+  // Chấm công NGÀY HÔM NAY theo ca chuẩn — đi qua đúng API chấm hàng loạt (chốt kỳ công
+  // đã khóa, ngày lễ, không đè ngày đã chấm), chỉ khác là 1 ngày. employeeId có giá trị
+  // thì chấm riêng người đó; không có thì chấm cho mọi nhân sự hưởng lương tháng.
+  async function checkInToday(employeeId?: string) {
+    setTodayLoading(employeeId ?? "ALL");
+    setBulkError(null);
+    setBulkMessage(null);
+    const response = await fetch("/api/timesheet-entries/bulk-month", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month, date: today, ...(employeeId ? { employeeIds: [employeeId] } : {}) }),
+    });
+    const result = await response.json().catch(() => ({}));
+    setTodayLoading(null);
+    if (!response.ok) {
+      setBulkError(result.error ?? "Không chấm công hôm nay được.");
+      return;
+    }
+    setBulkMessage(result.message ?? "Đã chấm công hôm nay.");
+    router.refresh();
+  }
 
   // Chấm công cả tháng theo ca chuẩn (xem app/api/timesheet-entries/bulk-month).
   // Chấm theo NGOẠI LỆ: điền sẵn toàn bộ ngày công bình thường, nhân sự chỉ sửa lại
@@ -73,6 +97,13 @@ export default function TimesheetsWorkspace({
   const currentPage = Math.min(page, totalPages);
   const pagedEmployees = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const showTodayColumn = today.startsWith(month);
+  // Nút chấm cả cơ sở chỉ chấm nhân sự hưởng lương THÁNG (cùng quy tắc với API) — giáo
+  // viên/trợ giảng tính công theo buổi dạy, không đi qua chấm công ngày.
+  const notCheckedTodayCount = showTodayColumn
+    ? employees.filter(
+        (item) => item.payMode === "MONTHLY" && !item.timesheetEntries.some((entry) => entry.workDate.slice(0, 10) === today),
+      ).length
+    : 0;
 
   const columns: Column<TimesheetEmployee>[] = [
     {
@@ -126,10 +157,27 @@ export default function TimesheetsWorkspace({
             label: "Hôm nay",
             render: (_value: unknown, row: TimesheetEmployee) => {
               const entry = row.timesheetEntries.find((item) => item.workDate.slice(0, 10) === today);
-              return entry ? (
-                <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
-                  Đã chấm · {entry.hours?.toFixed(2) ?? 0}h
-                </span>
+              if (entry) {
+                return (
+                  <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
+                    Đã chấm · {entry.hours?.toFixed(2) ?? 0}h
+                  </span>
+                );
+              }
+              // Chưa chấm: nút chấm ngay tại dòng, không phải mở drawer rồi chọn ngày rồi
+              // gõ 4 ô giờ. Ngày bất thường (đi muộn, nửa buổi) vẫn sửa trong drawer.
+              return canEditTimesheet ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void checkInToday(row.id);
+                  }}
+                  disabled={todayLoading !== null}
+                  className="rounded-md border border-[#0f1729] bg-[#0f1729] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#1e293b] disabled:opacity-50"
+                >
+                  {todayLoading === row.id ? "Đang chấm..." : "Chấm hôm nay"}
+                </button>
               ) : (
                 <span className="rounded-md border border-[#e2e8f0] bg-white px-2 py-1 text-xs font-bold text-[#94a3b8]">Chưa chấm</span>
               );
@@ -163,9 +211,25 @@ export default function TimesheetsWorkspace({
                 bỏ qua Chủ nhật và ngày lễ. Ngày đã chấm trước đó được giữ nguyên — sau đó chỉ cần sửa lại ngày nghỉ/bất thường.
               </p>
             </div>
-            <button type="button" onClick={fillMonth} disabled={bulkLoading} className="btn-primary shrink-0 disabled:opacity-60">
-              {bulkLoading ? "Đang chấm..." : `Chấm công tháng ${month}`}
-            </button>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              {showTodayColumn ? (
+                <button
+                  type="button"
+                  onClick={() => void checkInToday()}
+                  disabled={todayLoading !== null || notCheckedTodayCount === 0}
+                  className="rounded-lg bg-[#0f1729] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#1e293b] disabled:opacity-50"
+                >
+                  {todayLoading === "ALL"
+                    ? "Đang chấm..."
+                    : notCheckedTodayCount === 0
+                      ? "Hôm nay đã chấm đủ"
+                      : `Chấm công hôm nay cho nhân sự hành chính (${notCheckedTodayCount} người)`}
+                </button>
+              ) : null}
+              <button type="button" onClick={fillMonth} disabled={bulkLoading} className="btn-ghost shrink-0 disabled:opacity-60">
+                {bulkLoading ? "Đang chấm..." : `Chấm công cả tháng ${month}`}
+              </button>
+            </div>
           </div>
           {bulkMessage ? <p className="mt-2 text-sm font-semibold text-emerald-700">{bulkMessage}</p> : null}
           {bulkError ? <p className="mt-2 text-sm font-semibold text-red-600">{bulkError}</p> : null}
@@ -203,6 +267,7 @@ export default function TimesheetsWorkspace({
           onClose={() => setOpenId(null)}
           employee={selected}
           month={month}
+          today={today}
           canEdit={canEditTimesheet}
           canDeleteTimesheet={canDeleteTimesheet}
         />

@@ -12,7 +12,10 @@ import TransferEnrollmentButton from "./TransferEnrollmentButton";
 import AddEnrollmentSessionsButton from "./AddEnrollmentSessionsButton";
 import RescheduleSessionButton from "./RescheduleSessionButton";
 import CancelSessionButton from "./CancelSessionButton";
-import { isEnrollmentInactive, INACTIVE_ROW_CLASS } from "@/lib/server/class-rules";
+// Nhãn trạng thái dùng CHUNG với các màn khác (class-rules.ts là file thuần, không kéo
+// prisma vào bundle) — trước đây drawer tự khai map riêng thiếu PAUSED/PENDING, và trạng
+// thái buổi học hiện nguyên chữ tiếng Anh (COMPLETED, PLANNED...).
+import { isEnrollmentInactive, INACTIVE_ROW_CLASS, ENROLLMENT_STATUS_LABEL, SESSION_STATUS_LABEL } from "@/lib/server/class-rules";
 import ScheduleRuleManager from "./ScheduleRuleManager";
 import ClassDefaultAssignmentManager from "./ClassDefaultAssignmentManager";
 import ClassTaskManager from "./ClassTaskManager";
@@ -50,13 +53,6 @@ const badgeClass = (status: string) => {
   if (status === "CANCELLED") return "bg-[#fee2e2] text-[#991b1b]";
   if (status === "PENDING" || status === "PLANNED") return "bg-[#fef9c3] text-[#854d0e]";
   return "bg-[#f1f5f9] text-[#475569]";
-};
-
-const ENROLLMENT_STATUS_LABEL: Record<string, string> = {
-  ACTIVE: "Đang học",
-  COMPLETED: "Hoàn tất",
-  WITHDRAWN: "Đã rút",
-  TRANSFERRED: "Đã chuyển",
 };
 
 const ATTENDANCE_STATUS_LABEL: Record<string, string> = {
@@ -274,7 +270,7 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
 
                         {slot.session ? (
                           <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px]">
-                            <span className={`rounded px-1.5 py-0.5 font-bold ${badgeClass(slot.session.status)}`}>{slot.session.status}</span>
+                            <span className={`rounded px-1.5 py-0.5 font-bold ${badgeClass(slot.session.status)}`}>{SESSION_STATUS_LABEL[slot.session.status] ?? slot.session.status}</span>
                             <span className="font-semibold text-[#64748b]">Điểm danh <strong className="text-[#0f1729]">{slot.session.attendances?.length || 0}</strong></span>
                             <span className="font-semibold text-[#64748b]">Nhật ký <strong className="text-[#0f1729]">{slot.session.journal?.publishedAt ? "Gửi" : slot.session.journal ? "Nháp" : "Chưa"}</strong></span>
                             {data.permissions.canManageClass && slot.session.status !== "CANCELLED" && (
@@ -350,7 +346,7 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <Link href={`/students/${e.student.id}`} onClick={onClose} className="text-sm font-bold hover:text-[#2563eb]">{e.student.fullName}</Link>
                                 <span className="text-xs font-semibold text-[#f97316]">{e.student.studentCode}</span>
-                                <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${badgeClass(e.status)}`}>{ENROLLMENT_STATUS_LABEL[e.status] || e.status}</span>
+                                <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${badgeClass(e.status)}`}>{ENROLLMENT_STATUS_LABEL[e.status as keyof typeof ENROLLMENT_STATUS_LABEL] ?? e.status}</span>
                                 <span className="rounded bg-[#eef6ff] px-1.5 py-0.5 text-[10px] font-semibold text-[#2563eb]">{e.billingModel === "COURSE" ? "Khóa" : e.billingModel === "INSTALLMENT" ? "Góp" : "Tháng"}</span>
                                 {e.debt > 0 && <span className="rounded bg-[#f59e0b] px-1.5 py-0.5 text-[10px] font-bold text-white">Nợ {formatVnd(e.debt)}</span>}
                                 {e.activeScholarship && <span className="rounded bg-[#ecfdf5] px-1.5 py-0.5 text-[10px] font-bold text-[#047857]">HB {Math.round(e.activeScholarship.percentage * 100)}%</span>}

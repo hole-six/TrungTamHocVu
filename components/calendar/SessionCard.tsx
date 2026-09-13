@@ -66,11 +66,25 @@ const ICON_USERS = (
 // rosterCount = sĩ số THẬT của đúng buổi này, do trang lịch tính theo quy tắc chung ở
 // lib/server/class-roster.ts. Trước đây card tự lấy class._count.enrollments — tức tổng
 // học viên đang học của lớp — nên mọi buổi của cùng một lớp đều hiện chung một con số.
-export default function SessionCard({ session, variant, rosterCount }: { session: SessionCardData; variant: "grid" | "list"; rosterCount?: number }) {
+export default function SessionCard({
+  session,
+  variant,
+  rosterCount,
+  isToday = false,
+}: {
+  session: SessionCardData;
+  variant: "grid" | "list";
+  rosterCount?: number;
+  /** Buổi của NGÀY HÔM NAY — viền đỏ đậm + tên lớp đỏ đậm để nhìn lịch tuần là thấy ngay
+   *  hôm nay đang có lớp nào. Buổi đã hủy thì không tô (lớp không diễn ra). */
+  isToday?: boolean;
+}) {
   // Buổi trung tâm cho nghỉ: tối màu toàn bộ thẻ + gạch ngang tên lớp, để nhìn lịch
   // tuần là biết ngay hôm đó lớp không diễn ra mà không phải đọc chữ trạng thái.
   const isOff = session.status === "CANCELLED";
   const dimClass = isOff ? "opacity-60 grayscale" : "";
+  const highlightToday = isToday && !isOff;
+  const classNameTextClass = highlightToday ? "font-black text-red-700" : "text-ink";
   const teacherNames = session.assignments
     .filter((assignment) => assignment.role === "TEACHER")
     .map((assignment) => assignment.employee.shortName || assignment.employee.fullName);
@@ -83,11 +97,13 @@ export default function SessionCard({ session, variant, rosterCount }: { session
     return (
       <Link
         href={`/classes/${session.classId}/sessions/${session.id}`}
-        className={`block rounded-2xl border border-hairline p-4 transition active:scale-[0.98] active:bg-canvas-parchment ${isOff ? "bg-slate-50" : "bg-white"} ${dimClass}`}
+        className={`block rounded-2xl p-4 transition active:scale-[0.98] active:bg-canvas-parchment ${
+          highlightToday ? "border-2 border-red-500 bg-red-50 shadow-[0_8px_24px_-12px_rgba(220,38,38,0.45)]" : `border border-hairline ${isOff ? "bg-slate-50" : "bg-white"}`
+        } ${dimClass}`}
       >
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="flex-1">
-            <p className="text-base font-semibold leading-tight text-ink">{session.class.className}</p>
+            <p className={`text-base font-semibold leading-tight ${classNameTextClass}`}>{session.class.className}</p>
             <p className="mt-1 text-xs text-ink-muted48">
               {session.class.classCode}
               {session.class.course?.name ? ` · ${session.class.course.name}` : ""}
@@ -132,11 +148,15 @@ export default function SessionCard({ session, variant, rosterCount }: { session
   return (
     <Link
       href={`/classes/${session.classId}/sessions/${session.id}`}
-      className={`block rounded-[14px] border border-l-4 border-[#d5e4f3] p-3 transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_18px_40px_-30px_rgba(14,116,144,0.45)] ${isOff ? "bg-slate-50" : "bg-white"} ${dimClass} ${statusAccentClass(session.status)}`}
+      className={`block rounded-[14px] p-3 transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-30px_rgba(14,116,144,0.45)] ${
+        highlightToday
+          ? "border-2 border-red-500 bg-red-50 shadow-[0_8px_24px_-12px_rgba(220,38,38,0.45)]"
+          : `border border-l-4 border-[#d5e4f3] hover:border-primary/35 ${isOff ? "bg-slate-50" : "bg-white"} ${statusAccentClass(session.status)}`
+      } ${dimClass}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-base font-bold leading-[1.3] text-ink">{session.class.className}</p>
+          <p className={`text-base font-bold leading-[1.3] ${classNameTextClass}`}>{session.class.className}</p>
           <p className="mt-1 text-xs text-ink-muted48">
             {session.class.classCode}
             {session.class.course?.name ? ` · ${session.class.course.name}` : ""}

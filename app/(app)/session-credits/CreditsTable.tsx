@@ -168,29 +168,36 @@ export default function CreditsTable({
     {
       key: "student",
       label: "Học viên",
-      width: showConsumedColumn ? "17%" : "20%",
+      width: showConsumedColumn ? "13%" : "15%",
       filter: { type: "text", paramKey: "student", placeholder: "Tên hoặc mã HV..." },
       render: (_value, row) => (
         <div>
           <StudentLink studentId={row.student.id} className="font-black text-[#0f1729] hover:text-[#1d4ed8]">
             {row.student.fullName}
           </StudentLink>
-          {row.enrollment.classId ? (
-            <Link href={`/classes/${row.enrollment.classId}`} className="mt-2 inline-flex text-xs font-bold text-[#1d4ed8] underline underline-offset-2">
-              {row.enrollment.class?.className ?? row.enrollment.packageLabel ?? "Gói học"}
-            </Link>
-          ) : (
-            <span className="mt-2 inline-flex text-xs text-[#64748b]">
-              {row.enrollment.packageLabel ?? "Gói học"}
-            </span>
-          )}
+          <p className="mt-0.5 font-mono text-xs text-[#94a3b8]">{row.student.studentCode}</p>
         </div>
       ),
+    },
+    // Lớp tách thành cột riêng — trước đây tên lớp nằm ngay sau tên học viên trong cùng
+    // một ô, nên hiển thị dính liền "Trần Minh KhangFirst Friends 1 - Lớp A1".
+    {
+      key: "enrollment",
+      label: "Lớp",
+      width: showConsumedColumn ? "11%" : "13%",
+      render: (_value, row) =>
+        row.enrollment.classId ? (
+          <Link href={`/classes/${row.enrollment.classId}`} className="text-sm font-semibold text-[#1d4ed8] hover:underline">
+            {row.enrollment.class?.className ?? row.enrollment.packageLabel ?? "Gói học"}
+          </Link>
+        ) : (
+          <span className="text-sm text-[#64748b]">{row.enrollment.packageLabel ?? "Gói học"}</span>
+        ),
     },
     {
       key: "origin",
       label: "Loại bổ trợ",
-      width: showConsumedColumn ? "13%" : "16%",
+      width: showConsumedColumn ? "12%" : "14%",
       filter: {
         type: "select",
         paramKey: "type",
@@ -214,7 +221,7 @@ export default function CreditsTable({
       key: "totalCount",
       label: "Số buổi",
       align: "center",
-      width: showConsumedColumn ? "8%" : "10%",
+      width: showConsumedColumn ? "7%" : "9%",
       filter: {
         type: "select",
         paramKey: "status",
@@ -236,7 +243,7 @@ export default function CreditsTable({
       key: "availableCount",
       label: "Còn lại",
       align: "center",
-      width: showConsumedColumn ? "8%" : "10%",
+      width: showConsumedColumn ? "7%" : "9%",
       filter: { type: "numberRange", paramKeyFrom: "availableFrom", paramKeyTo: "availableTo", placeholder: "buổi" },
       render: (value, row) => (
         <div>
@@ -248,7 +255,7 @@ export default function CreditsTable({
     {
       key: "sourceItems",
       label: "Bài/ngày cần bù",
-      width: showConsumedColumn ? "24%" : "30%",
+      width: showConsumedColumn ? "22%" : "26%",
       render: (_value, row) => <LessonList row={row} />,
     },
     ...(showConsumedColumn
@@ -256,7 +263,7 @@ export default function CreditsTable({
           {
             key: "consumedItems",
             label: "Các ngày đã bổ trợ",
-            width: "18%",
+            width: "16%",
             render: (_value, row) => <ConsumedList row={row} />,
           } as Column<CreditRow>,
         ]

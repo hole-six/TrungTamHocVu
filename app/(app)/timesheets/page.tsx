@@ -8,10 +8,12 @@ import { canView, canCreate, canDelete } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import { monthRange } from "@/lib/server/tuition-rules";
 import HrTabs from "@/components/hr/HrTabs";
+import { getVietnamToday } from "@/lib/server/class-rules";
 
+// Tháng và "hôm nay" theo giờ Việt Nam — máy chủ chạy UTC thì new Date() lệch ngày
+// từ 0h–7h sáng, nút "Chấm hôm nay" sẽ chấm nhầm sang ngày hôm qua.
 function currentMonthString() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return getVietnamToday().toISOString().slice(0, 7);
 }
 
 function mapEmployee(employee: {
@@ -20,6 +22,7 @@ function mapEmployee(employee: {
   employeeCode: string;
   position: string | null;
   workStatus: string;
+  payMode: string;
   timesheetEntries: {
     id: string;
     workDate: Date;
@@ -46,6 +49,7 @@ function mapEmployee(employee: {
     employeeCode: employee.employeeCode,
     position: employee.position,
     workStatus: employee.workStatus,
+    payMode: employee.payMode,
     timesheetEntries: employee.timesheetEntries.map((entry) => ({
       id: entry.id,
       workDate: entry.workDate.toISOString(),
@@ -107,7 +111,7 @@ export default async function TimesheetsPage({ searchParams }: { searchParams?: 
       <HrTabs allowed={hrTabs} />
       <TimesheetsWorkspace
       month={month}
-      today={new Date().toISOString().slice(0, 10)}
+      today={getVietnamToday().toISOString().slice(0, 10)}
       canEditTimesheet={canCreate("timesheet", role)}
       canDeleteTimesheet={canDelete("timesheet", role)}
       employees={employees.map(mapEmployee)}

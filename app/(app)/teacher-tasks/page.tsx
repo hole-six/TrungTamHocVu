@@ -150,45 +150,6 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
         <SpotlightTour steps={TEACHER_TASKS_TOUR} />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-[#dbeafe] bg-gradient-to-br from-[#eff6ff] to-[#dbeafe]/30 p-4 shadow-sm">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#3b82f6] text-white">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M9 11l3 3L22 4"/>
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-              </svg>
-            </div>
-            <p className="text-xs font-bold uppercase tracking-wide text-[#1d4ed8]">Tổng xác nhận</p>
-          </div>
-          <p className="mt-3 text-3xl font-black text-[#0f1729]">{totalChecks}</p>
-        </div>
-        <div className="rounded-2xl border border-[#fecaca] bg-gradient-to-br from-[#fef2f2] to-[#fecaca]/30 p-4 shadow-sm">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ef4444] text-white">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="8" x2="12" y2="12"/>
-                <line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-            </div>
-            <p className="text-xs font-bold uppercase tracking-wide text-[#b91c1c]">Chưa nộp</p>
-          </div>
-          <p className="mt-3 text-3xl font-black text-[#0f1729]">{notSubmittedCount}</p>
-        </div>
-        <div className="rounded-2xl border border-[#a7f3d0] bg-gradient-to-br from-[#ecfdf5] to-[#a7f3d0]/30 p-4 shadow-sm">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#10b981] text-white">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-            </div>
-            <p className="text-xs font-bold uppercase tracking-wide text-[#065f46]">Đã nộp</p>
-          </div>
-          <p className="mt-3 text-3xl font-black text-[#0f1729]">{totalChecks - notSubmittedCount}</p>
-        </div>
-      </div>
-
       <div data-tour="teacher-tasks-table">
         <TeacherTasksTable
           initialData={checks}
@@ -201,6 +162,7 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
           page={page}
           pageSize={pageSize}
           canDecide={canUpdate("hr", role)}
+          counts={{ total: totalChecks, notSubmitted: notSubmittedCount, submitted: totalChecks - notSubmittedCount }}
         />
       </div>
     </div>

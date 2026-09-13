@@ -21,7 +21,6 @@ export type CalendarListRow = {
 };
 
 const WEEKDAY_SHORT = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-const TODAY_YMD = new Date().toISOString().slice(0, 10);
 
 function statusBadgeClass(status: string) {
   if (status === "COMPLETED") return "border-transparent bg-[#e9f9f1] text-[#18a96b]";
@@ -43,9 +42,13 @@ function formatRowDate(value: string | Date) {
 export default function CalendarListView({
   rows,
   rosterCountBySession,
+  todayYmd,
 }: {
   rows: CalendarListRow[];
   rosterCountBySession?: Record<string, number>;
+  /** "YYYY-MM-DD" hôm nay theo giờ VN, do trang lịch tính mỗi request — không tự lấy
+   *  new Date() ở trình duyệt/lúc nạp module (lệch múi giờ, đứng yên qua nửa đêm). */
+  todayYmd: string;
 }) {
   if (rows.length === 0) {
     return (
@@ -80,25 +83,30 @@ export default function CalendarListView({
                 .filter((a) => a.role !== "TEACHER")
                 .map((a) => a.employee.shortName || a.employee.fullName);
               const enrollmentCount = rosterCountBySession?.[row.id] ?? row.class._count?.enrollments ?? 0;
-              const isToday = new Date(row.sessionDate).toISOString().slice(0, 10) === TODAY_YMD;
+              // Buổi hôm nay (trừ buổi đã hủy): nền đỏ nhạt, vạch đỏ đậm bên trái, ngày và
+              // tên lớp đỏ đậm — nhìn danh sách cả tuần là thấy ngay hôm nay có lớp nào.
+              const isToday = new Date(row.sessionDate).toISOString().slice(0, 10) === todayYmd && row.status !== "CANCELLED";
 
               return (
-                <tr key={row.id} className={`align-top transition hover:bg-[#fafdff] ${isToday ? "bg-sky-50" : ""}`}>
-                  <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">
+                <tr
+                  key={row.id}
+                  className={`align-top transition ${isToday ? "bg-red-50 shadow-[inset_4px_0_0_0_#dc2626] hover:bg-red-100/70" : "hover:bg-[#fafdff]"}`}
+                >
+                  <td className={`whitespace-nowrap px-4 py-3 ${isToday ? "font-black text-red-700" : "font-semibold text-ink"}`}>
                     <div className="flex items-center gap-2">
                       <span>{formatRowDate(row.sessionDate)}</span>
                       {isToday ? (
-                        <span className="inline-flex rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-bold text-white">Hôm nay</span>
+                        <span className="inline-flex rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-black text-white">Hôm nay</span>
                       ) : null}
                     </div>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-ink-muted80">
+                  <td className={`whitespace-nowrap px-4 py-3 ${isToday ? "font-bold text-red-700" : "text-ink-muted80"}`}>
                     {row.startTime ?? "?"}-{row.endTime ?? "?"}
                   </td>
                   <td className="px-4 py-3">
                     <Link
                       href={`/classes/${row.classId}/sessions/${row.id}`}
-                      className="font-bold text-[#0f1729] hover:text-[#1d4ed8] hover:underline cursor-pointer"
+                      className={`cursor-pointer hover:underline ${isToday ? "font-black text-red-700" : "font-bold text-[#0f1729] hover:text-[#1d4ed8]"}`}
                     >
                       {row.class.className}
                     </Link>

@@ -518,8 +518,12 @@ export default async function ClassDetailPage({ params }: { params: { id: string
         statusPill={
           <span className={`inline-flex items-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wide ${cls.status === "ACTIVE" ? "bg-[#10b981] text-white" : "bg-[#64748b] text-white"}`}>
             <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-white" />
-            <span className="hidden sm:inline">{cls.status === "ACTIVE" ? "ĐANG HOẠT ĐỘNG" : cls.status}</span>
-            <span className="sm:hidden">{cls.status === "ACTIVE" ? "HOẠT ĐỘNG" : cls.status}</span>
+            <span className="hidden sm:inline">
+              {cls.status === "ACTIVE" ? "ĐANG HOẠT ĐỘNG" : cls.status === "COMPLETED" ? "ĐÃ KẾT THÚC" : cls.status === "CANCELLED" ? "ĐÃ HỦY" : cls.status}
+            </span>
+            <span className="sm:hidden">
+              {cls.status === "ACTIVE" ? "HOẠT ĐỘNG" : cls.status === "COMPLETED" ? "KẾT THÚC" : cls.status === "CANCELLED" ? "ĐÃ HỦY" : cls.status}
+            </span>
           </span>
         }
         title={cls.className}

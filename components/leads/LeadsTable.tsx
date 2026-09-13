@@ -17,7 +17,6 @@ import {
 } from "@/lib/server/lead-rules";
 import { exportToExcel, formatVnd } from "@/lib/export-utils";
 import EditableNoteCell from "@/components/leads/EditableNoteCell";
-import TestQuickAction from "@/components/leads/TestQuickAction";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 import { useStudentDrawer } from "@/contexts/StudentDrawerContext";
 import LeadDetailDrawer from "@/components/leads/LeadDetailDrawer";
@@ -439,14 +438,8 @@ export default function LeadsTable({
       label: "Tác vụ",
       render: (_value, row) => (
         <div onClick={(event) => event.stopPropagation()} className="flex flex-wrap items-center gap-1.5">
-          <TestQuickAction
-            leadId={row.id}
-            latestTest={row.latestTest ?? null}
-            expectedStartDate={row.expectedStartDate}
-            actualEnrollDate={row.actualEnrollDate}
-            interestedClassId={row.interestedClassId ?? null}
-            classOptions={classOptions}
-          />
+          {/* Nút "Cập nhật test" đã bỏ khỏi bảng — hẹn/cập nhật test làm trong drawer chi tiết
+              lead (bấm vào dòng), nơi nhìn thấy đủ lịch sử test trước khi sửa. */}
           {/* Không còn nút "Xem" riêng — trước đây "Xem" và "Sửa" mở CÙNG 1 drawer, chỉ
               khác icon. Giờ đúng 3 tác vụ: sửa lịch hẹn, sửa (mở drawer, sửa tại chỗ), xóa. */}
           {canUpdate("leads", userRole) ? (
