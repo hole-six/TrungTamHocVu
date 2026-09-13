@@ -5,9 +5,16 @@ import { getUserRole } from "@/lib/permissions";
 import { canView, canUpdate } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+import DetailTabs from "@/components/ui/DetailTabs";
+import TeacherScoreboard from "@/components/teacher-scores/TeacherScoreboard";
+import { computeMonthlyScoreboard } from "@/lib/server/assistant-score-rules";
+import { getVietnamToday } from "@/lib/server/class-rules";
+import { getAccessibleBranches } from "@/lib/branch-filter";
 import TeacherTasksTable from "./TeacherTasksTable";
 
 type SearchParams = {
+  /** "YYYY-MM" — tháng của bảng điểm tích cực. */
+  month?: string;
   q?: string;
   status?: string;
   employeeId?: string;
@@ -47,6 +54,8 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
   if (!canView("hr", role)) notFound();
 
   const activeBranchId = await getCurrentBranchId();
+  const today = getVietnamToday().toISOString().slice(0, 10);
+  const month = searchParams.month && /^\d{4}-\d{2}$/.test(searchParams.month) ? searchParams.month : today.slice(0, 7);
   const q = searchParams.q?.trim() ?? "";
   const status = searchParams.status ?? "";
   const employeeId = searchParams.employeeId ?? "";
@@ -135,6 +144,38 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
     orderBy: { className: "asc" },
   });
 
+  // ---- Dữ liệu tab "Chấm điểm tích cực" ----
+  const [scoreboard, pendingRaw, accessibleBranches] = await Promise.all([
+    computeMonthlyScoreboard({ branchId: activeBranchId, month }),
+    // Buổi khai CHƯA NỘP mà admin chưa quyết định — đây là việc cần làm hằng ngày.
+    prisma.sessionRequirementCheck.findMany({
+      where: {
+        status: "NOT_SUBMITTED",
+        scoreDecision: "PENDING",
+        employee: activeBranchId ? { branchId: activeBranchId } : {},
+      },
+      include: {
+        employee: { select: { id: true, fullName: true } },
+        session: { select: { id: true, classId: true, sessionDate: true, class: { select: { className: true } } } },
+      },
+      orderBy: { checkedAt: "desc" },
+      take: 50,
+    }),
+    getAccessibleBranches(),
+  ]);
+  const pendingChecks = pendingRaw.map((item) => ({
+    sessionId: item.sessionId,
+    classId: item.session.classId,
+    className: item.session.class.className,
+    sessionDate: item.session.sessionDate.toISOString(),
+    employeeId: item.employeeId,
+    employeeName: item.employee.fullName,
+    requirementText: item.requirementText,
+    reason: item.reason,
+    status: item.status,
+    scoreDecision: item.scoreDecision,
+  }));
+
   const totalChecks = statusCounts.reduce((sum, row) => sum + row._count._all, 0);
   const notSubmittedCount = statusCounts.find((row) => row.status === "NOT_SUBMITTED")?._count._all ?? 0;
 
@@ -142,29 +183,57 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
     <div className="space-y-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between" data-tour="teacher-tasks-header">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-[#0f1729]">Theo dõi bài tập giáo viên</h1>
+          <h1 className="text-2xl font-black tracking-tight text-[#0f1729]">Điểm tích cực giáo viên & trợ giảng</h1>
           <p className="mt-1 max-w-3xl text-sm text-[#64748b]">
-            Danh sách xác nhận "việc giáo viên cần làm" theo từng buổi — ai đã nộp, ai chưa, và điểm tích cực bị trừ tương ứng.
+            Chấm điểm trừ / điểm cộng theo tháng, xử lý buổi chưa nộp bài tập, và xem lại toàn bộ lịch sử xác nhận theo từng buổi.
           </p>
         </div>
         <SpotlightTour steps={TEACHER_TASKS_TOUR} />
       </div>
 
-      <div data-tour="teacher-tasks-table">
-        <TeacherTasksTable
-          initialData={checks}
-          employees={employees}
-          classes={classes}
-          status={status}
-          employeeId={employeeId}
-          searchQuery={q}
-          total={total}
-          page={page}
-          pageSize={pageSize}
-          canDecide={canUpdate("hr", role)}
-          counts={{ total: totalChecks, notSubmitted: notSubmittedCount, submitted: totalChecks - notSubmittedCount }}
-        />
-      </div>
+      <DetailTabs
+        defaultTabKey="scores"
+        tabs={[
+          {
+            key: "scores",
+            label: `Chấm điểm tích cực${pendingChecks.length > 0 ? ` (${pendingChecks.length} chờ)` : ""}`,
+            content: (
+              <TeacherScoreboard
+                month={month}
+                today={today}
+                rows={scoreboard.rows}
+                totals={scoreboard.totals}
+                allEmployees={scoreboard.allEmployees}
+                branches={accessibleBranches.map((branch) => ({ id: branch.id, name: branch.name }))}
+                defaultBranchId={activeBranchId ?? accessibleBranches[0]?.id ?? ""}
+                pendingChecks={pendingChecks}
+                canDecide={canUpdate("hr", role)}
+              />
+            ),
+          },
+          {
+            key: "history",
+            label: "Lịch sử xác nhận bài tập",
+            content: (
+              <div data-tour="teacher-tasks-table">
+                <TeacherTasksTable
+                  initialData={checks}
+                  employees={employees}
+                  classes={classes}
+                  status={status}
+                  employeeId={employeeId}
+                  searchQuery={q}
+                  total={total}
+                  page={page}
+                  pageSize={pageSize}
+                  canDecide={canUpdate("hr", role)}
+                  counts={{ total: totalChecks, notSubmitted: notSubmittedCount, submitted: totalChecks - notSubmittedCount }}
+                />
+              </div>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

@@ -252,16 +252,20 @@ export async function getReportsDashboardData(branchId: BranchScope, month?: str
   const enrolledLeads = leadPipeline.ENROLLED ?? 0;
   const conversionRate = totalLeads > 0 ? Math.round((enrolledLeads / totalLeads) * 100) : 0;
 
-  const revenueByPeriod = recentPeriods
-    .map((period) => ({
-      period: period.periodName,
-      billed: period.charges.reduce((sum, charge) => sum + charge.totalAmount, 0),
-      collected: period.charges.reduce(
-        (sum, charge) => sum + charge.allocations.reduce((allocationSum, allocation) => allocationSum + allocation.amount, 0),
-        0
-      ),
-    }))
-    .reverse();
+  // GỘP THEO TÊN KỲ: mỗi cơ sở có một BillingPeriod riêng cùng tên ("2026-09"), nên khi
+  // xem "Tất cả cơ sở" trước đây ra 2 dòng cùng tháng (và React cảnh báo trùng key).
+  // Doanh thu theo tháng phải là tổng của các cơ sở đang xem.
+  const revenueByMonth = new Map<string, { period: string; billed: number; collected: number }>();
+  for (const period of recentPeriods) {
+    const row = revenueByMonth.get(period.periodName) ?? { period: period.periodName, billed: 0, collected: 0 };
+    row.billed += period.charges.reduce((sum, charge) => sum + charge.totalAmount, 0);
+    row.collected += period.charges.reduce(
+      (sum, charge) => sum + charge.allocations.reduce((allocationSum, allocation) => allocationSum + allocation.amount, 0),
+      0,
+    );
+    revenueByMonth.set(period.periodName, row);
+  }
+  const revenueByPeriod = [...revenueByMonth.values()].sort((left, right) => left.period.localeCompare(right.period));
 
   const debtors = activeStudents
     .map((student) => {

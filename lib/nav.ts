@@ -90,10 +90,10 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/teacher-tasks",
-    label: "Hạng mục truy thu bài học",
+    label: "Điểm tích cực giáo viên",
     status: "live",
-    description: "Xác nhận giáo viên/trợ giảng đã hoàn thành yêu cầu buổi dạy hay chưa, tự trừ điểm tích cực nếu chưa nộp.",
-    sections: ["Đã nộp / Chưa nộp", "Lịch sử điểm tích cực"],
+    description: "Chấm điểm trừ/điểm cộng cho giáo viên & trợ giảng theo từng tháng, xử lý buổi chưa nộp bài tập và đặt mức thưởng.",
+    sections: ["Bảng điểm theo tháng", "Chờ quyết định trừ điểm", "Lịch sử xác nhận bài tập"],
   },
   {
     href: "/reports",
