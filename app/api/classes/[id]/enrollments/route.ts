@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { getUserRole } from "@/lib/permissions";
-import { canUpdate } from "@/lib/server/role-matrix";
+import { getUserRole, getUserRoleAndOverride } from "@/lib/permissions";
+import { canUpdate, canUpdateWithOverride } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
-import { ensureBillingPeriod, generateCourseCharge } from "@/lib/server/billing-generation";
+import {
+  ensureBillingPeriod,
+  generateCourseCharge,
+  generatePeriodChargesForNewEnrollment,
+} from "@/lib/server/billing-generation";
 import { attachCourseBookRequirements } from "@/lib/server/enrollment-materials";
+import { computeEffectiveUnitPrice } from "@/lib/server/tuition-rules";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -84,6 +89,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Thong tin bo tro dau khoa khong hop le." }, { status: 400 });
   }
 
+  // CHIẾT KHẤU NGAY LÚC GÁN LỚP — cùng một khái niệm với mục "Chiết khấu" trong hồ sơ học
+  // viên (bảng Scholarship gắn theo ghi danh), chỉ là nhập được ngay từ đầu thay vì phải
+  // ghi danh xong rồi mới vào thêm. Phải có TRƯỚC khi sinh phiếu, nếu không phiếu đầu
+  // tiên ra theo giá gốc. Lớp bổ trợ không thu tiền nên bỏ qua.
+  const discountPercent = cls.isRemedial ? 0 : Number(body.discountPercent ?? 0);
+  const discountReason = String(body.discountReason ?? "").trim() || null;
+  if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) {
+    return NextResponse.json({ error: "Chiết khấu phải từ 0 đến 100%." }, { status: 400 });
+  }
+  if (discountPercent > 0) {
+    // Cấp chiết khấu là quyền của mảng học phí, không phải quyền xếp lớp — cùng điều kiện
+    // với app/api/students/[id]/scholarships (người xếp được lớp chưa chắc được giảm giá).
+    const tuitionAccess = await getUserRoleAndOverride(user.id, "tuition");
+    if (!canUpdateWithOverride("tuition", tuitionAccess.role, tuitionAccess.override)) {
+      return NextResponse.json(
+        { error: "Vai trò của bạn không có quyền cấp chiết khấu. Bỏ trống chiết khấu hoặc nhờ bộ phận học phí thêm sau." },
+        { status: 403 },
+      );
+    }
+  }
+  const discountRate = discountPercent / 100;
+
   const rawInstallments = Array.isArray(body.installments) ? body.installments : [];
   let installmentPlans: { billingPeriodId: string; sequence: number; label: string; amount: number; dueDate: Date }[] = [];
   if (billingModel === "INSTALLMENT") {
@@ -104,7 +131,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (normalized.some((item) => !item) || new Set(normalized.map((item) => item?.dueMonth)).size !== normalized.length) {
       return NextResponse.json({ error: "Mỗi đợt cần có tháng thu riêng và số tiền hợp lệ" }, { status: 400 });
     }
-    const expectedTotal = purchasedMainSessionCount * unitPriceSnapshot + paidCatchupSessionCount * paidCatchupUnitPrice;
+    // Chiết khấu chỉ giảm học phí khóa chính (cùng quy tắc với phiếu trọn khóa, xem
+    // generateCourseCharge), không giảm buổi học thêm đầu khóa có đơn giá riêng.
+    const expectedTotal =
+      purchasedMainSessionCount * computeEffectiveUnitPrice(unitPriceSnapshot, discountRate, 0) +
+      paidCatchupSessionCount * paidCatchupUnitPrice;
     const plannedTotal = normalized.reduce((sum, item) => sum + (item?.amount ?? 0), 0);
     if (plannedTotal !== expectedTotal) {
       return NextResponse.json({ error: `Tổng trả góp phải bằng học phí khóa ${expectedTotal.toLocaleString("vi-VN")}đ` }, { status: 400 });
@@ -197,6 +228,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // Bộ giáo trình chuẩn của khóa — dùng chung 1 quy tắc với chuyển lớp/kết thúc lớp/CRM.
     await attachCourseBookRequirements(tx, { studentId, classId: cls.id, enrollmentId: created.id });
 
+    if (discountRate > 0) {
+      // Hiệu lực từ đúng ngày vào học: phiếu trọn khóa lọc chiết khấu theo enrollDate,
+      // phiếu tháng lọc theo khoảng của kỳ — cả hai đều khớp với mốc này.
+      await tx.scholarship.create({
+        data: {
+          studentId,
+          enrollmentId: created.id,
+          percentage: discountRate,
+          reason: discountReason ?? "Chiết khấu lúc ghi danh",
+          effectiveFrom: enrollDate,
+          effectiveTo: null,
+        },
+      });
+    }
+
     await tx.enrollmentStatusHistory.create({
       data: { studentId, enrollmentId: created.id, toStatus: "ACTIVE", changedById: user.id },
     });
@@ -209,14 +255,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const syncedStudent = await syncStudentDerivedFields(studentId);
 
-  // Ghi danh xong là thu học phí trọn khóa ngay — không đợi tới kỳ thu tháng sau nữa
-  // (xem lib/server/billing-generation.ts generateCourseCharge). Không chặn việc ghi
-  // danh nếu sinh học phí lỗi (vd lớp chưa cấu hình tổng buổi) — trả về warning để
-  // nhân sự tự xử lý sau, ghi danh vẫn phải thành công.
-  const chargeResult = billingModel === "COURSE" && !cls.isRemedial ? await generateCourseCharge(enrollment.id) : null;
+  // Ghi danh xong là có phiếu ngay, cả hai kiểu thu — không đợi tới đợt thu tự động ngày 1
+  // tháng sau nữa. Trọn khóa: một phiếu cho cả khóa. Theo tháng: phiếu cho phần còn lại
+  // của tháng đang học (thu lẻ từ ngày vào), các tháng sau đợt thu tự động lo. Không
+  // chặn việc ghi danh nếu sinh phiếu lỗi (vd kỳ thu tháng này đã khóa sổ) — trả về cảnh
+  // báo để nhân sự tự xử lý, ghi danh vẫn phải thành công.
+  const billingWarnings: string[] = [];
+  if (!cls.isRemedial && billingModel === "COURSE") {
+    const chargeResult = await generateCourseCharge(enrollment.id);
+    if ("error" in chargeResult && chargeResult.error) billingWarnings.push(chargeResult.error);
+  }
+  if (!cls.isRemedial && billingModel === "PERIOD") {
+    const { warnings } = await generatePeriodChargesForNewEnrollment(enrollment.id);
+    billingWarnings.push(...warnings);
+  }
 
   return NextResponse.json(
-    { item: enrollment, student: syncedStudent, billingWarning: chargeResult && "error" in chargeResult ? chargeResult.error : undefined },
+    { item: enrollment, student: syncedStudent, billingWarning: billingWarnings.length ? billingWarnings.join(" · ") : undefined },
     { status: 201 }
   );
 }

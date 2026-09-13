@@ -10,7 +10,7 @@ import {
 import { computeBalanceSnapshot, consumeCreditBalances } from "@/lib/server/balance";
 import { settleChargesFromAdvancePayments } from "@/lib/server/advance-payment";
 import { resolvePurchasedMainSessions } from "@/lib/server/enrollment-learning";
-import { getWalletBalance } from "@/lib/server/enrollment-wallet";
+import { getCarriedSessionsForPeriod } from "@/lib/server/enrollment-wallet";
 
 type GenerationException = {
   studentId: string;
@@ -174,7 +174,13 @@ export async function findLockedPeriodForSession(classId: string, sessionDate: D
   return hasCharge ? period : null;
 }
 
-export async function generateChargesForPeriod(periodId: string) {
+export async function generateChargesForPeriod(
+  periodId: string,
+  // enrollmentId: chỉ sinh phiếu cho ĐÚNG ghi danh này (dùng ngay lúc ghi danh theo tháng
+  // — xem generatePeriodChargesForNewEnrollment). Không truyền = cả chi nhánh như cũ.
+  options?: { enrollmentId?: string },
+) {
+  const scopedEnrollmentId = options?.enrollmentId ?? null;
   const period = await prisma.billingPeriod.findUnique({ where: { id: periodId } });
   if (!period) return { error: "Không tìm thấy kỳ thu" as const };
   if (!canEditCharges(period.status)) {
@@ -182,7 +188,11 @@ export async function generateChargesForPeriod(periodId: string) {
   }
 
   const enrollments = await prisma.enrollment.findMany({
-    where: { status: "ACTIVE", class: { branchId: period.branchId, isRemedial: false } },
+    where: {
+      status: "ACTIVE",
+      class: { branchId: period.branchId, isRemedial: false },
+      ...(scopedEnrollmentId ? { id: scopedEnrollmentId } : {}),
+    },
     include: {
       class: { include: { course: true } },
       installments: { where: { billingPeriodId: period.id, status: "PENDING" } },
@@ -353,7 +363,13 @@ export async function generateChargesForPeriod(periodId: string) {
     const scheduledSessionCount = await prisma.classSession.count({
       where: { classId, status: { notIn: ["CANCELLED", "RESCHEDULED"] }, sessionDate: { gte: sessionRangeStart, lte: period.endDate } },
     });
-    const walletBalanceBeforeCharge = await getWalletBalance(prisma, enrollment.id);
+    // Số dư ví như lúc ĐẦU kỳ, không phải số dư ngay lúc bấm — xem
+    // getCarriedSessionsForPeriod: sinh lại phiếu giữa tháng sau khi đã dạy vài buổi
+    // thì những buổi đó không được tính 2 lần.
+    const walletBalanceBeforeCharge = await getCarriedSessionsForPeriod(prisma, enrollment.id, {
+      start: period.startDate,
+      end: period.endDate,
+    });
     const sessionCount = Math.max(0, scheduledSessionCount - walletBalanceBeforeCharge);
     const absentCount = await prisma.studentAttendance.count({
       where: {
@@ -492,7 +508,20 @@ export async function generateChargesForPeriod(periodId: string) {
     // thật của phụ huynh dù nợ đó chỉ cần bù đúng 1 lần. Vì vậy: chỉ tính/trừ credit
     // khi đây thật sự là charge MỚI (existingChargeId null) của học viên trong kỳ
     // này; nếu đang cập nhật charge đã có, giữ nguyên đúng openingBalance đã chốt.
-    const isRegeneration = orderedDrafts.some((draft) => draft.existingChargeId !== null);
+    // Khi chỉ sinh cho 1 ghi danh, các phiếu KHÁC của học viên trong cùng kỳ (lớp khác)
+    // không nằm trong orderedDrafts nên vòng trên không thấy — nhưng một trong số đó đã
+    // gánh nợ đầu kỳ rồi. Coi như đang sinh lại: phiếu mới không mang nợ cũ lần 2, không
+    // trừ credit lần 2. Chỉ áp khi sinh riêng lẻ để không đổi hành vi của đợt thu cả kỳ.
+    const hasOtherChargeInPeriod = scopedEnrollmentId
+      ? (await prisma.charge.count({
+          where: {
+            studentId,
+            billingPeriodId: period.id,
+            classId: { notIn: orderedDrafts.map((draft) => draft.classId) },
+          },
+        })) > 0
+      : false;
+    const isRegeneration = hasOtherChargeInPeriod || orderedDrafts.some((draft) => draft.existingChargeId !== null);
 
     await prisma.$transaction(async (tx) => {
       const anchorDraft = orderedDrafts[0] ?? null;
@@ -578,7 +607,9 @@ export async function generateChargesForPeriod(periodId: string) {
     });
   }
 
-  if (period.status === "DRAFT") {
+  // Sinh phiếu cho 1 ghi danh lẻ KHÔNG đánh dấu cả kỳ là "đã sinh học phí" — các học
+  // viên khác của kỳ này vẫn chưa có phiếu.
+  if (period.status === "DRAFT" && !scopedEnrollmentId) {
     await prisma.billingPeriod.update({
       where: { id: period.id },
       data: { status: "GENERATED" },
@@ -595,6 +626,47 @@ export async function generateChargesForPeriod(periodId: string) {
     exceptions,
     totalEnrollments: enrollments.length,
   };
+}
+
+// Ghi danh THEO THÁNG xong là có phiếu ngay cho tháng đang học — nhất quán với gói theo
+// khóa (generateCourseCharge chạy lúc ghi danh). Trước đây phải đợi đợt thu tự động
+// ngày 1 tháng SAU: em vào 15/9 học trọn nửa tháng không có phiếu nào, ví âm dần, rồi
+// 1/10 phụ huynh nhận một phiếu gộp to bất ngờ.
+//
+// Sinh cho mọi tháng từ tháng ghi danh tới tháng hiện tại (thường chỉ 1 tháng; nhiều
+// hơn khi nhân viên ghi danh lùi ngày). Công thức số buổi dùng chung với đợt thu cả kỳ
+// nên tháng đầu tự thu lẻ đúng số buổi từ ngày vào. Không bao giờ ném lỗi — kỳ đã khóa
+// hay lỗi dữ liệu thì trả về cảnh báo để ghi danh vẫn thành công.
+export async function generatePeriodChargesForNewEnrollment(enrollmentId: string, now: Date = new Date()) {
+  const warnings: string[] = [];
+  const enrollment = await prisma.enrollment.findUnique({
+    where: { id: enrollmentId },
+    include: { class: { select: { branchId: true, isRemedial: true } } },
+  });
+  if (!enrollment || enrollment.billingModel !== "PERIOD" || !enrollment.class || enrollment.class.isRemedial) {
+    return { warnings };
+  }
+
+  const startKey = monthKey(enrollment.enrollDate);
+  const nowKey = monthKey(now);
+  const months: string[] = [];
+  const [startYear, startMonth] = startKey.split("-").map(Number);
+  for (let offset = 0; offset < 12; offset += 1) {
+    const key = monthKey(new Date(Date.UTC(startYear, startMonth - 1 + offset, 1)));
+    months.push(key);
+    if (key >= nowKey) break;
+  }
+
+  for (const periodName of months) {
+    const period = await ensureBillingPeriod(enrollment.class.branchId, periodName);
+    const result = await generateChargesForPeriod(period.id, { enrollmentId });
+    if ("error" in result) {
+      warnings.push(`Tháng ${periodName}: ${result.error}`);
+      continue;
+    }
+    for (const exception of result.exceptions) warnings.push(`Tháng ${periodName}: ${exception.reason}`);
+  }
+  return { warnings };
 }
 
 export async function generateCourseCharge(enrollmentId: string, options?: { billingPeriodId?: string }) {
@@ -698,9 +770,16 @@ export async function generateCourseCharge(enrollmentId: string, options?: { bil
     }),
   ]);
 
-  const scholarshipPct = enrollment.tuitionUnitPriceSnapshot ? 0 : scholarships.reduce((sum, item) => sum + item.percentage, 0);
-  const adjustmentPct = enrollment.tuitionUnitPriceSnapshot ? 0 : adjustments.reduce((sum, item) => sum + item.percentage, 0);
-  const unitPrice = enrollment.tuitionUnitPriceSnapshot ?? computeEffectiveUnitPrice(basePrice, scholarshipPct, adjustmentPct);
+  // Đơn giá chốt (tuitionUnitPriceSnapshot) mang 2 nghĩa khác nhau tùy nguồn:
+  //   - Ghi danh MỚI: giá thỏa thuận CHƯA trừ chiết khấu → chiết khấu phải áp lên nó.
+  //     Trước đây mọi snapshot đều bị coi là giá cuối, nên chiết khấu nhập ngay lúc gán
+  //     lớp trọn khóa bị bỏ qua âm thầm, phụ huynh bị thu đủ giá (tests/enrollment.test.ts).
+  //   - CHUYỂN LỚP (transfer / kết thúc lớp): đã lưu giá SAU khi áp % mang sang, kèm bản
+  //     ghi chiết khấu chỉ để hiển thị/mang tiếp — áp lần nữa là trừ chiết khấu 2 lần.
+  const snapshotIsDiscounted = enrollment.pricingBasis === "CONTINUATION_TRANSFER" && enrollment.tuitionUnitPriceSnapshot != null;
+  const scholarshipPct = snapshotIsDiscounted ? 0 : scholarships.reduce((sum, item) => sum + item.percentage, 0);
+  const adjustmentPct = snapshotIsDiscounted ? 0 : adjustments.reduce((sum, item) => sum + item.percentage, 0);
+  const unitPrice = computeEffectiveUnitPrice(basePrice, scholarshipPct, adjustmentPct);
   const paidCatchupUnitPrice = enrollment.paidCatchupUnitPrice ?? unitPrice;
   const mainTuitionAmount = totalSessions * unitPrice;
   const paidCatchupAmount = enrollment.paidCatchupSessionCount * paidCatchupUnitPrice;

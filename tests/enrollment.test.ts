@@ -224,6 +224,54 @@ async function main() {
     expectEqual(await db.enrollment.count({ where: { classId: cls.id } }), 1, "ghi danh KHÔNG bị xóa khỏi lớp");
   });
 
+  // ---------------------------------------------------------------- 8
+  // Chiết khấu nhập NGAY LÚC GÁN LỚP cho gói trọn khóa phải xuống được phiếu. Ghi danh mới
+  // luôn lưu đơn giá chốt (tuitionUnitPriceSnapshot) là giá CHƯA trừ chiết khấu, nên nếu
+  // phiếu trọn khóa bỏ qua chiết khấu mỗi khi có đơn giá chốt thì phụ huynh bị thu đủ giá.
+  await test("Gán lớp trọn khóa kèm chiết khấu 20%: phiếu thu đúng giá đã giảm", async () => {
+    const branch = await fx.seedBranch(db);
+    const cls = await fx.seedClass(db, branch.id, { tuitionPerSession: UNIT });
+    const period = await fx.seedBillingPeriod(db, branch.id, "2026-04");
+    const student = await fx.seedStudent(db, branch.id, "Giảm 20%");
+    const enrollment = await fx.seedEnrollment(db, {
+      studentId: student.id, classId: cls.id, billingModel: "COURSE",
+      enrollDate: day("2026-04-06"), purchasedMainSessionCount: 10, unitPrice: UNIT,
+    });
+    await db.scholarship.create({
+      data: { studentId: student.id, enrollmentId: enrollment.id, percentage: 0.2, effectiveFrom: day("2026-04-06") },
+    });
+
+    await generateCourseCharge(enrollment.id, { billingPeriodId: period.id });
+    const charge = await db.charge.findFirst({ where: { enrollmentId: enrollment.id } });
+    expectEqual(charge?.unitPrice, 160_000, "đơn giá sau chiết khấu " + vnd(160_000));
+    expectEqual(charge?.tuitionAmount, 10 * 160_000, "học phí 10 buổi " + vnd(10 * 160_000));
+  });
+
+  // ---------------------------------------------------------------- 9
+  // Ngược lại, ghi danh sinh ra từ CHUYỂN LỚP đã lưu đơn giá SAU chiết khấu (xem
+  // app/api/enrollments/[id]/transfer/route.ts) kèm bản ghi chiết khấu mang sang — phiếu
+  // của nó không được trừ chiết khấu thêm lần nữa.
+  await test("Chuyển lớp mang chiết khấu sang: không bị trừ chiết khấu 2 lần", async () => {
+    const branch = await fx.seedBranch(db);
+    const cls = await fx.seedClass(db, branch.id, { tuitionPerSession: UNIT });
+    const period = await fx.seedBillingPeriod(db, branch.id, "2026-05");
+    const student = await fx.seedStudent(db, branch.id, "Chuyển lớp giữ 20%");
+    const enrollment = await db.enrollment.create({
+      data: {
+        studentId: student.id, classId: cls.id, billingModel: "COURSE", status: "ACTIVE",
+        enrollDate: day("2026-05-04"), purchasedMainSessionCount: 10,
+        tuitionUnitPriceSnapshot: 160_000, pricingBasis: "CONTINUATION_TRANSFER",
+      },
+    });
+    await db.scholarship.create({
+      data: { studentId: student.id, enrollmentId: enrollment.id, percentage: 0.2, effectiveFrom: day("2026-05-04") },
+    });
+
+    await generateCourseCharge(enrollment.id, { billingPeriodId: period.id });
+    const charge = await db.charge.findFirst({ where: { enrollmentId: enrollment.id } });
+    expectEqual(charge?.unitPrice, 160_000, "giữ nguyên đơn giá đã giảm lúc chuyển lớp");
+  });
+
   const failed = summary();
   await db.$disconnect();
   await shared.$disconnect();

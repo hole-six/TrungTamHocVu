@@ -5,6 +5,7 @@ import { getUserRole } from "@/lib/permissions";
 import { canView } from "@/lib/server/role-matrix";
 import { estimateEndDateFromRules } from "@/lib/server/class-rules";
 import { getHolidayDateSet } from "@/lib/server/holidays";
+import { computeEffectiveUnitPrice } from "@/lib/server/tuition-rules";
 
 // Xem trước khi ghi danh vào một lớp ĐANG CHẠY: học viên vào từ ngày này thì
 //   - buổi đầu tiên của họ là buổi nào (ngày mấy, là buổi thứ mấy của lớp),
@@ -32,6 +33,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
   const startDate = new Date(`${dateParam}T00:00:00.000Z`);
   const purchasedSessions = Number(req.nextUrl.searchParams.get("sessions") ?? 0);
+  // Chiết khấu (%) đang nhập trên form gán lớp — để số xem trước ra đúng số trên phiếu
+  // sẽ sinh, không phải giá gốc rồi tới lúc thu mới thấy khác.
+  const rawDiscount = Number(req.nextUrl.searchParams.get("discount") ?? 0);
+  const discountRate = Number.isFinite(rawDiscount) ? Math.min(100, Math.max(0, rawDiscount)) / 100 : 0;
+  // Đơn giá riêng đang nhập cho gói trọn khóa (phiếu trọn khóa dùng giá này). Gói theo
+  // tháng vẫn tính theo giá của lớp, đúng như generateChargesForPeriod.
+  const rawPrice = Number(req.nextUrl.searchParams.get("price") ?? 0);
 
   const cls = await prisma.class.findUnique({
     where: { id: params.id },
@@ -86,7 +94,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     prisma.classSession.count({ where: { classId: cls.id, status: { notIn: ["CANCELLED", "RESCHEDULED"] } } }),
   ]);
 
-  const unitPrice = cls.tuitionPerSession ?? cls.course?.tuitionPerSession ?? 0;
+  const classUnitPrice = cls.tuitionPerSession ?? cls.course?.tuitionPerSession ?? 0;
+  const periodUnitPrice = computeEffectiveUnitPrice(classUnitPrice, discountRate, 0);
+  const courseUnitPrice = computeEffectiveUnitPrice(rawPrice > 0 ? rawPrice : classUnitPrice, discountRate, 0);
   const holidayDates = await getHolidayDateSet(cls.branchId);
   const expectedEndDate =
     purchasedSessions > 0
@@ -95,13 +105,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   return NextResponse.json({
     startDate: dateParam,
-    unitPrice,
+    unitPrice: periodUnitPrice,
     selectableSessions,
     // Gói theo tháng: tháng đầu chỉ thu từ ngày vào lớp trở đi.
     firstMonth: {
       periodName: `${startDate.getUTCFullYear()}-${String(startDate.getUTCMonth() + 1).padStart(2, "0")}`,
       sessionCount: sessionsThisMonth,
-      amount: sessionsThisMonth * unitPrice,
+      amount: sessionsThisMonth * periodUnitPrice,
     },
     firstSession: firstSession
       ? {
@@ -117,6 +127,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // Gói theo khóa: mua N buổi thì dự kiến hết vào ngày nào.
     expectedEndDate: expectedEndDate ? expectedEndDate.toISOString().slice(0, 10) : null,
     purchasedSessions: purchasedSessions > 0 ? purchasedSessions : null,
-    purchasedAmount: purchasedSessions > 0 ? purchasedSessions * unitPrice : null,
+    purchasedAmount: purchasedSessions > 0 ? purchasedSessions * courseUnitPrice : null,
   });
 }

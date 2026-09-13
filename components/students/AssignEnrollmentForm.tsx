@@ -88,6 +88,10 @@ export default function AssignEnrollmentForm({
   const [billingModel, setBillingModel] = useState<"PERIOD" | "COURSE">("PERIOD");
   const [mainSessionCount, setMainSessionCount] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
+  // Chiết khấu ngay lúc gán lớp — cùng khái niệm với mục "Chiết khấu" trong hồ sơ, chỉ
+  // là nhập được từ đầu để phiếu đầu tiên đã ra đúng giá đã giảm.
+  const [discountPercent, setDiscountPercent] = useState("");
+  const [discountReason, setDiscountReason] = useState("");
   // Cùng quy tắc với form ghi danh phía lớp (components/classes/EnrollStudentForm.tsx):
   // phải hỏi rõ ngày bắt đầu học và cho thấy trước sẽ thu bao nhiêu cho tháng đầu.
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -146,6 +150,8 @@ export default function AssignEnrollmentForm({
     setBillingModel("PERIOD");
     setMainSessionCount("");
     setUnitPrice("");
+    setDiscountPercent("");
+    setDiscountReason("");
     void loadClasses(q);
   }, [open]);
 
@@ -158,10 +164,15 @@ export default function AssignEnrollmentForm({
     const timer = window.setTimeout(async () => {
       try {
         const sessions = billingModel === "COURSE" ? Number(mainSessionCount) || 0 : 0;
-        const response = await fetch(
-          `/api/classes/${selected.id}/enrollment-preview?date=${startDate}&sessions=${sessions}`,
-          { signal: controller.signal },
-        );
+        const search = new URLSearchParams({
+          date: startDate,
+          sessions: String(sessions),
+          discount: String(Number(discountPercent) || 0),
+          price: String(Number(unitPrice) || 0),
+        });
+        const response = await fetch(`/api/classes/${selected.id}/enrollment-preview?${search.toString()}`, {
+          signal: controller.signal,
+        });
         if (response.ok) setPreview(await response.json());
       } catch {
         /* huỷ do đổi lựa chọn — bỏ qua */
@@ -171,7 +182,7 @@ export default function AssignEnrollmentForm({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [selected, startDate, billingModel, mainSessionCount]);
+  }, [selected, startDate, billingModel, mainSessionCount, discountPercent, unitPrice]);
 
   function selectClass(item: ClassHit) {
     const isSame = selected?.id === item.id;
@@ -197,6 +208,11 @@ export default function AssignEnrollmentForm({
       setError("Cần nhập số buổi khóa chính khi chọn đóng trọn khóa.");
       return;
     }
+    const discount = Number(discountPercent) || 0;
+    if (discount < 0 || discount > 100) {
+      setError("Chiết khấu phải từ 0 đến 100%.");
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -211,6 +227,8 @@ export default function AssignEnrollmentForm({
         billingModel: selected.isRemedial ? "COURSE" : billingModel,
         purchasedMainSessionCount: billingModel === "COURSE" ? Number(mainSessionCount) : undefined,
         tuitionUnitPriceSnapshot: unitPrice ? Number(unitPrice) : undefined,
+        discountPercent: selected.isRemedial ? 0 : discount,
+        discountReason: discountReason.trim() || undefined,
       }),
     });
     const result = await response.json().catch(() => ({}));
@@ -221,6 +239,11 @@ export default function AssignEnrollmentForm({
       return;
     }
 
+    // Ghi danh đã thành công nhưng phiếu học phí có thể không sinh được (vd kỳ thu tháng
+    // này đã khóa sổ) — phải nói ra, không thì nhân viên tưởng đã có phiếu.
+    if (result.billingWarning) {
+      setError(`Đã ghi danh, nhưng chưa sinh được phiếu học phí: ${result.billingWarning}`);
+    }
     setSuccess(`Đã ghi danh ${student.fullName} vào lớp ${selected.className}.`);
     router.refresh();
     onChanged?.();
@@ -380,6 +403,34 @@ export default function AssignEnrollmentForm({
                             ? `Lớp dự kiến ${selected.totalSessions} buổi — chỉ để tham khảo.`
                             : "Lớp chưa đặt số buổi dự kiến."}
                         </span>
+                      </label>
+                    ) : null}
+                    <label className="form-group">
+                      <span className="label-sm">Chiết khấu (%)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        className="input"
+                        value={discountPercent}
+                        onChange={(event) => setDiscountPercent(event.target.value)}
+                        placeholder="0"
+                      />
+                      <span className="text-[10px] leading-tight text-ink-muted48">
+                        {Number(discountPercent) > 0 && preview
+                          ? `Còn ${formatVnd(billingModel === "COURSE" && Number(mainSessionCount) > 0 ? Math.round((preview.purchasedAmount ?? 0) / Number(mainSessionCount)) : preview.unitPrice)}/buổi sau chiết khấu`
+                          : "Để trống nếu không giảm."}
+                      </span>
+                    </label>
+                    {Number(discountPercent) > 0 ? (
+                      <label className="form-group">
+                        <span className="label-sm">Lý do chiết khấu</span>
+                        <input
+                          className="input"
+                          value={discountReason}
+                          onChange={(event) => setDiscountReason(event.target.value)}
+                          placeholder="VD: Anh chị em ruột, ưu đãi khai giảng..."
+                        />
                       </label>
                     ) : null}
                   </div>

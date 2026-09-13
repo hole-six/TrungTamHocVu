@@ -190,3 +190,31 @@ export async function getWalletBalance(tx: Prisma.TransactionClient, enrollmentI
   const wallet = await tx.enrollmentWallet.findUnique({ where: { enrollmentId } });
   return wallet?.balance ?? 0;
 }
+
+// Số buổi MANG SANG kỳ thu: số dư ví như lúc ĐẦU kỳ, tức số dư hiện tại cộng trả lại
+// những buổi đã bị trừ ví cho các buổi học NẰM TRONG chính kỳ đó.
+//
+// Vì sao không dùng thẳng getWalletBalance: phiếu tháng = (buổi lớp xếp trong kỳ) −
+// (buổi mang sang). "Buổi lớp xếp trong kỳ" đếm CẢ những buổi đã dạy xong. Nếu giữa
+// tháng đã dạy 2 buổi (ví bị trừ 2) mà sinh lại phiếu — "Sinh học phí" được bấm lại khi
+// kỳ còn GENERATED, và server tự chạy lại đợt thu mỗi lần khởi động — thì 2 buổi đó bị
+// tính 2 lần: một lần trong tổng buổi, một lần nữa làm số mang sang tụt xuống −2. Đã
+// có test: tests/billing.test.ts "Sinh lại phiếu giữa tháng".
+export async function getCarriedSessionsForPeriod(
+  tx: Prisma.TransactionClient,
+  enrollmentId: string,
+  range: { start: Date; end: Date },
+): Promise<number> {
+  const wallet = await tx.enrollmentWallet.findUnique({ where: { enrollmentId } });
+  if (!wallet) return 0;
+  const debitsInPeriod = await tx.enrollmentWalletTxn.aggregate({
+    where: {
+      walletId: wallet.id,
+      kind: KIND_SESSION_DEBIT,
+      session: { sessionDate: { gte: range.start, lte: range.end } },
+    },
+    _sum: { amount: true },
+  });
+  // amount của SESSION_DEBIT là số âm — trừ đi tức là cộng trả lại.
+  return wallet.balance - (debitsInPeriod._sum.amount ?? 0);
+}

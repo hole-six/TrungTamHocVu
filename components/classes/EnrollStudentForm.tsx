@@ -86,6 +86,11 @@ export default function EnrollStudentForm({
   // dưới ô nhập.
   const [mainSessionCount, setMainSessionCount] = useState("");
   const [unitPrice, setUnitPrice] = useState(String(defaultUnitPrice || ""));
+  // Chiết khấu ngay lúc ghi danh — cùng khái niệm với mục "Chiết khấu" trong hồ sơ học
+  // viên. KHÔNG giữ lại cho người kế tiếp khi ghi danh liên tiếp (xem enroll()): mỗi em
+  // một mức ưu đãi riêng, giữ lại dễ giảm nhầm cho cả lượt.
+  const [discountPercent, setDiscountPercent] = useState("");
+  const [discountReason, setDiscountReason] = useState("");
   // Ghi danh giữa chừng là việc hàng ngày — phải hỏi rõ NGÀY BẮT ĐẦU HỌC (không mặc
   // định hôm nay), vì tháng đầu chỉ thu từ ngày đó trở đi (xem generateChargesForPeriod).
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -120,10 +125,15 @@ export default function EnrollStudentForm({
     const timer = window.setTimeout(async () => {
       try {
         const sessions = billingModel === "PERIOD" ? 0 : Number(mainSessionCount) || 0;
-        const response = await fetch(
-          `/api/classes/${classId}/enrollment-preview?date=${startDate}&sessions=${sessions}`,
-          { signal: controller.signal },
-        );
+        const search = new URLSearchParams({
+          date: startDate,
+          sessions: String(sessions),
+          discount: String(Number(discountPercent) || 0),
+          price: String(Number(unitPrice) || 0),
+        });
+        const response = await fetch(`/api/classes/${classId}/enrollment-preview?${search.toString()}`, {
+          signal: controller.signal,
+        });
         if (!response.ok) return;
         setPreview(await response.json());
       } catch {
@@ -134,7 +144,7 @@ export default function EnrollStudentForm({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [open, classId, startDate, billingModel, mainSessionCount]);
+  }, [open, classId, startDate, billingModel, mainSessionCount, discountPercent, unitPrice]);
 
   // Luôn hiện sẵn 1 danh sách học viên duyệt được khi mở form (không bắt gõ tìm trước
   // mới thấy ai) — gõ vào ô tìm sẽ lọc lại theo tên/mã, debounce 300ms.
@@ -181,6 +191,8 @@ export default function EnrollStudentForm({
         paidCatchupSessionCount: Number(paidCatchupSessionCount),
         paidCatchupUnitPrice: Number(paidCatchupUnitPrice || unitPrice),
         installments: billingModel === "INSTALLMENT" ? installments.map((item) => ({ ...item, amount: Number(item.amount) })) : undefined,
+        discountPercent: Number(discountPercent) || 0,
+        discountReason: discountReason.trim() || undefined,
       }),
     });
     const result = await response.json().catch(() => ({}));
@@ -190,6 +202,12 @@ export default function EnrollStudentForm({
       setError(result.error ?? "Không thể ghi danh học viên.");
       return;
     }
+    // Ghi danh thành công nhưng phiếu học phí có thể chưa sinh được (vd kỳ thu đã khóa sổ).
+    if (result.billingWarning) {
+      setError(`Đã ghi danh, nhưng chưa sinh được phiếu học phí: ${result.billingWarning}`);
+    }
+    setDiscountPercent("");
+    setDiscountReason("");
 
     // GHI DANH NHIỀU NGƯỜI LIÊN TIẾP (đầu khóa thường có cả chục em vào cùng lúc):
     // giữ nguyên form đang mở và GIỮ LẠI các lựa chọn vừa nhập — số buổi, đơn giá, kiểu
@@ -208,7 +226,10 @@ export default function EnrollStudentForm({
     onSuccess?.();
   }
 
-  const mainTuitionAmount = (Number(mainSessionCount) || 0) * (Number(unitPrice) || 0);
+  // Cùng công thức làm tròn với server (computeEffectiveUnitPrice) — tổng trả góp phải
+  // khớp đúng tới từng đồng, không thì server từ chối.
+  const discountedUnitPrice = Math.round((Number(unitPrice) || 0) * Math.max(0, 1 - (Number(discountPercent) || 0) / 100));
+  const mainTuitionAmount = (Number(mainSessionCount) || 0) * discountedUnitPrice;
   const catchupAmount = (Number(paidCatchupSessionCount) || 0) * (Number(paidCatchupUnitPrice || unitPrice) || 0);
   const enrollmentTotalAmount = mainTuitionAmount + catchupAmount;
   const installmentsSum = installments.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
@@ -340,7 +361,7 @@ export default function EnrollStudentForm({
                       <li>
                         • Tháng {preview.firstMonth.periodName}: còn{" "}
                         <strong>{preview.firstMonth.sessionCount} buổi</strong> ={" "}
-                        <strong>{formatVnd(preview.firstMonth.amount)}</strong> (tự sinh vào kỳ thu, không thu nguyên tháng)
+                        <strong>{formatVnd(preview.firstMonth.amount)}</strong> — sinh phiếu ngay khi ghi danh, không thu nguyên tháng
                       </li>
                     ) : (
                       <>
@@ -390,9 +411,36 @@ export default function EnrollStudentForm({
                   <CurrencyInput value={unitPrice} onChange={(next) => setUnitPrice(String(next))} />
                   <span className="text-[10px] leading-tight text-ink-muted48">
                     {formatVnd(Number(unitPrice) || 0)}
-                    {billingModel === "PERIOD" ? " — riêng cho học viên này, khác giá mặc định của lớp nếu có chiết khấu" : ""}
                   </span>
                 </label>
+                <label className="form-group">
+                  <span className="label-sm">Chiết khấu (%)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    className="input"
+                    value={discountPercent}
+                    onChange={(event) => setDiscountPercent(event.target.value)}
+                    placeholder="0"
+                  />
+                  <span className="text-[10px] leading-tight text-ink-muted48">
+                    {Number(discountPercent) > 0
+                      ? `Còn ${formatVnd(billingModel === "PERIOD" ? preview?.unitPrice ?? 0 : discountedUnitPrice)}/buổi sau chiết khấu`
+                      : "Để trống nếu không giảm."}
+                  </span>
+                </label>
+                {Number(discountPercent) > 0 ? (
+                  <label className="form-group">
+                    <span className="label-sm">Lý do chiết khấu</span>
+                    <input
+                      className="input"
+                      value={discountReason}
+                      onChange={(event) => setDiscountReason(event.target.value)}
+                      placeholder="VD: Anh chị em ruột, ưu đãi khai giảng..."
+                    />
+                  </label>
+                ) : null}
                 {billingModel !== "PERIOD" ? (
                   <>
                     <label className="form-group">

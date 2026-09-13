@@ -6,7 +6,7 @@ import { canCreate, canCreateWithOverride, canUpdate } from "@/lib/server/role-m
 import { getValidBranchIdForCreation } from "@/lib/branch-filter";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { provisionGuardianPortalAccount } from "@/lib/server/guardian-accounts";
-import { generateCourseCharge } from "@/lib/server/billing-generation";
+import { generateCourseCharge, generatePeriodChargesForNewEnrollment } from "@/lib/server/billing-generation";
 import { attachCourseBookRequirements } from "@/lib/server/enrollment-materials";
 import { getVietnamToday } from "@/lib/server/class-rules";
 
@@ -379,15 +379,18 @@ export async function POST(req: NextRequest) {
     await syncStudentDerivedFields(result.studentId);
   }
 
-  // COURSE: ghi danh xong thu học phí trọn khóa ngay (generateCourseCharge), không
-  // đợi kỳ thu tháng sau. PERIOD: KHÔNG sinh gì cả — kỳ thu tháng sẽ tự nhặt enrollment
-  // ACTIVE này vào lần chạy tiếp theo (sweep ngày 1 hằng tháng), đúng cách classes/[id]/
-  // enrollments/route.ts đang làm. Không chặn luồng intake nếu sinh học phí lỗi (vd lớp
-  // chưa cấu hình tổng buổi), chỉ ghi log để nhân sự tự xử lý sau.
+  // Ghi danh xong là có phiếu ngay, đúng cách classes/[id]/enrollments/route.ts làm.
+  // COURSE: một phiếu cho cả khóa. PERIOD: phiếu cho phần còn lại của tháng đang học —
+  // trước đây không sinh gì, đợi đợt thu ngày 1 tháng sau nên em vào giữa tháng học
+  // không có phiếu, ví âm dần. Không chặn luồng intake nếu sinh học phí lỗi, trả cảnh báo.
   let billingWarning: string | undefined;
   if (result.enrollmentId && billingModel === "COURSE") {
     const chargeResult = await generateCourseCharge(result.enrollmentId);
     if ("error" in chargeResult) billingWarning = chargeResult.error;
+  }
+  if (result.enrollmentId && billingModel === "PERIOD") {
+    const { warnings } = await generatePeriodChargesForNewEnrollment(result.enrollmentId);
+    if (warnings.length) billingWarning = warnings.join(" · ");
   }
 
   await prisma.auditLog.create({
