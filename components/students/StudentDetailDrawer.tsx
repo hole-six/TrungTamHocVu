@@ -17,6 +17,7 @@ import MonthBillingCheck, { needsMonthBilling, type MonthBilling } from "@/compo
 import PeriodCourseProgress, { CourseFinishedAdvice, type PeriodCourse } from "@/components/students/PeriodCourseProgress";
 import { Section, Row, Stat, ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { formatVnd, formatDate } from "@/lib/export-utils";
+import { WEEKDAY_LABEL } from "@/lib/server/class-rules";
 
 // Hồ sơ học viên — CỐ TÌNH giữ đúng 1 màn, không tab, không thẻ KPI, không đoạn giải
 // thích dài. Hai con số duy nhất đặt trên đầu là hai thứ nghiệp vụ thật sự cần biết:
@@ -113,7 +114,8 @@ type StudentData = {
     nextClassId?: string | null;
     classTotalSessions?: number | null;
     scheduleRules: Array<{
-      weekday: string;
+      // 0=CN .. 6=T7 (xem prisma ScheduleRule.weekday) — hiển thị qua WEEKDAY_LABEL.
+      weekday: number;
       startTime: string | null;
     }>;
   } | null;
@@ -313,7 +315,9 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
   const availableCredits = data.sessionCredits.filter((credit: any) => credit.status === "AVAILABLE").length;
   const primaryGuardian = data.allGuardians.find((item) => item.isPrimary)?.guardian ?? null;
   const schedule = enrollment?.scheduleRules
-    .map((rule) => `${rule.weekday}${rule.startTime ? ` ${rule.startTime}` : ""}`)
+    // weekday lưu 0=CN..6=T7 — phải đổi sang nhãn tiếng Việt, không in số thô (số 2
+    // là thứ BA, nhân viên đọc thành thứ Hai là hiểu sai lịch lớp).
+    .map((rule) => `${WEEKDAY_LABEL[rule.weekday] ?? rule.weekday}${rule.startTime ? ` ${rule.startTime}` : ""}`)
     .join(" · ");
 
   return (

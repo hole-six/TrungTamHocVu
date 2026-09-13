@@ -22,7 +22,7 @@ import { computeOutstandingBalance } from "@/lib/server/balance";
 import { chargeOwnDueAmount, overlapsWindow } from "@/lib/server/tuition-rules";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { getWalletBalance } from "@/lib/server/enrollment-wallet";
-import { getVietnamToday } from "@/lib/server/class-rules";
+import { getVietnamToday, WEEKDAY_LABEL } from "@/lib/server/class-rules";
 import { buildEnrollmentPipeline } from "@/lib/server/enrollment-pipeline";
 import EditableDateField from "@/components/ui/EditableDateField";
 import { getCurrentUser } from "@/lib/server/current-user";
@@ -1063,7 +1063,7 @@ export default async function StudentDetailPage({
                       <span className="text-sm font-semibold text-[#64748b]">Lịch học</span>
                       <p className="text-sm font-bold text-[#0f1729] mt-1">
                         {currentEnrollment?.class?.scheduleRules?.length
-                          ? currentEnrollment.class.scheduleRules.map((item) => `${item.weekday}-${item.startTime}`).join(", ")
+                          ? currentEnrollment.class.scheduleRules.map((item) => `${WEEKDAY_LABEL[item.weekday] ?? item.weekday} ${item.startTime}`).join(", ")
                           : "Chưa có"}
                       </p>
                     </div>

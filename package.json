@@ -32,8 +32,9 @@
     "test:payroll": "tsx tests/payroll.test.ts",
     "test:billing": "tsx tests/billing.test.ts",
     "test:timeline": "tsx tests/period-timeline.test.ts",
+    "test:sessions": "tsx tests/session-count.test.ts",
     "test:enrollment": "tsx tests/enrollment.test.ts",
-    "test": "npm run test:money && npm run test:payroll && npm run test:billing && npm run test:timeline && npm run test:enrollment",
+    "test": "npm run test:money && npm run test:payroll && npm run test:billing && npm run test:timeline && npm run test:sessions && npm run test:enrollment",
     "check:ui": "node scripts/ui_smoke.mjs"
   },
   "prisma": {

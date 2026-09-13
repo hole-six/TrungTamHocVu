@@ -11,6 +11,8 @@ import { computeBalanceSnapshot, consumeCreditBalances } from "@/lib/server/bala
 import { settleChargesFromAdvancePayments } from "@/lib/server/advance-payment";
 import { resolvePurchasedMainSessions } from "@/lib/server/enrollment-learning";
 import { getCarriedSessionsForPeriod } from "@/lib/server/enrollment-wallet";
+import { computeAutoSessionWindow, createSessionsInRange } from "@/lib/server/class-generation";
+import { getVietnamToday } from "@/lib/server/class-rules";
 
 type GenerationException = {
   studentId: string;
@@ -268,6 +270,32 @@ async function addLateScheduledSessionsToCollectedCharge(
   return lateSessions;
 }
 
+// Lịch lớp phải được sinh HẾT THÁNG trước khi tính tiền tháng đó. Đợt sinh buổi tự động
+// chỉ sinh trước 30 ngày, nên lớp mở muộn / lớp bị dừng sinh giữa chừng có thể chưa có
+// buổi cuối tháng — phiếu khi đó chỉ đếm những buổi ĐÃ có trong lịch và thu thiếu (ca thật
+// trên VPS: lớp thứ 2 + thứ 4 tháng 30 ngày, thu 5 buổi trong khi lớp dạy 6 buổi).
+// Dùng lại đúng computeAutoSessionWindow của đợt sinh buổi (tự chặn theo tổng buổi lớp và
+// ngày kết thúc dự kiến) nên không bịa thêm buổi cho lớp đã hết lộ trình.
+async function fillClassSessionsUntil(classIds: string[], periodEnd: Date) {
+  const today = getVietnamToday();
+  // Tháng đã qua thì KHÔNG sinh thêm buổi: những buổi đó không hề diễn ra, thêm vào là
+  // thu tiền cho buổi không có thật.
+  if (periodEnd < today) return;
+  const windowDays = Math.ceil((periodEnd.getTime() - today.getTime()) / 86_400_000) + 1;
+  for (const classId of classIds) {
+    const cls = await prisma.class.findUnique({ where: { id: classId }, select: { status: true, isRemedial: true } });
+    if (!cls || cls.status !== "ACTIVE" || cls.isRemedial) continue;
+    try {
+      const window = await computeAutoSessionWindow(classId, Math.max(windowDays, 1));
+      if (!window) continue;
+      await createSessionsInRange(classId, window.fromDate, window.toDate);
+    } catch {
+      // Lỗi sinh buổi của 1 lớp không được làm hỏng cả đợt lập phiếu — phần thiếu sẽ
+      // được đợt sinh buổi ban đêm bù, và phiếu tự cộng thêm buổi ở lần chạy sau.
+    }
+  }
+}
+
 export async function generateChargesForPeriod(
   periodId: string,
   // enrollmentId: chỉ sinh phiếu cho ĐÚNG ghi danh này (dùng ngay lúc ghi danh theo tháng
@@ -309,6 +337,12 @@ export async function generateChargesForPeriod(
   // coi là liên quan để giữ hành vi an toàn như trước.
   const findRelevantCourseCharge = (courseKey: string, enrollmentId: string) =>
     (courseChargedMap.get(courseKey) ?? []).find((item) => item.enrollmentId === null || item.enrollmentId === enrollmentId) ?? null;
+
+  // Sinh nốt lịch lớp tới hết kỳ trước khi đếm buổi (xem fillClassSessionsUntil).
+  await fillClassSessionsUntil(
+    [...new Set(enrollments.filter((item) => item.billingModel === "PERIOD" && item.classId).map((item) => item.classId!))],
+    period.endDate,
+  );
 
   let created = 0;
   let updated = 0;
