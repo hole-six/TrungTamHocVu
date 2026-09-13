@@ -162,6 +162,12 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
           </div>
           <div className="flex flex-wrap gap-2">
             <SpotlightTour steps={REPORTS_TOUR_STEPS} />
+            <Link href="/reports/periodic?kind=week" className="btn-primary-sm">
+              Báo cáo tuần
+            </Link>
+            <Link href="/reports/periodic?kind=month" className="btn-primary-sm">
+              Báo cáo tháng
+            </Link>
             <button onClick={handleExport} disabled={!data} className="inline-flex items-center gap-2 rounded-lg border border-[#e2e8f0] bg-white px-4 py-2.5 text-sm font-bold text-[#475569] hover:border-[#0f1729] hover:text-[#0f1729] transition disabled:opacity-40">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Xuất Excel
