@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
@@ -9,6 +9,7 @@ import DatePicker from "@/components/ui/DatePicker";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { getVietnamToday } from "@/lib/server/class-rules";
+import BookBasketPicker, { basketItems, basketQuantity, basketTotal, type Basket } from "@/components/inventory/BookBasketPicker";
 import { formatVnd } from "@/lib/export-utils";
 
 type ChargeSummary = {
@@ -125,11 +126,6 @@ function bookPaymentClass(status: string) {
   return "bg-rose-100 text-rose-700";
 }
 
-function stockClass(quantity: number) {
-  if (quantity <= 0) return "bg-rose-100 text-rose-700";
-  if (quantity <= 5) return "bg-amber-100 text-amber-700";
-  return "bg-emerald-100 text-emerald-700";
-}
 
 function buildChargePreviewText(charge?: ChargeSummary | null) {
   if (!charge) return "Lớp này chưa có khoản đang mở. Kiểu thu mới sẽ áp dụng từ lần sinh phí tiếp theo.";
@@ -167,12 +163,9 @@ export default function StudentFinanceDesk({
 
   const [books, setBooks] = useState<BookOption[]>([]);
   const [booksLoaded, setBooksLoaded] = useState(false);
-  const [bookPickerOpen, setBookPickerOpen] = useState(false);
-  const [selectedBookId, setSelectedBookId] = useState("");
+  // Giỏ sách: xuất NHIỀU đầu sách trong 1 lần (phát cả bộ giáo trình đầu khóa).
+  const [basket, setBasket] = useState<Basket>({});
   const [selectedClassId, setSelectedClassId] = useState(activeEnrollmentOptions.length === 1 ? activeEnrollmentOptions[0]?.classId ?? "" : "");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [bookSearch, setBookSearch] = useState("");
-  const [quantity, setQuantity] = useState("1");
   const [issueDate, setIssueDate] = useState(new Date().toISOString().slice(0, 10));
   const [issueNotes, setIssueNotes] = useState("");
   // Mặc định thu tiền ngay — đúng thực tế: đưa sách là thu tiền luôn, chỉ khi phụ
@@ -197,9 +190,9 @@ export default function StudentFinanceDesk({
     nextBillingModel: "PERIOD" | "COURSE";
   } | null>(null);
 
-  const selectedBook = useMemo(() => books.find((book) => book.id === selectedBookId) ?? null, [books, selectedBookId]);
-  const issueQuantity = Math.max(0, Math.floor(Number(quantity) || 0));
-  const issueAmount = (selectedBook?.unitPrice ?? 0) * issueQuantity;
+  const issueQuantity = basketQuantity(basket);
+  const issueAmount = basketTotal(basket, books);
+  const issueLines = basketItems(basket, books);
   const openCharges = useMemo(() => charges.filter((charge) => charge.remainingAmount > 0), [charges]);
   const today = useMemo(() => getVietnamToday(), []);
   const openChargeByClassId = useMemo(() => {
@@ -322,25 +315,6 @@ export default function StudentFinanceDesk({
     return [...requirementRows, ...issueRows];
   }, [bookRequirements, bookIssues]);
 
-  const bookCategories = useMemo(() => {
-    const values = new Set<string>();
-    books.forEach((book) => values.add(book.category?.trim() || "Sách khác"));
-    return Array.from(values).sort((a, b) => a.localeCompare(b, "vi"));
-  }, [books]);
-
-  const filteredBooks = useMemo(() => {
-    const normalizedSearch = bookSearch.trim().toLowerCase();
-    return books.filter((book) => {
-      const category = book.category?.trim() || "Sách khác";
-      const matchesCategory = !selectedCategory || category === selectedCategory;
-      const matchesSearch =
-        !normalizedSearch ||
-        book.name.toLowerCase().includes(normalizedSearch) ||
-        category.toLowerCase().includes(normalizedSearch) ||
-        (book.bookCode ?? "").toLowerCase().includes(normalizedSearch);
-      return matchesCategory && matchesSearch;
-    });
-  }, [books, selectedCategory, bookSearch]);
 
   async function ensureBooksLoaded() {
     if (booksLoaded) return;
@@ -351,10 +325,10 @@ export default function StudentFinanceDesk({
     setBooksLoaded(true);
   }
 
-  async function openBookPicker() {
-    await ensureBooksLoaded();
-    setBookPickerOpen(true);
-  }
+  useEffect(() => {
+    if (showIssueComposer) void ensureBooksLoaded();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showIssueComposer]);
 
   // Bấm "Thêm sách" KHÔNG ghi nhận ngay — tiền bạc phải qua 1 bước xác nhận nêu rõ số
   // tiền, để nhân viên đối chiếu với tiền thật cầm trên tay trước khi lưu.
@@ -364,16 +338,12 @@ export default function StudentFinanceDesk({
       setIssueError("Học viên chưa có lớp đang học để gắn phát sinh sách.");
       return;
     }
-    if (!selectedBookId) {
-      setIssueError("Bạn cần chọn đầu sách trước khi lưu.");
+    if (issueQuantity <= 0) {
+      setIssueError("Chưa chọn sách nào để xuất.");
       return;
     }
     if (activeEnrollmentOptions.length > 1 && !selectedClassId) {
       setIssueError("Học viên đang học nhiều lớp. Hãy chọn đúng lớp cần gắn sách.");
-      return;
-    }
-    if (issueAmount <= 0) {
-      setIssueError("Số lượng phải lớn hơn 0.");
       return;
     }
     setIssueError(null);
@@ -387,16 +357,16 @@ export default function StudentFinanceDesk({
     setIssueNotice(null);
     setIssueWarning(null);
 
-    const response = await fetch(`/api/books/${selectedBookId}/issues`, {
+    const response = await fetch("/api/book-issues/batch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         studentId,
         classId: selectedClassId || activeEnrollmentOptions[0]?.classId || undefined,
-        quantity: Number(quantity),
         issueDate,
         notes: issueNotes,
         paidNow,
+        items: issueLines.map((line) => ({ bookId: line.bookId, quantity: line.quantity })),
       }),
     });
     const data = await response.json().catch(() => ({}));
@@ -410,13 +380,16 @@ export default function StudentFinanceDesk({
     // 3 kết cục khác nhau, phải nói rõ cái nào vừa xảy ra:
     // (1) thu tiền ngay → không thành công nợ; (2) ghi nợ vào đúng kỳ; (3) không gắn
     // được kỳ nào → sách đã giao mà không ai bị tính tiền, phải cảnh báo đỏ.
+    const issuedLabel = `Đã xuất ${data.totalQuantity ?? issueQuantity} cuốn (${data.bookCount ?? issueLines.length} đầu sách) — ${formatVnd(data.totalAmount ?? issueAmount)}.`;
+    const stockWarnings = (data.warnings ?? []).join(" ");
     if (data.paidNow) {
-      setIssueNotice([data.warning, "Đã xuất sách và thu tiền ngay — không cộng vào công nợ."].filter(Boolean).join(" "));
+      setIssueNotice([issuedLabel, stockWarnings, "Đã thu tiền ngay — không cộng vào công nợ."].filter(Boolean).join(" "));
       setIssueWarning(null);
-    } else if (data.chargeUpdated) {
+    } else if (data.chargeUpdated && !data.unlinkedCount) {
       setIssueNotice(
         [
-          data.warning,
+          issuedLabel,
+          stockWarnings,
           `Đã ghi nợ tiền sách vào kỳ ${data.chargePeriodName ?? "đang mở"}${
             data.deferredToNextPeriod ? " (kỳ của tháng xuất sách đã thu đủ nên chuyển sang kỳ kế tiếp)" : ""
           }.`,
@@ -429,18 +402,16 @@ export default function StudentFinanceDesk({
       setIssueNotice(null);
       setIssueWarning(
         [
-          data.warning,
-          "Đã xuất sách NHƯNG chưa ghi được nợ vào kỳ thu nào (chưa có kỳ thu, kỳ đã khóa sổ, hoặc học viên chưa có khoản thu của kỳ nào còn mở). Khoản này hiện không nằm trong công nợ — cần sinh/mở kỳ thu rồi xử lý.",
+          issuedLabel,
+          stockWarnings,
+          "Có đầu sách đã xuất NHƯNG chưa ghi được nợ vào kỳ thu nào (chưa có kỳ thu, kỳ đã khóa sổ, hoặc học viên chưa có khoản thu của kỳ nào còn mở). Khoản này hiện không nằm trong công nợ — cần sinh/mở kỳ thu rồi xử lý.",
         ]
           .filter(Boolean)
           .join(" "),
       );
     }
-    setSelectedBookId("");
+    setBasket({});
     setSelectedClassId(activeEnrollmentOptions.length === 1 ? activeEnrollmentOptions[0]?.classId ?? "" : "");
-    setSelectedCategory("");
-    setBookSearch("");
-    setQuantity("1");
     setIssueNotes("");
     router.refresh();
     onChanged?.();
@@ -758,7 +729,7 @@ export default function StudentFinanceDesk({
 
         {canManageInventory && showIssueComposer ? (
           <form onSubmit={requestIssueBook} className="mt-4 space-y-4 rounded-[22px] border border-[#e8eefb] bg-[#fbfdff] p-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)_120px_180px]">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <label className="space-y-2">
                 <span className="label-sm">Lớp gắn sách</span>
                 <select
@@ -776,41 +747,16 @@ export default function StudentFinanceDesk({
                 </select>
               </label>
 
-              <div className="space-y-2">
-                <span className="label-sm">Đầu sách</span>
-                <button
-                  type="button"
-                  onClick={() => void openBookPicker()}
-                  className="flex min-h-[52px] w-full items-center justify-between rounded-[18px] border border-[#cfe0fb] bg-white px-4 py-3 text-left transition hover:border-primary/40 hover:bg-canvas"
-                >
-                  <div className="min-w-0">
-                    {selectedBook ? (
-                      <>
-                        <p className="truncate text-sm font-semibold text-ink">{selectedBook.name}</p>
-                        <p className="mt-1 truncate text-xs text-ink-muted48">
-                          {(selectedBook.category?.trim() || "Sách khác")} · {formatVnd(selectedBook.unitPrice)}
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-sm font-semibold text-ink">Chọn danh mục và sách</p>
-                        <p className="mt-1 text-xs text-ink-muted48">Mở danh sách để chọn đúng đầu sách.</p>
-                      </>
-                    )}
-                  </div>
-                  <span className="text-sm font-semibold text-primary">Chọn</span>
-                </button>
-              </div>
-
-              <label className="space-y-2">
-                <span className="label-sm">Số lượng</span>
-                <input type="number" min="1" className="input" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
-              </label>
 
               <label className="space-y-2">
                 <span className="label-sm">Ngày ghi nhận</span>
                 <DatePicker value={issueDate} onChange={setIssueDate} />
               </label>
+            </div>
+
+            <div className="space-y-2">
+              <span className="label-sm">Sách cần xuất</span>
+              <BookBasketPicker books={books} basket={basket} onChange={setBasket} loading={!booksLoaded} />
             </div>
 
             {/* Số tiền phải hiện to, rõ, ngay khi chọn xong sách — không để nhân viên
@@ -821,9 +767,9 @@ export default function StudentFinanceDesk({
                 <span className="text-2xl font-black text-[#0f1729]">{formatVnd(issueAmount)}</span>
               </div>
               <p className="mt-0.5 text-xs text-[#94a3b8]">
-                {selectedBook
-                  ? `${issueQuantity} cuốn × ${formatVnd(selectedBook.unitPrice)} — ${selectedBook.name}`
-                  : "Chọn đầu sách để tính thành tiền."}
+                {issueLines.length > 0
+                  ? `${issueLines.length} đầu sách · ${issueQuantity} cuốn — xem chi tiết ở danh sách đã chọn phía trên.`
+                  : "Chọn sách để tính thành tiền."}
               </p>
             </div>
 
@@ -866,17 +812,6 @@ export default function StudentFinanceDesk({
               />
             </label>
 
-            {selectedBook ? (
-              <div className="flex flex-wrap gap-2">
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                  Danh mục: {selectedBook.category?.trim() || "Sách khác"}
-                </span>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${stockClass(selectedBook.quantityOnHand ?? 0)}`}>
-                  {selectedBook.quantityOnHand && selectedBook.quantityOnHand > 0 ? `Còn ${selectedBook.quantityOnHand} cuốn` : "Đang hết kho"}
-                </span>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Đơn giá: {formatVnd(selectedBook.unitPrice)}</span>
-              </div>
-            ) : null}
 
             {issueError ? <div className="alert-danger">{issueError}</div> : null}
             {issueWarning ? <div className="alert-danger">{issueWarning}</div> : null}
@@ -1007,100 +942,12 @@ export default function StudentFinanceDesk({
         </div>
       </section>
 
-      <ResponsiveDrawer 
-        open={bookPickerOpen}
-        onClose={() => setBookPickerOpen(false)}
-        widthClassName="max-w-3xl"
-        title="Chọn sách phát sinh"
-        description="Lọc theo danh mục rồi chọn đúng đầu sách cần gắn cho học viên."
-      >
-        <div className="space-y-5">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
-            <label className="space-y-2">
-              <span className="label-sm">Danh mục sách</span>
-              <select className="input" value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)}>
-                <option value="">Tất cả danh mục</option>
-                {bookCategories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="space-y-2">
-              <span className="label-sm">Tìm đầu sách</span>
-              <input
-                className="input"
-                value={bookSearch}
-                onChange={(event) => setBookSearch(event.target.value)}
-                placeholder="Tìm theo tên sách, mã sách hoặc danh mục..."
-              />
-            </label>
-          </div>
-
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-ink">Kết quả phù hợp</p>
-            <p className="text-xs text-ink-muted48">{filteredBooks.length} đầu sách</p>
-          </div>
-
-          <div className="max-h-[58vh] space-y-3 overflow-y-auto pr-1">
-            {filteredBooks.map((book) => {
-              const category = book.category?.trim() || "Sách khác";
-              const isSelected = selectedBookId === book.id;
-              const quantityOnHand = book.quantityOnHand ?? 0;
-              return (
-                <button
-                  key={book.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedBookId(book.id);
-                    setBookPickerOpen(false);
-                  }}
-                  className={`w-full rounded-[22px] border p-4 text-left transition ${
-                    isSelected
-                      ? "border-primary bg-primary/5 shadow-[0_16px_32px_rgba(17,139,222,0.12)]"
-                      : "border-hairline bg-white hover:border-primary/40 hover:bg-canvas"
-                  }`}
-                >
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">{category}</p>
-                      <p className="mt-1 text-base font-semibold text-ink">{book.name}</p>
-                      <p className="mt-1 text-xs text-ink-muted48">
-                        {book.bookCode ? `${book.bookCode} · ` : ""}
-                        Đơn giá {formatVnd(book.unitPrice)}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${stockClass(quantityOnHand)}`}>
-                        {quantityOnHand > 0 ? `Còn ${quantityOnHand} cuốn` : "Hết kho"}
-                      </span>
-                      {isSelected ? <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">Đang chọn</span> : null}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-
-            {filteredBooks.length === 0 ? (
-              <div className="rounded-[22px] border border-dashed border-hairline bg-canvas-parchment/30 p-6 text-center">
-                <p className="text-sm font-semibold text-ink">Không có đầu sách phù hợp</p>
-                <p className="mt-2 text-sm text-ink-muted48">Thử đổi danh mục hoặc rút ngắn từ khóa tìm kiếm.</p>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </ResponsiveDrawer>
-
-      <ConfirmDialog
+            <ConfirmDialog
         open={confirmIssueOpen}
         title={paidNow ? `Xác nhận đã thu ${formatVnd(issueAmount)} tiền sách?` : `Ghi ${formatVnd(issueAmount)} tiền sách vào học phí?`}
         description={[
-          `Sách: ${selectedBook?.name ?? "—"}`,
-          `Số lượng: ${issueQuantity} cuốn × ${formatVnd(selectedBook?.unitPrice ?? 0)}`,
-          `Thành tiền: ${formatVnd(issueAmount)}`,
+          ...issueLines.map((line) => `${line.book?.name ?? "Sách"} × ${line.quantity} = ${formatVnd(line.amount)}`),
+          `Tổng: ${issueQuantity} cuốn · ${formatVnd(issueAmount)}`,
           "",
           paidNow
             ? "Xác nhận là bạn ĐÃ NHẬN đủ số tiền này từ phụ huynh. Khoản này sẽ không nằm trong công nợ."

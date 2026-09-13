@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
+import BookBasketPicker, { basketQuantity, basketTotal, type Basket, type BookOption } from "@/components/inventory/BookBasketPicker";
 import { formatVnd } from "@/lib/export-utils";
 
 type StudentHit = {
@@ -30,7 +31,7 @@ const ISSUE_BOOK_GUIDE_SECTIONS = [
     title: "Cách thao tác đúng",
     items: [
       "Tìm đúng học viên theo tên, mã học viên, lớp hoặc số điện thoại.",
-      "Chọn đúng số lượng giao, nhất là khi giao nhiều cuốn trong một lần.",
+      "Chọn cả bộ sách cần giao (nhiều đầu sách, nhiều danh mục) rồi ghi nhận một lần.",
       "Chọn đã thu tiền ngay hay cộng vào học phí kỳ này để thu chung.",
     ],
     tone: "success" as const,
@@ -64,7 +65,8 @@ export default function IssueBookForm({
   onDone,
   triggerClassName = "btn-primary",
 }: {
-  bookId: string;
+  /** Dau sach mo form tu do - dien san 1 cuon vao gio. Khong co = chon tu dau. */
+  bookId?: string;
   bookName?: string;
   bookCode?: string | null;
   unitPrice?: number;
@@ -80,7 +82,9 @@ export default function IssueBookForm({
   const [serverHits, setServerHits] = useState<StudentHit[]>([]);
   const [selected, setSelected] = useState<StudentHit | null>(null);
   const [classId, setClassId] = useState("");
-  const [quantity, setQuantity] = useState("1");
+  const [books, setBooks] = useState<BookOption[]>([]);
+  const [booksLoading, setBooksLoading] = useState(false);
+  const [basket, setBasket] = useState<Basket>({});
   const [paidNow, setPaidNow] = useState(true);
   const [listLoading, setListLoading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -115,6 +119,30 @@ export default function IssueBookForm({
     };
   }, [open]);
 
+  // Danh mục sách để chọn cả bộ — tải 1 lần khi mở form.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setBooksLoading(true);
+    fetch("/api/books")
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        return (data.items ?? []) as BookOption[];
+      })
+      .then((items) => {
+        if (cancelled) return;
+        setBooks(items);
+        setBasket(bookId ? { [bookId]: 1 } : {});
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setBooksLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, bookId]);
+
   // Hơn 100 học viên thì danh sách tải sẵn chưa đủ — tìm thêm ở máy chủ khi gõ.
   useEffect(() => {
     if (!open || total <= students.length || q.trim().length < 2) {
@@ -143,8 +171,8 @@ export default function IssueBookForm({
   }, [q, students, serverHits]);
 
   const activeClasses = (selected?.enrollments ?? []).filter((e) => e.status === "ACTIVE" && e.classId && e.class);
-  const qty = Math.max(0, Math.floor(Number(quantity) || 0));
-  const amount = qty * (unitPrice ?? 0);
+  const pickedCount = basketQuantity(basket);
+  const amount = basketTotal(basket, books);
 
   function pick(student: StudentHit) {
     setSelected(student);
@@ -156,8 +184,8 @@ export default function IssueBookForm({
 
   async function issue() {
     if (!selected) return;
-    if (qty <= 0) {
-      setError("Số lượng phải lớn hơn 0.");
+    if (pickedCount <= 0) {
+      setError("Chưa chọn sách nào để xuất.");
       return;
     }
     if (activeClasses.length === 0) {
@@ -173,10 +201,17 @@ export default function IssueBookForm({
     setLoading(true);
     setError(null);
     setNotice(null);
-    const res = await fetch(`/api/books/${bookId}/issues`, {
+    const res = await fetch("/api/book-issues/batch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ studentId: selected.id, quantity: qty, classId: classId || undefined, paidNow }),
+      body: JSON.stringify({
+        studentId: selected.id,
+        classId: classId || undefined,
+        paidNow,
+        items: Object.entries(basket)
+          .filter(([, value]) => value > 0)
+          .map(([id, value]) => ({ bookId: id, quantity: value })),
+      }),
     });
     const data = await res.json().catch(() => ({}));
     setLoading(false);
@@ -184,9 +219,18 @@ export default function IssueBookForm({
       setError(data.error ?? "Không thể xuất sách.");
       return;
     }
-    setNotice([`Đã xuất ${qty} cuốn cho ${selected.fullName}.`, data.warning, data.classWarning].filter(Boolean).join(" "));
+    setNotice(
+      [
+        `Đã xuất ${data.totalQuantity ?? pickedCount} cuốn (${data.bookCount ?? 0} đầu sách) cho ${selected.fullName} — ${formatVnd(data.totalAmount ?? amount)}.`,
+        paidNow ? "Đã thu tiền ngay." : data.chargeUpdated ? `Đã ghi vào kỳ học phí ${data.chargePeriodName ?? "đang mở"}.` : null,
+        data.unlinkedCount ? `${data.unlinkedCount} đầu sách chưa ghi được vào kỳ thu nào — cần kiểm tra kỳ học phí.` : null,
+        ...(data.warnings ?? []),
+      ]
+        .filter(Boolean)
+        .join(" "),
+    );
     setSelected(null);
-    setQuantity("1");
+    setBasket(bookId ? { [bookId]: 1 } : {});
     onDone?.();
     router.refresh();
   }
@@ -205,9 +249,10 @@ export default function IssueBookForm({
         guide={<FormGuide title="Hướng dẫn xuất giáo trình" summary="Đây là bước xuất kho cho học viên. Người vận hành chỉ cần nhớ: đúng học viên, đúng số lượng, đúng thời điểm đã giao thực tế." sections={ISSUE_BOOK_GUIDE_SECTIONS} position="inline" />}
       >
         <div className="space-y-4">
+          {bookName ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3">
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-[#64748b]">Sách xuất</p>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-[#64748b]">Mở từ đầu sách</p>
               <p className="mt-0.5 truncate text-base font-bold text-[#0f1729]">{bookName ?? "—"}</p>
               {bookCode && bookCode.trim() !== "0" ? <p className="font-mono text-xs text-[#64748b]">{bookCode}</p> : null}
             </div>
@@ -226,6 +271,7 @@ export default function IssueBookForm({
               ) : null}
             </div>
           </div>
+          ) : null}
 
           {notice ? <p className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm text-[#0f1729]">{notice}</p> : null}
 
@@ -242,11 +288,7 @@ export default function IssueBookForm({
                 </button>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="form-group">
-                  <span className="label-sm">Số lượng</span>
-                  <input type="number" min="1" className="input" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-                </label>
+              <div className="grid gap-4">
                 <div className="form-group">
                   <span className="label-sm">Lớp gắn sách</span>
                   {activeClasses.length > 1 ? (
@@ -266,6 +308,8 @@ export default function IssueBookForm({
                 </div>
               </div>
 
+              <BookBasketPicker books={books} basket={basket} onChange={setBasket} loading={booksLoading} />
+
               <div className="grid gap-2 sm:grid-cols-2">
                 {[
                   { value: true, title: "Đã thu tiền ngay", hint: "Thu lúc đưa sách, không cộng vào học phí." },
@@ -283,14 +327,13 @@ export default function IssueBookForm({
                 ))}
               </div>
 
-              <div className="flex items-center justify-between border-t border-[#e2e8f0] pt-3">
-                <span className="text-sm text-[#475569]">Thành tiền</span>
-                <span className="text-lg font-black tabular-nums text-[#0f1729]">{formatVnd(amount)}</span>
-              </div>
-
               {error ? <p className="text-sm text-red-600">{error}</p> : null}
-              <button type="button" onClick={() => void issue()} disabled={loading} className="btn-primary w-full">
-                {loading ? "Đang xuất..." : `Xuất ${qty || ""} cuốn cho ${selected.fullName}`}
+              <button type="button" onClick={() => void issue()} disabled={loading || pickedCount === 0} className="btn-primary w-full">
+                {loading
+                  ? "Đang xuất..."
+                  : pickedCount === 0
+                    ? "Chọn sách để xuất"
+                    : `Xuất ${pickedCount} cuốn · ${formatVnd(amount)} cho ${selected.fullName}`}
               </button>
             </div>
           ) : (

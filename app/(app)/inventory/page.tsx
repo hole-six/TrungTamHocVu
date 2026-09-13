@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeStockBalance } from "@/lib/server/inventory-rules";
 import NewBookForm from "@/components/inventory/NewBookForm";
+import IssueBookForm from "@/components/inventory/IssueBookForm";
 import BooksTable from "@/components/inventory/BooksTable";
 import BookIssuesTable from "@/components/inventory/BookIssuesTable";
 import PageGuide from "@/components/ui/PageGuide";
@@ -290,6 +291,8 @@ export default async function InventoryPage({
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <SpotlightTour steps={INVENTORY_TOUR_STEPS} />
+          {/* Xuất cả bộ giáo trình mà không phải mở từng đầu sách một. */}
+          {canCreate("inventory", role) ? <IssueBookForm triggerClassName="btn-ghost" /> : null}
           {canCreate("inventory", role) ? <NewBookForm categoryOptions={categoryOptions} /> : null}
         </div>
       </div>
