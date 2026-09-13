@@ -85,8 +85,12 @@ export default async function BookDetailPage({ params }: { params: { id: string 
             <Link href="/classes" className="btn-ghost">
               Khóa học
             </Link>
-            {canUpdate("inventory", role) ? <ReceiptForm bookId={book.id} defaultUnitPrice={book.purchasePrice} /> : null}
-            {canCreate("inventory", role) ? <IssueBookForm bookId={book.id} /> : null}
+            {canUpdate("inventory", role) ? (
+              <ReceiptForm bookId={book.id} bookName={book.name} bookCode={book.bookCode} onHand={balance.onHand} defaultUnitPrice={book.purchasePrice} />
+            ) : null}
+            {canCreate("inventory", role) ? (
+              <IssueBookForm bookId={book.id} bookName={book.name} bookCode={book.bookCode} unitPrice={book.unitPrice} onHand={balance.onHand} />
+            ) : null}
           </div>
         </div>
       </div>

@@ -145,8 +145,26 @@ export default function BookDetailDrawer({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {canUpdateInventory ? <ReceiptForm bookId={data.id} defaultUnitPrice={data.purchasePrice} /> : null}
-            {canCreateIssue ? <IssueBookForm bookId={data.id} /> : null}
+            {canUpdateInventory ? (
+              <ReceiptForm
+                bookId={data.id}
+                bookName={data.name}
+                bookCode={data.bookCode}
+                onHand={balance.onHand}
+                defaultUnitPrice={data.purchasePrice}
+                onDone={() => void load()}
+              />
+            ) : null}
+            {canCreateIssue ? (
+              <IssueBookForm
+                bookId={data.id}
+                bookName={data.name}
+                bookCode={data.bookCode}
+                unitPrice={data.unitPrice}
+                onHand={balance.onHand}
+                onDone={() => void load()}
+              />
+            ) : null}
           </div>
 
           <Section title="Thông tin sách" hint={`${formatVnd(data.unitPrice)}/cuốn`} defaultOpen>

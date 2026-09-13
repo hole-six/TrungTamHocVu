@@ -1,11 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
+import { formatVnd } from "@/lib/export-utils";
 
-type StudentHit = { id: string; fullName: string; studentCode: string };
+type StudentHit = {
+  id: string;
+  fullName: string;
+  studentCode: string;
+  phone?: string | null;
+  currentClassCode?: string | null;
+  currentClassName?: string | null;
+  enrollments?: Array<{ status: string; classId: string | null; class?: { classCode: string; className: string } | null }>;
+};
 
 const ISSUE_BOOK_GUIDE_SECTIONS = [
   {
@@ -20,9 +29,9 @@ const ISSUE_BOOK_GUIDE_SECTIONS = [
   {
     title: "Cách thao tác đúng",
     items: [
-      "Tìm đúng học viên theo tên hoặc mã học viên.",
+      "Tìm đúng học viên theo tên, mã học viên, lớp hoặc số điện thoại.",
       "Chọn đúng số lượng giao, nhất là khi giao nhiều cuốn trong một lần.",
-      "Sau khi lưu, hệ thống sẽ dùng dữ liệu này để đối chiếu tồn kho và khoản sách liên quan của học viên.",
+      "Chọn đã thu tiền ngay hay cộng vào học phí kỳ này để thu chung.",
     ],
     tone: "success" as const,
   },
@@ -37,37 +46,137 @@ const ISSUE_BOOK_GUIDE_SECTIONS = [
   },
 ];
 
-export default function IssueBookForm({ bookId }: { bookId: string }) {
+const COMBINING_MARKS = /[̀-ͯ]/g;
+
+// Tìm không phân biệt dấu / hoa thường: "nguyen" khớp "Nguyễn". Tìm ở CSDL (SQLite) phân
+// biệt hoa-thường với chữ có dấu, nên trước đây gõ "nguyễn" không ra "Nguyễn" — trông như
+// không lấy được danh sách học viên.
+function normalize(value: string) {
+  return value.normalize("NFD").replace(COMBINING_MARKS, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase().trim();
+}
+
+export default function IssueBookForm({
+  bookId,
+  bookName,
+  bookCode,
+  unitPrice,
+  onHand,
+  onDone,
+  triggerClassName = "btn-primary",
+}: {
+  bookId: string;
+  bookName?: string;
+  bookCode?: string | null;
+  unitPrice?: number;
+  onHand?: number;
+  onDone?: () => void;
+  triggerClassName?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
-  const [results, setResults] = useState<StudentHit[]>([]);
+  const [students, setStudents] = useState<StudentHit[]>([]);
+  const [total, setTotal] = useState(0);
+  const [serverHits, setServerHits] = useState<StudentHit[]>([]);
   const [selected, setSelected] = useState<StudentHit | null>(null);
+  const [classId, setClassId] = useState("");
   const [quantity, setQuantity] = useState("1");
-  const [searching, setSearching] = useState(false);
+  const [paidNow, setPaidNow] = useState(true);
+  const [listLoading, setListLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [warning, setWarning] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  async function search(e: React.FormEvent) {
-    e.preventDefault();
-    if (!q.trim()) return;
-    setSearching(true);
-    const res = await fetch(`/api/students?q=${encodeURIComponent(q)}&status=ACTIVE&pageSize=10`);
-    const data = await res.json().catch(() => ({}));
-    setSearching(false);
-    setResults(data.items ?? []);
+  // Mở form là có ngay danh sách học viên đang học — không bắt gõ rồi bấm "Tìm" mới thấy ai.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setListLoading(true);
+    setError(null);
+    fetch("/api/students?status=ACTIVE&pageSize=100")
+      .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => ({})) }))
+      .then(({ ok, data }) => {
+        if (cancelled) return;
+        if (!ok) {
+          setError(data.error ?? "Không tải được danh sách học viên.");
+          return;
+        }
+        setStudents(data.items ?? []);
+        setTotal(data.total ?? 0);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Không tải được danh sách học viên.");
+      })
+      .finally(() => {
+        if (!cancelled) setListLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  // Hơn 100 học viên thì danh sách tải sẵn chưa đủ — tìm thêm ở máy chủ khi gõ.
+  useEffect(() => {
+    if (!open || total <= students.length || q.trim().length < 2) {
+      setServerHits([]);
+      return;
+    }
+    const timer = window.setTimeout(async () => {
+      const res = await fetch(`/api/students?status=ACTIVE&pageSize=30&q=${encodeURIComponent(q.trim())}`);
+      const data = await res.json().catch(() => ({}));
+      setServerHits(data.items ?? []);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [open, q, total, students.length]);
+
+  const filtered = useMemo(() => {
+    const keyword = normalize(q);
+    const pool = [...students, ...serverHits.filter((hit) => !students.some((s) => s.id === hit.id))];
+    const matches = keyword
+      ? pool.filter((s) =>
+          normalize([s.fullName, s.studentCode, s.phone ?? "", s.currentClassCode ?? "", s.currentClassName ?? ""].join(" ")).includes(keyword),
+        )
+      : pool;
+    // Học viên đang có lớp lên trước — em chưa có lớp thì chưa xuất sách được.
+    const hasClass = (s: StudentHit) => ((s.enrollments ?? []).some((e) => e.status === "ACTIVE" && e.classId) ? 0 : 1);
+    return [...matches].sort((a, b) => hasClass(a) - hasClass(b)).slice(0, 60);
+  }, [q, students, serverHits]);
+
+  const activeClasses = (selected?.enrollments ?? []).filter((e) => e.status === "ACTIVE" && e.classId && e.class);
+  const qty = Math.max(0, Math.floor(Number(quantity) || 0));
+  const amount = qty * (unitPrice ?? 0);
+
+  function pick(student: StudentHit) {
+    setSelected(student);
+    setError(null);
+    setNotice(null);
+    const active = (student.enrollments ?? []).filter((e) => e.status === "ACTIVE" && e.classId);
+    setClassId(active.length === 1 ? active[0].classId ?? "" : "");
   }
 
   async function issue() {
     if (!selected) return;
+    if (qty <= 0) {
+      setError("Số lượng phải lớn hơn 0.");
+      return;
+    }
+    if (activeClasses.length === 0) {
+      setError("Học viên chưa có lớp đang học nên không xuất sách được.");
+      return;
+    }
+    // API bắt buộc chọn lớp khi học viên học nhiều lớp — trước đây form không có ô chọn nên
+    // xuất cho những em này luôn báo lỗi.
+    if (activeClasses.length > 1 && !classId) {
+      setError("Học viên đang học nhiều lớp — chọn lớp cần gắn sách.");
+      return;
+    }
     setLoading(true);
     setError(null);
-    setWarning(null);
+    setNotice(null);
     const res = await fetch(`/api/books/${bookId}/issues`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ studentId: selected.id, quantity: Number(quantity) }),
+      body: JSON.stringify({ studentId: selected.id, quantity: qty, classId: classId || undefined, paidNow }),
     });
     const data = await res.json().catch(() => ({}));
     setLoading(false);
@@ -75,63 +184,152 @@ export default function IssueBookForm({ bookId }: { bookId: string }) {
       setError(data.error ?? "Không thể xuất sách.");
       return;
     }
-    const notices = [data.warning, data.classWarning].filter(Boolean);
-    if (notices.length > 0) setWarning(notices.join(" "));
+    setNotice([`Đã xuất ${qty} cuốn cho ${selected.fullName}.`, data.warning, data.classWarning].filter(Boolean).join(" "));
     setSelected(null);
-    setResults([]);
-    setQ("");
     setQuantity("1");
-    setOpen(false);
+    onDone?.();
     router.refresh();
   }
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="btn-primary">
+      <button type="button" onClick={() => setOpen(true)} className={triggerClassName}>
         Xuất cho học viên
       </button>
 
-      <ResponsiveDrawer 
+      <ResponsiveDrawer
         open={open}
         onClose={() => setOpen(false)}
         title="Xuất giáo trình"
-        description="Tìm đúng học viên, chọn số lượng rồi ghi nhận xuất kho."
+        description="Chọn học viên nhận sách, số lượng và cách thu tiền."
         guide={<FormGuide title="Hướng dẫn xuất giáo trình" summary="Đây là bước xuất kho cho học viên. Người vận hành chỉ cần nhớ: đúng học viên, đúng số lượng, đúng thời điểm đã giao thực tế." sections={ISSUE_BOOK_GUIDE_SECTIONS} position="inline" />}
       >
         <div className="space-y-4">
-          <form onSubmit={search} className="flex gap-2">
-            <input className="input" placeholder="Tìm học viên..." value={q} onChange={(e) => setQ(e.target.value)} />
-            <button type="submit" className="btn-ghost whitespace-nowrap" disabled={searching}>
-              {searching ? "Đang tìm..." : "Tìm"}
-            </button>
-          </form>
-
-          {results.length > 0 ? (
-            <div className="space-y-1">
-              {results.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setSelected(s)}
-                  className={`block w-full rounded-lg border px-3 py-2 text-left text-sm transition ${selected?.id === s.id ? "border-[#0f1729] bg-[#f8fafc]" : "border-hairline hover:bg-canvas-parchment"}`}
-                >
-                  {s.fullName} <span className="text-ink-muted48">({s.studentCode})</span>
-                </button>
-              ))}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-[#64748b]">Sách xuất</p>
+              <p className="mt-0.5 truncate text-base font-bold text-[#0f1729]">{bookName ?? "—"}</p>
+              {bookCode && bookCode.trim() !== "0" ? <p className="font-mono text-xs text-[#64748b]">{bookCode}</p> : null}
             </div>
-          ) : null}
+            <div className="flex gap-5 text-right">
+              {unitPrice != null ? (
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-[#64748b]">Giá bán</p>
+                  <p className="text-base font-bold tabular-nums text-[#0f1729]">{formatVnd(unitPrice)}</p>
+                </div>
+              ) : null}
+              {onHand != null ? (
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-[#64748b]">Tồn kho</p>
+                  <p className={`text-base font-bold tabular-nums ${onHand <= 0 ? "text-[#dc2626]" : "text-[#0f1729]"}`}>{onHand}</p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {notice ? <p className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm text-[#0f1729]">{notice}</p> : null}
 
           {selected ? (
-            <div className="flex items-center gap-2">
-              <input type="number" min="1" className="input w-24" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-              <button type="button" onClick={issue} disabled={loading} className="btn-primary flex-1">
-                {loading ? "Đang xuất..." : `Xuất cho ${selected.fullName}`}
+            <div className="space-y-4 rounded-xl border border-[#0f1729] p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-[#64748b]">Học viên nhận sách</p>
+                  <p className="mt-0.5 text-base font-bold text-[#0f1729]">{selected.fullName}</p>
+                  <p className="font-mono text-xs text-[#64748b]">{selected.studentCode}</p>
+                </div>
+                <button type="button" onClick={() => setSelected(null)} className="btn-ghost-sm">
+                  Chọn người khác
+                </button>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="form-group">
+                  <span className="label-sm">Số lượng</span>
+                  <input type="number" min="1" className="input" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+                </label>
+                <div className="form-group">
+                  <span className="label-sm">Lớp gắn sách</span>
+                  {activeClasses.length > 1 ? (
+                    <select className="input" value={classId} onChange={(e) => setClassId(e.target.value)}>
+                      <option value="">-- Chọn lớp --</option>
+                      {activeClasses.map((e) => (
+                        <option key={e.classId} value={e.classId ?? ""}>
+                          {e.class?.classCode} · {e.class?.className}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="input flex items-center bg-[#f8fafc] text-[#0f1729]">
+                      {activeClasses[0]?.class ? `${activeClasses[0].class.classCode} · ${activeClasses[0].class.className}` : "Chưa có lớp đang học"}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                {[
+                  { value: true, title: "Đã thu tiền ngay", hint: "Thu lúc đưa sách, không cộng vào học phí." },
+                  { value: false, title: "Cộng vào học phí", hint: "Chưa thu — cộng vào phiếu học phí kỳ này để thu chung." },
+                ].map((option) => (
+                  <button
+                    key={option.title}
+                    type="button"
+                    onClick={() => setPaidNow(option.value)}
+                    className={`rounded-xl border p-3 text-left transition ${paidNow === option.value ? "border-[#0f1729] ring-1 ring-[#0f1729]" : "border-[#e2e8f0] hover:border-[#0f1729]"}`}
+                  >
+                    <p className="text-sm font-bold text-[#0f1729]">{option.title}</p>
+                    <p className="mt-0.5 text-xs text-[#64748b]">{option.hint}</p>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between border-t border-[#e2e8f0] pt-3">
+                <span className="text-sm text-[#475569]">Thành tiền</span>
+                <span className="text-lg font-black tabular-nums text-[#0f1729]">{formatVnd(amount)}</span>
+              </div>
+
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+              <button type="button" onClick={() => void issue()} disabled={loading} className="btn-primary w-full">
+                {loading ? "Đang xuất..." : `Xuất ${qty || ""} cuốn cho ${selected.fullName}`}
               </button>
             </div>
-          ) : null}
-
-          {warning ? <p className="text-sm text-amber-600">{warning}</p> : null}
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          ) : (
+            <>
+              <input
+                className="input"
+                placeholder="Tìm theo tên, mã học viên, lớp hoặc số điện thoại..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                autoFocus
+              />
+              <div className="flex items-center justify-between gap-2 text-xs text-[#64748b]">
+                <span>{listLoading ? "Đang tải danh sách học viên..." : `${filtered.length} học viên${q ? " khớp" : " đang học"}`}</span>
+                {total > students.length ? <span>Gõ ít nhất 2 ký tự để tìm trong {total} học viên</span> : null}
+              </div>
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+              <div className="max-h-[55vh] divide-y divide-[#f1f5f9] overflow-y-auto rounded-xl border border-[#e2e8f0]">
+                {filtered.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => pick(s)}
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-[#f8fafc]"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-[#0f1729]">{s.fullName}</span>
+                      <span className="font-mono text-xs text-[#64748b]">{s.studentCode}</span>
+                    </span>
+                    <span className="shrink-0 rounded-md border border-[#e2e8f0] px-2 py-0.5 text-xs font-semibold text-[#475569]">
+                      {s.currentClassCode ?? s.currentClassName ?? "Chưa có lớp"}
+                    </span>
+                  </button>
+                ))}
+                {!listLoading && filtered.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-sm text-[#64748b]">Không có học viên phù hợp.</p>
+                ) : null}
+              </div>
+            </>
+          )}
         </div>
       </ResponsiveDrawer>
     </>
