@@ -261,7 +261,6 @@ export default async function AssetsPage({
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="page-title">Tài sản & thiết bị</h1>
-          <p className="page-subtitle">Theo dõi giá trị gốc, chi phí bảo dưỡng và tổng giá trị sử dụng của từng tài sản.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">

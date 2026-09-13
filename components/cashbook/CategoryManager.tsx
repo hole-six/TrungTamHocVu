@@ -120,9 +120,13 @@ function CategoryRow({
 export default function CategoryManager({
   categories,
   amountByCategory = {},
+  amountLabel = "Số tiền kỳ này",
 }: {
   categories: Category[];
   amountByCategory?: Record<string, number>;
+  /** Tiêu đề cột số tiền — ghi rõ khoảng ngày đang tính, vì ở tab riêng không còn thấy
+   *  bộ lọc ngày của bảng giao dịch ngay bên cạnh. */
+  amountLabel?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -187,11 +191,7 @@ export default function CategoryManager({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Phân loại giao dịch</p>
-          <h2 className="mt-1 font-display text-lg font-semibold tracking-tight">Danh mục thu chi</h2>
-          <p className="mt-1 text-sm text-ink-muted48">Dùng để gắn đúng loại cho từng giao dịch thu hoặc chi.</p>
-        </div>
+        <p className="text-sm text-[#64748b]">{categories.length} danh mục</p>
         <button className="btn-ghost text-xs" onClick={() => setOpen((current) => !current)}>
           {open ? "Đóng form" : "+ Thêm danh mục"}
         </button>
@@ -204,7 +204,7 @@ export default function CategoryManager({
               <th className="px-4 py-3 font-medium">Loại</th>
               <th className="px-4 py-3 font-medium">Tên danh mục</th>
               <th className="px-4 py-3 font-medium">Chi tiết</th>
-              <th className="px-4 py-3 text-right font-medium">Số tiền kỳ này</th>
+              <th className="px-4 py-3 text-right font-medium">{amountLabel}</th>
               <th className="px-4 py-3 text-right font-medium">Thao tác</th>
             </tr>
             <tr className="border-b border-hairline bg-[#f9fbff]">

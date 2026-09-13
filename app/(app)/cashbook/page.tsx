@@ -1,3 +1,4 @@
+import Link from "next/link";
 import NoPermission from "@/components/ui/NoPermission";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -68,6 +69,11 @@ function toYmd(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+function formatYmdVn(ymd: string) {
+  const [year, month, day] = ymd.split("-");
+  return `${day}/${month}/${year}`;
+}
+
 export default async function CashbookPage({
   searchParams,
 }: {
@@ -81,6 +87,7 @@ export default async function CashbookPage({
     amountTo?: string;
     status?: string;
     page?: string;
+    tab?: string;
   };
 }) {
   const user = await getCurrentUser();
@@ -93,6 +100,11 @@ export default async function CashbookPage({
 
   const canManageCashbook = canUpdate("cashbook", role);
   const canCreateCashbook = canCreate("cashbook", role);
+  // 2 tab tách riêng: GIAO DỊCH (việc hằng ngày) và DANH MỤC (thiết lập, ít khi đụng tới).
+  // Trước đây nằm chồng trên cùng một trang — bảng danh mục chen giữa tiêu đề và bảng giao
+  // dịch, lúc nào cũng đẩy giao dịch xuống dưới. Tab Danh mục chỉ dành cho người quản lý
+  // được sổ quỹ (sửa/xóa danh mục); người khác luôn ở tab Giao dịch.
+  const activeTab = searchParams?.tab === "categories" && canManageCashbook ? "categories" : "transactions";
 
   // Không còn "kỳ báo cáo"/chốt kỳ — chỉ lọc theo khoảng ngày thật. Mặc định nếu
   // chưa chọn: đầu tháng hiện tại đến hôm nay (điểm khởi đầu hợp lý, không bắt buộc).
@@ -266,31 +278,54 @@ export default async function CashbookPage({
 
         <div className="flex flex-wrap items-center gap-2">
           <SpotlightTour steps={CASHBOOK_TOUR_STEPS} />
-          {canCreateCashbook ? <NewCashTransactionForm categories={categories} /> : null}
-          <CashbookExportButton
-            fromDate={fromDateStr}
-            toDate={toDateStr}
-            type={typeFilter}
-            totals={{ totalThu, totalChi, balance }}
-            byCategory={byCategory}
-            transactions={normalizedTransactions}
-          />
+          {activeTab === "transactions" && canCreateCashbook ? <NewCashTransactionForm categories={categories} /> : null}
+          {activeTab === "transactions" ? (
+            <CashbookExportButton
+              fromDate={fromDateStr}
+              toDate={toDateStr}
+              type={typeFilter}
+              totals={{ totalThu, totalChi, balance }}
+              byCategory={byCategory}
+              transactions={normalizedTransactions}
+            />
+          ) : null}
         </div>
       </div>
 
-      {canManageCashbook ? <CategoryManager categories={categories} amountByCategory={amountByCategory} /> : null}
-
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="font-display text-lg font-semibold tracking-tight">Giao dịch thu chi</h2>
-            <p className="mt-1 text-sm text-ink-muted48">Bảng chính để đối chiếu từng dòng tiền.</p>
-          </div>
-          <span className="rounded-full border border-[#dbe7ff] bg-white px-3 py-1 text-xs font-semibold text-primary">
-            {totalCount} giao dịch
-          </span>
+      {canManageCashbook ? (
+        <div className="flex flex-wrap gap-1.5 rounded-2xl border border-[#dbe7ff] bg-[#f8faff] p-1.5">
+          {[
+            { key: "transactions", label: "Giao dịch thu chi", hint: `${totalCount} giao dịch trong khoảng đang lọc` },
+            { key: "categories", label: "Danh mục thu chi", hint: `${categories.length} danh mục` },
+          ].map((tab) => {
+            const isActive = activeTab === tab.key;
+            // Giữ nguyên khoảng ngày khi đổi tab — số tiền theo danh mục tính trong đúng khoảng
+            // đó, đổi tab mà mất khoảng ngày là hai tab nói hai con số khác nhau.
+            const params = new URLSearchParams({ fromDate: fromDateStr, toDate: toDateStr });
+            if (tab.key === "categories") params.set("tab", "categories");
+            return (
+              <Link
+                key={tab.key}
+                href={`/cashbook?${params.toString()}`}
+                className={`flex-1 rounded-xl px-4 py-2.5 text-center transition ${
+                  isActive ? "bg-primary text-white shadow-sm" : "text-[#0f1729] hover:bg-white"
+                }`}
+              >
+                <span className="block text-sm font-bold">{tab.label}</span>
+                <span className={`block text-[11px] ${isActive ? "text-white/80" : "text-[#64748b]"}`}>{tab.hint}</span>
+              </Link>
+            );
+          })}
         </div>
+      ) : null}
 
+      {activeTab === "categories" ? (
+        <CategoryManager
+          categories={categories}
+          amountByCategory={amountByCategory}
+          amountLabel={`Số tiền ${formatYmdVn(fromDateStr)} – ${formatYmdVn(toDateStr)}`}
+        />
+      ) : (
         <div data-tour="cashbook-table">
           <CashbookTable
             transactions={normalizedTransactions}
@@ -303,7 +338,7 @@ export default async function CashbookPage({
             toDate={toDateStr}
           />
         </div>
-      </div>
+      )}
     </div>
   );
 }

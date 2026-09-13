@@ -254,7 +254,6 @@ export default async function CalendarPage({
           <div>
             <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Lịch tổng lớp học</h1>
             <p className="page-subtitle text-xs sm:text-sm">
-              <span className="hidden sm:inline">Xem nhanh lịch dạy trong tuần, trạng thái buổi học và phân công nhân sự.</span>
               <span className="sm:hidden">Lịch dạy trong tuần</span>
             </p>
           </div>
