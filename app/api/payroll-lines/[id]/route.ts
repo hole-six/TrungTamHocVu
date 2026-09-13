@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { canEditPayroll } from "@/lib/server/payroll-rules";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdateWithOverride } from "@/lib/server/role-matrix";
 import { canAccessBranch } from "@/lib/branch-filter";
@@ -19,9 +18,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
   }
   if (!line) return NextResponse.json({ error: "Không tìm thấy dòng lương" }, { status: 404 });
-  if (!canEditPayroll(line.payrollRun.status)) {
-    return NextResponse.json({ error: "Tháng lương đã duyệt/khóa, không thể sửa." }, { status: 409 });
-  }
 
   const body = await req.json();
   // Các khoản cộng/trừ itemize đúng theo phiếu lương thật (xem ghi chú model
@@ -80,9 +76,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
   }
   if (!line) return NextResponse.json({ error: "Không tìm thấy dòng lương" }, { status: 404 });
-  if (!canEditPayroll(line.payrollRun.status)) {
-    return NextResponse.json({ error: "Tháng lương đã duyệt/khóa, không thể xóa dòng." }, { status: 409 });
-  }
 
   await prisma.payrollLine.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });

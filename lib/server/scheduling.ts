@@ -11,7 +11,6 @@ import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { computeAutoSessionWindow, createSessionsInRange, computeEnrollmentSessionProgress } from "@/lib/server/class-generation";
 import { ensureBillingPeriod, generateChargesForPeriod } from "@/lib/server/billing-generation";
-import { ensurePayrollRun, generatePayrollForRun } from "@/lib/server/payroll-generation";
 import { monthKey } from "@/lib/server/tuition-rules";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import { grantRemainingSessionCredits } from "@/lib/server/session-credits";
@@ -20,7 +19,6 @@ import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 // Chặt hơn canEditCharges/canEditPayroll (được phép cả REVIEWED/REOPENED) — một khi
 // con người đã bắt đầu rà soát kỳ, sweep tự động không được đụng vào số liệu nữa.
 const AUTOMATION_BILLING_STATUSES = ["DRAFT", "GENERATED"];
-const AUTOMATION_PAYROLL_STATUSES = ["DRAFT", "CALCULATED"];
 const CLASS_END_CREDIT_REASON = "Buổi dư do lớp đã hết hạn dự kiến mà chưa rút lớp";
 
 type SweepResult = {
@@ -242,54 +240,3 @@ export async function runClassEndCreditSweep(): Promise<SweepResult> {
   return { correlationId, processed, errors };
 }
 
-export async function runMonthlyPayrollSweep(): Promise<SweepResult> {
-  const correlationId = randomUUID();
-  const periodName = monthKey(new Date());
-  let processed = 0;
-  let errors = 0;
-
-  const branches = await prisma.branch.findMany({ where: { isActive: true } });
-  for (const branch of branches) {
-    try {
-      const run = await ensurePayrollRun(branch.id, periodName);
-      if (!AUTOMATION_PAYROLL_STATUSES.includes(run.status)) {
-        await logAuto({
-          correlationId,
-          branchId: branch.id,
-          entityType: "PayrollRun",
-          entityId: run.id,
-          action: "AUTO_SKIPPED",
-          after: { status: run.status, periodName },
-        });
-        continue;
-      }
-      const result = await generatePayrollForRun(run.id);
-      if ("error" in result) {
-        errors++;
-        await logAuto({ correlationId, branchId: branch.id, entityType: "PayrollRun", entityId: run.id, action: "AUTO_ERROR", after: result });
-        continue;
-      }
-      await logAuto({
-        correlationId,
-        branchId: branch.id,
-        entityType: "PayrollRun",
-        entityId: run.id,
-        action: "AUTO_GENERATE_PAYROLL",
-        after: result,
-      });
-      processed++;
-    } catch (error) {
-      errors++;
-      await logAuto({
-        correlationId,
-        branchId: branch.id,
-        entityType: "PayrollRun",
-        entityId: branch.id,
-        action: "AUTO_ERROR",
-        after: { error: error instanceof Error ? error.message : String(error), periodName },
-      });
-    }
-  }
-
-  return { correlationId, processed, errors };
-}

@@ -1,4 +1,4 @@
-// Đăng ký lịch chạy nền cho 3 sweep tự động (xem lib/server/scheduling.ts). Được
+// Đăng ký lịch chạy nền cho các sweep tự động (xem lib/server/scheduling.ts). Được
 // gọi đúng 1 lần khi server khởi động, từ instrumentation.ts ở gốc repo.
 //
 // Cơ chế "bắt kịp" khi server từng tắt lúc tới giờ chạy: các sweep tự kiểm tra
@@ -6,16 +6,11 @@
 // tra NGÀY ("có phải hôm nay là ngày 1 không") — nên chỉ cần gọi lại 1 lần ngay
 // lúc khởi động là đủ bắt kịp, không cần thư viện dò "tick bị lỡ".
 import cron from "node-cron";
-import {
-  runDailySessionSweep,
-  runMonthlyBillingSweep,
-  runMonthlyPayrollSweep,
-  runClassEndCreditSweep,
-} from "@/lib/server/scheduling";
+import { runDailySessionSweep, runMonthlyBillingSweep, runClassEndCreditSweep } from "@/lib/server/scheduling";
 
-type JobName = "sessions" | "classEndCredits" | "billing" | "payroll";
+type JobName = "sessions" | "classEndCredits" | "billing";
 
-const running: Record<JobName, boolean> = { sessions: false, classEndCredits: false, billing: false, payroll: false };
+const running: Record<JobName, boolean> = { sessions: false, classEndCredits: false, billing: false };
 
 async function runOnce(name: JobName, fn: () => Promise<{ correlationId: string; processed: number; errors: number }>) {
   if (running[name]) {
@@ -34,7 +29,7 @@ async function runOnce(name: JobName, fn: () => Promise<{ correlationId: string;
 }
 
 export function startScheduler() {
-  console.log("[scheduler] Khởi động lịch tự động sinh buổi học / học phí / lương.");
+  console.log("[scheduler] Khởi động lịch tự động sinh buổi học / học phí.");
 
   cron.schedule("0 2 * * *", async () => {
     await runOnce("sessions", runDailySessionSweep);
@@ -47,11 +42,12 @@ export function startScheduler() {
     // Chạy lại an toàn: phiếu chưa thu được tính lại, phiếu đã thu chỉ cộng thêm buổi mới.
     await runOnce("billing", runMonthlyBillingSweep);
   });
-  cron.schedule("0 4 1 * *", () => runOnce("payroll", runMonthlyPayrollSweep));
+  // KHÔNG còn sweep lương hằng tháng: bảng lương tính thẳng từ buổi dạy/trợ giảng/chấm
+  // công mỗi lần mở, nên không cần tạo sẵn "tháng lương" nào. Dòng lương giờ chỉ sinh ra
+  // khi người dùng thực sự nhập một khoản cộng/trừ tay cho ai đó.
 
   // Chạy ngay 1 lần lúc khởi động để bắt kịp nếu server từng tắt qua giờ hẹn.
   void runOnce("sessions", runDailySessionSweep)
     .then(() => runOnce("classEndCredits", runClassEndCreditSweep))
     .then(() => runOnce("billing", runMonthlyBillingSweep));
-  void runOnce("payroll", runMonthlyPayrollSweep);
 }

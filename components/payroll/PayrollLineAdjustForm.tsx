@@ -8,7 +8,11 @@ import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { formatVnd } from "@/lib/export-utils";
 
 type Props = {
-  lineId: string;
+  /** null = tháng này chưa có dòng lương nào — form tự tạo ngầm khi bấm lưu. */
+  lineId: string | null;
+  employeeId: string;
+  /** "YYYY-MM" — tháng đang xem, dùng để tạo dòng lương khi chưa có. */
+  period: string;
   otHours: number;
   otAmount: number;
   kpiBonus: number;
@@ -34,6 +38,8 @@ type Props = {
 // tay được — hiển thị dạng thông tin ở dưới cùng.
 export default function PayrollLineAdjustForm({
   lineId,
+  employeeId,
+  period,
   otHours,
   otAmount,
   kpiBonus,
@@ -91,7 +97,26 @@ export default function PayrollLineAdjustForm({
     setLoading(true);
     setError(null);
     setSaved(false);
-    const res = await fetch(`/api/payroll-lines/${lineId}`, {
+
+    // Chưa có dòng lương thì tạo ngầm ngay tại đây — người dùng chỉ cần gõ thưởng/phạt
+    // rồi bấm lưu, không phải đi qua "tạo tháng lương → tính lương → duyệt" như trước.
+    let targetId = lineId;
+    if (!targetId) {
+      const ensured = await fetch("/api/payroll-lines/ensure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId, period }),
+      });
+      const ensuredData = await ensured.json().catch(() => ({}));
+      if (!ensured.ok) {
+        setLoading(false);
+        setError(ensuredData.error ?? "Không tạo được dòng lương cho tháng này.");
+        return;
+      }
+      targetId = ensuredData.item.id as string;
+    }
+
+    const res = await fetch(`/api/payroll-lines/${targetId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -120,6 +145,7 @@ export default function PayrollLineAdjustForm({
   }
 
   async function removeLine() {
+    if (!lineId) return;
     setLoading(true);
     const res = await fetch(`/api/payroll-lines/${lineId}`, { method: "DELETE" });
     setLoading(false);
@@ -214,17 +240,19 @@ export default function PayrollLineAdjustForm({
         <button type="button" onClick={save} disabled={loading} className={ACTION_CLASS}>
           {loading ? "Đang lưu..." : "Lưu thay đổi"}
         </button>
-        <ConfirmActionButton
-          title="Xác nhận xóa dòng lương?"
-          description={`Dòng lương của ${employeeName} sẽ bị xóa khỏi tháng hiện tại.`}
-          confirmLabel="Xóa dòng lương"
-          tone="danger"
-          disabled={loading}
-          className="btn-danger-sm"
-          onConfirm={removeLine}
-        >
-          Xóa dòng lương
-        </ConfirmActionButton>
+        {lineId ? (
+          <ConfirmActionButton
+            title="Xác nhận bỏ các khoản cộng/trừ?"
+            description={`Toàn bộ khoản cộng/trừ nhập tay của ${employeeName} trong tháng này sẽ bị xóa. Công và lương dạy/trợ giảng vẫn giữ nguyên.`}
+            confirmLabel="Bỏ các khoản cộng/trừ"
+            tone="danger"
+            disabled={loading}
+            className="btn-danger-sm"
+            onConfirm={removeLine}
+          >
+            Bỏ các khoản cộng/trừ
+          </ConfirmActionButton>
+        ) : null}
       </div>
     </div>
   );

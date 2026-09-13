@@ -2,7 +2,6 @@
 
 import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { exportSectionsToExcel, formatVnd } from "@/lib/export-utils";
-import { PAYROLL_RUN_STATUS_LABEL } from "@/lib/server/payroll-rules";
 import type { PayrollEmployeeRow } from "@/lib/server/payroll-row-builder";
 
 function formatMonthLabel(period: string) {
@@ -16,12 +15,10 @@ function formatMonthLabel(period: string) {
 export default function PayrollExportButton({
   period,
   rows,
-  runStatus,
   totals,
 }: {
   period: string;
   rows: PayrollEmployeeRow[];
-  runStatus: string | null;
   totals: {
     totalTeachingHours: number;
     totalTeachingAmount: number;
@@ -50,7 +47,7 @@ export default function PayrollExportButton({
           ],
           rows: [
             { chiSo: "Tháng lương", giaTri: formatMonthLabel(period) },
-            { chiSo: "Nguồn số liệu", giaTri: runStatus ? `Đã chốt — ${PAYROLL_RUN_STATUS_LABEL[runStatus] ?? runStatus}` : "Tính trực tiếp từ buổi dạy, trợ giảng và chấm công của tháng" },
+            { chiSo: "Nguồn số liệu", giaTri: "Tính trực tiếp từ buổi dạy, trợ giảng và chấm công của tháng" },
             { chiSo: "Tổng số nhân sự có phát sinh", giaTri: String(rows.length) },
             { chiSo: "Tổng số buổi dạy/trợ giảng", giaTri: String(totals.sessionCount) },
             { chiSo: "Tổng số ngày công hành chính", giaTri: String(totals.timesheetEntryCount) },
@@ -108,7 +105,7 @@ export default function PayrollExportButton({
             bonus: formatVnd(row.bonus),
             penalty: formatVnd(row.penalty),
             totalAmount: formatVnd(row.totalAmount),
-            dataSource: row.lineId ? "Đã chốt tháng lương" : "Tính theo công thực tế",
+            dataSource: row.lineId ? "Công thực tế + khoản cộng/trừ nhập tay" : "Công thực tế",
             notes: row.notes ?? "",
           })),
         },
@@ -144,8 +141,8 @@ export default function PayrollExportButton({
             { key: "giaiThich", label: "Giải thích" },
           ],
           rows: [
-            { muc: "Nguồn số liệu = Đã chốt tháng lương", giaiThich: "Số liệu đã đóng băng trên dòng lương của tháng, gồm cả thưởng/phạt đã điều chỉnh tay." },
-            { muc: "Nguồn số liệu = Tính theo công thực tế", giaiThich: "Số liệu tính trực tiếp từ buổi dạy/trợ giảng/chấm công của tháng — dùng xem và xuất file bình thường, không cần chốt trước; thưởng/phạt tay mặc định là 0." },
+            { muc: "Nguồn số liệu = Công thực tế", giaiThich: "Công và tiền tính trực tiếp từ buổi dạy/trợ giảng/chấm công của tháng." },
+            { muc: "Nguồn số liệu = Công thực tế + khoản cộng/trừ nhập tay", giaiThich: "Như trên, cộng thêm thưởng/phạt/phụ cấp đã nhập tay trong drawer của nhân sự." },
             { muc: "Theo ca", giaiThich: "Trả cố định 1 đơn vị tiền cho mỗi buổi bất kể buổi đó dạy dài hay ngắn hơn khung giờ chuẩn — tránh sai lệch khi giáo viên dạy quá giờ hoặc cho nghỉ sớm." },
             { muc: "Theo giờ", giaiThich: "Trả theo đúng số giờ của khung giờ buổi học (giờ kết thúc trừ giờ bắt đầu theo lịch)." },
             { muc: "Tổng lương", giaiThich: "Tiền dạy + Tiền trợ giảng + Lương cứng + Thưởng − Phạt." },

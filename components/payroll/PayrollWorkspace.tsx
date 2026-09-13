@@ -4,25 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import NewEmployeeForm from "@/components/payroll/NewEmployeeForm";
-import NewPayrollRunForm from "@/components/payroll/NewPayrollRunForm";
 import PayrollExportButton from "@/components/payroll/PayrollExportButton";
 import PayrollRateCsvTools from "@/components/payroll/PayrollRateCsvTools";
 import PayrollEmployeeDrawer from "@/components/payroll/PayrollEmployeeDrawer";
-import PayrollMonthDrawer from "@/components/payroll/PayrollMonthDrawer";
 import DataTableResponsive from "@/components/ui/DataTable/DataTableResponsive";
 import type { Column, Action } from "@/components/ui/DataTable/DataTable";
 import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
-import { PAYROLL_RUN_STATUS_LABEL } from "@/lib/server/payroll-rules";
 import type { PayrollEmployeeRow } from "@/lib/server/payroll-row-builder";
 import { formatVnd } from "@/lib/export-utils";
 
 type FilterMode = "all" | "missing-bank" | "ready-bank" | "missing-rate";
 
 const PAGE_SIZE = 15;
-
-type RunSummary = { id: string; periodName: string; status: string; lineCount: number } | null;
-
-type Checklist = { items: { key: string; label: string; done: boolean; help: string }[]; isReady: boolean } | null;
 
 function formatNumber(value: number) {
   return value.toLocaleString("vi-VN");
@@ -44,10 +37,7 @@ export default function PayrollWorkspace({
   rows,
   tableRows,
   period,
-  run,
   branches,
-  eligibleEmployees,
-  checklist,
   initialEmployeeId,
   initialFilter,
   permissions,
@@ -61,10 +51,7 @@ export default function PayrollWorkspace({
    * totals/badge/eligibleEmployees cho đúng toàn chi nhánh, không co lại theo ô tìm kiếm. */
   tableRows: PayrollEmployeeRow[];
   period: string;
-  run: RunSummary;
   branches: { id: string; name: string }[];
-  eligibleEmployees: { id: string; fullName: string }[];
-  checklist: Checklist;
   initialEmployeeId: string | null;
   initialFilter: FilterMode;
   permissions: { canManageEmployees: boolean; canManagePayrollRuns: boolean; canCreateTimesheet: boolean };
@@ -77,7 +64,6 @@ export default function PayrollWorkspace({
   const [page, setPage] = useState(1);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(initialEmployeeId);
   const [drawerOpen, setDrawerOpen] = useState(Boolean(initialEmployeeId));
-  const [monthDrawerOpen, setMonthDrawerOpen] = useState(false);
 
   function pageHref(patch: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams?.toString());
@@ -164,7 +150,7 @@ export default function PayrollWorkspace({
 
   const needsAttentionCount = totals.missingRateCount + totals.missingBankCount;
   const selectedRow = selectedEmployeeId ? rows.find((row) => row.id === selectedEmployeeId) ?? null : null;
-  const canEditPayrollLine = Boolean(run && permissions.canManagePayrollRuns && ["DRAFT", "CALCULATED", "REVIEWED", "REOPENED"].includes(run.status));
+  const canEditPayrollLine = permissions.canManagePayrollRuns;
 
   const columns: Column<PayrollEmployeeRow>[] = [
     {
@@ -232,7 +218,7 @@ export default function PayrollWorkspace({
       render: (_value, row) => (
         <div>
           <div className="text-base font-black text-[#0f1729]">{formatVnd(row.totalAmount)}</div>
-          <div className="mt-0.5 text-xs text-[#94a3b8]">{row.lineId ? "Đã chốt" : "Theo công thực tế"}</div>
+          <div className="mt-0.5 text-xs text-[#94a3b8]">{row.lineId ? "Công thực tế + cộng/trừ tay" : "Theo công thực tế"}</div>
         </div>
       ),
     },
@@ -292,21 +278,13 @@ export default function PayrollWorkspace({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <PayrollExportButton period={period} rows={rows} runStatus={run?.status ?? null} totals={totals} />
+          <PayrollExportButton period={period} rows={rows} totals={totals} />
           {/* In 1 phát ra PDF: bảng công + lương, thấy rõ tiền của TỪNG loại công
               (giờ dạy / giờ trợ giảng / ngày công hành chính) chứ không chỉ tổng.
               In được mọi tháng, kể cả tháng chưa chốt. */}
           <Link href={`/payroll/print?period=${period}`} target="_blank" className={ACTION_CLASS}>
             In bảng công &amp; lương (PDF)
           </Link>
-          {/* Chốt lương là việc TÙY CHỌN — chỉ cần khi muốn đóng băng số liệu hoặc sửa
-              thưởng/phạt của từng người. Xem và xuất file thì không cần bước này. */}
-          {run && permissions.canManagePayrollRuns ? (
-            <button type="button" onClick={() => setMonthDrawerOpen(true)} className="btn-ghost">
-              Chốt &amp; điều chỉnh lương tháng
-            </button>
-          ) : null}
-          {!run && permissions.canManagePayrollRuns ? <NewPayrollRunForm defaultPeriod={period} /> : null}
           {permissions.canManageEmployees ? <NewEmployeeForm /> : null}
           {permissions.canManageEmployees ? <PayrollRateCsvTools items={rows} /> : null}
         </div>
@@ -330,15 +308,9 @@ export default function PayrollWorkspace({
           </p>
         </div>
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Số liệu</p>
-          <p className="mt-0.5 text-2xl font-black text-[#0f1729]">
-            {run ? PAYROLL_RUN_STATUS_LABEL[run.status] ?? run.status : "Tính theo công thực tế"}
-          </p>
-          <p className="text-xs text-[#94a3b8]">
-            {run
-              ? `${formatNumber(run.lineCount)} người đã chốt số · xuất file và in được ngay`
-              : "Lấy trực tiếp từ buổi dạy, trợ giảng và chấm công — xuất file, in được ngay"}
-          </p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Nhân sự có công</p>
+          <p className="mt-0.5 text-2xl font-black text-[#0f1729]">{formatNumber(rows.length)} người</p>
+          <p className="text-xs text-[#94a3b8]">Số liệu lấy thẳng từ buổi dạy, trợ giảng và chấm công của tháng</p>
         </div>
       </div>
 
@@ -396,19 +368,6 @@ export default function PayrollWorkspace({
         }}
       />
 
-      {run && permissions.canManagePayrollRuns ? (
-        <PayrollMonthDrawer
-          open={monthDrawerOpen}
-          onClose={() => setMonthDrawerOpen(false)}
-          period={period}
-          runId={run.id}
-          status={run.status}
-          lineCount={run.lineCount}
-          checklist={checklist}
-          eligibleEmployees={eligibleEmployees}
-        />
-      ) : null}
-
       {selectedRow ? (
         <PayrollEmployeeDrawer
           open={drawerOpen}
@@ -418,7 +377,7 @@ export default function PayrollWorkspace({
             employeeCode: selectedRow.employeeCode,
             position: selectedRow.position,
             contractStatus: selectedRow.contractStatus,
-            sourceLabel: selectedRow.lineId ? "Đã chốt số liệu tháng" : "Tính theo công thực tế trong tháng",
+            sourceLabel: selectedRow.lineId ? "Công thực tế + khoản cộng/trừ nhập tay" : "Tính theo công thực tế trong tháng",
             totalAmount: selectedRow.totalAmount,
             month: period,
             workSummary:

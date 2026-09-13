@@ -4,8 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole , getAllowedHrTabs } from "@/lib/permissions";
 import { canCreate, canUpdate, canView } from "@/lib/server/role-matrix";
-import { canEditPayroll } from "@/lib/server/payroll-rules";
-import { evaluatePayrollRunChecklist } from "@/lib/server/payroll-checklist";
 import { buildPayrollEmployeeRows } from "@/lib/server/payroll-row-builder";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import PayrollWorkspace from "@/components/payroll/PayrollWorkspace";
@@ -58,13 +56,17 @@ export default async function PayrollPage({
   const hasRateIssueFilter = searchParams?.hasRateIssue?.trim() ?? "";
   const activeBranchId = await getCurrentBranchId();
 
+  // PayrollRun/PayrollLine chỉ còn là chỗ lưu các khoản cộng/trừ nhập tay của tháng —
+  // không còn quy trình tạo/tính/duyệt/khóa nào ở đây. Vẫn cần id của run (nếu có) để
+  // lấy đúng các khoản nhập tay của tháng đang xem.
   const run = await prisma.payrollRun.findFirst({
     where: { periodName: period, ...(activeBranchId ? { branchId: activeBranchId } : {}) },
+    select: { id: true },
   });
 
   const hasTableFilter = Boolean(search) || Boolean(position);
 
-  const [rows, checklist, branches, positionRows, matchingEmployeeIds] = await Promise.all([
+  const [rows, branches, positionRows, matchingEmployeeIds] = await Promise.all([
     // Danh sách ĐẦY ĐỦ (không lọc search/position) — dùng cho totals/badge/eligibleEmployees
     // để các số liệu tổng không co lại theo ô tìm kiếm của riêng bảng nhân sự.
     buildPayrollEmployeeRows({
@@ -73,7 +75,6 @@ export default async function PayrollPage({
       runId: run?.id ?? null,
       forceIncludeEmployeeId: searchParams?.employeeId ?? null,
     }),
-    run ? evaluatePayrollRunChecklist(run.id) : Promise.resolve(null),
     canManagePayrollRuns ? prisma.branch.findMany({ orderBy: { name: "asc" } }) : Promise.resolve([]),
     // Danh sách vai trò cho ô lọc select — lấy KHÔNG lọc theo search/position hiện tại,
     // để dropdown luôn đủ lựa chọn thay vì co lại còn mỗi vai trò đang được lọc.
@@ -117,19 +118,6 @@ export default async function PayrollPage({
   if (totalAmountTo) tableRows = tableRows.filter((row) => row.totalAmount <= Number(totalAmountTo));
   if (hasRateIssueFilter) tableRows = tableRows.filter((row) => (hasRateIssueFilter === "YES" ? row.hasRateIssue : !row.hasRateIssue));
 
-  const eligibleEmployees =
-    run && canEditPayroll(run.status)
-      ? await prisma.employee.findMany({
-          where: {
-            branchId: run.branchId,
-            resignDate: null,
-            id: { notIn: rows.filter((row) => row.lineId).map((row) => row.id) },
-          },
-          select: { id: true, fullName: true },
-          orderBy: { fullName: "asc" },
-        })
-      : [];
-
   const initialEmployeeId =
     searchParams?.employeeId && rows.some((row) => row.id === searchParams.employeeId) ? searchParams.employeeId : null;
 
@@ -142,10 +130,7 @@ export default async function PayrollPage({
       rows={rows}
       tableRows={tableRows}
       period={period}
-      run={run ? { id: run.id, periodName: run.periodName, status: run.status, lineCount: rows.filter((row) => row.lineId).length } : null}
       branches={branches}
-      eligibleEmployees={eligibleEmployees}
-      checklist={checklist ? { items: checklist.items, isReady: checklist.isReady } : null}
       initialEmployeeId={initialEmployeeId}
       initialFilter={filter as "all" | "missing-bank" | "ready-bank" | "missing-rate"}
       permissions={{ canManageEmployees, canManagePayrollRuns, canCreateTimesheet }}

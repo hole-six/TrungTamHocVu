@@ -56,7 +56,6 @@ export default function PayrollRateCsvTools({ items }: { items: PayrollEmployeeR
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isImporting, setIsImporting] = useState(false);
-  const [isRecalculating, setIsRecalculating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -232,24 +231,7 @@ export default function PayrollRateCsvTools({ items }: { items: PayrollEmployeeR
     }
   }
 
-  async function recalculateOpenRuns() {
-    setIsRecalculating(true);
-    setError(null);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/payroll-runs/recalculate-open", { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error ?? "Không thể tính lại payroll.");
-      }
-      setMessage(`Đã tính lại ${data.recalculatedRuns ?? 0} tháng lương đang mở.`);
-      router.refresh();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Không thể tính lại payroll.");
-    } finally {
-      setIsRecalculating(false);
-    }
-  }
+
 
   return (
     <>
@@ -292,9 +274,6 @@ export default function PayrollRateCsvTools({ items }: { items: PayrollEmployeeR
             </button>
             <button type="button" onClick={() => inputRef.current?.click()} disabled={isImporting} className={`${ACTION_CLASS} disabled:opacity-60`}>
               {isImporting ? "Đang import..." : "Import CSV đơn giá"}
-            </button>
-            <button type="button" onClick={recalculateOpenRuns} disabled={isRecalculating} className={`${ACTION_CLASS} disabled:opacity-60`}>
-              {isRecalculating ? "Đang tính lại..." : "Tính lại các tháng lương đang mở"}
             </button>
             <input
               ref={inputRef}

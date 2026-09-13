@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { monthRange } from "@/lib/server/tuition-rules";
-import { computeContractStatus, isCloseEnough, type EmployeeContractStatus } from "@/lib/server/payroll-rules";
+import { computeContractStatus, type EmployeeContractStatus } from "@/lib/server/payroll-rules";
 
 export type PayrollEmployeeRow = {
   id: string;
@@ -53,8 +53,9 @@ export type PayrollEmployeeRow = {
   sessionCount: number;
   timesheetEntryCount: number;
   // Trạng thái nguồn dữ liệu
-  lineId: string | null; // null = đang xem trước, chưa có dòng lương chính thức
-  hasMismatch: boolean; // chỉ có ý nghĩa khi lineId != null
+  lineId: string | null; // != null = tháng này có khoản cộng/trừ nhập tay cho người này
+  /** @deprecated Không còn ý nghĩa từ khi công/tiền luôn tính theo dữ liệu thật. */
+  hasMismatch: boolean;
   hasRateIssue: boolean;
   assistantBonusByBranch: Record<string, number | null>;
 };
@@ -143,11 +144,6 @@ export async function buildPayrollEmployeeRows(params: {
     const liveBaseSalaryAmount = Math.round(timesheet.days * (employee.staffDailyRate ?? 0));
     const line = lineByEmployee.get(employee.id) ?? null;
 
-    const hasMismatch = line
-      ? !isCloseEnough(teaching.hours, line.teachingHours) ||
-        !isCloseEnough(assistant.hours, line.assistantHours) ||
-        !isCloseEnough(timesheet.days, line.staffDays)
-      : false;
 
     const hasRateIssue =
       (teaching.hours > 0 && employee.teachingHourlyRate == null) ||
@@ -178,33 +174,49 @@ export async function buildPayrollEmployeeRows(params: {
       idIssueDate: employee.idIssueDate,
       idIssuePlace: employee.idIssuePlace,
       resignDate: employee.resignDate,
-      teachingHours: line ? line.teachingHours : teaching.hours,
-      teachingAmount: line ? line.teachingAmount : teaching.amount,
-      assistantHours: line ? line.assistantHours : assistant.hours,
-      assistantAmount: line ? line.assistantAmount : assistant.amount,
-      staffDays: line ? line.staffDays : timesheet.days,
+      // Công và tiền công LUÔN tính từ dữ liệu thật của tháng (buổi dạy/trợ giảng đã
+      // dạy + ngày chấm công), không bao giờ lấy số đóng băng trên dòng lương: tháng
+      // nào mở ra cũng thấy đúng số hiện tại, không phải bấm "tính lại lương" mới đúng.
+      teachingHours: teaching.hours,
+      teachingAmount: teaching.amount,
+      assistantHours: assistant.hours,
+      assistantAmount: assistant.amount,
+      staffDays: timesheet.days,
       staffHours: timesheet.hours,
-      baseSalaryAmount: line ? line.baseSalaryAmount : liveBaseSalaryAmount,
+      baseSalaryAmount: liveBaseSalaryAmount,
       otHours: line?.otHours ?? 0,
       otAmount: line?.otAmount ?? 0,
       kpiBonus: line?.kpiBonus ?? 0,
       assistantRatingBonus: line?.assistantRatingBonus ?? 0,
       parkingAllowance: line?.parkingAllowance ?? 0,
       supportAllowance: line?.supportAllowance ?? 0,
-      bonus: line ? line.bonus : 0,
-      penalty: line ? line.penalty : 0,
+      bonus: line?.bonus ?? 0,
+      penalty: line?.penalty ?? 0,
       socialInsuranceDeduction: line?.socialInsuranceDeduction ?? 0,
       utilityDeduction: line?.utilityDeduction ?? 0,
       holidayBonus: line?.holidayBonus ?? 0,
       otherDeduction: line?.otherDeduction ?? 0,
-      notes: line ? line.notes : null,
-      totalAmount: line
-        ? line.totalAmount
-        : teaching.amount + assistant.amount + liveBaseSalaryAmount,
+      notes: line?.notes ?? null,
+      // Tổng = tiền công thực tế + các khoản nhập tay của tháng (nếu có).
+      totalAmount:
+        teaching.amount +
+        assistant.amount +
+        liveBaseSalaryAmount +
+        (line?.otAmount ?? 0) +
+        (line?.kpiBonus ?? 0) +
+        (line?.assistantRatingBonus ?? 0) +
+        (line?.parkingAllowance ?? 0) +
+        (line?.supportAllowance ?? 0) +
+        (line?.bonus ?? 0) +
+        (line?.holidayBonus ?? 0) -
+        (line?.penalty ?? 0) -
+        (line?.socialInsuranceDeduction ?? 0) -
+        (line?.utilityDeduction ?? 0) -
+        (line?.otherDeduction ?? 0),
       sessionCount: teaching.sessions + assistant.sessions,
       timesheetEntryCount: timesheet.entries,
       lineId: line ? line.id : null,
-      hasMismatch,
+      hasMismatch: false,
       hasRateIssue,
       assistantBonusByBranch: bonusByEmployee.get(employee.id) ?? {},
     };

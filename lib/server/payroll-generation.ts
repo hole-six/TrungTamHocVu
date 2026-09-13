@@ -180,3 +180,72 @@ export async function generatePayrollForRun(runId: string) {
 
   return { created, updated, totalEmployees: employees.length, warnings };
 }
+
+/**
+ * Đảm bảo 1 nhân sự có sẵn dòng lương của tháng để ghi các khoản cộng/trừ nhập tay,
+ * và làm mới số công/tiền gốc của dòng đó theo dữ liệu thật.
+ *
+ * Mục đích: sửa thưởng/phạt cho 1 người KHÔNG còn phải đi qua "tạo tháng lương → tính
+ * lương → duyệt". Bảng lương hiển thị công/tiền tính thẳng từ buổi dạy, trợ giảng và
+ * chấm công, còn PayrollRun/PayrollLine chỉ còn đóng vai trò chỗ lưu các khoản nhập
+ * tay — tạo ngầm ngay lúc người dùng bấm lưu điều chỉnh.
+ */
+export async function ensurePayrollLineForEmployee(employeeId: string, periodName: string) {
+  const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
+  if (!employee) return { error: "Không tìm thấy nhân sự" as const, code: "NOT_FOUND" as const };
+
+  const run = await ensurePayrollRun(employee.branchId, periodName);
+  const { start, end } = monthRange(periodName);
+
+  const [teachingAssignments, assistantAssignments, timesheetEntries, monthlyBonus, existingLine] = await Promise.all([
+    prisma.sessionAssignment.findMany({
+      where: { employeeId, role: "TEACHER", session: { sessionDate: { gte: start, lte: end }, status: "COMPLETED" } },
+    }),
+    prisma.sessionAssignment.findMany({
+      where: { employeeId, role: { in: ["ASSISTANT", "ASSISTANT2"] }, session: { sessionDate: { gte: start, lte: end }, status: "COMPLETED" } },
+    }),
+    prisma.timesheetEntry.findMany({ where: { employeeId, workDate: { gte: start, lte: end } } }),
+    prisma.assistantMonthlyBonus.findUnique({
+      where: { employeeId_branchId_month: { employeeId, branchId: employee.branchId, month: periodName } },
+    }),
+    prisma.payrollLine.findUnique({ where: { payrollRunId_employeeId: { payrollRunId: run.id, employeeId } } }),
+  ]);
+
+  const teachingHours = teachingAssignments.reduce((sum, item) => sum + (item.hours ?? 0), 0);
+  const teachingAmount = teachingAssignments.reduce((sum, item) => sum + (item.amount ?? 0), 0);
+  const assistantHours = assistantAssignments.reduce((sum, item) => sum + (item.hours ?? 0), 0);
+  const assistantAmount = assistantAssignments.reduce((sum, item) => sum + (item.amount ?? 0), 0);
+  const staffDays = timesheetEntries.reduce((sum, item) => sum + (item.days ?? 0), 0);
+  const baseSalaryAmount = Math.round(staffDays * (employee.staffDailyRate ?? 0));
+  const assistantRatingBonus = Math.round(assistantAmount * (monthlyBonus?.bonusPercent ?? 0));
+
+  const manualAdd =
+    (existingLine?.otAmount ?? 0) +
+    (existingLine?.kpiBonus ?? 0) +
+    (existingLine?.parkingAllowance ?? 0) +
+    (existingLine?.supportAllowance ?? 0) +
+    (existingLine?.bonus ?? 0) +
+    (existingLine?.holidayBonus ?? 0);
+  const manualDeduct =
+    (existingLine?.penalty ?? 0) +
+    (existingLine?.socialInsuranceDeduction ?? 0) +
+    (existingLine?.utilityDeduction ?? 0) +
+    (existingLine?.otherDeduction ?? 0);
+
+  const data = {
+    teachingHours,
+    teachingAmount,
+    assistantHours,
+    assistantAmount,
+    staffDays,
+    baseSalaryAmount,
+    assistantRatingBonus,
+    totalAmount: teachingAmount + assistantAmount + baseSalaryAmount + assistantRatingBonus + manualAdd - manualDeduct,
+  };
+
+  const line = existingLine
+    ? await prisma.payrollLine.update({ where: { id: existingLine.id }, data })
+    : await prisma.payrollLine.create({ data: { ...data, payrollRunId: run.id, employeeId } });
+
+  return { line, branchId: employee.branchId };
+}

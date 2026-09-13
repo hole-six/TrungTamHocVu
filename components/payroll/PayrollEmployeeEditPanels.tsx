@@ -383,7 +383,7 @@ export default function PayrollEmployeeEditPanels({
               Lương tháng {headerSummary.month ?? ""}
             </p>
             <p className="mt-1 text-3xl font-black text-[#0f1729]">{formatVnd(headerSummary.totalAmount)}</p>
-            <p className="mt-0.5 text-sm text-[#64748b]">{payrollLine ? "Đã tính lương" : "Số xem trước, chưa tính lương"}</p>
+            <p className="mt-0.5 text-sm text-[#64748b]">{payrollLine ? "Đã có khoản cộng/trừ nhập tay" : "Tính theo công thực tế trong tháng"}</p>
           </div>
           <div className="rounded-xl border border-[#e5eaf7] bg-white p-4">
             <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Công trong tháng</p>
@@ -398,57 +398,40 @@ export default function PayrollEmployeeEditPanels({
       </Section>
 
       <Section
-        title={`Lương tháng ${headerSummary.month ?? ""}`.trim()}
-        hint={payrollLine ? "Đã có dòng lương" : "Chưa tính lương"}
-        defaultOpen={Boolean(payrollLine) && canEditPayrollLine}
+        title={`Cộng / trừ lương tháng ${headerSummary.month ?? ""}`.trim()}
+        hint={payrollLine ? "Đã có khoản nhập tay" : "Chưa có khoản nào"}
+        defaultOpen={false}
       >
-        {payrollLine ? (
-          canEditPayrollLine ? (
-            <PayrollLineAdjustForm
-              lineId={payrollLine.id}
-              otHours={payrollLine.otHours}
-              otAmount={payrollLine.otAmount}
-              kpiBonus={payrollLine.kpiBonus}
-              assistantRatingBonus={payrollLine.assistantRatingBonus}
-              parkingAllowance={payrollLine.parkingAllowance}
-              supportAllowance={payrollLine.supportAllowance}
-              bonus={payrollLine.bonus}
-              penalty={payrollLine.penalty}
-              socialInsuranceDeduction={payrollLine.socialInsuranceDeduction}
-              utilityDeduction={payrollLine.utilityDeduction}
-              holidayBonus={payrollLine.holidayBonus}
-              otherDeduction={payrollLine.otherDeduction}
-              notes={payrollLine.notes}
-              employeeName={headerSummary.fullName}
-              bare
-            />
-          ) : (
-            <p className="text-sm text-[#94a3b8]">Tháng lương đã duyệt/khóa nên không sửa thưởng/phạt ở đây được nữa.</p>
-          )
-        ) : (
-          <p className="text-sm text-[#94a3b8]">
-            Tháng này chưa tính lương — số đang hiển thị là xem trước. Bấm &quot;Tính lại lương&quot; ở trang lương để tạo dòng
-            lương chính thức, sau đó mới điều chỉnh thưởng/phạt được.
-          </p>
-        )}
-      </Section>
-
-      <Section title="Chấm công" hint={history ? `${timesheetEntries.length} ngày đã chấm` : "Đang tải..."}>
-        {history ? (
-          <TimesheetSection
+        {canEditPayrollLine && headerSummary.month ? (
+          // Không cần "tính lương" hay "chốt tháng" trước: gõ số rồi bấm lưu, hệ thống tự
+          // tạo chỗ lưu cho tháng đó.
+          <PayrollLineAdjustForm
+            lineId={payrollLine?.id ?? null}
             employeeId={profile.id}
+            period={headerSummary.month}
+            otHours={payrollLine?.otHours ?? 0}
+            otAmount={payrollLine?.otAmount ?? 0}
+            kpiBonus={payrollLine?.kpiBonus ?? 0}
+            assistantRatingBonus={payrollLine?.assistantRatingBonus ?? 0}
+            parkingAllowance={payrollLine?.parkingAllowance ?? 0}
+            supportAllowance={payrollLine?.supportAllowance ?? 0}
+            bonus={payrollLine?.bonus ?? 0}
+            penalty={payrollLine?.penalty ?? 0}
+            socialInsuranceDeduction={payrollLine?.socialInsuranceDeduction ?? 0}
+            utilityDeduction={payrollLine?.utilityDeduction ?? 0}
+            holidayBonus={payrollLine?.holidayBonus ?? 0}
+            otherDeduction={payrollLine?.otherDeduction ?? 0}
+            notes={payrollLine?.notes ?? null}
             employeeName={headerSummary.fullName}
-            entries={timesheetEntries}
-            canEdit={canAddTimesheet}
-            onChanged={() => router.refresh()}
+            bare
           />
         ) : (
-          <p className="text-sm text-[#94a3b8]">Đang tải...</p>
+          <p className="text-sm text-[#94a3b8]">
+            {headerSummary.month
+              ? "Vai trò của bạn chỉ xem được, không sửa được các khoản cộng/trừ lương."
+              : "Mở nhân sự này ở trang Lương (chọn tháng) để nhập thưởng/phạt cho đúng tháng."}
+          </p>
         )}
-      </Section>
-
-      <Section title="Hợp đồng lao động" hint={history?.contract?.contractNo ?? (history ? "Chưa có hợp đồng" : "Đang tải...")}>
-        <EmploymentContractPanel employeeId={profile.id} contract={history?.contract ?? null} canEdit={canEditProfile} bare />
       </Section>
 
       {assistant ? (
