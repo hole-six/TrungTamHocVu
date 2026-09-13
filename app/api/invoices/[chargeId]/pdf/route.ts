@@ -4,7 +4,7 @@ import { getUserRole } from "@/lib/permissions";
 import { canView } from "@/lib/server/role-matrix";
 import { buildDownloadHeaders, buildSingleInvoicePdf } from "@/lib/server/invoice-pdf";
 
-export async function GET(_req: Request, { params }: { params: { chargeId: string } }) {
+export async function GET(req: Request, { params }: { params: { chargeId: string } }) {
   const user = await getCurrentUser();
   const role = user ? await getUserRole(user.id) : null;
 
@@ -26,6 +26,6 @@ export async function GET(_req: Request, { params }: { params: { chargeId: strin
 
   return new NextResponse(result.pdf, {
     status: 200,
-    headers: buildDownloadHeaders(result.fileName, "application/pdf"),
+    headers: buildDownloadHeaders(result.fileName, "application/pdf", new URL(req.url).searchParams.get("inline") === "1"),
   });
 }

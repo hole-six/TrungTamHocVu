@@ -6,6 +6,7 @@ import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import { formatVnd } from "@/lib/export-utils";
+import EnrollmentChargesPanel, { type EnrollmentCharge } from "@/components/tuition/EnrollmentChargesPanel";
 
 type StudentHit = { id: string; fullName: string; studentCode: string };
 type InstallmentDraft = { dueMonth: string; amount: string };
@@ -116,6 +117,9 @@ export default function EnrollStudentForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  // Học viên VỪA ghi danh + phiếu vừa lập — giữ riêng vì form xóa chọn học viên ngay sau
+  // khi ghi danh (để ghi danh người tiếp theo), mà vẫn phải thu tiền/in phiếu người vừa rồi.
+  const [lastEnrolled, setLastEnrolled] = useState<{ studentId: string; fullName: string; charges: EnrollmentCharge[] } | null>(null);
 
   // Xem trước theo lớp + ngày bắt đầu + số buổi mua. Dùng chung đúng cách đếm buổi với
   // lúc sinh học phí thật, để số hiện ở đây không lệch số thu sau này.
@@ -218,6 +222,11 @@ export default function EnrollStudentForm({
     // mỗi em một cam kết riêng về số buổi, học bổng và ngày bắt đầu, làm hàng loạt thì
     // buộc phải áp chung một bộ giá trị cho cả nhóm — quay lại đúng cái vừa gỡ bỏ, là
     // để lớp quyết định số buổi thay cho người ghi danh.
+    setLastEnrolled({
+      studentId: selected.id,
+      fullName: selected.fullName,
+      charges: Array.isArray(result.charges) ? result.charges : [],
+    });
     setSuccess(`Đã ghi danh ${selected.fullName} vào lớp. Chọn học viên tiếp theo để ghi danh với cùng thiết lập này.`);
     setSelected(null);
     setResults([]);
@@ -527,6 +536,12 @@ export default function EnrollStudentForm({
 
           {error ? <div className="alert-danger">{error}</div> : null}
           {success ? <div className="alert-success">{success}</div> : null}
+          {lastEnrolled && lastEnrolled.charges.length > 0 ? (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-[#64748b]">Thu tiền / in phiếu cho {lastEnrolled.fullName}</p>
+              <EnrollmentChargesPanel studentId={lastEnrolled.studentId} charges={lastEnrolled.charges} onChanged={onSuccess} />
+            </div>
+          ) : null}
 
           <div className="flex gap-3 border-t border-[#e6eefc] pt-4">
             <button type="button" onClick={enroll} disabled={!selected || loading || installmentsMismatch} className="btn-primary">

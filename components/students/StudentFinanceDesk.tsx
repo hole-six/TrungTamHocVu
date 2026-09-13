@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
+import PrintInvoiceButton from "@/components/tuition/PrintInvoiceButton";
 import DatePicker from "@/components/ui/DatePicker";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -653,9 +654,14 @@ export default function StudentFinanceDesk({
                             <p className={`font-black ${charge.remainingAmount > 0 ? "text-[#dc2626]" : "text-[#0f1729]"}`}>
                               {formatVnd(charge.remainingAmount)}
                             </p>
-                            {charge.remainingAmount > 0 && canManageFinance ? (
-                              <div className="mt-1.5 flex justify-end">
-                                <QuickPaymentButton studentId={studentId} suggestedAmount={charge.remainingAmount} onChanged={onChanged} />
+                            {/* In phiếu cho đúng kỳ này + thu tiền ngay tại dòng — cùng phiếu và
+                                cùng luồng thu với trang Học phí, dữ liệu đồng bộ hai bên. */}
+                            {hasOwnCharge || charge.remainingAmount > 0 ? (
+                              <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
+                                <PrintInvoiceButton chargeId={charge.id} />
+                                {charge.remainingAmount > 0 && canManageFinance ? (
+                                  <QuickPaymentButton studentId={studentId} suggestedAmount={charge.remainingAmount} onChanged={onChanged} />
+                                ) : null}
                               </div>
                             ) : null}
                           </td>
@@ -668,7 +674,7 @@ export default function StudentFinanceDesk({
             ) : (
               <p className="px-4 py-3 text-sm text-[#94a3b8]">
                 {isPeriod
-                  ? "Chưa sinh kỳ thu nào cho lớp này — chạy sinh học phí theo tháng ở trang Học phí thì các tháng cần thu sẽ hiện ở đây."
+                  ? "Chưa có kỳ thu nào cho lớp này. Ghi danh mới sẽ tự có phiếu tháng hiện tại; các tháng sau sinh vào ngày 1."
                   : "Chưa lập khoản thu nào cho lớp này."}
               </p>
             )}
@@ -705,11 +711,12 @@ export default function StudentFinanceDesk({
                       <p className={`font-black ${charge.remainingAmount > 0 ? "text-[#dc2626]" : "text-[#0f1729]"}`}>
                         {formatVnd(charge.remainingAmount)}
                       </p>
-                      {charge.remainingAmount > 0 && canManageFinance ? (
-                        <div className="mt-1.5 flex justify-end">
+                      <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
+                        <PrintInvoiceButton chargeId={charge.id} />
+                        {charge.remainingAmount > 0 && canManageFinance ? (
                           <QuickPaymentButton studentId={studentId} suggestedAmount={charge.remainingAmount} onChanged={onChanged} />
-                        </div>
-                      ) : null}
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}

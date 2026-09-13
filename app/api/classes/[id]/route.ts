@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { findNextClassCycle } from "@/lib/server/class-pipeline";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canView, canUpdate, canDelete } from "@/lib/server/role-matrix";
@@ -63,6 +64,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       const nextClass = await prisma.class.findUnique({ where: { id: nextClassId }, select: { branchId: true, isRemedial: true, status: true } });
       if (!nextClass || nextClass.branchId !== existing.branchId || nextClass.isRemedial || nextClass.status !== "ACTIVE") {
         return NextResponse.json({ error: "Lop tiep theo khong hop le hoac khong cung co so." }, { status: 400 });
+      }
+      // Sửa lớp kế của MỘT lớp cũng khép được vòng lặp với chuỗi đã có (A1→A2 rồi đặt
+      // A2→A1) — trước đây route này không kiểm tra gì. Dùng chung đúng hàm với màn sắp xếp.
+      const cycle = await findNextClassCycle(prisma, [{ classId: params.id, nextClassId }]);
+      if (cycle) {
+        return NextResponse.json(
+          { error: `Chọn lớp này sẽ tạo vòng lặp: ${cycle.classCodes.join(" → ")}. Chọn lớp khác làm lớp tiếp theo.` },
+          { status: 400 },
+        );
       }
     }
     data.nextClassId = nextClassId;

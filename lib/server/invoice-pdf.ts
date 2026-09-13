@@ -379,9 +379,9 @@ function getBillingModeSlug(billingModel: string) {
   return billingModel === "COURSE" ? "thu-khoa" : "thu-thang";
 }
 
-function buildDisposition(fileName: string) {
+function buildDisposition(fileName: string, inline = false) {
   const safeName = sanitizeFileName(fileName) || "invoice";
-  return `attachment; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(safeName)}`;
+  return `${inline ? "inline" : "attachment"}; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(safeName)}`;
 }
 
 async function ensureInvoiceForCharge(chargeId: string) {
@@ -526,10 +526,12 @@ export async function buildBatchInvoiceArtifact(periodId: string, chargeIds: str
   return { artifact, fileName, contentType: mode === "merged" ? "application/pdf" : "application/zip" };
 }
 
-export function buildDownloadHeaders(fileName: string, contentType: string) {
+// inline = mở thẳng trong trình duyệt (xem + in ngay) thay vì tải file về máy — dùng cho
+// nút "In phiếu" ở hồ sơ học viên, nơi giáo vụ cần in 1 phiếu tại quầy chứ không cần lưu.
+export function buildDownloadHeaders(fileName: string, contentType: string, inline = false) {
   return {
     "Content-Type": contentType,
-    "Content-Disposition": buildDisposition(fileName),
+    "Content-Disposition": buildDisposition(fileName, inline),
     "Cache-Control": "no-store",
   };
 }

@@ -77,6 +77,30 @@ export default function PipelineStackEditorModal({ open, onClose }: { open: bool
   }
 
   const changedCount = [...draft.entries()].filter(([id, next]) => classes.find((c) => c.id === id)?.nextClassId !== next).length;
+  const hasCycle = classes.some((c) => detectsCycle(c.id, draft));
+
+  // Toàn bộ chuỗi chuyển tiếp theo bản nháp hiện tại, đi từ lớp ĐẦU chuỗi (không lớp nào
+  // trỏ tới) tới hết — ngăn xếp là chuỗi dài A1 → A2 → B1 → C1 → ..., nhìn từng dòng
+  // "lớp → lớp kế" riêng lẻ ở dưới thì không thấy được cả chuỗi đang nối ra sao.
+  const chains = useMemo(() => {
+    const byId = new Map(classes.map((c) => [c.id, c]));
+    const pointedTo = new Set([...draft.values()].filter((id): id is string => Boolean(id)));
+    const result: PipelineClass[][] = [];
+    for (const head of classes) {
+      if (pointedTo.has(head.id) || !draft.get(head.id)) continue;
+      const path: PipelineClass[] = [head];
+      const seen = new Set([head.id]);
+      let cursor = draft.get(head.id) ?? null;
+      while (cursor && !seen.has(cursor) && byId.has(cursor)) {
+        const node = byId.get(cursor)!;
+        path.push(node);
+        seen.add(cursor);
+        cursor = draft.get(cursor) ?? null;
+      }
+      result.push(path);
+    }
+    return result.sort((a, b) => b.length - a.length);
+  }, [classes, draft]);
 
   async function save() {
     setSaving(true);
@@ -124,6 +148,24 @@ export default function PipelineStackEditorModal({ open, onClose }: { open: bool
             <p className="py-10 text-center text-sm text-[#64748b]">Đang tải...</p>
           ) : (
             <div className="space-y-6">
+              {chains.length > 0 ? (
+                <div className="rounded-xl border border-[#e5eaf7] bg-white px-4 py-3">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#64748b]">Chuỗi chuyển tiếp hiện tại</p>
+                  <div className="space-y-1.5">
+                    {chains.map((chain) => (
+                      <div key={chain[0].id} className="flex flex-wrap items-center gap-1.5 text-xs">
+                        <span className="mr-1 rounded bg-[#0f1729] px-1.5 py-0.5 font-bold text-white">{chain.length} lớp</span>
+                        {chain.map((node, index) => (
+                          <span key={node.id} className="inline-flex items-center gap-1.5">
+                            {index > 0 ? <span className="text-[#94a3b8]">→</span> : null}
+                            <span className="rounded border border-[#e2e8f0] bg-[#f8faff] px-1.5 py-0.5 font-mono font-bold text-[#0f1729]">{node.classCode}</span>
+                          </span>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {groups.map(([groupKey, groupClasses]) => (
                 <div key={groupKey}>
                   <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#64748b]">
@@ -168,12 +210,18 @@ export default function PipelineStackEditorModal({ open, onClose }: { open: bool
         {error ? <div className="mx-6 mb-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">{error}</div> : null}
 
         <div className="flex items-center justify-between gap-3 border-t border-[#e5eaf7] px-6 py-4">
-          <p className="text-xs text-[#64748b]">{changedCount > 0 ? `${changedCount} lớp đã đổi lớp tiếp theo` : "Chưa có thay đổi nào"}</p>
+          <p className={`text-xs ${hasCycle ? "font-bold text-rose-600" : "text-[#64748b]"}`}>
+            {hasCycle
+              ? "Có vòng lặp — sửa các dòng tô đỏ rồi mới lưu được"
+              : changedCount > 0
+                ? `${changedCount} lớp đã đổi lớp tiếp theo`
+                : "Chưa có thay đổi nào"}
+          </p>
           <div className="flex gap-3">
             <button type="button" onClick={onClose} className="btn-ghost">
               Hủy
             </button>
-            <button type="button" onClick={save} disabled={saving || changedCount === 0} className="btn-primary">
+            <button type="button" onClick={save} disabled={saving || changedCount === 0 || hasCycle} className="btn-primary">
               {saving ? "Đang lưu..." : "Lưu"}
             </button>
           </div>

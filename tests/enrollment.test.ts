@@ -272,6 +272,40 @@ async function main() {
     expectEqual(charge?.unitPrice, 160_000, "giữ nguyên đơn giá đã giảm lúc chuyển lớp");
   });
 
+  // ---------------------------------------------------------------- 10
+  // Ngăn xếp chuyển tiếp là CHUỖI DÀI (A1 → A2 → B1 → C1 → ...), không phải 2 lớp. Lưu từng
+  // phần qua nhiều lần: vòng lặp khép qua các lớp KHÔNG nằm trong lần lưu hiện tại vẫn
+  // phải bị phát hiện. Trước đây server chỉ đọc các lớp đang đổi và lớp đích trực tiếp
+  // của chúng, nên đi tới lớp không đổi là dừng — vòng 3 lớp trở lên lọt qua.
+  await test("Ngăn xếp chuyển tiếp: chuỗi dài hợp lệ, vòng lặp khép qua lớp không đổi bị chặn", async () => {
+    const { findNextClassCycle } = await import("@/lib/server/class-pipeline");
+    const branch = await fx.seedBranch(db);
+    const chain = [];
+    for (let i = 0; i < 6; i += 1) chain.push(await fx.seedClass(db, branch.id, { tuitionPerSession: UNIT }));
+    // Dựng chuỗi 6 lớp: 0 → 1 → 2 → 3 → 4 → 5.
+    for (let i = 0; i < 5; i += 1) {
+      await db.class.update({ where: { id: chain[i].id }, data: { nextClassId: chain[i + 1].id } });
+    }
+
+    const longChainOk = await findNextClassCycle(db, [{ classId: chain[4].id, nextClassId: chain[5].id }]);
+    expectEqual(longChainOk, null, "chuỗi 6 lớp nối tiếp không phải vòng lặp");
+
+    const closeAtEnd = await findNextClassCycle(db, [{ classId: chain[5].id, nextClassId: chain[0].id }]);
+    expectEqual(closeAtEnd?.classCodes.length, 7, "khép lớp cuối về lớp đầu: phát hiện vòng qua cả 6 lớp");
+
+    const closeInMiddle = await findNextClassCycle(db, [{ classId: chain[3].id, nextClassId: chain[1].id }]);
+    expectEqual(Boolean(closeInMiddle), true, "khép vòng giữa chuỗi (3 → 1) qua lớp không đổi");
+
+    const pointToSelf = await findNextClassCycle(db, [{ classId: chain[2].id, nextClassId: chain[2].id }]);
+    expectEqual(Boolean(pointToSelf), true, "trỏ về chính nó");
+
+    const breakChain = await findNextClassCycle(db, [
+      { classId: chain[5].id, nextClassId: chain[0].id },
+      { classId: chain[2].id, nextClassId: null },
+    ]);
+    expectEqual(breakChain, null, "cùng lần lưu có cắt chuỗi ở giữa thì không còn vòng");
+  });
+
   const failed = summary();
   await db.$disconnect();
   await shared.$disconnect();

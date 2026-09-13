@@ -270,8 +270,34 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     billingWarnings.push(...warnings);
   }
 
+  // Phiếu vừa sinh cho ghi danh này — form gán lớp dùng để hiện "Thu tiền ngay" và "In
+  // phiếu" liền tại chỗ, không phải sang trang Học phí tìm lại học viên. Số còn lại đã trừ
+  // tiền đóng trước tự gắn vào (settleChargesFromAdvancePayments).
+  const createdCharges = cls.isRemedial
+    ? []
+    : await prisma.charge.findMany({
+        where: { enrollmentId: enrollment.id },
+        include: { billingPeriod: { select: { periodName: true } }, allocations: { select: { amount: true } } },
+        orderBy: { createdAt: "asc" },
+      });
+  const charges = createdCharges.map((charge) => {
+    const paid = charge.allocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+    return {
+      id: charge.id,
+      periodName: charge.billingPeriod.periodName,
+      billingModel: charge.billingModel,
+      totalAmount: charge.totalAmount,
+      remainingAmount: Math.max(0, charge.totalAmount - paid),
+    };
+  });
+
   return NextResponse.json(
-    { item: enrollment, student: syncedStudent, billingWarning: billingWarnings.length ? billingWarnings.join(" · ") : undefined },
+    {
+      item: enrollment,
+      student: syncedStudent,
+      charges,
+      billingWarning: billingWarnings.length ? billingWarnings.join(" · ") : undefined,
+    },
     { status: 201 }
   );
 }

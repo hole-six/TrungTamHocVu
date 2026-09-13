@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { getCurrentBranchId } from "@/lib/branch-filter";
+import { findNextClassCycle } from "@/lib/server/class-pipeline";
 
 // Toàn bộ lớp ACTIVE, không phải bổ trợ, cùng chi nhánh — dashboard "Ngăn xếp chuyển
 // tiếp" ở /classes chỉ lấy tối đa 8 dòng từ đúng trang đang xem (không phải toàn bộ),
@@ -89,22 +90,15 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  // Duyệt chuỗi nextClassId SAU KHI áp toàn bộ thay đổi nháp (không chỉ từng dòng riêng
-  // lẻ) để phát hiện vòng lặp — dựng map nextClassId đầy đủ (đè bằng updates), rồi đi
-  // từ mỗi lớp trong updates, nếu quay lại chính nó trong giới hạn hợp lý thì chặn.
-  const nextClassIdMap = new Map(involvedClasses.map((c) => [c.id, c.nextClassId]));
-  for (const update of updates) nextClassIdMap.set(update.classId, update.nextClassId);
-
-  for (const update of updates) {
-    let cursor: string | null = update.nextClassId;
-    let hops = 0;
-    while (cursor && hops < involvedClassIds.size + 1) {
-      if (cursor === update.classId) {
-        return NextResponse.json({ error: "Các thay đổi này tạo thành vòng lặp giữa các lớp — kiểm tra lại trước khi lưu." }, { status: 400 });
-      }
-      cursor = nextClassIdMap.get(cursor) ?? null;
-      hops += 1;
-    }
+  // Vòng lặp phải dò trên TOÀN BỘ chuỗi của cơ sở, không chỉ các lớp trong lần lưu này —
+  // xem lib/server/class-pipeline.ts. Trước đây chỉ dựng map từ lớp đang đổi + lớp đích
+  // trực tiếp, nên chuỗi dài khép vòng qua lớp không đổi (A1→A2→B1 rồi lần sau B1→A1) lọt.
+  const cycle = await findNextClassCycle(prisma, updates);
+  if (cycle) {
+    return NextResponse.json(
+      { error: `Các thay đổi này tạo vòng lặp: ${cycle.classCodes.join(" → ")}. Học xong lớp cuối sẽ bị đề xuất quay lại lớp đầu — kiểm tra lại trước khi lưu.` },
+      { status: 400 },
+    );
   }
 
   await prisma.$transaction(updates.map((update) => prisma.class.update({ where: { id: update.classId }, data: { nextClassId: update.nextClassId } })));

@@ -115,6 +115,24 @@ const Icon = {
       <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
     </svg>
   ),
+  // Nhân sự & Lương — thẻ nhân viên (hồ sơ + chấm công + lương gộp một mục).
+  employees: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <circle cx="8" cy="12" r="2.5" />
+      <path d="M4.5 17a3.5 3.5 0 0 1 7 0" />
+      <line x1="14" y1="10" x2="19" y2="10" />
+      <line x1="14" y1="14" x2="18" y2="14" />
+    </svg>
+  ),
+  // Hạng mục truy thu bài học — bảng kẹp giấy có dấu tích (đã nộp / chưa nộp).
+  teacherTasks: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="6" y="4" width="12" height="17" rx="2" />
+      <path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1" />
+      <polyline points="9 13 11 15 15 11" />
+    </svg>
+  ),
   menu: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <line x1="3" y1="6" x2="21" y2="6" />
@@ -144,6 +162,8 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   "/assets": Icon.assets,
   "/cashbook": Icon.cashbook,
   "/payroll": Icon.payroll,
+  "/employees": Icon.employees,
+  "/teacher-tasks": Icon.teacherTasks,
   "/reports": Icon.reports,
   "/admin": Icon.admin,
 };

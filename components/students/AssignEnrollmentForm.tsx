@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
+import EnrollmentChargesPanel, { type EnrollmentCharge } from "@/components/tuition/EnrollmentChargesPanel";
 import { formatVnd as formatVndBase } from "@/lib/export-utils";
 
 type AssignEnrollmentFormProps = {
@@ -115,6 +116,8 @@ export default function AssignEnrollmentForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  // Phiếu học phí vừa lập cho lần gán lớp này — hiện ngay "Thu tiền" và "In phiếu".
+  const [createdCharges, setCreatedCharges] = useState<EnrollmentCharge[]>([]);
 
   const open = controlledOpen ?? internalOpen;
 
@@ -147,6 +150,7 @@ export default function AssignEnrollmentForm({
 
     setSelected(null);
     setSuccess(null);
+    setCreatedCharges([]);
     setBillingModel("PERIOD");
     setMainSessionCount("");
     setUnitPrice("");
@@ -244,6 +248,7 @@ export default function AssignEnrollmentForm({
     if (result.billingWarning) {
       setError(`Đã ghi danh, nhưng chưa sinh được phiếu học phí: ${result.billingWarning}`);
     }
+    setCreatedCharges(Array.isArray(result.charges) ? result.charges : []);
     setSuccess(`Đã ghi danh ${student.fullName} vào lớp ${selected.className}.`);
     router.refresh();
     onChanged?.();
@@ -529,6 +534,9 @@ export default function AssignEnrollmentForm({
 
           {error ? <div className="alert-danger">{error}</div> : null}
           {success ? <div className="alert-success">{success}</div> : null}
+          {success && createdCharges.length > 0 ? (
+            <EnrollmentChargesPanel studentId={student.id} charges={createdCharges} onChanged={onChanged} />
+          ) : null}
 
           <div className="flex flex-col gap-3 border-t border-hairline pt-4 sm:flex-row">
             <button type="button" onClick={handleAssign} disabled={!selected || submitting || Boolean(selected?.isRemedial && (student.sessionCreditCount ?? 0) <= 0)} className="btn-primary">
