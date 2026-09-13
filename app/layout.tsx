@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import PwaProvider from "@/components/PwaProvider";
+import ChunkReloadGuard from "@/components/ChunkReloadGuard";
 
 // Trước đây --font-sans chỉ KHAI BÁO tên "Inter" trong font-stack CSS mà không tải
 // font thật ở đâu cả — máy nào không cài sẵn Inter (hầu hết máy Windows) thì trình
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           {children}
           <PwaProvider />
+          <ChunkReloadGuard />
         </ThemeProvider>
       </body>
     </html>

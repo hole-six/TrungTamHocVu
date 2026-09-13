@@ -1,7 +1,13 @@
 /* eslint-disable no-restricted-globals */
 
-const CACHE_NAME = "tach-v3";
-const RUNTIME_CACHE = "tach-runtime-v3";
+// v4: bản v3 cache-first MỌI request GET không phải điều hướng — gồm cả dữ liệu trang
+// của Next.js khi chuyển trang bằng link / router.refresh() (GET ...?_rsc=<mã>, mã chỉ
+// phụ thuộc trạng thái điều hướng, không đổi theo thời gian). Hậu quả trên production:
+// chuyển trang hiện dữ liệu của LẦN ĐẦU xem trang đó, lưu xong router.refresh() không
+// cập nhật, và sau mỗi lần deploy dữ liệu cũ trỏ tới chunk đã bị xóa → ChunkLoadError.
+// Đổi tên cache để activate xóa sạch cache v3 đã nhiễm dữ liệu cũ trên máy người dùng.
+const CACHE_NAME = "tach-v4";
+const RUNTIME_CACHE = "tach-runtime-v4";
 
 // Assets to cache on install
 const PRECACHE_URLS = [
@@ -47,13 +53,22 @@ self.addEventListener("activate", (event) => {
 //   thì còn cái mà xem, không để lỡ tay hiện lại dashboard cũ khi đang online.
 // - API (/api/...): không đụng cache, luôn đi thẳng network — dữ liệu nghiệp vụ không
 //   được phép trả bản cache.
-// - Tài nguyên tĩnh (_next/static, ảnh...): cache-first — các file này có hash trong
-//   tên nên không đổi nội dung, cache-first vừa nhanh vừa không rủi ro.
+// - Tài nguyên tĩnh BẤT BIẾN (_next/static có hash trong tên, icon PWA): cache-first.
+// - MỌI THỨ CÒN LẠI (dữ liệu trang RSC, file public khác...): không đụng tới, để trình
+//   duyệt đi thẳng mạng. Chỉ cache-first những gì CHẮC CHẮN không bao giờ đổi nội dung.
+function isImmutableAsset(url) {
+  return url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/pwa-icons/");
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (!request.url.startsWith(self.location.origin)) return;
   if (request.method !== "GET") return;
   if (request.url.includes("/api/")) return;
+  const url = new URL(request.url);
+  // Dữ liệu trang của Next.js (chuyển trang bằng link, router.refresh, prefetch) — luôn
+  // lấy mới. Kiểm tra cả query lẫn header vì prefetch có thể không mang query.
+  if (url.searchParams.has("_rsc") || request.headers.get("RSC") === "1") return;
 
   if (request.mode === "navigate") {
     event.respondWith(
@@ -69,6 +84,8 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
+
+  if (!isImmutableAsset(url)) return;
 
   event.respondWith(
     caches.match(request).then((cached) => {

@@ -53,15 +53,13 @@ jobs:
           # Nếu VPS dùng cổng SSH khác 22, tạo thêm secret VPS_PORT rồi bỏ comment dòng dưới.
           # port: ${{ secrets.VPS_PORT }}
           script_stop: true
+          # Build vào thư mục phụ rồi mới chuyển server sang (scripts/deploy.sh) — script cũ
+          # chạy npm ci + build đè thẳng lên thư mục site đang phục vụ nên mỗi lần deploy
+          # mshangedu.com trả 500 / ChunkLoadError suốt vài phút build.
           script: |
             cd /var/www/mshangedu
+            BEFORE_SHA="$(git rev-parse HEAD)"
             git fetch origin master
             git pull origin master
             source ~/.nvm/nvm.sh
-            npm ci
-            npx prisma migrate deploy
-            npx prisma generate
-            npm run build
-            pm2 restart mshangedu
-            sleep 2
-            curl -sf -o /dev/null -w 'health check: HTTP %{http_code}\n' http://127.0.0.1:5050/dashboard || true
+            DEPLOY_BEFORE_SHA="$BEFORE_SHA" bash scripts/deploy.sh
