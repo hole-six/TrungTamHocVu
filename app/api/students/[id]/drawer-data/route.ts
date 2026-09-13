@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdate, canView, canViewFullWithOverride, canViewWithOverride } from "@/lib/server/role-matrix";
 import { computeOutstandingBalance } from "@/lib/server/balance";
-import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
+import { chargeOwnDueAmount, monthKey } from "@/lib/server/tuition-rules";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import { getWalletBalance } from "@/lib/server/enrollment-wallet";
@@ -374,6 +374,48 @@ export async function GET(
       walletAdvice = { unpaidAmount, upcomingSessionCount, nextSessionDate: nextSession?.sessionDate ?? null };
     }
 
+    // Đối chiếu PHIẾU THÁNG NÀY với lịch lớp — lớp còn buổi trong tháng mà phiếu chưa có
+    // hoặc tính thiếu buổi thì drawer phải báo và cho lập ngay, kèm trạng thái kỳ thu (kỳ đã
+    // rà soát/chốt sổ thì đợt tự động mỗi đêm không đụng vào — đây là lý do hay gặp nhất
+    // khiến "lớp còn lịch mà không thấy học phí").
+    let monthBilling: {
+      periodName: string;
+      periodStatus: string | null;
+      scheduledThisMonth: number;
+      billedScheduled: number | null;
+    } | null = null;
+    if (currentEnrollment?.billingModel === "PERIOD" && currentEnrollment.status === "ACTIVE" && currentEnrollment.classId && currentEnrollment.class) {
+      const today = getVietnamToday();
+      const periodName = monthKey(today);
+      const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+      const monthEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+      const enrollDay = new Date(Date.UTC(currentEnrollment.enrollDate.getUTCFullYear(), currentEnrollment.enrollDate.getUTCMonth(), currentEnrollment.enrollDate.getUTCDate()));
+      const [period, scheduledThisMonth] = await Promise.all([
+        prisma.billingPeriod.findUnique({ where: { branchId_periodName: { branchId: currentEnrollment.class.branchId, periodName } } }),
+        prisma.classSession.count({
+          where: {
+            classId: currentEnrollment.classId,
+            status: { notIn: ["CANCELLED", "RESCHEDULED"] },
+            sessionDate: { gte: enrollDay > monthStart ? enrollDay : monthStart, lte: monthEnd },
+          },
+        }),
+      ]);
+      // Theo (lớp, kỳ) chứ không theo enrollmentId: phiếu dữ liệu cũ không gắn ghi danh
+      // nhưng vẫn là phiếu tháng này của lớp này (CSDL chỉ cho 1 phiếu mỗi học viên/lớp/kỳ).
+      const monthCharge = period
+        ? student.charges.find((charge) => charge.billingPeriodId === period.id && charge.classId === currentEnrollment.classId)
+        : undefined;
+      monthBilling = {
+        periodName,
+        periodStatus: period?.status ?? null,
+        scheduledThisMonth,
+        // Phiếu cũ chưa lưu "tổng buổi tháng" (= 0): lấy số buổi thu + buổi dư đã trừ.
+        billedScheduled: monthCharge
+          ? Math.max(monthCharge.scheduledSessionCount, monthCharge.sessionCount + monthCharge.carriedSessionCount)
+          : null,
+      };
+    }
+
     // Transfer history
     const transferHistory = currentEnrollment
       ? [
@@ -568,6 +610,7 @@ export async function GET(
       learningSnapshot,
       walletBalance,
       walletAdvice,
+      monthBilling,
       currentEnrollment: currentEnrollment
         ? {
             id: currentEnrollment.id,

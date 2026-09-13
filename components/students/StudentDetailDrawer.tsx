@@ -13,6 +13,7 @@ import TransferEnrollmentButton from "@/components/classes/TransferEnrollmentBut
 import PauseEnrollmentButton from "@/components/students/PauseEnrollmentButton";
 import EnrollmentRowActions from "@/components/classes/EnrollmentRowActions";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
+import MonthBillingCheck, { needsMonthBilling, type MonthBilling } from "@/components/students/MonthBillingCheck";
 import { Section, Row, Stat, ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { formatVnd, formatDate } from "@/lib/export-utils";
 
@@ -92,6 +93,7 @@ type StudentData = {
   walletBalance?: number | null;
   // Chỉ có khi ví theo tháng đã hết/âm — đủ để nói đúng việc cần làm (xem drawer-data).
   walletAdvice?: { unpaidAmount: number; upcomingSessionCount: number; nextSessionDate: string | Date | null } | null;
+  monthBilling?: MonthBilling | null;
   currentEnrollment?: {
     id: string;
     status: string;
@@ -603,7 +605,17 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                     </span>
                   </Stat>
                 ) : null}
-{!enrollmentEnded && !isCourseEnrollment && data.walletBalance != null && data.walletBalance <= 0 ? (
+{!enrollmentEnded && !isCourseEnrollment && needsMonthBilling(data.monthBilling) ? (
+                  <Stat label="Cần xử lý" wide>
+                    <MonthBillingCheck
+                      enrollmentId={enrollment.id}
+                      value={data.monthBilling}
+                      canManageFinance={data.permissions.canManageFinance}
+                      onDone={() => void reload()}
+                    />
+                  </Stat>
+                ) : null}
+                {!enrollmentEnded && !isCourseEnrollment && !needsMonthBilling(data.monthBilling) && data.walletBalance != null && data.walletBalance <= 0 ? (
                   <Stat label="Cần xử lý" wide>
                     {(() => {
                       const advice = data.walletAdvice;

@@ -174,6 +174,25 @@ export async function findLockedPeriodForSession(classId: string, sessionDate: D
   return hasCharge ? period : null;
 }
 
+// Số buổi đã lên phiếu THEO THÁNG ở các kỳ trước của ghi danh này mà chưa được trả tiền.
+// Tiền phân bổ không tách học phí/sách nên chia theo tỉ lệ học phí trong phiếu (cùng cách
+// scripts/backfill-enrollment-wallets.ts). Làm tròn XUỐNG: thà thu đủ còn hơn bỏ sót.
+async function getUnpaidInvoicedSessionsBefore(enrollmentId: string, periodStart: Date) {
+  const charges = await prisma.charge.findMany({
+    where: { enrollmentId, billingModel: "PERIOD", billingPeriod: { startDate: { lt: periodStart } } },
+    include: { allocations: { where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } } } },
+  });
+  let unpaid = 0;
+  for (const charge of charges) {
+    if (charge.unitPrice <= 0 || charge.tuitionAmount <= 0) continue;
+    const ownDue = charge.tuitionAmount + charge.materialsAmount;
+    const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
+    const tuitionPaid = Math.min(charge.tuitionAmount, paid * (charge.tuitionAmount / ownDue));
+    unpaid += Math.floor((charge.tuitionAmount - tuitionPaid) / charge.unitPrice);
+  }
+  return unpaid;
+}
+
 // Chỉ CỘNG, không bao giờ trừ: lớp hủy bớt buổi thì phần đã thu nằm lại trong ví và tự
 // trừ vào phiếu tháng sau. Số dư mang sang (carriedSessionCount) giữ đúng con số đã chốt
 // lúc sinh phiếu — tính lại bây giờ sẽ lẫn cả buổi vừa nạp từ chính khoản đã thu này.
@@ -420,10 +439,19 @@ export async function generateChargesForPeriod(
     // Số dư ví như lúc ĐẦU kỳ, không phải số dư ngay lúc bấm — xem
     // getCarriedSessionsForPeriod: sinh lại phiếu giữa tháng sau khi đã dạy vài buổi
     // thì những buổi đó không được tính 2 lần.
-    const walletBalanceBeforeCharge = await getCarriedSessionsForPeriod(prisma, enrollment.id, {
+    const walletAtPeriodStart = await getCarriedSessionsForPeriod(prisma, enrollment.id, {
       start: period.startDate,
       end: period.endDate,
     });
+    // Ví ÂM đầu kỳ vì phụ huynh chưa đóng phiếu tháng trước: những buổi đó ĐÃ nằm trên
+    // phiếu tháng trước (vẫn đang đòi ở đó) — tính thêm vào phiếu tháng này là đòi 2 lần
+    // (tháng 8 nợ 9 buổi thì phiếu tháng 9 thành 17 buổi). Chỉ bù phần âm, tối đa bằng
+    // số buổi còn nợ trên các phiếu cũ; phần âm KHÔNG có phiếu nào đòi (buổi dạy thêm
+    // chưa lên phiếu) thì vẫn thu như cũ.
+    const walletBalanceBeforeCharge =
+      walletAtPeriodStart < 0
+        ? Math.min(0, walletAtPeriodStart + (await getUnpaidInvoicedSessionsBefore(enrollment.id, period.startDate)))
+        : walletAtPeriodStart;
     const sessionCount = Math.max(0, scheduledSessionCount - walletBalanceBeforeCharge);
     const absentCount = await prisma.studentAttendance.count({
       where: {
