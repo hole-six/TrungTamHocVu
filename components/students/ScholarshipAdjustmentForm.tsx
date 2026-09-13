@@ -167,7 +167,7 @@ export default function ScholarshipAdjustmentForm({
                     <button
                       type="button"
                       onClick={() => startEdit(item)}
-                      className="rounded-full border border-[#e2e8f0] bg-white px-3 py-1 text-xs font-semibold text-[#0f1729] hover:border-[#f97316] hover:text-[#f97316]"
+                      className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-1 text-xs font-semibold text-[#0f1729] hover:border-[#0f1729] hover:text-[#0f1729]"
                     >
                       Sửa
                     </button>
@@ -176,7 +176,7 @@ export default function ScholarshipAdjustmentForm({
                       description="Hệ thống sẽ xóa mục này và tính lại học phí tương ứng."
                       confirmLabel="Xóa mục"
                       tone="danger"
-                      className="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                      className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-1 text-xs font-semibold text-[#0f1729] hover:border-[#0f1729]"
                       onConfirm={() => removeItem(item)}
                     >
                       Xóa
@@ -249,7 +249,7 @@ export default function ScholarshipAdjustmentForm({
             <button
               type="submit"
               disabled={loading}
-              className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] hover:border-[#f97316] hover:text-[#f97316] disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] hover:border-[#0f1729] hover:text-[#0f1729] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Đang lưu..." : editing ? "Lưu chỉnh sửa" : "Thêm chiết khấu"}
             </button>

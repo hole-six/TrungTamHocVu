@@ -191,7 +191,7 @@ function TourOverlay({
                 Trước
               </button>
             ) : null}
-            <button type="button" onClick={onNext} className="rounded-xl bg-[#f97316] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#ea580c]">
+            <button type="button" onClick={onNext} className="rounded-lg bg-[#0f1729] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#1e293b]">
               {isLast ? "Xong" : "Tiếp theo"}
             </button>
           </div>

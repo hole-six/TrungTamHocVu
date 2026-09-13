@@ -377,7 +377,7 @@ export default function BulkImportForm({ branches, onImport, onCancel }: BulkImp
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, file: null })}
-                className="btn-ghost-sm text-red-600"
+                className="btn-ghost-sm"
               >
                 Xóa file
               </button>

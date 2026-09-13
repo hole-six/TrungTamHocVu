@@ -37,7 +37,7 @@ export default function HrTabs({ allowed }: { allowed?: string[] }) {
             key={tab.href}
             href={tab.href}
             className={`flex-1 rounded-xl px-4 py-2.5 text-center transition ${
-              isActive ? "bg-primary text-white shadow-sm" : "text-[#0f1729] hover:bg-white"
+              isActive ? "bg-[#0f1729] text-white shadow-sm" : "text-[#0f1729] hover:bg-white"
             }`}
           >
             <span className="block text-sm font-bold">{tab.label}</span>

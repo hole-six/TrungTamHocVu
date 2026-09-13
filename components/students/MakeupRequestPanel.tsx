@@ -211,7 +211,7 @@ export default function MakeupRequestPanel({
           {requests.map((item) => (
             <div
               key={item.id}
-              className="flex flex-col gap-3 rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-4 transition-colors hover:border-[#3b82f6] sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-4 transition-colors hover:border-[#0f1729] sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -249,7 +249,7 @@ export default function MakeupRequestPanel({
                         setAssigningId(item.id);
                         setSelectedSessionId("");
                       }}
-                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700"
+                      className="rounded-lg bg-[#0f1729] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#1e293b]"
                     >
                       Xếp buổi dạy
                     </button>
@@ -273,7 +273,7 @@ export default function MakeupRequestPanel({
                         type="button"
                         disabled={!selectedSessionId || loading}
                         onClick={() => handleAssignSession(item.id)}
-                        className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                        className="rounded-lg bg-[#0f1729] px-2.5 py-1 text-xs font-bold text-white hover:bg-[#1e293b] disabled:opacity-50"
                       >
                         Lưu
                       </button>
@@ -292,7 +292,7 @@ export default function MakeupRequestPanel({
                       type="button"
                       disabled={loading}
                       onClick={() => handleComplete(item.id)}
-                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                      className="rounded-lg bg-[#0f1729] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#1e293b] disabled:opacity-50"
                     >
                       ✓ Xác nhận hoàn tất
                     </button>

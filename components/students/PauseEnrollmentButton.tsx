@@ -66,7 +66,7 @@ export default function PauseEnrollmentButton({
 
   const buttonClass =
     className ??
-    "inline-flex min-w-[104px] items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60";
+    "status-action";
 
   if (isPaused) {
     return (
@@ -75,7 +75,7 @@ export default function PauseEnrollmentButton({
         description="Ghi danh trở lại bình thường: từ hôm nay học viên có tên trong danh sách điểm danh và được sinh học phí. Các buổi đã diễn ra trong kỳ bảo lưu vẫn giữ nguyên là không học."
         confirmLabel="Đi học lại"
         disabled={loading}
-        className="inline-flex min-w-[104px] items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className={buttonClass}
         onConfirm={() => setStatus("ACTIVE")}
       >
         {loading ? "Đang xử lý..." : "Đi học lại"}

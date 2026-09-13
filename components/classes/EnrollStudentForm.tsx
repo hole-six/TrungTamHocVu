@@ -481,7 +481,7 @@ export default function EnrollStudentForm({
               <div className="border-t border-emerald-200 pt-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Kế hoạch đóng học phí</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <button type="button" onClick={() => setBillingModel("COURSE")} className={`rounded-xl border p-3 text-left transition ${billingModel === "COURSE" ? "border-emerald-500 bg-white shadow-sm" : "border-emerald-200 bg-emerald-50/50"}`}>
+                  <button type="button" onClick={() => setBillingModel("COURSE")} className={`rounded-xl border p-3 text-left transition ${billingModel === "COURSE" ? "border-[#0f1729] bg-white shadow-sm" : "border-[#e2e8f0] bg-white"}`}>
                     <p className="text-sm font-semibold text-ink">Đóng trọn khóa</p>
                     <p className="mt-1 text-xs leading-5 text-ink-muted80">Tạo một khoản thu sau khi ghi danh; các kỳ tháng sau sẽ tự bỏ qua học viên này.</p>
                   </button>
@@ -498,7 +498,7 @@ export default function EnrollStudentForm({
                     <p className="text-sm font-semibold text-ink">Đóng theo tháng</p>
                     <p className="mt-1 text-xs leading-5 text-ink-muted80">Sinh khoản thu theo từng kỳ tháng và chỉ tính các buổi thực tế từ ngày ghi danh.</p>
                   </button>
-                  <button type="button" onClick={() => setBillingModel("INSTALLMENT")} className={`rounded-xl border p-3 text-left transition ${billingModel === "INSTALLMENT" ? "border-emerald-500 bg-white shadow-sm" : "border-emerald-200 bg-emerald-50/50"}`}>
+                  <button type="button" onClick={() => setBillingModel("INSTALLMENT")} className={`rounded-xl border p-3 text-left transition ${billingModel === "INSTALLMENT" ? "border-[#0f1729] bg-white shadow-sm" : "border-[#e2e8f0] bg-white"}`}>
                     <p className="text-sm font-semibold text-ink">Trả góp theo đợt</p>
                     <p className="mt-1 text-xs leading-5 text-ink-muted80">Chốt số tiền và tháng thu của từng đợt; batch sẽ sinh đúng hóa đơn đến hạn.</p>
                   </button>

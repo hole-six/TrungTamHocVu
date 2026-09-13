@@ -118,7 +118,7 @@ export default function NewCashTransactionForm({ categories }: { categories: Cat
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-hairline bg-white text-ink-muted48 transition-all hover:border-[#f97316] hover:bg-orange-50 hover:text-[#f97316]"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-hairline bg-white text-ink-muted48 transition-all hover:border-[#0f1729] hover:text-[#0f1729]"
                 >
                   <X className="h-5 w-5" strokeWidth={2.5} />
                 </button>

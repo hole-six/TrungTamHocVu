@@ -321,7 +321,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
               type="button"
               onClick={() => navigator.clipboard.writeText(data.studentCode)}
               title="Bấm để copy mã học viên"
-              className="rounded-md border border-[#e2e8f0] bg-[#f8faff] px-2 py-1 font-mono font-bold text-[#475569] hover:border-[#f97316] hover:text-[#f97316]"
+              className="rounded-md border border-[#e2e8f0] bg-[#f8faff] px-2 py-1 font-mono font-bold text-[#475569] hover:border-[#0f1729] hover:text-[#0f1729]"
             >
               {data.studentCode}
             </button>
@@ -329,7 +329,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
               <Link
                 href={`/classes/${enrollment.classId}`}
                 className={`rounded-md px-2 py-1 font-bold text-white ${
-                  enrollmentEnded ? "bg-[#94a3b8] hover:bg-[#64748b]" : "bg-[#fb923c] hover:bg-[#ea580c]"
+                  enrollmentEnded ? "bg-[#94a3b8] hover:bg-[#64748b]" : "bg-[#0f1729] hover:bg-[#1e293b]"
                 }`}
               >
                 {enrollment.className}
@@ -463,6 +463,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                   status={enrollment.status}
                   studentName={data.fullName}
                   onSuccess={() => void reload()}
+                  className={ACTION_CLASS}
                 />
                 <EnrollmentRowActions
                   enrollmentId={enrollment.id}
@@ -470,6 +471,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                   billingModel={enrollment.billingModel}
                   walletBalance={data.walletBalance ?? undefined}
                   onSuccess={() => void reload()}
+                  className={ACTION_CLASS}
                 />
               </>
             ) : null}

@@ -157,7 +157,7 @@ export default async function TimesheetDayPage({ searchParams }: { searchParams?
                         // không đi tiếp được thì nhân sự vẫn phải tự mò lại đúng buổi đó.
                         <Link
                           href={`/classes/${session.class.id}/sessions/${session.id}`}
-                          className="mt-1.5 inline-block rounded-lg bg-amber-100 px-2.5 py-1.5 text-xs font-bold text-amber-800 underline-offset-2 hover:underline"
+                          className="mt-1.5 inline-block rounded-lg border border-[#e2e8f0] bg-white px-2.5 py-1.5 text-xs font-bold text-[#0f1729] underline-offset-2 hover:underline"
                         >
                           Chưa phân công giáo viên/trợ giảng — buổi này không sinh tiền công cho ai. Bấm để phân công →
                         </Link>

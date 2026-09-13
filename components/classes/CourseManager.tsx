@@ -521,7 +521,7 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
                     onClick={() => setStatusFilter(chip.key)}
                     className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
                       active
-                        ? "border-primary bg-primary text-white"
+                        ? "border-[#0f1729] bg-[#0f1729] text-white"
                         : "border-[#e5e7eb] bg-white text-slate-700 hover:border-primary/40 hover:bg-[#fafafa]"
                     }`}
                   >
@@ -669,7 +669,7 @@ export default function CourseManager({ courses, books }: { courses: Course[]; b
                             confirmLabel="Xóa khóa học"
                             tone="danger"
                             disabled={deletingId === course.id}
-                            className="inline-flex min-w-[70px] items-center justify-center rounded-lg border border-rose-300 bg-white px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
+                            className="inline-flex min-w-[70px] items-center justify-center rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-xs font-semibold text-[#0f1729] transition hover:border-[#0f1729] disabled:opacity-60"
                             onConfirm={() => removeCourse(course)}
                           >
                             {deletingId === course.id ? "Đang xóa..." : "Xóa"}

@@ -357,7 +357,7 @@ export default async function CalendarPage({
                 href={`/calendar?week=${iso}&q=${encodeURIComponent(q)}&timePreset=${timePreset}`}
                 className={`shrink-0 rounded-2xl border px-4 py-3 min-w-[80px] text-center transition ${
                   isFocus
-                    ? "border-primary bg-primary text-white shadow-md"
+                    ? "border-[#0f1729] bg-[#0f1729] text-white shadow-md"
                     : isToday
                       ? "border-2 border-red-500 bg-red-50 font-black text-red-700"
                       : "border-hairline bg-white text-ink hover:border-primary/30"

@@ -60,7 +60,7 @@ export default function VoidMaintenanceControl({
       />
       {error ? <p className="text-xs text-red-600">{error}</p> : null}
       <div className="flex gap-2">
-        <button type="button" disabled={loading} onClick={submit} className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60">
+        <button type="button" disabled={loading} onClick={submit} className="rounded-lg bg-[#0f1729] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1e293b] disabled:opacity-60">
           {loading ? "Đang hủy..." : "Xác nhận hủy"}
         </button>
         <button type="button" onClick={() => { setConfirming(false); setError(null); }} className="rounded-lg border border-hairline px-3 py-1.5 text-xs font-semibold text-ink-muted80">

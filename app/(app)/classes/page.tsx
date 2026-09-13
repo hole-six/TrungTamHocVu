@@ -296,8 +296,8 @@ export default async function ClassesPage({
                         href={`/classes?${new URLSearchParams({ ...(q && { q }), ...(status && { status }) }).toString()}`}
                         className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                           !classGroup
-                            ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-                            : "border-[#dbe7ff] bg-white text-[#64748b] hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                            ? "border-[#0f1729] bg-[#0f1729] text-white"
+                            : "border-[#dbe7ff] bg-white text-[#64748b] hover:border-[#0f1729] hover:text-[#0f1729]"
                         }`}
                       >
                         Tất cả ngăn sếp
@@ -308,8 +308,8 @@ export default async function ClassesPage({
                           href={`/classes?${new URLSearchParams({ ...(q && { q }), ...(status && { status }), classGroup: group.classGroup! }).toString()}`}
                           className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                             classGroup === group.classGroup
-                              ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-                              : "border-[#dbe7ff] bg-white text-[#64748b] hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                              ? "border-[#0f1729] bg-[#0f1729] text-white"
+                              : "border-[#dbe7ff] bg-white text-[#64748b] hover:border-[#0f1729] hover:text-[#0f1729]"
                           }`}
                         >
                           Ngăn {group.classGroup}

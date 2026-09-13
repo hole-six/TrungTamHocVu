@@ -300,7 +300,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
                     href={session.class.course.materialsLink}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-100"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#e2e8f0] bg-white px-3 py-1 text-xs font-semibold text-[#0f1729] hover:border-[#0f1729]"
                   >
                     Mở tài liệu khóa học
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M7 17L17 7M7 7h10v10" /></svg>

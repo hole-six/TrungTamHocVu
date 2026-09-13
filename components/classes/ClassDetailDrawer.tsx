@@ -387,7 +387,7 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                               </div>
                             </div>
                             <div className="flex shrink-0 flex-wrap items-start gap-1.5">
-                              <Link href={`/students/${e.student.id}`} onClick={onClose} className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-1.5 text-center text-xs font-bold text-sky-700">Hồ sơ</Link>
+                              <Link href={`/students/${e.student.id}`} onClick={onClose} className="status-action">Hồ sơ</Link>
                               {data.permissions.canManageClass && <EnrollmentRowActions enrollmentId={e.id} status={e.status} billingModel={e.billingModel} walletBalance={e.walletBalance} onSuccess={() => void reload()} />}
                               {data.permissions.canManageClass && e.status === "ACTIVE" && <AddEnrollmentSessionsButton enrollmentId={e.id} studentName={e.student.fullName} onSuccess={() => void reload()} />}
                               {data.permissions.canManageClass && e.status === "ACTIVE" && (e.billingModel === "PERIOD" || s?.remainingMainSessions > 0) && (

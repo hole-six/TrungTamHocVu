@@ -290,7 +290,7 @@ export default function StudentsTable({
                     event.stopPropagation();
                     setAssigningStudent(row);
                   }}
-                  className="inline-flex items-center rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow-[0_10px_24px_rgba(17,139,222,0.25)] transition hover:brightness-105"
+                  className="inline-flex items-center rounded-lg bg-[#0f1729] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:brightness-105"
                 >
                   Gán nhập học ngay
                 </button>
@@ -518,7 +518,7 @@ export default function StudentsTable({
         <button
           type="button"
           onClick={() => setAddStudentOpen(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary/90"
+          className="inline-flex items-center gap-2 rounded-lg bg-[#0f1729] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1e293b]"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19" />
@@ -549,7 +549,7 @@ export default function StudentsTable({
               : []),
           ].map((item) => {
             const className = `inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
-              item.active ? `${item.activeClass} border-transparent` : "border-[#dbe7ff] bg-white text-ink hover:border-primary/30"
+              item.active ? "border-[#0f1729] bg-[#0f1729] text-white" : "border-[#dbe7ff] bg-white text-ink hover:border-[#0f1729]"
             }`;
 
             const content = (

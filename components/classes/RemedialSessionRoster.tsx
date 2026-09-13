@@ -237,7 +237,7 @@ export default function RemedialSessionRoster({
                       <label
                         key={item.id}
                         className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition ${
-                          checked ? "border-primary bg-primary/5" : "border-[#e5eaf7] bg-white hover:border-primary/40"
+                          checked ? "border-[#0f1729] bg-[#f8fafc]" : "border-[#e5eaf7] bg-white hover:border-[#0f1729]"
                         }`}
                       >
                         <input type="checkbox" className="mt-1 h-4 w-4" checked={checked} onChange={() => toggleCredit(item.id)} />

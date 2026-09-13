@@ -288,9 +288,9 @@ export default function DataTableMobile<T extends Record<string, any>>({
                           }}
                           className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all ${
                             action.variant === "danger"
-                              ? "bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400"
+                              ? "border border-[#e2e8f0] bg-white text-[#0f1729] hover:border-[#0f1729]"
                               : action.variant === "primary"
-                                ? "bg-primary text-white hover:bg-primary-focus"
+                                ? "bg-[#0f1729] text-white hover:bg-[#1e293b]"
                                 : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                           }`}
                         >

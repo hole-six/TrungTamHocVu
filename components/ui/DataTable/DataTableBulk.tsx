@@ -25,7 +25,7 @@ export default function DataTableBulk<T>({
   const variantClasses = {
     primary: "btn-primary",
     secondary: "btn-ghost",
-    danger: "bg-red-600 text-white hover:bg-red-700 border-red-600",
+    danger: "btn-primary",
   };
 
   const runAction = async (action: BulkAction<T>) => {

@@ -90,7 +90,7 @@ export default function AssetEditForm({
         onClick={() => setOpen(true)}
         className={
           compact
-            ? "inline-flex min-w-[84px] items-center justify-center gap-1 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10"
+            ? "inline-flex min-w-[84px] items-center justify-center gap-1 rounded-xl border border-[#e2e8f0] bg-white px-3 py-2 text-xs font-semibold text-[#0f1729] hover:border-[#0f1729]"
             : "btn-ghost w-full"
         }
       >

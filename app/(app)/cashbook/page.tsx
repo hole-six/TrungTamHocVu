@@ -308,7 +308,7 @@ export default async function CashbookPage({
                 key={tab.key}
                 href={`/cashbook?${params.toString()}`}
                 className={`flex-1 rounded-xl px-4 py-2.5 text-center transition ${
-                  isActive ? "bg-primary text-white shadow-sm" : "text-[#0f1729] hover:bg-white"
+                  isActive ? "bg-[#0f1729] text-white shadow-sm" : "text-[#0f1729] hover:bg-white"
                 }`}
               >
                 <span className="block text-sm font-bold">{tab.label}</span>

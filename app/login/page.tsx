@@ -103,7 +103,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-[#f97316] transition sm:right-3.5"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-[#0f1729] transition sm:right-3.5"
               aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
             >
               {showPassword ? (
@@ -145,7 +145,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="h-12 w-full rounded-xl border-2 border-[#f97316] bg-[#f97316] text-xs font-black uppercase tracking-wider text-white shadow-xl hover:border-[#ea580c] hover:bg-[#ea580c] hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 sm:h-13 sm:text-sm"
+            className="h-12 w-full rounded-xl border border-[#0f1729] bg-[#0f1729] text-xs font-black uppercase tracking-wider text-white shadow-xl hover:border-[#1e293b] hover:bg-[#1e293b] hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 sm:h-13 sm:text-sm"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -168,7 +168,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => { setEmail("admin@demo.vn"); setPassword(DEMO_PASSWORD); setError(null); }}
-              className="rounded-lg bg-[#f97316] px-3 py-1.5 text-[10px] font-bold text-white hover:bg-[#ea580c] transition whitespace-nowrap sm:rounded-xl sm:text-xs"
+              className="rounded-lg bg-[#0f1729] px-3 py-1.5 text-[10px] font-bold text-white hover:bg-[#1e293b] transition whitespace-nowrap sm:rounded-xl sm:text-xs"
             >
               Dùng ngay
             </button>
@@ -186,7 +186,7 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => setShowDemo((v) => !v)}
-            className="mt-3 w-full rounded-xl border-2 border-[#e5eaf7] bg-white px-3 py-2 text-xs font-bold text-[#475569] hover:border-[#f97316] hover:text-[#f97316] transition-all sm:px-4 sm:py-2.5 sm:text-sm"
+            className="mt-3 w-full rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-xs font-bold text-[#475569] hover:border-[#0f1729] hover:text-[#0f1729] transition-all sm:px-4 sm:py-2.5 sm:text-sm"
           >
             {showDemo ? "Ẩn danh sách demo" : "Xem tài khoản demo"}
           </button>
@@ -205,7 +205,7 @@ export default function LoginPage() {
                     className={`rounded-lg border px-2.5 py-2 text-left text-[10px] transition sm:px-3 sm:text-xs ${
                       email === acc.email
                         ? "border-[#f97316] bg-[#fff7ed]"
-                        : "border-[#e5eaf7] bg-white hover:border-[#f97316]/50"
+                        : "border-[#e5eaf7] bg-white hover:border-[#0f1729]"
                     }`}
                   >
                     <span className="block font-bold text-[#0f1729]">{acc.role}</span>

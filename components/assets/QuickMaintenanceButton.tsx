@@ -108,8 +108,8 @@ export default function QuickMaintenanceButton({
         onClick={() => setOpen(true)}
         className={
           compact
-            ? "inline-flex min-w-[96px] items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
-            : "inline-flex items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-700 transition hover:bg-amber-100"
+            ? "status-action"
+            : "inline-flex items-center justify-center rounded-lg border border-[#e2e8f0] bg-white px-4 py-2.5 text-sm font-semibold text-[#0f1729] transition hover:border-[#0f1729]"
         }
       >
         Bảo dưỡng

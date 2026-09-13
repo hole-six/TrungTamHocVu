@@ -275,7 +275,7 @@ export default function CreditsTable({
       width: showConsumedColumn ? "12%" : "14%",
       render: (_value, row) => (
         <div className="flex flex-col items-end gap-2">
-          <StudentLink studentId={row.student.id} className="rounded-lg border border-[#dbeafe] bg-[#eff6ff] px-3 py-1.5 text-xs font-bold text-[#1d4ed8] hover:bg-[#dbeafe]">
+          <StudentLink studentId={row.student.id} className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 text-xs font-bold text-[#0f1729] hover:border-[#0f1729]">
             Mở học viên
           </StudentLink>
           {row.enrollment.classId ? (

@@ -1,5 +1,6 @@
 "use client";
 
+import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
@@ -120,9 +121,9 @@ export default function TransferEnrollmentButton({
         onClick={() => setOpen(true)}
         className={
           variant === "quickaction"
-            ? "btn-quickaction btn-quickaction--orange"
+            ? "btn-quickaction"
             : variant === "compact"
-              ? "inline-flex items-center gap-1.5 rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] shadow-sm transition hover:border-[#f97316] hover:text-[#f97316]"
+              ? ACTION_CLASS
               : "status-action"
         }
       >
@@ -197,8 +198,8 @@ export default function TransferEnrollmentButton({
                   onClick={() => setScholarshipInput(String(currentScholarshipPercent))}
                   className={`rounded-lg border-2 px-3 py-1.5 text-xs font-bold transition ${
                     scholarshipInput === String(currentScholarshipPercent)
-                      ? "border-emerald-500 bg-emerald-500 text-white"
-                      : "border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50"
+                      ? "border-[#0f1729] bg-[#0f1729] text-white"
+                      : "border-[#e2e8f0] bg-white text-[#0f1729] hover:border-[#0f1729]"
                   }`}
                 >
                   Giữ nguyên {currentScholarshipPercent}%

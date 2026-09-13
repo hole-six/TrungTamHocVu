@@ -301,7 +301,7 @@ export default function AssignEnrollmentForm({
                     key={item.id}
                     type="button"
                     onClick={() => selectClass(item)}
-                    className={`w-full rounded-3xl border p-4 text-left transition ${isSelected ? "border-primary bg-primary/5 shadow-[0_16px_32px_rgba(17,139,222,0.12)]" : "border-hairline bg-white hover:border-primary/40 hover:bg-canvas"}`}
+                    className={`w-full rounded-3xl border p-4 text-left transition ${isSelected ? "border-[#0f1729] bg-[#f8fafc] ring-1 ring-[#0f1729]" : "border-hairline bg-white hover:border-primary/40 hover:bg-canvas"}`}
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-1">

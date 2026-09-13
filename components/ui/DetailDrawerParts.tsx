@@ -11,7 +11,7 @@
 // "Thu tiền ngay" khi có công nợ) — một hàng 3-4 nút thao tác thường ngày mà cái
 // nào cũng cam sẽ không còn phân biệt được đâu là việc thật sự cần ưu tiên.
 export const ACTION_CLASS =
-  "inline-flex items-center gap-1.5 rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] shadow-sm transition hover:border-[#f97316] hover:text-[#f97316]";
+  "inline-flex items-center gap-1.5 rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] shadow-sm transition hover:border-[#0f1729] hover:text-[#0f1729] disabled:cursor-not-allowed disabled:opacity-60";
 
 export function Section({
   id,

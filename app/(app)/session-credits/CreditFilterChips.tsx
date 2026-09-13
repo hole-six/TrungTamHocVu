@@ -101,7 +101,7 @@ export default function CreditFilterChips({
           key={item.label}
           href={item.href}
           className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
-            item.active ? `${item.activeClass} border-transparent` : "border-[#dbe7ff] bg-white text-ink hover:border-primary/30"
+            item.active ? "border-[#0f1729] bg-[#0f1729] text-white" : "border-[#dbe7ff] bg-white text-ink hover:border-[#0f1729]"
           }`}
         >
           <span>{item.label}</span>

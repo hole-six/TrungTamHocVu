@@ -243,7 +243,7 @@ function SidebarContent({
                         className={`group relative flex h-12 w-12 items-center justify-center rounded-xl transition-all duration-200 ${
                           active 
                             ? "bg-gradient-to-br from-[#f97316] to-[#ea580c] text-white shadow-lg shadow-primary/30" 
-                            : "text-[#64748b] hover:bg-[#f8fafc] hover:text-[#f97316]"
+                            : "text-[#64748b] hover:bg-[#f8fafc] hover:text-[#0f1729]"
                         }`}
                       >
                         {NAV_ICONS[item.href]}
@@ -264,7 +264,7 @@ function SidebarContent({
                       className={`group flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 ${
                         active
                           ? "bg-gradient-to-r from-[#f97316] to-[#ea580c] text-white shadow-md"
-                          : "text-[#64748b] hover:bg-[#f8fafc] hover:text-[#f97316]"
+                          : "text-[#64748b] hover:bg-[#f8fafc] hover:text-[#0f1729]"
                       }`}
                     >
                       <span className={`shrink-0 transition-transform duration-200 ${active ? "scale-110" : "group-hover:scale-110"}`}>

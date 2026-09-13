@@ -122,7 +122,7 @@ export default async function TuitionPage({
                     key={period.id}
                     href={`/tuition?period=${period.periodName}`}
                     className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
-                      active ? "bg-primary text-white shadow-sm" : "border border-hairline bg-white text-ink-muted80 hover:border-primary/30 hover:text-primary"
+                      active ? "bg-[#0f1729] text-white shadow-sm" : "border border-hairline bg-white text-ink-muted80 hover:border-[#0f1729] hover:text-[#0f1729]"
                     }`}
                   >
                     {period.periodName}

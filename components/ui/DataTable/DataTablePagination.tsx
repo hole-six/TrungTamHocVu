@@ -88,7 +88,7 @@ export default function DataTablePagination({
               onClick={() => onPageChange(pageNum as number)}
               className={`flex h-9 min-w-[36px] items-center justify-center rounded-lg border px-2 text-sm font-semibold transition-all ${
                 page === pageNum
-                  ? "border-primary bg-primary text-white shadow-lg shadow-primary/30"
+                  ? "border-[#0f1729] bg-[#0f1729] text-white shadow-sm"
                   : "border-[#e8edf5] bg-white text-ink-muted64 hover:bg-[#f8fafc] hover:border-primary/50"
               }`}
             >

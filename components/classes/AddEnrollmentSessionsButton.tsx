@@ -46,7 +46,7 @@ export default function AddEnrollmentSessionsButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex min-w-[104px] items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
+        className="status-action"
       >
         Cộng buổi
       </button>

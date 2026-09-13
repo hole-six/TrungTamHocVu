@@ -119,7 +119,7 @@ export default function CompleteClassButton({
           setSuccessSummary(null);
           setOpen(true);
         }}
-        className="inline-flex items-center gap-1.5 rounded-xl border-2 border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 sm:px-4 sm:py-2.5 sm:text-sm"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-xs font-bold text-[#0f1729] transition hover:border-[#0f1729] sm:px-4 sm:py-2.5 sm:text-sm"
       >
         Kết thúc lớp
       </button>
@@ -165,7 +165,7 @@ export default function CompleteClassButton({
                     setOpen(false);
                     onRequestConfigureNextClass();
                   }}
-                  className="mt-2 rounded-lg border-2 border-amber-400 bg-white px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100"
+                  className="mt-2 rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 text-xs font-bold text-[#0f1729] hover:border-[#0f1729]"
                 >
                   Cấu hình lớp tiếp theo
                 </button>
@@ -206,8 +206,8 @@ export default function CompleteClassButton({
                             onClick={() => setScholarshipInputs((prev) => ({ ...prev, [item.enrollmentId]: String(currentPercent) }))}
                             className={`rounded-lg border-2 px-3 py-1.5 text-xs font-bold transition ${
                               scholarshipInputs[item.enrollmentId] === String(currentPercent)
-                                ? "border-emerald-500 bg-emerald-500 text-white"
-                                : "border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50"
+                                ? "border-[#0f1729] bg-[#0f1729] text-white"
+                                : "border-[#e2e8f0] bg-white text-[#0f1729] hover:border-[#0f1729]"
                             }`}
                           >
                             Giữ nguyên {currentPercent}%

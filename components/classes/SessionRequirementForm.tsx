@@ -147,7 +147,7 @@ export default function SessionRequirementForm({
             setError(null);
             setPendingStatus("SUBMITTED");
           }}
-          className="rounded-full border-2 border-emerald-400 bg-emerald-50 px-5 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg border border-[#e2e8f0] bg-white px-5 py-2.5 text-sm font-semibold text-[#0f1729] transition hover:border-[#0f1729] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Đã nộp
         </button>
@@ -158,7 +158,7 @@ export default function SessionRequirementForm({
             setError(null);
             setPendingStatus("NOT_SUBMITTED");
           }}
-          className="rounded-full border-2 border-rose-400 bg-rose-50 px-5 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg border border-[#e2e8f0] bg-white px-5 py-2.5 text-sm font-semibold text-[#0f1729] transition hover:border-[#0f1729] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Chưa nộp
         </button>

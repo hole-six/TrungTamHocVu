@@ -71,7 +71,7 @@ function WalletWithdrawDialog({
             type="button"
             onClick={onRefund}
             disabled={loading}
-            className="w-full rounded-xl border-2 border-rose-200 bg-rose-50 px-4 py-2.5 text-center text-sm font-bold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-lg border border-[#e2e8f0] bg-white px-4 py-2.5 text-center text-sm font-bold text-[#0f1729] transition hover:border-[#0f1729] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "Đang xử lý..." : `Vẫn rút lớp, chấp nhận mất ${walletBalance} buổi`}
           </button>
@@ -91,6 +91,7 @@ export default function EnrollmentRowActions({
   billingModel,
   walletBalance,
   onSuccess,
+  className,
 }: {
   enrollmentId: string;
   status: string;
@@ -98,8 +99,13 @@ export default function EnrollmentRowActions({
   billingModel?: string;
   walletBalance?: number | null;
   onSuccess?: () => void;
+  /** Ghi đè kiểu nút để đứng cạnh các nút khác cùng cỡ (VD: hàng nút trong drawer). */
+  className?: string;
 }) {
   const router = useRouter();
+  const buttonClass =
+    className ??
+    "status-action";
   const [loading, setLoading] = useState(false);
   const [walletChoiceOpen, setWalletChoiceOpen] = useState(false);
 
@@ -140,7 +146,7 @@ export default function EnrollmentRowActions({
           type="button"
           disabled={loading}
           onClick={() => setWalletChoiceOpen(true)}
-          className="inline-flex min-w-[104px] items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className={buttonClass}
         >
           {loading ? "Đang xử lý..." : "Rút lớp"}
         </button>
@@ -170,7 +176,7 @@ export default function EnrollmentRowActions({
       confirmLabel="Rút lớp"
       tone="danger"
       disabled={loading}
-      className="inline-flex min-w-[104px] items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+      className={buttonClass}
       onConfirm={() => withdrawEnrollment()}
     >
       {loading ? "Đang xử lý..." : "Rút lớp"}

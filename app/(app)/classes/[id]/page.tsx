@@ -722,17 +722,17 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                         sessionId={latestSession.id}
                         classId={cls.id}
                         returnPath={`/classes/${cls.id}`}
-                        className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] transition-all"
+                        className="inline-flex items-center gap-2 rounded-lg border border-[#e2e8f0] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#0f1729] hover:text-[#0f1729] transition-all"
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                         Điểm danh buổi gần nhất
                       </SessionLinkWithDrawer>
                     )}
-                    <Link href="/tuition" className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] transition-all">
+                    <Link href="/tuition" className="inline-flex items-center gap-2 rounded-lg border border-[#e2e8f0] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#0f1729] hover:text-[#0f1729] transition-all">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                       Mở học phí
                     </Link>
-                    <Link href="/inventory" className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] transition-all">
+                    <Link href="/inventory" className="inline-flex items-center gap-2 rounded-lg border border-[#e2e8f0] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#0f1729] hover:text-[#0f1729] transition-all">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                       Mở giáo trình
                     </Link>
@@ -1187,7 +1187,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                 <div className="flex flex-wrap justify-end gap-2">
                                   <Link
                                     href={`/students/${enrollment.studentId}`}
-                                    className="inline-flex min-w-[104px] items-center justify-center rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700 transition hover:bg-sky-100"
+                                    className="status-action"
                                   >
                                     Mở hồ sơ
                                   </Link>
@@ -1371,7 +1371,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                         <div className="flex flex-col gap-2">
                           <Link
                             href={`/students/${enrollment.studentId}`}
-                            className="flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-bold text-sky-700 transition hover:bg-sky-100"
+                            className="flex items-center justify-center gap-2 rounded-lg border border-[#e2e8f0] bg-white px-4 py-3 text-sm font-bold text-[#0f1729] transition hover:border-[#0f1729]"
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>

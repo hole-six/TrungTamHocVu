@@ -741,7 +741,7 @@ export default function StudentFinanceDesk({
             <button
               type="button"
               onClick={() => setShowIssueComposer((current) => !current)}
-              className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] hover:border-[#f97316] hover:text-[#f97316]"
+              className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] hover:border-[#0f1729] hover:text-[#0f1729]"
             >
               {showIssueComposer ? "Đóng" : "Xuất giáo trình"}
             </button>
@@ -942,7 +942,7 @@ export default function StudentFinanceDesk({
                           type="button"
                           onClick={() => updateBookRequirement(row.requirement!.id, "CONFIRMED")}
                           disabled={updatingRequirementId === row.requirement.id || row.requirement.status === "CONFIRMED"}
-                          className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 text-xs font-semibold text-[#0f1729] hover:border-[#0f1729] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Xác nhận mua
                         </button>
@@ -965,7 +965,7 @@ export default function StudentFinanceDesk({
                               type="button"
                               onClick={() => updateBookPaymentStatus(row.issue!.id, "PAID")}
                               disabled={updatingBookIssueId === row.issue.id || row.issue.paymentStatus === "PAID"}
-                              className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-200 disabled:opacity-50"
+                              className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-1 text-xs font-semibold text-[#0f1729] hover:border-[#0f1729] disabled:opacity-50"
                             >
                               Đã thu
                             </button>
@@ -973,7 +973,7 @@ export default function StudentFinanceDesk({
                               type="button"
                               onClick={() => updateBookPaymentStatus(row.issue!.id, "UNPAID")}
                               disabled={updatingBookIssueId === row.issue.id || row.issue.paymentStatus === "UNPAID"}
-                              className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-200 disabled:opacity-50"
+                              className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-1 text-xs font-semibold text-[#0f1729] hover:border-[#0f1729] disabled:opacity-50"
                             >
                               Chưa thu
                             </button>
@@ -985,7 +985,7 @@ export default function StudentFinanceDesk({
                           confirmLabel="Xóa dòng sách"
                           tone="danger"
                           disabled={deletingBookIssueId === row.issue.id}
-                          className="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                          className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-1 text-xs font-semibold text-[#0f1729] hover:border-[#0f1729]"
                           onConfirm={() => deleteBookIssue(row.issue!.id)}
                         >
                           Xóa

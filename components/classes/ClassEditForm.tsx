@@ -297,7 +297,7 @@ export default function ClassEditForm({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm transition-all hover:border-[#3b82f6] hover:text-[#3b82f6]"
+            className="inline-flex items-center gap-2 rounded-lg border border-[#e2e8f0] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm transition-all hover:border-[#0f1729] hover:text-[#0f1729]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -340,7 +340,7 @@ export default function ClassEditForm({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className={triggerClassName ?? "inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm transition-all hover:border-[#3b82f6] hover:text-[#3b82f6]"}
+          className={triggerClassName ?? "inline-flex items-center gap-2 rounded-lg border border-[#e2e8f0] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] shadow-sm transition-all hover:border-[#0f1729] hover:text-[#0f1729]"}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />

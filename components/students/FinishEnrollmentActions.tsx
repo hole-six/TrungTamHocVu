@@ -102,7 +102,7 @@ export default function FinishEnrollmentActions({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="inline-flex min-w-[104px] items-center justify-center rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-800 transition hover:bg-sky-100"
+          className="status-action"
         >
           Mua thêm buổi
         </button>
@@ -117,7 +117,7 @@ export default function FinishEnrollmentActions({
         }
         confirmLabel="Đã học xong"
         disabled={loading}
-        className="inline-flex min-w-[104px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="status-action"
         onConfirm={finish}
       >
         {loading ? "Đang xử lý..." : "Đã học xong"}

@@ -404,7 +404,7 @@ export default function LeadsTable({
                 type="button"
                 onClick={(e) => { e.stopPropagation(); void convertToStudent(row.id); }}
                 disabled={convertingId === row.id}
-                className="inline-flex items-center gap-1 rounded-lg border border-[#3b82f6] bg-[#eff6ff] px-2.5 py-1 text-[11px] font-bold text-[#1d4ed8] transition hover:bg-[#3b82f6] hover:text-white disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-lg border border-[#e2e8f0] bg-white px-2.5 py-1 text-[11px] font-bold text-[#0f1729] transition hover:border-[#0f1729] disabled:opacity-50"
               >
                 {convertingId === row.id ? (
                   <>
@@ -610,8 +610,8 @@ export default function LeadsTable({
             href={`/leads?${buildQuery({ status: null })}`}
             className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all duration-150 ${
               !statusFilter
-                ? "border-[#1d4ed8] bg-[#1d4ed8] text-white shadow-md scale-[1.03]"
-                : "border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] hover:shadow-sm hover:scale-[1.01]"
+                ? "border-[#0f1729] bg-[#0f1729] text-white shadow-md scale-[1.03]"
+                : "border-[#e5eaf7] bg-white text-[#475569] hover:border-[#0f1729] hover:text-[#0f1729] hover:shadow-sm"
             }`}
           >
             <span>Tất cả trạng thái</span>
@@ -706,7 +706,7 @@ export default function LeadsTable({
                 ? "border-[#0f1729] bg-[#0f1729] text-white shadow-md scale-[1.03]"
                 : chip.count === 0
                   ? "border-[#e5eaf7] bg-white text-[#94a3b8] opacity-50 cursor-default"
-                  : "border-[#e5eaf7] bg-white text-[#475569] hover:border-[#3b82f6] hover:text-[#3b82f6] hover:shadow-sm"
+                  : "border-[#e5eaf7] bg-white text-[#475569] hover:border-[#0f1729] hover:text-[#0f1729] hover:shadow-sm"
             }`}
           >
             <span

@@ -315,13 +315,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                 return true;
               })}
             />
-            <Link href="/reports" className="inline-flex items-center gap-1.5 rounded-lg bg-white border-2 border-[#f97316] px-3 py-2 text-xs font-bold text-[#f97316] hover:bg-[#f97316] hover:text-white shadow-sm transition-all sm:rounded-xl sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm md:px-5 md:py-3">
+            <Link href="/reports" className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-[#e2e8f0] px-3 py-2 text-xs font-bold text-[#0f1729] hover:border-[#0f1729] shadow-sm transition-all sm:rounded-xl sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm md:px-5 md:py-3">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sm:h-[18px] sm:w-[18px]"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
               <span className="hidden sm:inline">Báo cáo</span>
               <span className="sm:hidden">BC</span>
             </Link>
             {showCrm && (
-              <Link href="/leads" className="inline-flex items-center gap-1.5 rounded-lg bg-[#f97316] border-2 border-[#f97316] px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#ea580c] hover:border-[#ea580c] transition-all sm:rounded-xl sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm md:px-5 md:py-3">
+              <Link href="/leads" className="inline-flex items-center gap-1.5 rounded-lg bg-[#0f1729] border border-[#0f1729] px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#1e293b] hover:border-[#1e293b] transition-all sm:rounded-xl sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm md:px-5 md:py-3">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sm:h-[18px] sm:w-[18px]"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 CRM
                 {stats.openLeads > 0 && <span className="rounded-full bg-white/20 backdrop-blur px-1.5 py-0.5 text-[9px] font-black sm:text-[10px] sm:px-2">{stats.openLeads}</span>}
@@ -505,7 +505,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
               <Link
                 key={item.id}
                 href={`/students/${item.studentId}`}
-                className="flex items-center justify-between rounded-xl border border-[#fed7aa] bg-[#fff7ed] px-4 py-2.5 hover:bg-[#ffedd5] transition"
+                className="flex items-center justify-between rounded-lg border border-[#e2e8f0] bg-white px-4 py-2.5 hover:border-[#0f1729] transition"
               >
                 <div>
                   <span className="text-sm font-bold text-[#0f1729]">{item.studentName}</span>

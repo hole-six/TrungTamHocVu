@@ -162,7 +162,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
           </div>
           <div className="flex flex-wrap gap-2">
             <SpotlightTour steps={REPORTS_TOUR_STEPS} />
-            <button onClick={handleExport} disabled={!data} className="inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-4 py-2.5 text-sm font-bold text-[#475569] hover:border-[#f97316] hover:text-[#f97316] transition disabled:opacity-40">
+            <button onClick={handleExport} disabled={!data} className="inline-flex items-center gap-2 rounded-lg border border-[#e2e8f0] bg-white px-4 py-2.5 text-sm font-bold text-[#475569] hover:border-[#0f1729] hover:text-[#0f1729] transition disabled:opacity-40">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Xuất Excel
             </button>
@@ -500,7 +500,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                 {data.dashboard.birthdayThisMonth.map((s) => (
                   <Link key={s.id} href={`/students/${s.id}`}
-                    className="flex items-center justify-between rounded-xl bg-[#f8faff] border border-[#e5eaf7] px-3 py-2 hover:border-[#f97316] transition">
+                    className="flex items-center justify-between rounded-lg bg-[#f8faff] border border-[#e5eaf7] px-3 py-2 hover:border-[#0f1729] transition">
                     <span className="text-sm font-semibold text-[#f97316] truncate">{s.fullName}</span>
                     <span className="ml-2 text-xs font-bold text-[#64748b] whitespace-nowrap">
                       {new Date(s.dob!).getDate()}/{new Date(s.dob!).getMonth() + 1}

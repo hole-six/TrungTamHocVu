@@ -202,7 +202,7 @@ export default function AddPaidCatchupForm({
             reset();
             setOpen(true);
           }}
-          className="rounded-xl border border-[#dbe3ef] bg-white px-4 py-2 text-sm font-bold text-[#0f1729] hover:border-[#3b82f6]"
+          className="rounded-lg border border-[#dbe3ef] bg-white px-4 py-2 text-sm font-bold text-[#0f1729] hover:border-[#0f1729]"
         >
           Thêm bổ trợ
         </button>
@@ -236,7 +236,7 @@ export default function AddPaidCatchupForm({
                       key={student.id}
                       type="button"
                       onClick={() => toggleStudent(student)}
-                      className="flex w-full items-center justify-between rounded-xl border border-[#e5eaf7] bg-white px-4 py-3 text-left hover:border-[#3b82f6]"
+                      className="flex w-full items-center justify-between rounded-lg border border-[#e5eaf7] bg-white px-4 py-3 text-left hover:border-[#0f1729]"
                     >
                       <span className="font-bold text-[#0f1729]">{student.fullName}</span>
                       <span className="text-xs text-[#64748b]">{student.studentCode}</span>

@@ -45,8 +45,8 @@ export default function DeleteAssetButton({
         disabled={deleting}
         className={
           compact
-            ? "inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-700 hover:bg-red-100"
-            : "btn-ghost border border-red-200 text-red-700 hover:bg-red-50"
+            ? "inline-flex items-center gap-1 rounded-lg border border-[#e2e8f0] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#0f1729] hover:border-[#0f1729]"
+            : "btn-ghost border border-[#e2e8f0] text-[#0f1729] hover:border-[#0f1729]"
         }
         onConfirm={handleDelete}
       >

@@ -113,7 +113,7 @@ export default function IssueBookForm({ bookId }: { bookId: string }) {
                   key={s.id}
                   type="button"
                   onClick={() => setSelected(s)}
-                  className={`block w-full rounded-lg border px-3 py-2 text-left text-sm transition ${selected?.id === s.id ? "border-primary bg-primary/5" : "border-hairline hover:bg-canvas-parchment"}`}
+                  className={`block w-full rounded-lg border px-3 py-2 text-left text-sm transition ${selected?.id === s.id ? "border-[#0f1729] bg-[#f8fafc]" : "border-hairline hover:bg-canvas-parchment"}`}
                 >
                   {s.fullName} <span className="text-ink-muted48">({s.studentCode})</span>
                 </button>

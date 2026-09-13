@@ -247,7 +247,7 @@ export default function AttendanceForm({
                   onClick={() => setStatusFilter(option.value)}
                   className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
                     active
-                      ? "border-primary bg-primary text-white shadow-sm"
+                      ? "border-[#0f1729] bg-[#0f1729] text-white shadow-sm"
                       : "border-[#dbe7ff] bg-white text-ink hover:border-primary/40 hover:text-primary"
                   }`}
                 >
@@ -394,7 +394,7 @@ export default function AttendanceForm({
                   tone="danger"
                   onConfirm={() => withdrawStudent(row)}
                   disabled={withdrawingEnrollmentId === row.enrollmentId}
-                  className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-lg border border-[#e2e8f0] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] transition hover:border-[#0f1729] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {withdrawingEnrollmentId === row.enrollmentId ? "Đang rút..." : "Rút lớp"}
                 </ConfirmActionButton>

@@ -690,7 +690,7 @@ export default async function StudentDetailPage({
               </>
             ) : null}
             {currentEnrollment?.classId && (
-              <Link href={`/classes/${currentEnrollment.classId}`} className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#f97316] hover:text-[#f97316] hover:-translate-y-0.5 transition-all">
+              <Link href={`/classes/${currentEnrollment.classId}`} className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg border border-[#e2e8f0] bg-white px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm font-semibold text-[#0f1729] shadow-sm hover:border-[#0f1729] hover:text-[#0f1729] hover:-translate-y-0.5 transition-all">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sm:w-[18px] sm:h-[18px]"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 <span className="hidden sm:inline">Mở lớp hiện tại</span>
                 <span className="sm:hidden">Lớp</span>
@@ -1260,7 +1260,7 @@ export default async function StudentDetailPage({
                         const lessonDetail = roadmapItem?.objective?.trim() || attendance.session.journal?.teacherNote?.trim() || null;
 
                         return (
-                          <div key={attendance.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] p-4 transition-colors hover:border-[#3b82f6]">
+                          <div key={attendance.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] p-4 transition-colors hover:border-[#0f1729]">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -1286,10 +1286,10 @@ export default async function StudentDetailPage({
                                   GV: {teachers || "Chưa phân công"} · TG: {assistants || "—"} · Nhật ký: {attendance.session.journal?.publishedAt ? "Đã gửi PH" : attendance.session.journal ? "Đang lưu nháp" : "Chưa có"}
                                 </p>
                                 <div className="mt-3 flex flex-wrap gap-2">
-                                  <Link href={sessionHref} className="inline-flex items-center rounded-lg bg-[#dbeafe] px-2.5 py-1 text-xs font-bold text-[#1d4ed8] hover:bg-[#bfdbfe]">
+                                  <Link href={sessionHref} className="inline-flex items-center rounded-lg border border-[#e2e8f0] bg-white px-2.5 py-1 text-xs font-bold text-[#0f1729] hover:border-[#0f1729]">
                                     Mở buổi học →
                                   </Link>
-                                  <Link href={classHref} className="inline-flex items-center rounded-lg bg-white border border-[#e5eaf7] px-2.5 py-1 text-xs font-bold text-[#64748b] hover:border-[#f97316] hover:text-[#f97316]">
+                                  <Link href={classHref} className="inline-flex items-center rounded-lg bg-white border border-[#e5eaf7] px-2.5 py-1 text-xs font-bold text-[#64748b] hover:border-[#0f1729] hover:text-[#0f1729]">
                                     Mở lớp →
                                   </Link>
                                 </div>
@@ -1353,7 +1353,7 @@ export default async function StudentDetailPage({
 
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     {student.guardians.map((item) => (
-                      <div key={item.id} className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-4 hover:border-[#3b82f6] transition-colors">
+                      <div key={item.id} className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-4 hover:border-[#0f1729] transition-colors">
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex-1">
                             <p className="text-sm font-bold text-[#0f1729]">

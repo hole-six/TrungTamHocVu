@@ -162,7 +162,7 @@ export function MonthGrid({
               onClick={() => onPick(d)}
               className={`mx-auto flex h-8 w-8 items-center justify-center rounded-full text-xs transition-colors ${
                 isStart || isEnd
-                  ? "bg-primary text-white font-semibold"
+                  ? "bg-[#0f1729] text-white font-semibold"
                   : inRange
                     ? "bg-primary/10 text-primary"
                     : isToday

@@ -149,7 +149,7 @@ export default function BranchDrawer({ mode, branch, organizationId, isOpen, onC
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-hairline bg-white text-ink-muted48 transition-all hover:border-[#f97316] hover:bg-orange-50 hover:text-[#f97316]"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-hairline bg-white text-ink-muted48 transition-all hover:border-[#0f1729] hover:text-[#0f1729]"
           >
             <X className="h-5 w-5" strokeWidth={2.5} />
           </button>
@@ -219,7 +219,7 @@ export default function BranchDrawer({ mode, branch, organizationId, isOpen, onC
               </label>
 
               {/* Active Status */}
-              <label className="flex items-start gap-3 rounded-xl border border-hairline bg-white px-4 py-4 cursor-pointer hover:border-[#f97316] hover:bg-orange-50/30 transition-all">
+              <label className="flex items-start gap-3 rounded-lg border border-hairline bg-white px-4 py-4 cursor-pointer hover:border-[#0f1729] transition-all">
                 <input
                   type="checkbox"
                   checked={form.isActive}

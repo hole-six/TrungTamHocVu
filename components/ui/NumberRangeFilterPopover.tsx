@@ -153,7 +153,7 @@ export default function NumberRangeFilterPopover({
                     setDraftFrom("");
                     setDraftTo("");
                   }}
-                  className="rounded-lg border border-[#e5e7eb] px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                  className="rounded-lg border border-[#e5e7eb] px-3 py-1.5 text-xs font-semibold text-[#0f1729] hover:border-[#0f1729]"
                 >
                   Xóa
                 </button>
@@ -163,7 +163,7 @@ export default function NumberRangeFilterPopover({
                     onApply(draftFrom || null, draftTo || null);
                     setOpen(false);
                   }}
-                  className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+                  className="rounded-lg bg-[#0f1729] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1e293b]"
                 >
                   Áp dụng
                 </button>

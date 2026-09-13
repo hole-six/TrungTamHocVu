@@ -41,7 +41,7 @@ export default function DeleteGuardianButton({
         confirmLabel="Xóa phụ huynh"
         tone="danger"
         disabled={disabled || deleting}
-        className="btn-ghost w-full border border-red-200 text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+        className="btn-ghost w-full border border-[#e2e8f0] text-[#0f1729] hover:border-[#0f1729] disabled:cursor-not-allowed disabled:opacity-60"
         onConfirm={handleDelete}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

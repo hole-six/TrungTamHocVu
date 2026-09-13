@@ -111,9 +111,9 @@ export default function DataTableRow<T extends Record<string, any>>({
             ) : null}
             {visibleActions.map((action, idx) => {
               const variantClasses = {
-                primary: "border-primary/15 bg-primary/5 text-primary hover:bg-primary/10",
-                secondary: "border-[#d9e3f7] bg-white text-ink-muted64 hover:bg-[#f8fbff]",
-                danger: "border-red-200 bg-red-50 text-red-600 hover:bg-red-100",
+                primary: "border-[#0f1729] bg-[#0f1729] text-white hover:bg-[#1e293b]",
+                secondary: "border-[#e2e8f0] bg-white text-[#0f1729] hover:border-[#0f1729]",
+                danger: "border-[#e2e8f0] bg-white text-[#0f1729] hover:border-[#0f1729]",
               };
 
               const iconOnly = action.iconOnly && action.icon;

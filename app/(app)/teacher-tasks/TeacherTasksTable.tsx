@@ -148,7 +148,7 @@ export default function TeacherTasksTable({
       label: "Buổi học",
       filter: { type: "dateRange", paramKeyFrom: "sessionFrom", paramKeyTo: "sessionTo" },
       render: (_value, row) => (
-        <Link href={`/classes/${row.session.classId}/sessions/${row.session.id}`} className="inline-flex items-center gap-2 rounded-lg border border-[#dbeafe] bg-[#eff6ff] px-3 py-2 text-sm font-bold text-[#1d4ed8] transition hover:border-[#3b82f6] hover:bg-[#dbeafe]">
+        <Link href={`/classes/${row.session.classId}/sessions/${row.session.id}`} className="inline-flex items-center gap-2 rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] transition hover:border-[#0f1729]">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
             <line x1="16" y1="2" x2="16" y2="6" />
@@ -238,7 +238,7 @@ export default function TeacherTasksTable({
                   tone="danger"
                   disabled={savingId === row.session.id || value === option.value}
                   className={`rounded-lg border px-2 py-1 text-[11px] font-bold transition ${
-                    value === option.value ? "border-rose-400 bg-rose-100 text-rose-700" : "border-[#e5e7eb] bg-white text-[#64748b] hover:border-rose-300"
+                    value === option.value ? "border-[#0f1729] bg-[#0f1729] text-white" : "border-[#e5e7eb] bg-white text-[#64748b] hover:border-[#0f1729]"
                   }`}
                   onConfirm={() => patchCheck(row.session.id, { scoreDecision: option.value })}
                 >
@@ -251,7 +251,7 @@ export default function TeacherTasksTable({
                   disabled={savingId === row.session.id || value === option.value}
                   onClick={() => patchCheck(row.session.id, { scoreDecision: option.value })}
                   className={`rounded-lg border px-2 py-1 text-[11px] font-bold transition disabled:cursor-default ${
-                    value === option.value ? "border-primary bg-primary/10 text-primary" : "border-[#e5e7eb] bg-white text-[#64748b] hover:border-primary/40"
+                    value === option.value ? "border-[#0f1729] bg-[#0f1729] text-white" : "border-[#e5e7eb] bg-white text-[#64748b] hover:border-[#0f1729]"
                   }`}
                 >
                   {option.label}
@@ -291,7 +291,7 @@ export default function TeacherTasksTable({
           ) : null}
           <Link
             href={`/payroll/employees/${row.employee.id}`}
-            className="inline-flex items-center gap-2 rounded-lg border border-[#e5eaf7] bg-white px-3 py-2 text-xs font-bold text-[#475569] transition hover:border-[#f97316] hover:text-[#f97316]"
+            className="inline-flex items-center gap-2 rounded-lg border border-[#e5eaf7] bg-white px-3 py-2 text-xs font-bold text-[#475569] transition hover:border-[#0f1729] hover:text-[#0f1729]"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -322,7 +322,7 @@ export default function TeacherTasksTable({
             type="button"
             onClick={() => updateParams({ status: chip.key || null })}
             className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
-              active ? `${chip.activeClass} border-transparent` : "border-[#dbe7ff] bg-white text-ink hover:border-primary/30"
+              active ? "border-[#0f1729] bg-[#0f1729] text-white" : "border-[#dbe7ff] bg-white text-ink hover:border-[#0f1729]"
             }`}
           >
             <span>{chip.label}</span>

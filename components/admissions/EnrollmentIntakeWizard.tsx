@@ -416,7 +416,7 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                 <button
                   type="button"
                   onClick={() => patchForm("studentTarget", "EXISTING_STUDENT")}
-                  className={`rounded-2xl border px-4 py-4 text-left transition ${form.studentTarget === "EXISTING_STUDENT" ? "border-amber-300 bg-amber-50" : "border-[#e6ebf5] bg-white"}`}
+                  className={`rounded-2xl border px-4 py-4 text-left transition ${form.studentTarget === "EXISTING_STUDENT" ? "border-[#0f1729] bg-[#f8fafc] ring-1 ring-[#0f1729]" : "border-[#e6ebf5] bg-white"}`}
                 >
                   <p className="text-sm font-semibold text-ink">Học viên đã có sẵn</p>
                   <p className="mt-1 text-xs leading-5 text-ink-muted48">Dùng khi học viên đang học rồi nhưng cần vào thêm lớp mới.</p>
@@ -527,7 +527,7 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                 <button
                   type="button"
                   onClick={() => patchForm("mode", "WAITLIST")}
-                  className={`rounded-2xl border px-4 py-4 text-left transition ${form.mode === "WAITLIST" ? "border-amber-300 bg-amber-50" : "border-[#e6ebf5] bg-white"}`}
+                  className={`rounded-2xl border px-4 py-4 text-left transition ${form.mode === "WAITLIST" ? "border-[#0f1729] bg-[#f8fafc] ring-1 ring-[#0f1729]" : "border-[#e6ebf5] bg-white"}`}
                 >
                   <p className="text-sm font-semibold text-ink">Lưu chờ xếp lớp</p>
                   <p className="mt-1 text-xs leading-5 text-ink-muted48">Dùng cho nhu cầu ban đầu khi phụ huynh chưa chốt lớp phù hợp.</p>

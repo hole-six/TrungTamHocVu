@@ -212,134 +212,54 @@
    PREMIUM BUTTONS - Bright & Modern
 ═══════════════════════════════════════════════════════ */
 @layer components {
-  .btn-primary {
-    @apply inline-flex items-center justify-center gap-2.5 rounded-2xl px-6 py-3
-           text-sm font-bold text-white shadow-lg
-           transition-all duration-300 ease-out
-           active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none
-           focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
-    background: var(--gradient-primary);
-    animation: fadeIn 0.3s ease-out;
-  }
-  .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-xl), var(--shadow-glow);
-  }
-  
-  .btn-primary-sm {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2
-           text-xs font-bold text-white shadow-md
-           transition-all duration-300 ease-out
-           active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none;
-    background: var(--gradient-primary);
-  }
-  .btn-primary-sm:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-lg);
-  }
-  
-  .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2.5 rounded-2xl border-2 px-6 py-3
-           text-sm font-bold
-           transition-all duration-300 ease-out
-           active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none;
-    background: var(--bg-card);
-    border-color: var(--border-primary);
-    color: var(--text-primary);
-    box-shadow: var(--shadow-sm);
-  }
-  .btn-secondary:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-    border-color: #0ea5e9;
-    color: #0284c7;
-  }
-  
-  .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2.5 rounded-2xl px-5 py-2.5
-           text-sm font-semibold
-           transition-all duration-300 ease-out
-           active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none;
-    background: var(--bg-muted);
-    color: var(--text-secondary);
-  }
-  .btn-ghost:hover {
-    background: var(--bg-accent);
-    color: var(--text-primary);
-    transform: translateY(-1px);
-  }
-  
-  .btn-ghost-sm {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2
-           text-xs font-semibold
-           transition-all duration-300 ease-out
-           active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none;
-    background: var(--bg-muted);
-    color: var(--text-secondary);
-  }
-  .btn-ghost-sm:hover {
-    background: var(--bg-accent);
-    color: var(--text-primary);
-  }
-  
-  .btn-danger {
-    @apply inline-flex items-center justify-center gap-2.5 rounded-2xl px-6 py-3
-           text-sm font-bold text-white shadow-lg
-           transition-all duration-300 ease-out
-           active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none;
-    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
-  }
-  .btn-danger:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-xl), 0 0 24px 0 rgb(244 63 94 / 0.3);
-  }
-  
-  .btn-danger-sm {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2
-           text-xs font-bold text-white shadow-md
-           transition-all duration-300 ease-out
-           active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none;
-    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
-  }
-  .btn-danger-sm:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-lg);
-  }
-  
-  .btn-success {
-    @apply inline-flex items-center justify-center gap-2.5 rounded-2xl px-6 py-3
-           text-sm font-bold text-white shadow-lg
-           transition-all duration-300 ease-out
-           active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none;
-    background: var(--gradient-green);
-  }
-  .btn-success:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-xl), 0 0 24px 0 rgb(17 153 142 / 0.3);
-  }
-
+  /* Nút toàn hệ thống: ĐEN / TRẮNG, một kiểu duy nhất. Trước đây mỗi loại một màu
+     (cam, đỏ, xanh, gradient, nổi lên khi hover) — cạnh nhau trong 1 drawer nhìn lộn
+     xộn. Việc nguy hiểm (rút lớp, xóa...) đã có hộp xác nhận nói rõ, không cần nút đỏ.
+     - btn-primary / btn-danger / btn-success / btn-360: nền đen chữ trắng (hành động chính)
+     - btn-secondary / btn-ghost: nền trắng viền xám, hover viền đen (hành động phụ) */
+  .btn-primary,
+  .btn-danger,
+  .btn-success,
   .btn-360 {
-    @apply inline-flex items-center justify-center gap-2.5 rounded-2xl px-5 py-2.5
-           text-sm font-bold text-white shadow-lg
-           transition-all duration-300 ease-out
-           active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none;
-    background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-[#0f1729] bg-[#0f1729] px-4 py-2
+           text-sm font-bold text-white shadow-sm transition-colors
+           disabled:opacity-50 disabled:pointer-events-none
+           focus-visible:ring-2 focus-visible:ring-[#0f1729]/30 focus-visible:ring-offset-2;
   }
-  .btn-360:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-xl), 0 0 26px 0 rgb(37 99 235 / 0.28);
+  .btn-primary-sm,
+  .btn-danger-sm,
+  .btn-360-sm {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#0f1729] bg-[#0f1729] px-3 py-1.5
+           text-xs font-bold text-white shadow-sm transition-colors
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary:hover,
+  .btn-danger:hover,
+  .btn-success:hover,
+  .btn-360:hover,
+  .btn-primary-sm:hover,
+  .btn-danger-sm:hover,
+  .btn-360-sm:hover {
+    background: #1e293b;
+    border-color: #1e293b;
   }
 
-  .btn-360-sm {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2
-           text-xs font-bold text-white shadow-md
-           transition-all duration-300 ease-out
-           active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none;
-    background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  .btn-secondary,
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-[#e2e8f0] bg-white px-4 py-2
+           text-sm font-bold text-[#0f1729] shadow-sm transition-colors
+           disabled:opacity-50 disabled:pointer-events-none;
   }
-  .btn-360-sm:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-lg), 0 0 22px 0 rgb(37 99 235 / 0.22);
+  .btn-ghost-sm {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5
+           text-xs font-bold text-[#0f1729] shadow-sm transition-colors
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-secondary:hover,
+  .btn-ghost:hover,
+  .btn-ghost-sm:hover {
+    border-color: #0f1729;
+    color: #0f1729;
   }
   
   /* Icon-only buttons */
@@ -351,10 +271,8 @@
     color: var(--text-muted);
   }
   .btn-icon:hover {
-    background: var(--bg-card-hover);
+    border-color: #0f1729;
     color: var(--text-primary);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
   }
   .btn-icon:active {
     transform: scale(0.95);
@@ -706,29 +624,23 @@
 
   /* ─── Status pill (inline action) ───────────────────── */
   .status-action {
-    @apply inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium
-           border border-[#e2e8f0] bg-white text-ink-muted80 shadow-sm
-           transition hover:bg-[#f8fafc] hover:border-primary/30 hover:text-primary
-           active:scale-95 cursor-pointer;
+    /* Nút thao tác trên từng dòng (rút lớp, bảo lưu, chuyển lớp, hồ sơ...) — cùng một cỡ. */
+    @apply inline-flex items-center justify-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold
+           border border-[#e2e8f0] bg-white text-[#0f1729] shadow-sm
+           transition-colors hover:border-[#0f1729] cursor-pointer
+           disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   /* ─── Quick-action bar button (entity-detail action rows: students, classes) ── */
   .btn-quickaction {
-    @apply inline-flex items-center gap-2 rounded-xl border-2 border-[#e5eaf7] bg-white px-5 py-3
-           text-base font-semibold text-[#0f1729] shadow-sm
-           transition-all hover:-translate-y-0.5;
+    @apply inline-flex items-center gap-2 rounded-lg border border-[#e2e8f0] bg-white px-4 py-2
+           text-sm font-bold text-[#0f1729] shadow-sm transition-colors;
   }
-  .btn-quickaction--orange {
-    @apply hover:border-[#f97316] hover:text-[#f97316];
-  }
-  .btn-quickaction--blue {
-    @apply hover:border-[#3b82f6] hover:text-[#3b82f6];
-  }
-  .btn-quickaction--purple {
-    @apply hover:border-[#8b5cf6] hover:text-[#8b5cf6];
-  }
+  .btn-quickaction--orange,
+  .btn-quickaction--blue,
+  .btn-quickaction--purple,
   .btn-quickaction--neutral {
-    @apply text-[#6b7280] hover:border-[#9ca3af] hover:text-[#111827];
+    @apply hover:border-[#0f1729] hover:text-[#0f1729];
   }
 
   /* ─── Search result item ─────────────────────────────── */
