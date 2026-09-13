@@ -13,6 +13,7 @@ import { computeAutoSessionWindow, createSessionsInRange, computeEnrollmentSessi
 import { ensureBillingPeriod, generateChargesForPeriod } from "@/lib/server/billing-generation";
 import { ensurePayrollRun, generatePayrollForRun } from "@/lib/server/payroll-generation";
 import { monthKey } from "@/lib/server/tuition-rules";
+import { getVietnamToday } from "@/lib/server/class-rules";
 import { grantRemainingSessionCredits } from "@/lib/server/session-credits";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 
@@ -99,7 +100,9 @@ export async function runDailySessionSweep(): Promise<SweepResult> {
 
 export async function runMonthlyBillingSweep(): Promise<SweepResult> {
   const correlationId = randomUUID();
-  const periodName = monthKey(new Date());
+  // Tháng theo giờ Việt Nam, không theo UTC: sweep chạy 2h sáng giờ VN, tức vẫn là ngày
+  // hôm trước theo UTC — ngày 1 sẽ sinh nhầm vào kỳ tháng TRƯỚC.
+  const periodName = monthKey(getVietnamToday());
   let processed = 0;
   let errors = 0;
 

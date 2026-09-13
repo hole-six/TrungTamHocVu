@@ -41,12 +41,17 @@ export function startScheduler() {
     // Chạy sau sessions cùng khung giờ — để 1 lớp vừa sinh xong buổi cuối cùng
     // lượt này vẫn được lượt sau bắt kịp (expectedEndDate không đổi theo sweep này).
     await runOnce("classEndCredits", runClassEndCreditSweep);
+    // Học phí tháng hiện tại chạy MỖI NGÀY, ngay sau khi sinh buổi — không chỉ ngày 1.
+    // Chỉ chạy ngày 1 thì buổi lớp xếp thêm giữa tháng, hay ghi danh bị sót phiếu, phải
+    // đợi sang tháng sau mới lên phiếu: ví học viên về 0 rồi âm mà vẫn "Không nợ".
+    // Chạy lại an toàn: phiếu chưa thu được tính lại, phiếu đã thu chỉ cộng thêm buổi mới.
+    await runOnce("billing", runMonthlyBillingSweep);
   });
-  cron.schedule("0 3 1 * *", () => runOnce("billing", runMonthlyBillingSweep));
   cron.schedule("0 4 1 * *", () => runOnce("payroll", runMonthlyPayrollSweep));
 
   // Chạy ngay 1 lần lúc khởi động để bắt kịp nếu server từng tắt qua giờ hẹn.
-  void runOnce("sessions", runDailySessionSweep).then(() => runOnce("classEndCredits", runClassEndCreditSweep));
-  void runOnce("billing", runMonthlyBillingSweep);
+  void runOnce("sessions", runDailySessionSweep)
+    .then(() => runOnce("classEndCredits", runClassEndCreditSweep))
+    .then(() => runOnce("billing", runMonthlyBillingSweep));
   void runOnce("payroll", runMonthlyPayrollSweep);
 }

@@ -174,6 +174,60 @@ export async function findLockedPeriodForSession(classId: string, sessionDate: D
   return hasCharge ? period : null;
 }
 
+// Chỉ CỘNG, không bao giờ trừ: lớp hủy bớt buổi thì phần đã thu nằm lại trong ví và tự
+// trừ vào phiếu tháng sau. Số dư mang sang (carriedSessionCount) giữ đúng con số đã chốt
+// lúc sinh phiếu — tính lại bây giờ sẽ lẫn cả buổi vừa nạp từ chính khoản đã thu này.
+// Phiếu có số liệu không khớp công thức (dữ liệu cũ chưa lưu tổng buổi, hoặc đã sửa tay)
+// thì không suy ra được đã tính những gì → không tự đụng vào.
+async function addLateScheduledSessionsToCollectedCharge(
+  charge: {
+    id: string;
+    studentId: string;
+    billingModel: string;
+    sessionCount: number;
+    scheduledSessionCount: number;
+    carriedSessionCount: number;
+    absentCount: number;
+    deductedCount: number;
+    unitPrice: number;
+    tuitionAmount: number;
+    materialsAmount: number;
+    openingBalance: number;
+    notes: string | null;
+  },
+  scheduledSessionCount: number,
+) {
+  if (charge.billingModel !== "PERIOD" || charge.unitPrice <= 0) return 0;
+  const billedByFormula = Math.max(0, charge.scheduledSessionCount - charge.carriedSessionCount);
+  const tuitionByFormula = computeTuitionAmount(charge.sessionCount, 0, charge.deductedCount, charge.unitPrice);
+  if (charge.scheduledSessionCount <= 0 || billedByFormula !== charge.sessionCount || tuitionByFormula !== charge.tuitionAmount) {
+    return 0;
+  }
+
+  const lateSessions = Math.max(0, scheduledSessionCount - charge.carriedSessionCount) - charge.sessionCount;
+  if (lateSessions <= 0) return 0;
+
+  const sessionCount = charge.sessionCount + lateSessions;
+  const tuitionAmount = computeTuitionAmount(sessionCount, 0, charge.deductedCount, charge.unitPrice);
+  const note = `Cộng thêm ${lateSessions} buổi lớp xếp sau khi đã thu (${new Date().toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}).`;
+  await prisma.$transaction(async (tx) => {
+    await tx.charge.update({
+      where: { id: charge.id },
+      data: {
+        sessionCount,
+        scheduledSessionCount,
+        mainTuitionAmount: tuitionAmount,
+        tuitionAmount,
+        totalAmount: computeTotalAmount(tuitionAmount, charge.materialsAmount, charge.openingBalance),
+        notes: charge.notes ? `${charge.notes}\n${note}` : note,
+      },
+    });
+    // Tiền đóng trước còn treo trên phiếu thu thì trừ luôn vào phần vừa cộng thêm.
+    await settleChargesFromAdvancePayments(tx, charge.studentId);
+  });
+  return lateSessions;
+}
+
 export async function generateChargesForPeriod(
   periodId: string,
   // enrollmentId: chỉ sinh phiếu cho ĐÚNG ghi danh này (dùng ngay lúc ghi danh theo tháng
@@ -425,6 +479,14 @@ export async function generateChargesForPeriod(
     if (chargeToUpdate) {
       const collectedAmount = await getChargeCollectedAmount(chargeToUpdate.id);
       if (collectedAmount > 0) {
+        // Phiếu đã thu thì không sinh đè — nhưng lớp xếp THÊM buổi trong tháng sau lúc thu
+        // (lớp kéo dài, lịch tự sinh thêm) thì phải cộng thêm đúng số buổi đó, nếu không
+        // chúng không nằm trên phiếu nào: ví về 0 rồi âm mà vẫn "Không nợ".
+        const lateSessions = await addLateScheduledSessionsToCollectedCharge(chargeToUpdate, scheduledSessionCount);
+        if (lateSessions > 0) {
+          updated++;
+          continue;
+        }
         pushException(
           studentId,
           classId,

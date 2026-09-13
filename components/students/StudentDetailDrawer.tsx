@@ -90,6 +90,8 @@ type StudentData = {
   // Số buổi còn được quyền học vì đã đóng tiền, tách biệt hoàn toàn khỏi tiến độ
   // điểm danh (kpis.attendanceStats) — xem lib/server/enrollment-wallet.ts.
   walletBalance?: number | null;
+  // Chỉ có khi ví theo tháng đã hết/âm — đủ để nói đúng việc cần làm (xem drawer-data).
+  walletAdvice?: { unpaidAmount: number; upcomingSessionCount: number; nextSessionDate: string | Date | null } | null;
   currentEnrollment?: {
     id: string;
     status: string;
@@ -98,6 +100,7 @@ type StudentData = {
     courseId?: string | null;
     courseName?: string | null;
     enrollDate: Date;
+    endDate?: Date | null;
     learningStartDate?: Date | null;
     billingModel: string;
     paidCatchupSessionCount: number;
@@ -226,6 +229,23 @@ const STATUS_LABEL: Record<string, string> = {
   TRANSFERRED: "Đã chuyển",
 };
 
+// Nhãn ô lớp theo trạng thái ghi danh. Khi học viên không còn ghi danh nào đang học,
+// drawer hiện ghi danh gần nhất (đã rút/đã chuyển/học xong) — không được gọi đó là
+// "Lớp đang học".
+const ENROLLMENT_CLASS_LABEL: Record<string, string> = {
+  ACTIVE: "Lớp đang học",
+  PAUSED: "Lớp đang bảo lưu",
+  PENDING: "Lớp chờ vào học",
+  WITHDRAWN: "Lớp đã rút",
+  TRANSFERRED: "Lớp đã chuyển đi",
+  COMPLETED: "Lớp đã học xong",
+};
+const ENROLLMENT_ENDED_LABEL: Record<string, string> = {
+  WITHDRAWN: "Đã rút lớp",
+  TRANSFERRED: "Đã chuyển lớp",
+  COMPLETED: "Đã học xong",
+};
+
 export default function StudentDetailDrawer({ open, onClose, studentId }: StudentDetailDrawerProps) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<StudentData | null>(null);
@@ -280,6 +300,8 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
   const snapshot = data.learningSnapshot;
   const enrollment = data.currentEnrollment;
   const isCourseEnrollment = enrollment?.billingModel !== "PERIOD";
+  // Ghi danh đã kết thúc (rút/chuyển/xong): chỉ để xem lại, không nhắc thu tiền hay chuyển lớp.
+  const enrollmentEnded = enrollment ? enrollment.status in ENROLLMENT_ENDED_LABEL : false;
   const attendance = data.kpis.attendanceStats;
   const attendanceByClass = data.kpis.attendanceByClass ?? [];
   const canSeeFinance = data.permissions.canSeeFinance;
@@ -306,9 +328,12 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
             {enrollment ? (
               <Link
                 href={`/classes/${enrollment.classId}`}
-                className="rounded-md bg-[#fb923c] px-2 py-1 font-bold text-white hover:bg-[#ea580c]"
+                className={`rounded-md px-2 py-1 font-bold text-white ${
+                  enrollmentEnded ? "bg-[#94a3b8] hover:bg-[#64748b]" : "bg-[#fb923c] hover:bg-[#ea580c]"
+                }`}
               >
                 {enrollment.className}
+                {enrollmentEnded ? ` · ${ENROLLMENT_ENDED_LABEL[enrollment.status]}` : ""}
               </Link>
             ) : null}
             <span
@@ -423,7 +448,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
             ) : null}
             {data.permissions.canEditStudent ? (
               <button type="button" onClick={() => setAssignEnrollmentOpen(true)} className={ACTION_CLASS}>
-                {enrollment ? "Gán thêm lớp" : "Gán nhập học"}
+                {enrollment && !enrollmentEnded ? "Gán thêm lớp" : "Gán nhập học"}
               </button>
             ) : null}
             {/* PERIOD chuyển lớp tự do, không cần "còn buổi" (khái niệm đó không tồn
@@ -448,7 +473,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                 />
               </>
             ) : null}
-            {data.permissions.canManageSchedule && enrollment && snapshot && (!isCourseEnrollment || snapshot.remainingMainSessions > 0) ? (
+            {data.permissions.canManageSchedule && enrollment && !enrollmentEnded && snapshot && (!isCourseEnrollment || snapshot.remainingMainSessions > 0) ? (
               <TransferEnrollmentButton
                 enrollmentId={enrollment.id}
                 currentClassName={enrollment.className}
@@ -504,11 +529,17 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
           <Section
             title="Lớp & tiến độ"
             defaultOpen
-            hint={enrollment ? enrollment.className : "Chưa ghi danh"}
+            hint={
+              enrollment
+                ? enrollmentEnded
+                  ? `${enrollment.className} · ${ENROLLMENT_ENDED_LABEL[enrollment.status]}`
+                  : enrollment.className
+                : "Chưa ghi danh"
+            }
           >
             {enrollment && snapshot ? (
               <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-                <Stat label="Lớp đang học">
+                <Stat label={ENROLLMENT_CLASS_LABEL[enrollment.status] ?? "Lớp"}>
                   <Link href={`/classes/${enrollment.classId}`} className="text-[#1d4ed8] hover:underline">
                     {enrollment.className}
                   </Link>
@@ -516,6 +547,14 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                 </Stat>
                 <Stat label="Lịch học">{schedule || null}</Stat>
                 <Stat label="Bắt đầu">{formatDate(enrollment.learningStartDate ?? enrollment.enrollDate)}</Stat>
+                {enrollmentEnded ? (
+                  <Stat label="Trạng thái">
+                    <span className="font-semibold text-[#dc2626]">
+                      {ENROLLMENT_ENDED_LABEL[enrollment.status]}
+                      {enrollment.endDate ? ` · ${formatDate(enrollment.endDate)}` : ""}
+                    </span>
+                  </Stat>
+                ) : null}
                 {/* "Dự kiến hết buổi" suy từ remainingMainSessions — chỉ có nghĩa với
                     COURSE (tổng buổi cố định). PERIOD không có mốc kết thúc kiểu này. */}
                 {isCourseEnrollment ? (
@@ -538,7 +577,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                     {canSeeFinance ? ` · ${formatVnd(enrollment.paidCatchupAmount)}` : ""}
                   </Stat>
                 ) : null}
-                {enrollment.nextClassName ? <Stat label="Lớp tiếp theo">{enrollment.nextClassName}</Stat> : null}
+                {enrollment.nextClassName && !enrollmentEnded ? <Stat label="Lớp tiếp theo">{enrollment.nextClassName}</Stat> : null}
                 {data.enrollments.length > 1 ? (
                   <Stat label="Các lớp khác" wide>
                     {data.enrollments
@@ -547,7 +586,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                       .join(", ")}
                   </Stat>
                 ) : null}
-                {isCourseEnrollment && snapshot.continuationStatus === "NEED_TRANSFER" ? (
+                {!enrollmentEnded && isCourseEnrollment && snapshot.continuationStatus === "NEED_TRANSFER" ? (
                   <Stat label="Cần xử lý" wide>
                     <span className="text-amber-700">
                       Lớp hiện tại thiếu {snapshot.shortageAfterCurrentClass} buổi so với số buổi đã mua — cần chuyển
@@ -555,20 +594,58 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                     </span>
                   </Stat>
                 ) : null}
-                {isCourseEnrollment && snapshot.continuationStatus === "COMPLETED" ? (
+                {!enrollmentEnded && isCourseEnrollment && snapshot.continuationStatus === "COMPLETED" ? (
                   <Stat label="Cần xử lý" wide>
                     <span className="text-emerald-700">
                       Đã học đủ số buổi đã mua. Ghi danh gói mới nếu học tiếp, hoặc để nguyên đến khi lớp kết thúc.
                     </span>
                   </Stat>
                 ) : null}
-                {!isCourseEnrollment && data.walletBalance != null && data.walletBalance <= 0 ? (
+{!enrollmentEnded && !isCourseEnrollment && data.walletBalance != null && data.walletBalance <= 0 ? (
                   <Stat label="Cần xử lý" wide>
-                    <span className="text-amber-700">
-                      {data.walletBalance < 0
-                        ? `Ví âm ${Math.abs(data.walletBalance)} buổi — đã học vượt quá tiền đã đóng, cần thu gấp.`
-                        : "Ví đã hết buổi — cần thu học phí tháng mới trước khi học tiếp."}
-                    </span>
+                    {(() => {
+                      const advice = data.walletAdvice;
+                      const balance = data.walletBalance ?? 0;
+                      const owed = balance < 0 ? `Ví âm ${Math.abs(balance)} buổi` : "Ví đã hết buổi";
+                      if (advice && advice.unpaidAmount > 0) {
+                        return (
+                          <span className="text-amber-700">
+                            {owed} — còn phiếu chưa thu {formatVnd(advice.unpaidAmount)}. Thu tiền là ví tự nạp lại buổi.
+                          </span>
+                        );
+                      }
+                      if (advice && advice.upcomingSessionCount === 0) {
+                        return (
+                          <span className="text-amber-700">
+                            {owed} và lớp đã hết lịch học nên không còn buổi nào để thu.{" "}
+                            {enrollment.nextClassName
+                              ? `Chuyển sang lớp tiếp theo ${enrollment.nextClassName} để học tiếp.`
+                              : "Chuyển lớp, hoặc thêm lịch cho lớp nếu vẫn học tiếp."}
+                          </span>
+                        );
+                      }
+                      const next = advice?.nextSessionDate ? new Date(advice.nextSessionDate) : null;
+                      const nowVn = new Date(Date.now() + 7 * 60 * 60 * 1000);
+                      const nextInThisMonth =
+                        next != null &&
+                        next.getUTCFullYear() === nowVn.getUTCFullYear() &&
+                        next.getUTCMonth() === nowVn.getUTCMonth();
+                      if (balance === 0 && next && !nextInThisMonth) {
+                        return (
+                          <span className="text-[#475569]">
+                            Đã học hết số buổi đã đóng của tháng này. Phiếu tháng {next.getUTCMonth() + 1} tự sinh
+                            ngày 1/{next.getUTCMonth() + 1}, buổi kế tiếp {formatDate(next)}.
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="text-amber-700">
+                          {owed} mà chưa có phiếu nào đòi{next ? `, buổi kế tiếp ${formatDate(next)}` : ""}. Hệ thống tự
+                          cộng buổi còn thiếu vào phiếu tháng trong lượt chạy đêm — sáng mai chưa thấy thì kiểm tra phiếu
+                          tháng này ở mục Học phí.
+                        </span>
+                      );
+                    })()}
                   </Stat>
                 ) : null}
               </div>

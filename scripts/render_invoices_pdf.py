@@ -235,6 +235,27 @@ def draw_table(c, x, y_top, col_widths, row_heights, rows, bold_cells=None, alig
     return bottom_y
 
 
+LOGO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "public", "img", "logocoso.jpg")
+_logo_cache = {}
+
+
+def get_branch_logo():
+    # Ảnh gốc 2560px — thu nhỏ 1 lần mỗi lần chạy để PDF không nặng vài trăm KB mỗi phiếu.
+    if "logo" not in _logo_cache:
+        try:
+            from PIL import Image
+
+            image = Image.open(LOGO_PATH).convert("RGB")
+            image.thumbnail((480, 480))
+            buffer = io.BytesIO()
+            image.save(buffer, format="JPEG", quality=88)
+            buffer.seek(0)
+            _logo_cache["logo"] = ImageReader(buffer)
+        except Exception:
+            _logo_cache["logo"] = None
+    return _logo_cache["logo"]
+
+
 def draw_invoice_page(c, charge, payment_profile):
     student = charge["student"]
     class_info = charge["class"]
@@ -262,19 +283,24 @@ def draw_invoice_page(c, charge, payment_profile):
 
     y = PAGE_HEIGHT - MARGIN_Y - 12
 
-    logo_size = 18 * mm
+    logo_size = 20 * mm
     logo_x = outer_x + 8
-    logo_y = y - logo_size + 1
-    c.rect(logo_x, logo_y, logo_size, logo_size)
-    draw_text(c, get_branch_short_name(branch_name), logo_x + logo_size / 2, logo_y + logo_size / 2 - 4, size=10, bold=True, align="center")
-    draw_text(c, branch_name, logo_x + logo_size + 8, y - 10, size=14, bold=True)
+    logo_y = y - logo_size + 6
+    logo = get_branch_logo()
+    if logo is not None:
+        c.drawImage(logo, logo_x, logo_y, logo_size, logo_size, preserveAspectRatio=True, mask="auto")
+    else:
+        # Thiếu file logo thì vẫn in được phiếu — quay về ô tên viết tắt như trước.
+        c.rect(logo_x, logo_y, logo_size, logo_size)
+        draw_text(c, get_branch_short_name(branch_name), logo_x + logo_size / 2, logo_y + logo_size / 2 - 4, size=10, bold=True, align="center")
+    draw_text(c, branch_name, logo_x + logo_size + 10, y - 16, size=14, bold=True)
 
     draw_text(c, "PHIẾU THÔNG", outer_x + outer_w - 10, y - 2, size=15, bold=True, align="right")
     draw_text(c, "BÁO HỌC PHÍ", outer_x + outer_w - 10, y - 18, size=15, bold=True, align="right")
     draw_text(c, period_label, outer_x + outer_w - 10, y - 34, size=12.5, bold=True, align="right")
-    draw_text(c, f"STT: {serial}", outer_x + 8, logo_y - 12, size=10.5, bold=True)
+    draw_text(c, f"STT: {serial}", outer_x + 8, logo_y - 13, size=10.5, bold=True)
 
-    table_top = y - 64
+    table_top = y - 72
     info_col_widths = [32 * mm, 72 * mm, 22 * mm, outer_w - 16 - (32 + 72 + 22) * mm]
     info_row_heights = [18 * mm, 18 * mm]
     info_rows = [

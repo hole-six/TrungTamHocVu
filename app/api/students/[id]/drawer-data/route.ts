@@ -183,7 +183,10 @@ export async function GET(
     // Calculate KPIs
     const outstanding = canSeeFinance ? await computeOutstandingBalance(student.id) : 0;
     const activeEnrollments = student.enrollments.filter((e) => e.status === "ACTIVE");
-    const currentEnrollment = activeEnrollments[0] ?? student.enrollments[0] ?? null;
+    // Còn ở lớp (đang học > bảo lưu/chờ vào học) thì lấy lớp đó; hết rồi mới lấy ghi danh
+    // gần nhất (đã rút/chuyển/xong) để drawer hiện đúng trạng thái kết thúc.
+    const openEnrollments = student.enrollments.filter((e) => ["PAUSED", "PENDING"].includes(e.status));
+    const currentEnrollment = activeEnrollments[0] ?? openEnrollments[0] ?? student.enrollments[0] ?? null;
 
     const totalCharged = student.charges.reduce((sum, charge) => sum + charge.totalAmount, 0);
     const totalPaid = student.payments.reduce((sum, payment) => sum + payment.amount, 0);
@@ -349,6 +352,28 @@ export async function GET(
     );
     const enrollmentOutstanding = Math.max(0, enrollmentFinance.total - enrollmentFinance.paid);
 
+    // Ví theo tháng hết buổi thì drawer phải nói ĐÚNG việc cần làm — có 3 tình huống khác
+    // hẳn nhau: còn phiếu chưa thu (thu tiền), lớp đã hết lịch (chuyển lớp tiếp theo), hay
+    // chỉ là đã học hết tháng đã đóng (phiếu tháng sau tự sinh). Trước đây gộp chung 1 câu
+    // "cần thu học phí tháng mới" kể cả khi chẳng có phiếu nào để thu.
+    let walletAdvice: { unpaidAmount: number; upcomingSessionCount: number; nextSessionDate: Date | null } | null = null;
+    if (currentEnrollment?.billingModel === "PERIOD" && currentEnrollment.classId && walletBalance != null && walletBalance <= 0) {
+      const unpaidAmount = enrollmentCharges.reduce(
+        (sum, charge) => sum + Math.max(0, chargeOwnDueAmount(charge) - charge.allocations.reduce((s, a) => s + a.amount, 0)),
+        0,
+      );
+      const upcomingWhere = {
+        classId: currentEnrollment.classId,
+        sessionDate: { gte: getVietnamToday() },
+        status: { notIn: ["CANCELLED", "RESCHEDULED", "COMPLETED"] },
+      };
+      const [upcomingSessionCount, nextSession] = await Promise.all([
+        prisma.classSession.count({ where: upcomingWhere }),
+        prisma.classSession.findFirst({ where: upcomingWhere, orderBy: { sessionDate: "asc" }, select: { sessionDate: true } }),
+      ]);
+      walletAdvice = { unpaidAmount, upcomingSessionCount, nextSessionDate: nextSession?.sessionDate ?? null };
+    }
+
     // Transfer history
     const transferHistory = currentEnrollment
       ? [
@@ -371,7 +396,7 @@ export async function GET(
 
     // Operational warnings
     const operationalWarnings: { text: string; severity: "critical" | "warning" | "info" }[] = [];
-    if (!currentEnrollment) {
+    if (activeEnrollments.length === 0 && openEnrollments.length === 0) {
       operationalWarnings.push({
         text: "Chưa có lớp đang học — cần gán lớp cho học viên.",
         severity: "critical",
@@ -542,6 +567,7 @@ export async function GET(
       },
       learningSnapshot,
       walletBalance,
+      walletAdvice,
       currentEnrollment: currentEnrollment
         ? {
             id: currentEnrollment.id,
@@ -552,6 +578,7 @@ export async function GET(
             courseId: currentEnrollment.class?.courseId ?? currentEnrollment.courseId ?? null,
             courseName: currentEnrollment.class?.course?.name,
             enrollDate: currentEnrollment.enrollDate,
+            endDate: currentEnrollment.endDate,
             learningStartDate: currentEnrollment.learningStartDate,
             billingModel: currentEnrollment.billingModel,
             paidCatchupSessionCount: currentEnrollment.paidCatchupSessionCount,

@@ -13,15 +13,6 @@ function getInvoiceSerial(invoiceNo: string | undefined) {
   return parts?.[1] ?? invoiceNo.slice(-6).toUpperCase();
 }
 
-function getBranchShortName(name: string) {
-  const words = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 3);
-  return words.map((word) => word[0]?.toUpperCase() ?? "").join("") || "TT";
-}
-
 function getDueDateLabel(periodName: string) {
   const [year, month] = periodName.split("-");
   if (!year || !month) return `trong kỳ ${periodName}`;
@@ -116,10 +107,8 @@ export default function InvoiceDocument({
       <div className="border border-black px-4 py-3">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="flex h-[58px] w-[58px] items-center justify-center border border-black bg-[#f5f7fb] text-[15px] font-bold">
-              {getBranchShortName(branchName)}
-            </div>
-            <div className="pt-1">
+            <img src="/img/logocoso.jpg" alt={branchName} className="h-[76px] w-[76px] object-contain" />
+            <div className="pt-5">
               <p className="text-[15px] font-bold uppercase leading-5">{branchName}</p>
             </div>
           </div>
