@@ -69,6 +69,9 @@ export type LeadDetailData = {
     dob: string | null;
     currentSchoolGrade: string | null;
     phone: string | null;
+    guardianRelation: string | null;
+    secondaryGuardianName: string | null;
+    secondaryGuardianRelation: string | null;
     secondaryPhone: string | null;
     zaloContact: string | null;
     address: string | null;
@@ -115,7 +118,10 @@ export default function LeadDetailContent({
     dob: toYmd(lead.dob),
     currentSchoolGrade: lead.currentSchoolGrade ?? "",
     guardianName: lead.guardian?.fullName ?? "",
+    guardianRelation: lead.guardianRelation ?? "",
     phone: lead.phone ?? "",
+    secondaryGuardianName: lead.secondaryGuardianName ?? "",
+    secondaryGuardianRelation: lead.secondaryGuardianRelation ?? "",
     secondaryPhone: lead.secondaryPhone ?? "",
     address: lead.address ?? "",
     source: lead.source ?? "",
@@ -293,13 +299,32 @@ export default function LeadDetailContent({
             <EditRow label="Lớp ở trường">
               <input className="input h-9" value={form.currentSchoolGrade} onChange={(e) => set("currentSchoolGrade", e.target.value)} />
             </EditRow>
-            <EditRow label="Phụ huynh">
+            <EditRow label="Phụ huynh 1">
               <input className="input h-9" value={form.guardianName} onChange={(e) => set("guardianName", e.target.value)} />
             </EditRow>
-            <EditRow label="Số điện thoại">
+            <EditRow label="Quan hệ PH 1">
+              <select className="input h-9" value={form.guardianRelation} onChange={(e) => set("guardianRelation", e.target.value)}>
+                <option value="">—</option>
+                <option value="Mẹ">Mẹ</option>
+                <option value="Bố">Bố</option>
+                <option value="Khác">Khác</option>
+              </select>
+            </EditRow>
+            <EditRow label="SĐT PH 1">
               <input className="input h-9" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
             </EditRow>
-            <EditRow label="SĐT thứ 2">
+            <EditRow label="Phụ huynh 2">
+              <input className="input h-9" value={form.secondaryGuardianName} onChange={(e) => set("secondaryGuardianName", e.target.value)} />
+            </EditRow>
+            <EditRow label="Quan hệ PH 2">
+              <select className="input h-9" value={form.secondaryGuardianRelation} onChange={(e) => set("secondaryGuardianRelation", e.target.value)}>
+                <option value="">—</option>
+                <option value="Mẹ">Mẹ</option>
+                <option value="Bố">Bố</option>
+                <option value="Khác">Khác</option>
+              </select>
+            </EditRow>
+            <EditRow label="SĐT PH 2">
               <input className="input h-9" value={form.secondaryPhone} onChange={(e) => set("secondaryPhone", e.target.value)} />
             </EditRow>
             <EditRow label="Địa chỉ">
@@ -372,9 +397,14 @@ export default function LeadDetailContent({
           <Row label="Giới tính">{lead.gender ? GENDER_LABEL[lead.gender] ?? lead.gender : ""}</Row>
           <Row label="Ngày sinh">{formatDate(lead.dob)}</Row>
           <Row label="Lớp ở trường">{lead.currentSchoolGrade ?? ""}</Row>
-          <Row label="Phụ huynh">{lead.guardian?.fullName ?? ""}</Row>
-          <Row label="Số điện thoại">{lead.phone ?? ""}</Row>
-          <Row label="SĐT thứ 2">{lead.secondaryPhone ?? ""}</Row>
+          <Row label="Phụ huynh 1">
+            {[lead.guardian?.fullName, lead.guardianRelation ? `(${lead.guardianRelation})` : null, lead.phone].filter(Boolean).join(" ")}
+          </Row>
+          <Row label="Phụ huynh 2">
+            {[lead.secondaryGuardianName, lead.secondaryGuardianRelation ? `(${lead.secondaryGuardianRelation})` : null, lead.secondaryPhone]
+              .filter(Boolean)
+              .join(" ")}
+          </Row>
           <Row label="Địa chỉ">{lead.address ?? ""}</Row>
           <Row label="Nguồn">{lead.source ?? ""}</Row>
           <Row label="Ngày gặp">{formatDate(lead.meetDate)}</Row>

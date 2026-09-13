@@ -30,7 +30,11 @@ export default function NewLeadDrawer({ classOptions }: Props) {
         dob: formData.get("dob") || null,
         currentSchoolGrade: formData.get("currentSchoolGrade") || null,
         guardianName: formData.get("guardianName") || null,
+        guardianRelation: formData.get("guardianRelation") || null,
         phone: formData.get("phone") || null,
+        // Phụ huynh thứ 2 (bố/mẹ còn lại) — lưu cả tên, quan hệ và số riêng.
+        secondaryGuardianName: formData.get("secondaryGuardianName") || null,
+        secondaryGuardianRelation: formData.get("secondaryGuardianRelation") || null,
         secondaryPhone: formData.get("secondaryPhone") || null,
         address: formData.get("address") || null,
         facebookParentName: formData.get("facebookParentName") || null,
@@ -183,27 +187,65 @@ export default function NewLeadDrawer({ classOptions }: Props) {
               <div className="card-sm">
                 <h3 className="text-base sm:text-lg font-bold text-[#0f172a] mb-4">Thông tin phụ huynh</h3>
                 <div className="space-y-4">
-                  <div className="form-group">
-                    <label className="label">Tên phụ huynh</label>
-                    <input
-                      type="text"
-                      name="guardianName"
-                      className="input"
-                      placeholder="Họ tên bố/mẹ"
-                    />
+                  {/* Lưu được CẢ BỐ LẪN MẸ với 2 số điện thoại riêng — trước đây chỉ có 1 tên
+                      phụ huynh, số thứ 2 nằm lẫn ở khối liên hệ mà không biết của ai. */}
+                  <div className="rounded-xl border border-[#e2e8f0] p-3 sm:p-4">
+                    <p className="mb-3 text-xs font-bold uppercase tracking-wide text-[#64748b]">Phụ huynh 1 — liên hệ chính</p>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_120px_minmax(0,1fr)]">
+                      <div className="form-group">
+                        <label className="label">Họ tên</label>
+                        <input type="text" name="guardianName" className="input" placeholder="VD: Nguyễn Thị B" />
+                      </div>
+                      <div className="form-group">
+                        <label className="label">Quan hệ</label>
+                        <select name="guardianRelation" className="input" defaultValue="Mẹ">
+                          <option value="Mẹ">Mẹ</option>
+                          <option value="Bố">Bố</option>
+                          <option value="Khác">Khác</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="label">Số điện thoại <span className="text-red-600">*</span></label>
+                        <input
+                          type="tel"
+                          name="phone"
+                          required
+                          className="input"
+                          placeholder="0912345678"
+                          pattern="[0-9]{10,11}"
+                          title="Số điện thoại 10-11 chữ số"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="form-group">
-                    <label className="label">Số điện thoại <span className="text-red-600">*</span></label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      required
-                      className="input"
-                      placeholder="0912345678"
-                      pattern="[0-9]{10,11}"
-                      title="Số điện thoại 10-11 chữ số"
-                    />
+                  <div className="rounded-xl border border-[#e2e8f0] p-3 sm:p-4">
+                    <p className="mb-3 text-xs font-bold uppercase tracking-wide text-[#64748b]">Phụ huynh 2 — nếu có</p>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_120px_minmax(0,1fr)]">
+                      <div className="form-group">
+                        <label className="label">Họ tên</label>
+                        <input type="text" name="secondaryGuardianName" className="input" placeholder="VD: Trần Văn C" />
+                      </div>
+                      <div className="form-group">
+                        <label className="label">Quan hệ</label>
+                        <select name="secondaryGuardianRelation" className="input" defaultValue="Bố">
+                          <option value="Bố">Bố</option>
+                          <option value="Mẹ">Mẹ</option>
+                          <option value="Khác">Khác</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="label">Số điện thoại</label>
+                        <input
+                          type="tel"
+                          name="secondaryPhone"
+                          className="input"
+                          placeholder="0987654321"
+                          pattern="[0-9]{10,11}"
+                          title="Số điện thoại 10-11 chữ số"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="form-group">
@@ -299,25 +341,9 @@ export default function NewLeadDrawer({ classOptions }: Props) {
                     </select>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="form-group">
-                      <label className="label">SĐT thứ 2</label>
-                      <input
-                        type="tel"
-                        name="secondaryPhone"
-                        className="input"
-                        placeholder="0987654321"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="label">Ngày gặp/liên hệ</label>
-                      <input
-                        type="date"
-                        name="meetDate"
-                        className="input"
-                      />
-                    </div>
+                  <div className="form-group">
+                    <label className="label">Ngày gặp/liên hệ</label>
+                    <input type="date" name="meetDate" className="input" />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

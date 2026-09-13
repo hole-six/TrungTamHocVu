@@ -172,7 +172,12 @@ export async function POST(req: NextRequest) {
       currentSchoolGrade: body.currentSchoolGrade || null,
       guardianId,
       phone: phone || null,
+      guardianRelation: body.guardianRelation || null,
+      // Phụ huynh thứ 2 (thường là bố): lưu ngay ở lead, chuyển thành học viên thì được
+      // tạo thành Guardian riêng và gắn vào học viên (xem app/api/students POST).
       secondaryPhone: body.secondaryPhone || null,
+      secondaryGuardianName: body.secondaryGuardianName || null,
+      secondaryGuardianRelation: body.secondaryGuardianRelation || null,
       zaloContact: body.zaloContact || null,
       address: body.address || null,
       meetDate: body.meetDate ? new Date(body.meetDate) : new Date(),

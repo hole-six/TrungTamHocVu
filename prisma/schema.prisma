@@ -264,6 +264,12 @@ model Lead {
   guardianId              String?   @map("guardian_id")
   phone                   String? // Sdt (mẹ)
   secondaryPhone          String?   @map("secondary_phone") // Sdt thứ 2 (thường là bố) — DSTest có 2 dòng Sdt
+  // Hai phụ huynh (bố + mẹ) ngay từ lúc nhận lead: guardianId/phone là người liên hệ
+  // CHÍNH, 3 cột dưới là người thứ 2. Chuyển lead thành học viên thì cả 2 được tạo
+  // thành Guardian và gắn vào học viên (xem app/api/leads/intake, app/api/students).
+  guardianRelation        String?   @map("guardian_relation") // Mẹ | Bố | Khác
+  secondaryGuardianName   String?   @map("secondary_guardian_name")
+  secondaryGuardianRelation String? @map("secondary_guardian_relation")
   zaloContact             String?   @map("zalo_contact") // Zalo phụ huynh (Word: "Facebook/Zalo của bố mẹ")
   address                 String? // DiaChiNha
   meetDate                DateTime? @map("meet_date") // NgayGap

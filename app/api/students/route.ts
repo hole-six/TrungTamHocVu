@@ -182,9 +182,65 @@ export async function POST(req: NextRequest) {
         leaveDate: body.leaveDate ? new Date(body.leaveDate) : null,
       },
     });
+    // PHỤ HUYNH: nhận tối đa 2 người (bố + mẹ) ngay lúc thêm học viên. Trước đây form
+    // chỉ có 1 số điện thoại của học viên và phụ huynh chỉ có khi chuyển từ lead sang.
+    const guardianInputs = (Array.isArray(body.guardians) ? body.guardians : [])
+      .map((item: { fullName?: string; phone?: string; relation?: string }) => ({
+        fullName: String(item?.fullName ?? "").trim(),
+        phone: String(item?.phone ?? "").trim(),
+        relation: String(item?.relation ?? "").trim(),
+      }))
+      .filter((item: { fullName: string; phone: string }) => item.fullName || item.phone)
+      .slice(0, 2);
+
+    // Lead có sẵn phụ huynh nào thì gắn luôn, kể cả người thứ 2 đã lưu ở lead.
     if (linkedLead?.guardianId) {
       await tx.studentGuardian.create({
-        data: { studentId: created.id, guardianId: linkedLead.guardianId, isPrimary: true },
+        data: {
+          studentId: created.id,
+          guardianId: linkedLead.guardianId,
+          relation: linkedLead.guardianRelation || null,
+          isPrimary: true,
+        },
+      });
+    }
+    if (linkedLead && (linkedLead.secondaryGuardianName || linkedLead.secondaryPhone)) {
+      const phone = linkedLead.secondaryPhone?.trim() || null;
+      const existingSecond = phone ? await tx.guardian.findFirst({ where: { phone } }) : null;
+      const second =
+        existingSecond ??
+        (await tx.guardian.create({ data: { fullName: linkedLead.secondaryGuardianName?.trim() || "Chưa rõ", phone } }));
+      if (second.id !== linkedLead.guardianId) {
+        await tx.studentGuardian.create({
+          data: {
+            studentId: created.id,
+            guardianId: second.id,
+            relation: linkedLead.secondaryGuardianRelation || null,
+            isPrimary: false,
+          },
+        });
+      }
+    }
+
+    const linkedGuardianIds = new Set(
+      (await tx.studentGuardian.findMany({ where: { studentId: created.id }, select: { guardianId: true } })).map((item) => item.guardianId),
+    );
+    for (const [index, input] of guardianInputs.entries()) {
+      // Trùng số điện thoại thì dùng lại đúng phụ huynh đã có (anh chị em ruột học cùng
+      // trung tâm dùng chung 1 phụ huynh), không tạo bản ghi trùng.
+      const existingGuardian = input.phone ? await tx.guardian.findFirst({ where: { phone: input.phone } }) : null;
+      const guardian =
+        existingGuardian ??
+        (await tx.guardian.create({ data: { fullName: input.fullName || "Chưa rõ", phone: input.phone || null } }));
+      if (linkedGuardianIds.has(guardian.id)) continue;
+      linkedGuardianIds.add(guardian.id);
+      await tx.studentGuardian.create({
+        data: {
+          studentId: created.id,
+          guardianId: guardian.id,
+          relation: input.relation || null,
+          isPrimary: linkedGuardianIds.size === 1 || index === 0,
+        },
       });
     }
     if (linkedLead) {

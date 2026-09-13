@@ -40,6 +40,14 @@ export default function StudentForm({ initialData, studentId, onCancel, onCreate
     status: initialData?.status ?? "ACTIVE",
     notes: initialData?.notes ?? "",
   });
+  // PHỤ HUYNH: nhập được cả bố lẫn mẹ với 2 số điện thoại riêng ngay lúc thêm học viên.
+  // Trước đây form chỉ có 1 ô "số điện thoại" của học viên, phụ huynh phải thêm sau ở
+  // hồ sơ, nên gọi cho gia đình lại không biết số nào của ai.
+  const [guardians, setGuardians] = useState([
+    { fullName: "", relation: "Mẹ", phone: "" },
+    { fullName: "", relation: "Bố", phone: "" },
+  ]);
+  const [guardianError, setGuardianError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -49,10 +57,22 @@ export default function StudentForm({ initialData, studentId, onCancel, onCreate
     if (key === "phone") setPhoneError(null);
   }
 
+  function setGuardian(index: number, key: "fullName" | "relation" | "phone", value: string) {
+    setGuardians((current) => current.map((item, i) => (i === index ? { ...item, [key]: value } : item)));
+    setGuardianError(null);
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (form.phone && !/^[0-9]{10,11}$/.test(form.phone)) {
       setPhoneError("Số điện thoại không hợp lệ (10-11 chữ số)");
+      return;
+    }
+
+    const filledGuardians = guardians.filter((item) => item.fullName.trim() || item.phone.trim());
+    const badGuardianPhone = filledGuardians.find((item) => item.phone.trim() && !/^[0-9]{10,11}$/.test(item.phone.trim()));
+    if (badGuardianPhone) {
+      setGuardianError("Số điện thoại phụ huynh không hợp lệ (10-11 chữ số)");
       return;
     }
 
@@ -62,7 +82,12 @@ export default function StudentForm({ initialData, studentId, onCancel, onCreate
     const res = await fetch(isEdit ? `/api/students/${studentId}` : "/api/students", {
       method: isEdit ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, dob: form.dob || null }),
+      body: JSON.stringify({
+        ...form,
+        dob: form.dob || null,
+        // Sửa hồ sơ thì phụ huynh đã có, quản lý riêng ở mục Phụ huynh của hồ sơ.
+        guardians: isEdit ? undefined : filledGuardians.map((item) => ({ ...item, fullName: item.fullName.trim(), phone: item.phone.trim() })),
+      }),
     });
 
     if (!res.ok) {
@@ -132,6 +157,46 @@ export default function StudentForm({ initialData, studentId, onCancel, onCreate
           />
         </label>
       </div>
+
+      {!isEdit ? (
+        <div className="space-y-3 border-t border-[#f1f5f9] pt-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Phụ huynh (lưu được cả bố và mẹ)</p>
+          {guardians.map((guardian, index) => (
+            <div key={index} className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_110px_minmax(0,1fr)]">
+              <label className="space-y-1">
+                <span className="label-sm">{index === 0 ? "Họ tên phụ huynh 1" : "Họ tên phụ huynh 2"}</span>
+                <input
+                  className="input"
+                  placeholder={index === 0 ? "VD: Nguyễn Thị B" : "Để trống nếu chưa có"}
+                  value={guardian.fullName}
+                  onChange={(e) => setGuardian(index, "fullName", e.target.value)}
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="label-sm">Quan hệ</span>
+                <select className="input" value={guardian.relation} onChange={(e) => setGuardian(index, "relation", e.target.value)}>
+                  <option value="Mẹ">Mẹ</option>
+                  <option value="Bố">Bố</option>
+                  <option value="Khác">Khác</option>
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="label-sm">Số điện thoại</span>
+                <input
+                  className="input"
+                  placeholder={index === 0 ? "0912345678" : "0987654321"}
+                  value={guardian.phone}
+                  onChange={(e) => setGuardian(index, "phone", e.target.value)}
+                />
+              </label>
+            </div>
+          ))}
+          {guardianError ? <p className="text-xs text-red-600">{guardianError}</p> : null}
+          <p className="text-[11px] text-[#94a3b8]">
+            Trùng số điện thoại với phụ huynh đã có trong hệ thống thì dùng lại đúng người đó (anh chị em ruột học cùng trung tâm).
+          </p>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-3 border-t border-[#f1f5f9] pt-4 sm:grid-cols-2">
         <label className="space-y-1">

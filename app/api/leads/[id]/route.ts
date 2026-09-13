@@ -64,7 +64,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data.status = body.status;
   }
 
-  for (const field of ["fullName", "gender", "phone", "secondaryPhone", "zaloContact", "currentSchoolGrade", "address", "source", "facebookParentName", "facebookLink", "initialAssessment", "notes", "notes2"]) {
+  for (const field of ["fullName", "gender", "phone", "secondaryPhone", "zaloContact", "currentSchoolGrade", "address", "source", "facebookParentName", "facebookLink", "initialAssessment", "notes", "notes2", "guardianRelation", "secondaryGuardianName", "secondaryGuardianRelation"]) {
     if (field in body) data[field] = body[field] || null;
   }
   for (const field of ["dob", "meetDate", "expectedStartDate", "actualEnrollDate"]) {

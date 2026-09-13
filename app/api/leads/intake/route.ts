@@ -157,6 +157,10 @@ export async function POST(req: NextRequest) {
   const initialAssessment = normalizeText(body.initialAssessment);
   const source = normalizeText(body.source);
   const guardianRelation = normalizeText(body.guardianRelation);
+  // Phụ huynh thứ 2 (bố/mẹ còn lại) — lưu ở lead và gắn luôn vào học viên nếu nhập học ngay.
+  const secondaryGuardianName = normalizeText(body.secondaryGuardianName);
+  const secondaryGuardianPhone = normalizeText(body.secondaryPhone);
+  const secondaryGuardianRelation = normalizeText(body.secondaryGuardianRelation);
   const scholarshipPercent = body.scholarshipPercent !== undefined && body.scholarshipPercent !== "" ? Number(body.scholarshipPercent) : null;
   const scholarshipReason = normalizeText(body.scholarshipReason);
   // Mặc định PERIOD (95% học sinh đóng theo tháng) — trước đây route này không hề
@@ -247,6 +251,10 @@ export async function POST(req: NextRequest) {
         dob,
         guardianId: guardian.id,
         phone: contactPhone,
+        guardianRelation,
+        secondaryPhone: secondaryGuardianPhone,
+        secondaryGuardianName,
+        secondaryGuardianRelation,
         address,
         meetDate,
         interestedClassId: selectedClass?.id ?? null,
