@@ -311,7 +311,21 @@ export default function QuickPaymentButton({
       <ConfirmDialog
         open={confirmOpen}
         title="Xác nhận đã thu tiền?"
-        description={`Ghi nhận đã thu ${formatVnd(numericAmount)} bằng ${method}${cashDiscountActive ? `, kèm chiết khấu ${numericDiscountPercent}% (giảm công nợ tổng cộng ${formatVnd(totalDebtReduction)})` : ""}.${advanceAmount > 0 ? ` Trong đó ${formatVnd(advanceAmount)} là tiền đóng trước, sẽ tự trừ vào học phí kỳ sau.` : ""} Chỉ xác nhận khi tiền đã thực sự vào tay hoặc đã có bằng chứng chuyển khoản rõ ràng.`}
+        description={[
+          `Số tiền thu: ${formatVnd(numericAmount)} · ${method}`,
+          cashDiscountActive
+            ? `Chiết khấu ${numericDiscountPercent}%: giảm thêm ${formatVnd(discountAmount)} — công nợ giảm tổng cộng ${formatVnd(totalDebtReduction)}`
+            : "",
+          // Nói thẳng công nợ trước và sau khi thu — nhân viên đối chiếu ngay với số tiền
+          // đang cầm trên tay, không phải tự trừ nhẩm.
+          `Công nợ hiện tại: ${formatVnd(outstanding)} → sau khi thu: ${formatVnd(Math.max(0, outstanding - totalDebtReduction))}`,
+          advanceAmount > 0 ? `Trong đó ${formatVnd(advanceAmount)} là tiền đóng trước, tự trừ vào học phí kỳ sau.` : "",
+          "Tiền vào phiếu đóng theo tháng sẽ tự nạp ví buổi học theo đơn giá của chính phiếu đó.",
+          "",
+          "Chỉ xác nhận khi tiền đã thực sự vào tay hoặc đã có bằng chứng chuyển khoản rõ ràng.",
+        ]
+          .filter(Boolean)
+          .join("\n")}
         confirmLabel="Xác nhận đã thu"
         loading={loading}
         onConfirm={submit}

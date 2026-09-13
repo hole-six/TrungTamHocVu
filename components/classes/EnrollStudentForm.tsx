@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import FormGuide from "@/components/ui/FormGuide";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import { formatVnd } from "@/lib/export-utils";
@@ -123,6 +124,8 @@ export default function EnrollStudentForm({
   // Học viên VỪA ghi danh + phiếu vừa lập — giữ riêng vì form xóa chọn học viên ngay sau
   // khi ghi danh (để ghi danh người tiếp theo), mà vẫn phải thu tiền/in phiếu người vừa rồi.
   const [lastEnrolled, setLastEnrolled] = useState<{ studentId: string; fullName: string; charges: EnrollmentCharge[] } | null>(null);
+  // Ghi danh làm phát sinh phiếu học phí — xác nhận lại số tiền trước khi lưu.
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Xem trước theo lớp + ngày bắt đầu + số buổi mua. Dùng chung đúng cách đếm buổi với
   // lúc sinh học phí thật, để số hiện ở đây không lệch số thu sau này.
@@ -175,7 +178,26 @@ export default function EnrollStudentForm({
     };
   }, [open, q, selected]);
 
+  function requestEnroll() {
+    if (!selected) return;
+    setError(null);
+    if (billingModel === "PERIOD" && (!courseSessionCount || Number(courseSessionCount) <= 0)) {
+      setError("Cần nhập số buổi của khóa — đóng theo tháng vẫn thu tới khi đủ số buổi này.");
+      return;
+    }
+    if (billingModel !== "PERIOD" && (!mainSessionCount || Number(mainSessionCount) <= 0)) {
+      setError("Cần nhập số buổi học viên đăng ký.");
+      return;
+    }
+    if (installmentsMismatch) {
+      setError("Tổng các đợt trả góp chưa khớp với tổng học phí — kiểm tra lại trước khi ghi danh.");
+      return;
+    }
+    setConfirmOpen(true);
+  }
+
   async function enroll() {
+    setConfirmOpen(false);
     if (!selected) return;
     if (billingModel === "PERIOD" && (!courseSessionCount || Number(courseSessionCount) <= 0)) {
       setError("Cần nhập số buổi của khóa — đóng theo tháng vẫn thu tới khi đủ số buổi này.");
@@ -561,7 +583,7 @@ export default function EnrollStudentForm({
           ) : null}
 
           <div className="flex gap-3 border-t border-[#e6eefc] pt-4">
-            <button type="button" onClick={enroll} disabled={!selected || loading || installmentsMismatch} className="btn-primary">
+            <button type="button" onClick={requestEnroll} disabled={!selected || loading || installmentsMismatch} className="btn-primary">
               {loading ? "Đang ghi danh..." : "Xác nhận ghi danh"}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
@@ -570,6 +592,49 @@ export default function EnrollStudentForm({
           </div>
         </div>
       </ResponsiveDrawer>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title={
+          billingModel === "PERIOD"
+            ? `Ghi danh theo tháng — phiếu đầu ${formatVnd(preview?.firstMonth?.amount ?? 0)}?`
+            : billingModel === "INSTALLMENT"
+              ? `Ghi danh trả góp — tổng ${formatVnd(enrollmentTotalAmount)}?`
+              : `Ghi danh trọn khóa — ${formatVnd(enrollmentTotalAmount)}?`
+        }
+        description={[
+          `Học viên: ${selected?.fullName ?? ""}${selected?.studentCode ? ` (${selected.studentCode})` : ""}`,
+          `Ngày bắt đầu: ${startDate}`,
+          `Đơn giá: ${formatVnd(Number(unitPrice) || 0)}/buổi${Number(discountPercent) > 0 ? ` · chiết khấu ${discountPercent}%` : ""}`,
+          billingModel === "PERIOD"
+            ? [
+                `Cách thu: theo tháng · khóa ${courseSessionCount || "—"} buổi`,
+                preview?.firstMonth
+                  ? `Phiếu tháng ${preview.firstMonth.periodName}: ${preview.firstMonth.sessionCount} buổi = ${formatVnd(preview.firstMonth.amount)} (lập ngay khi ghi danh)`
+                  : "",
+              ]
+                .filter(Boolean)
+                .join("\n")
+            : [
+                `Cách thu: ${billingModel === "INSTALLMENT" ? "trả góp theo đợt" : "trọn khóa"} · ${mainSessionCount || "—"} buổi`,
+                `Học phí khóa chính: ${formatVnd(mainTuitionAmount)}`,
+                catchupAmount > 0 ? `Buổi học thêm đầu khóa: ${formatVnd(catchupAmount)}` : "",
+                `Tổng: ${formatVnd(enrollmentTotalAmount)}`,
+              ]
+                .filter(Boolean)
+                .join("\n"),
+          "",
+          "Phiếu học phí sẽ được lập ngay sau khi ghi danh — phụ huynh nhận đúng số tiền này.",
+        ]
+          .filter(Boolean)
+          .join("\n")}
+        confirmLabel="Ghi danh"
+        loading={loading}
+        onConfirm={() => void enroll()}
+        onClose={() => {
+          if (!loading) setConfirmOpen(false);
+        }}
+      />
     </>
   );
 }

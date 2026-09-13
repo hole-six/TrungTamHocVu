@@ -4,13 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
-import BookBasketPicker, { basketQuantity, basketTotal, type Basket, type BookOption } from "@/components/inventory/BookBasketPicker";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import BookBasketPicker, { basketItems, basketQuantity, basketTotal, type Basket, type BookOption } from "@/components/inventory/BookBasketPicker";
 import { formatVnd } from "@/lib/export-utils";
 
 type StudentHit = {
   id: string;
   fullName: string;
   studentCode: string;
+  /** Công nợ hiện tại — dùng để nói rõ nợ trước/sau khi ghi tiền sách vào học phí. */
+  outstanding?: number | null;
   phone?: string | null;
   currentClassCode?: string | null;
   currentClassName?: string | null;
@@ -90,6 +93,9 @@ export default function IssueBookForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Xuất sách là chuyện TIỀN: thu ngay thì phải đúng số tiền đang cầm, ghi nợ thì làm
+  // tăng công nợ của phụ huynh — phải qua 1 bước xác nhận nêu rõ số tiền và nợ sau đó.
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Mở form là có ngay danh sách học viên đang học — không bắt gõ rồi bấm "Tìm" mới thấy ai.
   useEffect(() => {
@@ -173,6 +179,7 @@ export default function IssueBookForm({
   const activeClasses = (selected?.enrollments ?? []).filter((e) => e.status === "ACTIVE" && e.classId && e.class);
   const pickedCount = basketQuantity(basket);
   const amount = basketTotal(basket, books);
+  const basketLines = basketItems(basket, books);
 
   function pick(student: StudentHit) {
     setSelected(student);
@@ -182,8 +189,27 @@ export default function IssueBookForm({
     setClassId(active.length === 1 ? active[0].classId ?? "" : "");
   }
 
+  function requestIssue() {
+    if (!selected) return;
+    setError(null);
+    if (pickedCount <= 0) {
+      setError("Chưa chọn sách nào để xuất.");
+      return;
+    }
+    if (activeClasses.length === 0) {
+      setError("Học viên chưa có lớp đang học nên không xuất sách được.");
+      return;
+    }
+    if (activeClasses.length > 1 && !classId) {
+      setError("Học viên đang học nhiều lớp — chọn lớp cần gắn sách.");
+      return;
+    }
+    setConfirmOpen(true);
+  }
+
   async function issue() {
     if (!selected) return;
+    setConfirmOpen(false);
     if (pickedCount <= 0) {
       setError("Chưa chọn sách nào để xuất.");
       return;
@@ -328,7 +354,7 @@ export default function IssueBookForm({
               </div>
 
               {error ? <p className="text-sm text-red-600">{error}</p> : null}
-              <button type="button" onClick={() => void issue()} disabled={loading || pickedCount === 0} className="btn-primary w-full">
+              <button type="button" onClick={requestIssue} disabled={loading || pickedCount === 0} className="btn-primary w-full">
                 {loading
                   ? "Đang xuất..."
                   : pickedCount === 0
@@ -375,6 +401,33 @@ export default function IssueBookForm({
           )}
         </div>
       </ResponsiveDrawer>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title={paidNow ? `Xác nhận đã thu ${formatVnd(amount)} tiền sách?` : `Ghi ${formatVnd(amount)} tiền sách vào học phí?`}
+        description={[
+          `Học viên: ${selected?.fullName ?? ""}${selected?.studentCode ? ` (${selected.studentCode})` : ""}`,
+          ...basketLines.map((line) => `${line.book?.name ?? "Sách"} × ${line.quantity} = ${formatVnd(line.amount)}`),
+          `Tổng: ${pickedCount} cuốn · ${formatVnd(amount)}`,
+          selected?.outstanding != null
+            ? paidNow
+              ? `Công nợ học phí giữ nguyên: ${formatVnd(selected.outstanding)}`
+              : `Công nợ hiện tại: ${formatVnd(selected.outstanding)} → sau khi ghi nợ: ${formatVnd(selected.outstanding + amount)}`
+            : "",
+          "",
+          paidNow
+            ? "Xác nhận là bạn ĐÃ NHẬN đủ số tiền này từ phụ huynh. Khoản này không nằm trong công nợ."
+            : "Khoản này được cộng vào phiếu học phí của tháng xuất sách; tháng đó đã thu đủ thì tự chuyển sang kỳ kế tiếp.",
+        ]
+          .filter(Boolean)
+          .join("\n")}
+        confirmLabel={paidNow ? "Đã nhận đủ tiền" : "Ghi vào học phí"}
+        loading={loading}
+        onConfirm={() => void issue()}
+        onClose={() => {
+          if (!loading) setConfirmOpen(false);
+        }}
+      />
     </>
   );
 }

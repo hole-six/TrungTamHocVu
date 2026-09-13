@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import FormGuide from "@/components/ui/FormGuide";
 import EnrollmentChargesPanel, { type EnrollmentCharge } from "@/components/tuition/EnrollmentChargesPanel";
 import { formatVnd as formatVndBase } from "@/lib/export-utils";
@@ -115,6 +116,8 @@ export default function AssignEnrollmentForm({
   }>(null);
   const [loadingList, setLoadingList] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Ghi danh làm phát sinh phiếu học phí — xác nhận lại số tiền trước khi lưu.
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   // Phiếu học phí vừa lập cho lần gán lớp này — hiện ngay "Thu tiền" và "In phiếu".
@@ -211,7 +214,22 @@ export default function AssignEnrollmentForm({
     await loadClasses(q);
   }
 
+  function requestAssign() {
+    if (!selected) return;
+    setError(null);
+    if (!selected.isRemedial && billingModel === "COURSE" && (!mainSessionCount || Number(mainSessionCount) <= 0)) {
+      setError("Cần nhập số buổi khóa chính khi chọn đóng trọn khóa.");
+      return;
+    }
+    if (!selected.isRemedial && billingModel === "PERIOD" && (!courseSessionCount || Number(courseSessionCount) <= 0)) {
+      setError("Cần nhập số buổi của khóa — đóng theo tháng vẫn thu tới khi đủ số buổi này.");
+      return;
+    }
+    setConfirmOpen(true);
+  }
+
   async function handleAssign() {
+    setConfirmOpen(false);
     if (!selected) return;
     if (!selected.isRemedial && billingModel === "COURSE" && (!mainSessionCount || Number(mainSessionCount) <= 0)) {
       setError("Cần nhập số buổi khóa chính khi chọn đóng trọn khóa.");
@@ -564,7 +582,7 @@ export default function AssignEnrollmentForm({
           ) : null}
 
           <div className="flex flex-col gap-3 border-t border-hairline pt-4 sm:flex-row">
-            <button type="button" onClick={handleAssign} disabled={!selected || submitting || Boolean(selected?.isRemedial && (student.sessionCreditCount ?? 0) <= 0)} className="btn-primary">
+            <button type="button" onClick={requestAssign} disabled={!selected || submitting || Boolean(selected?.isRemedial && (student.sessionCreditCount ?? 0) <= 0)} className="btn-primary">
               {submitting ? "Đang ghi danh..." : "Xác nhận gán nhập học"}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
@@ -573,6 +591,48 @@ export default function AssignEnrollmentForm({
           </div>
         </div>
       </ResponsiveDrawer>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title={
+          selected?.isRemedial
+            ? `Ghi danh ${student.fullName} vào lớp bổ trợ?`
+            : billingModel === "PERIOD"
+              ? `Ghi danh theo tháng — phiếu đầu ${formatVnd(preview?.firstMonth?.amount ?? 0)}?`
+              : `Ghi danh trọn khóa — ${formatVnd(preview?.purchasedAmount ?? 0)}?`
+        }
+        description={[
+          `Học viên: ${student.fullName} (${student.studentCode})`,
+          `Lớp: ${selected ? `[${selected.classCode}] ${selected.className}` : ""}`,
+          selected?.isRemedial
+            ? "Lớp bổ trợ không thu học phí riêng — trừ vào buổi bổ trợ khả dụng."
+            : billingModel === "PERIOD"
+              ? [
+                  `Cách thu: theo tháng · khóa ${courseSessionCount || "—"} buổi`,
+                  `Đơn giá: ${formatVnd(Number(unitPrice) || 0)}/buổi${Number(discountPercent) > 0 ? ` · chiết khấu ${discountPercent}%` : ""}`,
+                  preview?.firstMonth
+                    ? `Phiếu tháng ${preview.firstMonth.periodName}: ${preview.firstMonth.sessionCount} buổi = ${formatVnd(preview.firstMonth.amount)} (lập ngay khi ghi danh)`
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join("\n")
+              : [
+                  `Cách thu: trọn khóa · ${mainSessionCount || "—"} buổi`,
+                  `Đơn giá: ${formatVnd(Number(unitPrice) || 0)}/buổi${Number(discountPercent) > 0 ? ` · chiết khấu ${discountPercent}%` : ""}`,
+                  `Tổng phiếu trọn khóa: ${formatVnd(preview?.purchasedAmount ?? 0)}`,
+                ].join("\n"),
+          "",
+          "Phiếu học phí sẽ được lập ngay sau khi ghi danh — phụ huynh nhận đúng số tiền này.",
+        ]
+          .filter(Boolean)
+          .join("\n")}
+        confirmLabel="Ghi danh"
+        loading={submitting}
+        onConfirm={() => void handleAssign()}
+        onClose={() => {
+          if (!submitting) setConfirmOpen(false);
+        }}
+      />
     </>
   );
 }

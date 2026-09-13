@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import FormGuide from "@/components/ui/FormGuide";
 import CurrencyInput from "@/components/ui/CurrencyInput";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { formatVnd } from "@/lib/export-utils";
 
 type Category = { id: string; type: string; name: string };
@@ -45,6 +46,9 @@ export default function NewCashTransactionForm({ categories }: { categories: Cat
   const [form, setForm] = useState({ type: "CHI", categoryId: "", amount: "", description: "" });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Tiền vào/ra quỹ phải qua 1 bước xác nhận nêu rõ chiều tiền và số tiền — bấm nhầm
+  // THU thành CHI là lệch luôn số quỹ trên màn hình.
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const filteredCategories = categories.filter((category) => category.type === form.type);
 
@@ -59,8 +63,18 @@ export default function NewCashTransactionForm({ categories }: { categories: Cat
     };
   }, [open]);
 
-  async function submit(event: React.FormEvent) {
+  function requestSubmit(event: React.FormEvent) {
     event.preventDefault();
+    setError(null);
+    if (!(Number(form.amount) > 0)) {
+      setError("Nhập số tiền lớn hơn 0.");
+      return;
+    }
+    setConfirmOpen(true);
+  }
+
+  async function submit() {
+    setConfirmOpen(false);
     setLoading(true);
     setError(null);
 
@@ -130,7 +144,7 @@ export default function NewCashTransactionForm({ categories }: { categories: Cat
                 <p className="text-sm text-orange-800">💡 Nhập đúng hướng tiền, đúng danh mục và diễn giải đủ rõ để sau này đối chiếu sổ không bị mơ hồ.</p>
               </div>
 
-              <form onSubmit={submit} className="space-y-5">
+              <form onSubmit={requestSubmit} className="space-y-5">
                 <div className="grid gap-4">
                   <label className="form-group">
                     <span className="label-sm">Loại phiếu</span>
@@ -184,6 +198,30 @@ export default function NewCashTransactionForm({ categories }: { categories: Cat
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title={form.type === "THU" ? `Xác nhận THU ${formatVnd(Number(form.amount) || 0)} vào quỹ?` : `Xác nhận CHI ${formatVnd(Number(form.amount) || 0)} từ quỹ?`}
+        description={[
+          `Loại phiếu: ${form.type === "THU" ? "THU — tiền vào quỹ" : "CHI — tiền ra khỏi quỹ"}`,
+          `Số tiền: ${formatVnd(Number(form.amount) || 0)}`,
+          `Danh mục: ${categories.find((item) => item.id === form.categoryId)?.name ?? "Chưa chọn"}`,
+          form.description ? `Diễn giải: ${form.description}` : "",
+          "",
+          form.type === "THU"
+            ? "Chỉ xác nhận khi tiền đã thực sự vào quỹ."
+            : "Chỉ xác nhận khi tiền đã thực sự chi ra.",
+        ]
+          .filter(Boolean)
+          .join("\n")}
+        confirmLabel={form.type === "THU" ? "Xác nhận đã thu" : "Xác nhận đã chi"}
+        tone={form.type === "THU" ? "default" : "danger"}
+        loading={loading}
+        onConfirm={submit}
+        onClose={() => {
+          if (!loading) setConfirmOpen(false);
+        }}
+      />
     </>
   );
 }

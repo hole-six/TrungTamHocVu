@@ -896,22 +896,27 @@ export default function StudentFinanceDesk({
                             (trường hợp thu tiền mặt tại chỗ). */}
                         {!row.issue.chargeId ? (
                           <>
-                            <button
-                              type="button"
-                              onClick={() => updateBookPaymentStatus(row.issue!.id, "PAID")}
+                            <ConfirmActionButton
+                              title={`Xác nhận đã thu ${formatVnd(row.amount)} tiền sách?`}
+                              description={`${row.bookName} × ${row.quantity} = ${formatVnd(row.amount)}. Xác nhận là bạn ĐÃ NHẬN đủ số tiền này từ phụ huynh.`}
+                              confirmLabel="Đã nhận đủ tiền"
                               disabled={updatingBookIssueId === row.issue.id || row.issue.paymentStatus === "PAID"}
                               className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-1 text-xs font-semibold text-[#0f1729] hover:border-[#0f1729] disabled:opacity-50"
+                              onConfirm={() => updateBookPaymentStatus(row.issue!.id, "PAID")}
                             >
                               Đã thu
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updateBookPaymentStatus(row.issue!.id, "UNPAID")}
+                            </ConfirmActionButton>
+                            <ConfirmActionButton
+                              title={`Đánh dấu CHƯA thu ${formatVnd(row.amount)} tiền sách?`}
+                              description={`${row.bookName} × ${row.quantity} = ${formatVnd(row.amount)}. Dòng này sẽ quay lại trạng thái chưa thu tiền — dùng khi đánh dấu nhầm.`}
+                              confirmLabel="Đánh dấu chưa thu"
+                              tone="danger"
                               disabled={updatingBookIssueId === row.issue.id || row.issue.paymentStatus === "UNPAID"}
                               className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-1 text-xs font-semibold text-[#0f1729] hover:border-[#0f1729] disabled:opacity-50"
+                              onConfirm={() => updateBookPaymentStatus(row.issue!.id, "UNPAID")}
                             >
                               Chưa thu
-                            </button>
+                            </ConfirmActionButton>
                           </>
                         ) : null}
                         <ConfirmActionButton
@@ -948,6 +953,10 @@ export default function StudentFinanceDesk({
         description={[
           ...issueLines.map((line) => `${line.book?.name ?? "Sách"} × ${line.quantity} = ${formatVnd(line.amount)}`),
           `Tổng: ${issueQuantity} cuốn · ${formatVnd(issueAmount)}`,
+          // Ghi nợ làm TĂNG công nợ thật của phụ huynh — phải hiện số trước và sau.
+          paidNow
+            ? `Công nợ học phí giữ nguyên: ${formatVnd(outstanding)}`
+            : `Công nợ hiện tại: ${formatVnd(outstanding)} → sau khi ghi nợ: ${formatVnd(outstanding + issueAmount)}`,
           "",
           paidNow
             ? "Xác nhận là bạn ĐÃ NHẬN đủ số tiền này từ phụ huynh. Khoản này sẽ không nằm trong công nợ."

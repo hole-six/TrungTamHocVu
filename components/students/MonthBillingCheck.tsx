@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { BILLING_PERIOD_STATUS_LABEL } from "@/lib/server/tuition-rules";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { formatVnd } from "@/lib/export-utils";
 import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 
 export type MonthBilling = {
@@ -21,19 +23,26 @@ export function needsMonthBilling(value: MonthBilling | null | undefined): value
 export default function MonthBillingCheck({
   enrollmentId,
   value,
+  unitPrice,
   canManageFinance,
   onDone,
 }: {
   enrollmentId: string;
   value: MonthBilling;
+  /** Đơn giá/buổi của ghi danh — để nói trước số tiền sẽ phát sinh khi lập phiếu. */
+  unitPrice?: number | null;
   canManageFinance: boolean;
   onDone: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+  // Lập phiếu là làm PHÁT SINH công nợ — phải xác nhận và nói trước số buổi, số tiền.
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const month = Number(value.periodName.split("-")[1]);
   const statusLabel = value.periodStatus ? BILLING_PERIOD_STATUS_LABEL[value.periodStatus] ?? value.periodStatus : null;
 
+  // Ước tính phần còn thiếu để nói trước số tiền trong hộp xác nhận.
+  const missingSessions = Math.max(0, value.scheduledThisMonth - (value.billedScheduled ?? 0));
   const gap =
     value.billedScheduled == null
       ? `chưa có phiếu tháng ${month}`
@@ -46,6 +55,7 @@ export default function MonthBillingCheck({
         : "Đợt lập phiếu tự động đêm nay sẽ cập nhật, hoặc bấm lập phiếu ngay.";
 
   async function generate() {
+    setConfirmOpen(false);
     setLoading(true);
     setResult(null);
     const res = await fetch(`/api/enrollments/${enrollmentId}/period-charge`, { method: "POST" });
@@ -72,11 +82,35 @@ export default function MonthBillingCheck({
         Tháng {month} lớp có {value.scheduledThisMonth} buổi nhưng {gap}. {why}
       </p>
       {canManageFinance && value.periodStatus !== "POSTED" && value.periodStatus !== "CLOSED" ? (
-        <button type="button" onClick={() => void generate()} disabled={loading} className={ACTION_CLASS}>
+        <button type="button" onClick={() => setConfirmOpen(true)} disabled={loading} className={ACTION_CLASS}>
           {loading ? "Đang lập phiếu..." : `Lập phiếu tháng ${month}`}
         </button>
       ) : null}
       {result ? <p className={result.ok ? "text-[#0f1729]" : "text-[#dc2626]"}>{result.text}</p> : null}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title={`Lập phiếu học phí tháng ${month}?`}
+        description={[
+          `Lớp có ${value.scheduledThisMonth} buổi trong tháng ${month}.`,
+          value.billedScheduled == null
+            ? "Hiện chưa có phiếu tháng này."
+            : `Phiếu hiện tại mới tính ${value.billedScheduled} buổi.`,
+          missingSessions > 0
+            ? `Sẽ phát sinh thêm khoảng ${missingSessions} buổi${unitPrice ? ` × ${formatVnd(unitPrice)} = ${formatVnd(missingSessions * unitPrice)}` : ""}.`
+            : "",
+          "",
+          "Số buổi cuối cùng do hệ thống tính lại theo lịch lớp và số buổi còn dư trong ví, có thể lệch con số ước tính ở trên.",
+        ]
+          .filter(Boolean)
+          .join("\n")}
+        confirmLabel="Lập phiếu"
+        loading={loading}
+        onConfirm={() => void generate()}
+        onClose={() => {
+          if (!loading) setConfirmOpen(false);
+        }}
+      />
     </div>
   );
 }

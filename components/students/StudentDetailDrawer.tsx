@@ -638,6 +638,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                     <MonthBillingCheck
                       enrollmentId={enrollment.id}
                       value={data.monthBilling}
+                      unitPrice={snapshot.unitPrice}
                       canManageFinance={data.permissions.canManageFinance}
                       onDone={() => void reload()}
                     />
