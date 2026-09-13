@@ -28,6 +28,18 @@ function formatNumber(value: number) {
   return value.toLocaleString("vi-VN");
 }
 
+/** "2026-09" + (-1) → "2026-08". Dùng cho mũi qua lại giữa các tháng lương. */
+function shiftMonth(period: string, delta: number) {
+  const [year, month] = period.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1 + delta, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthLabel(period: string) {
+  const [year, month] = period.split("-");
+  return `${month}/${year}`;
+}
+
 export default function PayrollWorkspace({
   rows,
   tableRows,
@@ -220,7 +232,7 @@ export default function PayrollWorkspace({
       render: (_value, row) => (
         <div>
           <div className="text-base font-black text-[#0f1729]">{formatVnd(row.totalAmount)}</div>
-          <div className="mt-0.5 text-xs text-[#94a3b8]">{row.lineId ? "Đã tính lương" : "Xem trước"}</div>
+          <div className="mt-0.5 text-xs text-[#94a3b8]">{row.lineId ? "Đã chốt" : "Theo công thực tế"}</div>
         </div>
       ),
     },
@@ -258,32 +270,43 @@ export default function PayrollWorkspace({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-xl font-black tracking-tight text-[#0f1729] sm:text-2xl">Lương</h1>
-          <input
-            type="month"
-            className="input w-auto text-sm"
-            value={period}
-            onChange={(event) => {
-              if (event.target.value) router.push(pageHref({ period: event.target.value, employeeId: null }));
-            }}
-          />
+          {/* Xem đi xem lại theo từng tháng: mũi theo tháng trước/sau + ô chọn tháng.
+              Không cần tạo/chốt gì trước, tháng nào cũng xem và xuất file được. */}
+          <div className="flex items-center gap-1">
+            <Link href={pageHref({ period: shiftMonth(period, -1), employeeId: null })} className="btn-ghost px-2" aria-label="Tháng trước">
+              ‹
+            </Link>
+            <input
+              type="month"
+              className="input w-auto text-sm"
+              value={period}
+              onChange={(event) => {
+                if (event.target.value) router.push(pageHref({ period: event.target.value, employeeId: null }));
+              }}
+            />
+            <Link href={pageHref({ period: shiftMonth(period, 1), employeeId: null })} className="btn-ghost px-2" aria-label="Tháng sau">
+              ›
+            </Link>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <PayrollExportButton period={period} rows={rows} runStatus={run?.status ?? null} totals={totals} />
+          {/* In 1 phát ra PDF: bảng công + lương, thấy rõ tiền của TỪNG loại công
+              (giờ dạy / giờ trợ giảng / ngày công hành chính) chứ không chỉ tổng.
+              In được mọi tháng, kể cả tháng chưa chốt. */}
+          <Link href={`/payroll/print?period=${period}`} target="_blank" className={ACTION_CLASS}>
+            In bảng công &amp; lương (PDF)
+          </Link>
+          {/* Chốt lương là việc TÙY CHỌN — chỉ cần khi muốn đóng băng số liệu hoặc sửa
+              thưởng/phạt của từng người. Xem và xuất file thì không cần bước này. */}
           {run && permissions.canManagePayrollRuns ? (
-            <button type="button" onClick={() => setMonthDrawerOpen(true)} className={ACTION_CLASS}>
-              Xử lý lương tháng
+            <button type="button" onClick={() => setMonthDrawerOpen(true)} className="btn-ghost">
+              Chốt &amp; điều chỉnh lương tháng
             </button>
           ) : null}
           {!run && permissions.canManagePayrollRuns ? <NewPayrollRunForm defaultPeriod={period} /> : null}
-          <PayrollExportButton period={period} rows={rows} runStatus={run?.status ?? null} totals={totals} />
-          {/* In 1 phát ra PDF: bảng công + lương, thấy rõ tiền của TỪNG loại công
-              (giờ dạy / giờ trợ giảng / ngày công hành chính) chứ không chỉ tổng. */}
-          {run ? (
-            <Link href={`/payroll/print?period=${period}`} target="_blank" className={ACTION_CLASS}>
-              In bảng công &amp; lương (PDF)
-            </Link>
-          ) : null}
           {permissions.canManageEmployees ? <NewEmployeeForm /> : null}
           {permissions.canManageEmployees ? <PayrollRateCsvTools items={rows} /> : null}
         </div>
@@ -292,7 +315,7 @@ export default function PayrollWorkspace({
       {/* Số liệu tháng — 1 khung duy nhất chia cột, thay cho 3 ô thống kê riêng lẻ trước đây */}
       <div className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-xl border border-[#e5eaf7] bg-white px-4 py-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Tổng lương tháng {period}</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Tổng lương tháng {monthLabel(period)}</p>
           <p className="mt-0.5 text-2xl font-black text-[#0f1729]">{formatVnd(totals.totalPayroll)}</p>
         </div>
         <div>
@@ -307,12 +330,14 @@ export default function PayrollWorkspace({
           </p>
         </div>
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Trạng thái</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Số liệu</p>
           <p className="mt-0.5 text-2xl font-black text-[#0f1729]">
-            {run ? PAYROLL_RUN_STATUS_LABEL[run.status] ?? run.status : "Chưa chốt"}
+            {run ? PAYROLL_RUN_STATUS_LABEL[run.status] ?? run.status : "Tính theo công thực tế"}
           </p>
           <p className="text-xs text-[#94a3b8]">
-            {run ? `${formatNumber(run.lineCount)} người đã có dòng lương` : "Bảng dưới đang là số xem trước"}
+            {run
+              ? `${formatNumber(run.lineCount)} người đã chốt số · xuất file và in được ngay`
+              : "Lấy trực tiếp từ buổi dạy, trợ giảng và chấm công — xuất file, in được ngay"}
           </p>
         </div>
       </div>
@@ -355,7 +380,13 @@ export default function PayrollWorkspace({
         showCountBadge={false}
         primaryColumn="fullName"
         secondaryColumns={["totalAmount", "hasRateIssue"]}
-        emptyState={{ title: "Không có nhân sự nào", description: `Không có nhân sự nào khớp bộ lọc trong tháng ${period}.` }}
+        emptyState={{
+          title: search || position || initialFilter !== "all" ? "Không có nhân sự nào khớp bộ lọc" : `Tháng ${monthLabel(period)} chưa có công nào`,
+          description:
+            search || position || initialFilter !== "all"
+              ? `Bỏ bộ lọc để xem lại toàn bộ nhân sự có công trong tháng ${monthLabel(period)}.`
+              : "Chưa có buổi dạy, buổi trợ giảng hay ngày chấm công nào trong tháng này. Chọn tháng khác ở trên để xem lại.",
+        }}
         pagination={{
           total: chipFilteredRows.length,
           page: currentPage,
@@ -387,7 +418,7 @@ export default function PayrollWorkspace({
             employeeCode: selectedRow.employeeCode,
             position: selectedRow.position,
             contractStatus: selectedRow.contractStatus,
-            sourceLabel: selectedRow.lineId ? "Đã tính lương" : "Xem trước (chưa tính lương)",
+            sourceLabel: selectedRow.lineId ? "Đã chốt số liệu tháng" : "Tính theo công thực tế trong tháng",
             totalAmount: selectedRow.totalAmount,
             month: period,
             workSummary:

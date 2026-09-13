@@ -36,8 +36,8 @@ export default function NewPayrollRunForm({ defaultPeriod }: { defaultPeriod?: s
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className={ACTION_CLASS}>
-        + Chốt tháng lương
+      <button onClick={() => setOpen(true)} className="btn-ghost" title="Chỉ cần khi muốn đóng băng số liệu hoặc sửa thưởng/phạt từng người">
+        Chốt tháng lương (tùy chọn)
       </button>
     );
   }

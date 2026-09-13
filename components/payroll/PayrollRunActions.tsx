@@ -99,13 +99,17 @@ export default function PayrollRunActions({
       body: JSON.stringify({ status: to }),
     });
 
+    const data = await res.json().catch(() => ({}));
     setLoading(null);
     if (!res.ok) {
-      const data = await res.json();
       setError(data.error ?? "Không thể đổi trạng thái.");
       return;
     }
 
+    // Chốt xong vẫn nói rõ mục nào chưa đủ, để người làm lương biết mà quay lại sửa —
+    // thay vì chặn không cho chốt như trước.
+    const pending: string[] = Array.isArray(data.pendingChecklistItems) ? data.pendingChecklistItems : [];
+    setResult(pending.length > 0 ? `Đã chuyển bước. Lưu ý còn chưa đủ: ${pending.join("; ")}.` : "Đã chuyển bước.");
     router.refresh();
   }
 
@@ -129,7 +133,10 @@ export default function PayrollRunActions({
   const canGenerate = status === "DRAFT" || status === "CALCULATED" || status === "REVIEWED" || status === "REOPENED";
   const canDelete = canGenerate;
   const currentStepIndex = STEPS.findIndex((step) => step.status === status);
-  const blockedByChecklist = Boolean(nextAction && (nextAction.to === "APPROVED" || nextAction.to === "LOCKED") && !checklistReady);
+  // Checklist chỉ NHẮC, không chặn: xem và xuất file lương không cần chốt, còn khi đã
+  // muốn chốt thì người làm lương là người biết rõ nhất, không để hệ thống khóa tay họ
+  // vì một mục checklist chưa tick.
+  const checklistWarning = Boolean(nextAction && (nextAction.to === "APPROVED" || nextAction.to === "LOCKED") && !checklistReady);
 
   return (
     <div className="space-y-4">
@@ -165,7 +172,7 @@ export default function PayrollRunActions({
             description={nextAction.confirm}
             confirmLabel={nextAction.label}
             tone={nextAction.to === "PAID" ? "danger" : "default"}
-            disabled={loading === nextAction.to || blockedByChecklist}
+            disabled={loading === nextAction.to}
             className={ACTION_CLASS}
             onConfirm={() => setStatus(nextAction.to)}
           >
@@ -174,8 +181,8 @@ export default function PayrollRunActions({
         ) : null}
       </div>
 
-      {blockedByChecklist ? (
-        <p className="text-sm font-semibold text-rose-700">Checklist chưa đạt, hệ thống đang chặn bước này để tránh chốt sai.</p>
+      {checklistWarning ? (
+        <p className="text-sm text-amber-800">Checklist dưới đây chưa đạt hết — vẫn chốt được, chỉ là nên xem lại trước khi chốt.</p>
       ) : null}
 
       {result ? <p className="text-sm text-emerald-700">{result}</p> : null}

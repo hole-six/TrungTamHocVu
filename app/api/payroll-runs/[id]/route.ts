@@ -72,16 +72,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (requiredAction && !(await hasPermission(user, "payroll", requiredAction))) {
     return NextResponse.json({ error: "Bạn không có quyền thực hiện thao tác này với tháng lương" }, { status: 403 });
   }
-  if (body.status === "APPROVED" || body.status === "LOCKED") {
-    const checklist = await evaluatePayrollRunChecklist(run.id);
-    if (!checklist?.isReady) {
-      const pending = checklist?.items.filter((item) => !item.done).map((item) => item.label).join("; ") ?? "Checklist chưa hoàn tất";
-      return NextResponse.json(
-        { error: `Chưa thể ${body.status === "APPROVED" ? "duyệt" : "khóa"} tháng lương. Cần hoàn tất: ${pending}.` },
-        { status: 409 },
-      );
-    }
-  }
+  // Checklist chốt tháng chỉ để NHẮC, không chặn: người làm lương biết rõ tháng đó đã
+  // đủ chưa, trước đây checklist chưa tick hết là không duyệt/khóa được, nên xem lại
+  // lương tháng cũ phải lằng nhằng đi mở khóa. Danh sách mục chưa đạt vẫn trả về để
+  // hiện cảnh báo trên drawer chốt lương.
+  const pendingChecklistItems =
+    body.status === "APPROVED" || body.status === "LOCKED"
+      ? (await evaluatePayrollRunChecklist(run.id))?.items.filter((item) => !item.done).map((item) => item.label) ?? []
+      : [];
 
   const now = new Date();
   const updated = await prisma.payrollRun.update({
@@ -97,7 +95,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     },
   });
 
-  return NextResponse.json({ item: updated });
+  return NextResponse.json({ item: updated, pendingChecklistItems });
 }
 
 // Chỉ cho xóa khi tháng lương còn ở trạng thái "có thể sửa" (DRAFT/CALCULATED/REVIEWED)

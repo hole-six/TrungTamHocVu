@@ -50,7 +50,7 @@ export default function PayrollExportButton({
           ],
           rows: [
             { chiSo: "Tháng lương", giaTri: formatMonthLabel(period) },
-            { chiSo: "Trạng thái tháng lương", giaTri: runStatus ? PAYROLL_RUN_STATUS_LABEL[runStatus] ?? runStatus : "Chưa tạo tháng lương (số liệu xem trước)" },
+            { chiSo: "Nguồn số liệu", giaTri: runStatus ? `Đã chốt — ${PAYROLL_RUN_STATUS_LABEL[runStatus] ?? runStatus}` : "Tính trực tiếp từ buổi dạy, trợ giảng và chấm công của tháng" },
             { chiSo: "Tổng số nhân sự có phát sinh", giaTri: String(rows.length) },
             { chiSo: "Tổng số buổi dạy/trợ giảng", giaTri: String(totals.sessionCount) },
             { chiSo: "Tổng số ngày công hành chính", giaTri: String(totals.timesheetEntryCount) },
@@ -108,7 +108,7 @@ export default function PayrollExportButton({
             bonus: formatVnd(row.bonus),
             penalty: formatVnd(row.penalty),
             totalAmount: formatVnd(row.totalAmount),
-            dataSource: row.lineId ? "Đã tính lương" : "Xem trước (chưa tính lương)",
+            dataSource: row.lineId ? "Đã chốt tháng lương" : "Tính theo công thực tế",
             notes: row.notes ?? "",
           })),
         },
@@ -144,8 +144,8 @@ export default function PayrollExportButton({
             { key: "giaiThich", label: "Giải thích" },
           ],
           rows: [
-            { muc: "Nguồn số liệu = Đã tính lương", giaiThich: "Số liệu lấy từ dòng lương chính thức của tháng (đã bấm Tính lại lương), gồm cả thưởng/phạt đã điều chỉnh." },
-            { muc: "Nguồn số liệu = Xem trước", giaiThich: "Tháng này chưa được chốt/tính lương chính thức — số liệu tính trực tiếp từ buổi dạy/trợ giảng/chấm công, thưởng/phạt mặc định là 0." },
+            { muc: "Nguồn số liệu = Đã chốt tháng lương", giaiThich: "Số liệu đã đóng băng trên dòng lương của tháng, gồm cả thưởng/phạt đã điều chỉnh tay." },
+            { muc: "Nguồn số liệu = Tính theo công thực tế", giaiThich: "Số liệu tính trực tiếp từ buổi dạy/trợ giảng/chấm công của tháng — dùng xem và xuất file bình thường, không cần chốt trước; thưởng/phạt tay mặc định là 0." },
             { muc: "Theo ca", giaiThich: "Trả cố định 1 đơn vị tiền cho mỗi buổi bất kể buổi đó dạy dài hay ngắn hơn khung giờ chuẩn — tránh sai lệch khi giáo viên dạy quá giờ hoặc cho nghỉ sớm." },
             { muc: "Theo giờ", giaiThich: "Trả theo đúng số giờ của khung giờ buổi học (giờ kết thúc trừ giờ bắt đầu theo lịch)." },
             { muc: "Tổng lương", giaiThich: "Tiền dạy + Tiền trợ giảng + Lương cứng + Thưởng − Phạt." },
