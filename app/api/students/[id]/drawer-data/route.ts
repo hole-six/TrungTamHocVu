@@ -357,7 +357,13 @@ export async function GET(
     // chỉ là đã học hết tháng đã đóng (phiếu tháng sau tự sinh). Trước đây gộp chung 1 câu
     // "cần thu học phí tháng mới" kể cả khi chẳng có phiếu nào để thu.
     let walletAdvice: { unpaidAmount: number; upcomingSessionCount: number; nextSessionDate: Date | null } | null = null;
-    if (currentEnrollment?.billingModel === "PERIOD" && currentEnrollment.classId && walletBalance != null && walletBalance <= 0) {
+    // Cũng cần khi đã lập phiếu đủ khóa (ví có thể dương) để nói còn nợ hay đã xong.
+    const courseFullyBilled =
+      currentEnrollment?.billingModel === "PERIOD" &&
+      currentEnrollment.periodCourseSessionCount != null &&
+      enrollmentCharges.filter((c) => c.billingModel === "PERIOD").reduce((sum, c) => sum + c.sessionCount, 0) >=
+        currentEnrollment.periodCourseSessionCount;
+    if (currentEnrollment?.billingModel === "PERIOD" && currentEnrollment.classId && walletBalance != null && (walletBalance <= 0 || courseFullyBilled)) {
       const unpaidAmount = enrollmentCharges.reduce(
         (sum, charge) => sum + Math.max(0, chargeOwnDueAmount(charge) - charge.allocations.reduce((s, a) => s + a.amount, 0)),
         0,
@@ -378,6 +384,19 @@ export async function GET(
     // hoặc tính thiếu buổi thì drawer phải báo và cho lập ngay, kèm trạng thái kỳ thu (kỳ đã
     // rà soát/chốt sổ thì đợt tự động mỗi đêm không đụng vào — đây là lý do hay gặp nhất
     // khiến "lớp còn lịch mà không thấy học phí").
+    // Đóng theo tháng có số buổi khóa: đã lập phiếu bao nhiêu / còn bao nhiêu buổi (xem
+    // getPeriodCourseRemaining — cùng cách đếm lúc lập phiếu).
+    const periodCourse =
+      currentEnrollment?.billingModel === "PERIOD"
+        ? (() => {
+            const billed = enrollmentCharges
+              .filter((charge) => charge.billingModel === "PERIOD")
+              .reduce((sum, charge) => sum + charge.sessionCount, 0);
+            const total = currentEnrollment.periodCourseSessionCount;
+            return { total, billed, remaining: total == null ? null : Math.max(0, total - billed) };
+          })()
+        : null;
+
     let monthBilling: {
       periodName: string;
       periodStatus: string | null;
@@ -405,7 +424,10 @@ export async function GET(
       const monthCharge = period
         ? student.charges.find((charge) => charge.billingPeriodId === period.id && charge.classId === currentEnrollment.classId)
         : undefined;
-      monthBilling = {
+      // Đã lập phiếu đủ khóa (không tính phiếu tháng này) thì tháng này không còn gì để thu.
+      const courseLeftForMonth =
+        periodCourse?.remaining == null ? null : periodCourse.remaining + (monthCharge?.sessionCount ?? 0);
+      if (courseLeftForMonth !== 0) monthBilling = {
         periodName,
         periodStatus: period?.status ?? null,
         scheduledThisMonth,
@@ -611,6 +633,7 @@ export async function GET(
       walletBalance,
       walletAdvice,
       monthBilling,
+      periodCourse,
       currentEnrollment: currentEnrollment
         ? {
             id: currentEnrollment.id,
@@ -628,6 +651,7 @@ export async function GET(
             paidCatchupAmount: enrollmentFinance.paidCatchup,
             nextClassName: currentEnrollment.class?.nextClass?.className,
             nextClassId: currentEnrollment.class?.nextClass?.id ?? null,
+            classTotalSessions: currentEnrollment.class?.totalSessions ?? null,
             scheduleRules: currentEnrollment.class?.scheduleRules ?? [],
           }
         : null,

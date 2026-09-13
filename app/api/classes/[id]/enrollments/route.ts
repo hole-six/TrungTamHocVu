@@ -54,6 +54,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // (giao diện vẫn điền sẵn số của lớp làm gợi ý để nhân viên sửa).
   const purchasedMainSessionCount =
     billingModel === "PERIOD" ? null : Number(body.purchasedMainSessionCount ?? 0);
+  // Đóng theo tháng vẫn học theo SỐ BUỔI CỦA KHÓA — bắt buộc nhập để biết khi nào thôi thu
+  // (chốt nghiệp vụ 13/9): phiếu tháng không vượt phần khóa còn lại, đủ khóa thì dừng.
+  const periodCourseSessionCount =
+    billingModel === "PERIOD" && !cls.isRemedial ? Number(body.periodCourseSessionCount ?? 0) : null;
   // Bổ trợ đầu khóa TÍNH PHÍ (khác bổ trợ vắng miễn phí) chỉ được tính tiền qua
   // generateCourseCharge (1 lần lúc ghi danh) — nhánh PERIOD của generateChargesForPeriod
   // luôn set paidCatchupAmount=0, không bao giờ thu khoản này. Nếu cho PERIOD lưu số
@@ -79,6 +83,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   ) {
     return NextResponse.json(
       { error: "Chưa nhập số buổi của khóa chính. Gói đóng trọn khóa phải ghi rõ học viên mua bao nhiêu buổi (không lấy mặc định theo lớp)." },
+      { status: 400 },
+    );
+  }
+  if (
+    periodCourseSessionCount !== null &&
+    (!Number.isInteger(periodCourseSessionCount) || periodCourseSessionCount <= 0 || periodCourseSessionCount > 500)
+  ) {
+    return NextResponse.json(
+      { error: "Chưa nhập số buổi của khóa. Đóng theo tháng cũng phải ghi rõ khóa bao nhiêu buổi để biết khi nào thôi thu." },
       { status: 400 },
     );
   }
@@ -217,6 +230,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         enrollDate,
         learningStartDate: enrollDate,
         purchasedMainSessionCount: cls.isRemedial ? null : purchasedMainSessionCount,
+        periodCourseSessionCount,
         tuitionUnitPriceSnapshot: cls.isRemedial ? null : unitPriceSnapshot,
         paidCatchupSessionCount: cls.isRemedial ? 0 : paidCatchupSessionCount,
         paidCatchupUnitPrice: cls.isRemedial ? null : paidCatchupUnitPrice,

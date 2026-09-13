@@ -776,7 +776,12 @@ model Enrollment {
   pausedFrom                       DateTime? @map("paused_from")
   pausedTo                         DateTime? @map("paused_to")
   purchasedMainSessionCount        Int?      @map("purchased_main_session_count")
-  manualExtraSessionCount          Int       @default(0) @map("manual_extra_session_count")
+  // ĐÓNG THEO THÁNG nhưng học theo SỐ BUỔI CỦA KHÓA (vd 48): còn lại bao nhiêu buổi được
+  // lập phiếu cho ghi danh này. Phiếu tháng không vượt quá phần còn lại; đủ thì ngừng thu.
+  // Chuyển lớp giữa khóa: ghi danh mới nhận phần còn lại chưa lập phiếu. null = dữ liệu cũ
+  // chưa đặt → thu liên tục theo lịch lớp như trước. Chỉ dùng cho PERIOD.
+  periodCourseSessionCount         Int?      @map("period_course_session_count")
+  manualExtraSessionCount         Int       @default(0) @map("manual_extra_session_count")
   tuitionUnitPriceSnapshot         Int?      @map("tuition_unit_price_snapshot")
   paidCatchupSessionCount          Int       @default(0) @map("paid_catchup_session_count")
   paidCatchupUnitPrice             Int?      @map("paid_catchup_unit_price")

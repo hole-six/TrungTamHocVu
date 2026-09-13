@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
-import { generateCourseCharge } from "@/lib/server/billing-generation";
+import { generateCourseCharge, getPeriodCourseRemaining } from "@/lib/server/billing-generation";
 import {
   computeTransferConversionFromValue,
   getEnrollmentLearningSnapshot,
@@ -60,7 +60,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const courseNeedTransfer = snapshots.filter(
     (item) => !isPeriod(item.enrollment.billingModel) && item.snapshot.remainingMainSessions > 0,
   );
-  const periodAll = snapshots.filter((item) => isPeriod(item.enrollment.billingModel));
+  // Đóng theo tháng có số buổi khóa mà đã lập phiếu đủ khóa và ví hết buổi = ĐÃ HỌC XONG
+  // KHÓA: kết thúc luôn, không chuyển sang lớp tiếp theo (chuyển là thu thêm khóa mới
+  // mà phụ huynh chưa đăng ký). Phần khóa còn lại của người được chuyển đi theo sang lớp mới.
+  const periodCourseRemainingById = new Map<string, number | null>();
+  const periodFinishedIds = new Set<string>();
+  for (const { enrollment } of snapshots) {
+    if (!isPeriod(enrollment.billingModel)) continue;
+    const remaining = await getPeriodCourseRemaining(enrollment);
+    periodCourseRemainingById.set(enrollment.id, remaining);
+    if (remaining === 0 && (await getWalletBalance(prisma, enrollment.id)) <= 0) periodFinishedIds.add(enrollment.id);
+  }
+  const periodAll = snapshots.filter((item) => isPeriod(item.enrollment.billingModel) && !periodFinishedIds.has(item.enrollment.id));
   const willTransferPeriod = Boolean(finalTargetClassId);
   const transferGroup = willTransferPeriod ? [...courseNeedTransfer, ...periodAll] : courseNeedTransfer;
   const completeOutrightGroup = snapshots.filter((item) => !transferGroup.includes(item));
@@ -244,6 +255,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           enrollDate: now,
           learningStartDate: now,
           purchasedMainSessionCount: enrollmentIsPeriod ? null : conversion.convertedSessionCount,
+          periodCourseSessionCount: enrollmentIsPeriod ? periodCourseRemainingById.get(enrollment.id) ?? null : null,
           manualExtraSessionCount: enrollmentIsPeriod ? 0 : snapshot.manualExtraRemainingSessions,
           // Tiến độ điểm danh đi xuyên suốt các lớp nối tiếp, không reset khi lớp cũ
           // kết thúc và chuyển sang lớp mới (cùng lý do như route transfer đơn lẻ).

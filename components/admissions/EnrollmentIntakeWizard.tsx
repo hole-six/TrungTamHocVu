@@ -108,6 +108,7 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
     // thu trọn khóa 1 cục ngay lập tức.
     billingModel: "PERIOD" as "PERIOD" | "COURSE",
     purchasedMainSessionCount: "",
+    periodCourseSessionCount: "",
   });
 
   const filteredClasses = useMemo(() => classes.filter((item) => !form.courseId || item.courseId === form.courseId), [classes, form.courseId]);
@@ -169,6 +170,9 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
     }
     if (step === 2 && form.mode === "ENROLL_NOW" && !form.classId) {
       return "Phải chọn lớp khi nhập học ngay.";
+    }
+    if (step === 2 && form.mode === "ENROLL_NOW" && form.billingModel === "PERIOD" && (!form.periodCourseSessionCount || Number(form.periodCourseSessionCount) <= 0)) {
+      return "Cần nhập số buổi của khóa — đóng theo tháng vẫn thu tới khi đủ số buổi này.";
     }
     if (step === 2 && form.mode === "ENROLL_NOW" && form.billingModel === "COURSE" && (!form.purchasedMainSessionCount || Number(form.purchasedMainSessionCount) <= 0)) {
       return "Cần nhập số buổi khóa chính khi chọn đóng trọn khóa.";
@@ -576,6 +580,13 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                         ...prev,
                         classId: nextClassId,
                         purchasedMainSessionCount: nextClassId === prev.classId ? prev.purchasedMainSessionCount : "",
+                        // Theo tháng: điền sẵn số buổi khóa = số buổi lớp dự kiến (sửa được).
+                        periodCourseSessionCount:
+                          nextClassId === prev.classId
+                            ? prev.periodCourseSessionCount
+                            : nextClass?.totalSessions
+                              ? String(nextClass.totalSessions)
+                              : "",
                       }));
                       void nextClass;
                       setError(null);
@@ -604,15 +615,15 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                       <button
                         type="button"
                         onClick={() => patchForm("billingModel", "PERIOD")}
-                        className={`rounded-2xl border px-4 py-3 text-left transition ${form.billingModel === "PERIOD" ? "border-primary bg-primary/5" : "border-[#e6ebf5] bg-white"}`}
+                        className={`rounded-2xl border px-4 py-3 text-left transition ${form.billingModel === "PERIOD" ? "border-[#0f1729] bg-white ring-1 ring-[#0f1729]" : "border-[#e6ebf5] bg-white hover:border-[#0f1729]"}`}
                       >
                         <p className="text-sm font-semibold text-ink">Đóng theo tháng</p>
-                        <p className="mt-1 text-xs leading-5 text-ink-muted48">Không chốt tổng tiền trước — mỗi tháng tự tính theo buổi lớp thực dạy.</p>
+                        <p className="mt-1 text-xs leading-5 text-ink-muted48">Trả dần mỗi tháng theo buổi lớp dạy, tới khi đủ số buổi của khóa.</p>
                       </button>
                       <button
                         type="button"
                         onClick={() => patchForm("billingModel", "COURSE")}
-                        className={`rounded-2xl border px-4 py-3 text-left transition ${form.billingModel === "COURSE" ? "border-primary bg-primary/5" : "border-[#e6ebf5] bg-white"}`}
+                        className={`rounded-2xl border px-4 py-3 text-left transition ${form.billingModel === "COURSE" ? "border-[#0f1729] bg-white ring-1 ring-[#0f1729]" : "border-[#e6ebf5] bg-white hover:border-[#0f1729]"}`}
                       >
                         <p className="text-sm font-semibold text-ink">Đóng trọn khóa</p>
                         <p className="mt-1 text-xs leading-5 text-ink-muted48">Mua đứt N buổi, thu 1 cục ngay lúc ghi danh.</p>
@@ -637,7 +648,22 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                             : "Lớp chưa đặt số buổi dự kiến. Nhập theo đúng số buổi phụ huynh đã chốt."}
                         </span>
                       </label>
-                    ) : null}
+                    ) : (
+                      <label className="form-group mt-3">
+                        <span className="label">Số buổi của khóa</span>
+                        <input
+                          type="number"
+                          min={1}
+                          className="input"
+                          value={form.periodCourseSessionCount}
+                          onChange={(event) => patchForm("periodCourseSessionCount", event.target.value)}
+                          placeholder="VD: 48"
+                        />
+                        <span className="hint">
+                          Thu từng tháng tới khi đủ số buổi này rồi dừng (tháng cuối chỉ thu phần còn lại). Lớp hết lịch trước thì học nối sang lớp tiếp theo.
+                        </span>
+                      </label>
+                    )}
                   </div>
                 ) : null}
 
@@ -687,7 +713,7 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                         </>
                       ) : (
                         <p className="mt-2 text-xs text-ink-muted48">
-                          Đóng theo tháng: không chốt tổng tiền trước. Mỗi tháng hệ thống tự tính đúng số buổi lớp thực dạy (tính từ ngày ghi danh) × {formatVnd(selectedClass.tuitionPerSession)}/buổi, ra hóa đơn tháng đó.
+                          Đóng theo tháng: mỗi tháng thu số buổi lớp dạy (tính từ ngày ghi danh) × {formatVnd(selectedClass.tuitionPerSession)}/buổi, tới khi đủ {form.periodCourseSessionCount || "—"} buổi của khóa.
                         </p>
                       )}
                     </div>
@@ -752,7 +778,7 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                       </>
                     ) : (
                       <p className="mt-2 text-sm text-ink">
-                        Đóng theo tháng: <strong>{formatVnd(selectedClass.tuitionPerSession)}</strong>/buổi — không chốt tổng tiền trước, hóa đơn sinh riêng mỗi tháng theo buổi thực dạy.
+                        Đóng theo tháng: <strong>{formatVnd(selectedClass.tuitionPerSession)}</strong>/buổi, hóa đơn mỗi tháng theo buổi lớp dạy, tới khi đủ <strong>{form.periodCourseSessionCount || "—"}</strong> buổi của khóa.
                       </p>
                     )
                   ) : (

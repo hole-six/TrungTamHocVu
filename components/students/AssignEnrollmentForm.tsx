@@ -88,6 +88,7 @@ export default function AssignEnrollmentForm({
   // đóng trọn khóa).
   const [billingModel, setBillingModel] = useState<"PERIOD" | "COURSE">("PERIOD");
   const [mainSessionCount, setMainSessionCount] = useState("");
+  const [courseSessionCount, setCourseSessionCount] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
   // Chiết khấu ngay lúc gán lớp — cùng khái niệm với mục "Chiết khấu" trong hồ sơ, chỉ
   // là nhập được từ đầu để phiếu đầu tiên đã ra đúng giá đã giảm.
@@ -153,6 +154,7 @@ export default function AssignEnrollmentForm({
     setCreatedCharges([]);
     setBillingModel("PERIOD");
     setMainSessionCount("");
+    setCourseSessionCount("");
     setUnitPrice("");
     setDiscountPercent("");
     setDiscountReason("");
@@ -197,6 +199,9 @@ export default function AssignEnrollmentForm({
       // lớp thì trên thực tế không ai sửa, và lớp lại thành người quyết định số buổi.
       // Số buổi dự kiến của lớp vẫn hiện ngay bên cạnh làm gợi ý.
       setMainSessionCount("");
+      // Đóng theo tháng: điền sẵn số buổi của khóa (= số buổi lớp dự kiến) — chốt nghiệp vụ:
+      // vào giữa khóa vẫn học ĐỦ khóa, lớp hết lịch trước thì học nối sang lớp tiếp theo.
+      setCourseSessionCount(item.totalSessions ? String(item.totalSessions) : "");
       setUnitPrice(item.tuitionPerSession ? String(item.tuitionPerSession) : "");
     }
   }
@@ -210,6 +215,10 @@ export default function AssignEnrollmentForm({
     if (!selected) return;
     if (!selected.isRemedial && billingModel === "COURSE" && (!mainSessionCount || Number(mainSessionCount) <= 0)) {
       setError("Cần nhập số buổi khóa chính khi chọn đóng trọn khóa.");
+      return;
+    }
+    if (!selected.isRemedial && billingModel === "PERIOD" && (!courseSessionCount || Number(courseSessionCount) <= 0)) {
+      setError("Cần nhập số buổi của khóa — đóng theo tháng vẫn thu tới khi đủ số buổi này.");
       return;
     }
     const discount = Number(discountPercent) || 0;
@@ -230,6 +239,7 @@ export default function AssignEnrollmentForm({
         studentId: student.id,
         billingModel: selected.isRemedial ? "COURSE" : billingModel,
         purchasedMainSessionCount: billingModel === "COURSE" ? Number(mainSessionCount) : undefined,
+        periodCourseSessionCount: billingModel === "PERIOD" ? Number(courseSessionCount) : undefined,
         tuitionUnitPriceSnapshot: unitPrice ? Number(unitPrice) : undefined,
         discountPercent: selected.isRemedial ? 0 : discount,
         discountReason: discountReason.trim() || undefined,
@@ -363,15 +373,15 @@ export default function AssignEnrollmentForm({
                     <button
                       type="button"
                       onClick={() => setBillingModel("PERIOD")}
-                      className={`rounded-xl border p-3 text-left transition ${billingModel === "PERIOD" ? "border-emerald-500 bg-white shadow-sm" : "border-emerald-200 bg-emerald-50/50"}`}
+                      className={`rounded-xl border p-3 text-left transition ${billingModel === "PERIOD" ? "border-[#0f1729] bg-white ring-1 ring-[#0f1729]" : "border-[#e2e8f0] bg-white hover:border-[#0f1729]"}`}
                     >
                       <p className="text-sm font-semibold text-ink">Đóng theo tháng</p>
-                      <p className="mt-1 text-xs leading-5 text-ink-muted80">Không cần nhập số buổi — mỗi tháng tự tính theo buổi lớp thực dạy.</p>
+                      <p className="mt-1 text-xs leading-5 text-ink-muted80">Trả dần mỗi tháng theo buổi lớp dạy, tới khi đủ số buổi của khóa.</p>
                     </button>
                     <button
                       type="button"
                       onClick={() => setBillingModel("COURSE")}
-                      className={`rounded-xl border p-3 text-left transition ${billingModel === "COURSE" ? "border-emerald-500 bg-white shadow-sm" : "border-emerald-200 bg-emerald-50/50"}`}
+                      className={`rounded-xl border p-3 text-left transition ${billingModel === "COURSE" ? "border-[#0f1729] bg-white ring-1 ring-[#0f1729]" : "border-[#e2e8f0] bg-white hover:border-[#0f1729]"}`}
                     >
                       <p className="text-sm font-semibold text-ink">Đóng trọn khóa</p>
                       <p className="mt-1 text-xs leading-5 text-ink-muted80">Mua đứt N buổi ngay lúc ghi danh.</p>
@@ -409,7 +419,22 @@ export default function AssignEnrollmentForm({
                             : "Lớp chưa đặt số buổi dự kiến."}
                         </span>
                       </label>
-                    ) : null}
+                    ) : (
+                      <label className="form-group">
+                        <span className="label-sm">Số buổi của khóa</span>
+                        <input
+                          type="number"
+                          min={1}
+                          className="input"
+                          value={courseSessionCount}
+                          onChange={(event) => setCourseSessionCount(event.target.value)}
+                          placeholder="VD: 48"
+                        />
+                        <span className="text-[10px] leading-tight text-ink-muted48">
+                          Thu từng tháng tới khi đủ số buổi này rồi dừng. Lớp hết lịch trước thì học nối sang lớp tiếp theo.
+                        </span>
+                      </label>
+                    )}
                     <label className="form-group">
                       <span className="label-sm">Chiết khấu (%)</span>
                       <input

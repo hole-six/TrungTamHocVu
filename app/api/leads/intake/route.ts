@@ -169,6 +169,15 @@ export async function POST(req: NextRequest) {
   }
   const purchasedMainSessionCount =
     billingModel === "COURSE" ? Number(body.purchasedMainSessionCount ?? 0) : null;
+  // Đóng theo tháng vẫn theo số buổi của khóa — bắt buộc khi xếp lớp ngay.
+  const periodCourseSessionCount = billingModel === "PERIOD" ? Number(body.periodCourseSessionCount ?? 0) : null;
+  if (
+    mode === "ENROLL_NOW" &&
+    periodCourseSessionCount !== null &&
+    (!Number.isInteger(periodCourseSessionCount) || periodCourseSessionCount <= 0 || periodCourseSessionCount > 500)
+  ) {
+    return NextResponse.json({ error: "Cần nhập số buổi của khóa khi chọn đóng theo tháng." }, { status: 400 });
+  }
   if (mode === "ENROLL_NOW" && billingModel === "COURSE" && (!Number.isInteger(purchasedMainSessionCount) || (purchasedMainSessionCount ?? 0) <= 0)) {
     return NextResponse.json({ error: "Cần nhập số buổi khóa chính hợp lệ khi chọn đóng trọn khóa." }, { status: 400 });
   }
@@ -313,6 +322,7 @@ export async function POST(req: NextRequest) {
         status: "ACTIVE",
         billingModel,
         purchasedMainSessionCount,
+        periodCourseSessionCount,
         tuitionUnitPriceSnapshot: billingModel === "COURSE" ? selectedClass!.tuitionPerSession ?? selectedClass!.course?.tuitionPerSession ?? null : null,
         enrollDate,
         learningStartDate: enrollDate,

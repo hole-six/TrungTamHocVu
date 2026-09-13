@@ -174,6 +174,24 @@ export async function findLockedPeriodForSession(classId: string, sessionDate: D
   return hasCharge ? period : null;
 }
 
+// Phần khóa còn lại chưa lập phiếu của 1 ghi danh theo tháng — null nếu ghi danh chưa đặt
+// số buổi khóa (dữ liệu cũ: thu liên tục theo lịch lớp như trước).
+export async function getPeriodCourseRemaining(
+  enrollment: { id: string; periodCourseSessionCount: number | null },
+  excludeChargeId: string | null = null,
+) {
+  if (enrollment.periodCourseSessionCount == null) return null;
+  const billed = await prisma.charge.aggregate({
+    where: {
+      enrollmentId: enrollment.id,
+      billingModel: "PERIOD",
+      ...(excludeChargeId ? { id: { not: excludeChargeId } } : {}),
+    },
+    _sum: { sessionCount: true },
+  });
+  return Math.max(0, enrollment.periodCourseSessionCount - (billed._sum.sessionCount ?? 0));
+}
+
 // Số buổi đã lên phiếu THEO THÁNG ở các kỳ trước của ghi danh này mà chưa được trả tiền.
 // Tiền phân bổ không tách học phí/sách nên chia theo tỉ lệ học phí trong phiếu (cùng cách
 // scripts/backfill-enrollment-wallets.ts). Làm tròn XUỐNG: thà thu đủ còn hơn bỏ sót.
@@ -215,6 +233,8 @@ async function addLateScheduledSessionsToCollectedCharge(
     notes: string | null;
   },
   scheduledSessionCount: number,
+  // Số buổi khóa còn được lập phiếu (không tính phiếu này); null = không giới hạn.
+  courseRemaining: number | null = null,
 ) {
   if (charge.billingModel !== "PERIOD" || charge.unitPrice <= 0) return 0;
   const billedByFormula = Math.max(0, charge.scheduledSessionCount - charge.carriedSessionCount);
@@ -223,7 +243,8 @@ async function addLateScheduledSessionsToCollectedCharge(
     return 0;
   }
 
-  const lateSessions = Math.max(0, scheduledSessionCount - charge.carriedSessionCount) - charge.sessionCount;
+  let lateSessions = Math.max(0, scheduledSessionCount - charge.carriedSessionCount) - charge.sessionCount;
+  if (courseRemaining != null) lateSessions = Math.min(lateSessions, courseRemaining - charge.sessionCount);
   if (lateSessions <= 0) return 0;
 
   const sessionCount = charge.sessionCount + lateSessions;
@@ -452,7 +473,7 @@ export async function generateChargesForPeriod(
       walletAtPeriodStart < 0
         ? Math.min(0, walletAtPeriodStart + (await getUnpaidInvoicedSessionsBefore(enrollment.id, period.startDate)))
         : walletAtPeriodStart;
-    const sessionCount = Math.max(0, scheduledSessionCount - walletBalanceBeforeCharge);
+    let sessionCount = Math.max(0, scheduledSessionCount - walletBalanceBeforeCharge);
     const absentCount = await prisma.studentAttendance.count({
       where: {
         studentId,
@@ -504,13 +525,19 @@ export async function generateChargesForPeriod(
       if (replacement.replaced) chargeToUpdate = null;
     }
 
+    // Đóng theo tháng nhưng học theo SỐ BUỔI CỦA KHÓA: phiếu tháng này không được vượt
+    // phần khóa còn lại chưa lập phiếu (tháng cuối khóa chỉ thu đúng số buổi còn lại, đủ
+    // khóa thì thôi thu). Phiếu của CHÍNH kỳ này (nếu đang sinh lại) không tính vào "đã lập".
+    const courseRemaining = await getPeriodCourseRemaining(enrollment, chargeToUpdate?.id ?? null);
+    if (courseRemaining != null) sessionCount = Math.min(sessionCount, courseRemaining);
+
     if (chargeToUpdate) {
       const collectedAmount = await getChargeCollectedAmount(chargeToUpdate.id);
       if (collectedAmount > 0) {
         // Phiếu đã thu thì không sinh đè — nhưng lớp xếp THÊM buổi trong tháng sau lúc thu
         // (lớp kéo dài, lịch tự sinh thêm) thì phải cộng thêm đúng số buổi đó, nếu không
         // chúng không nằm trên phiếu nào: ví về 0 rồi âm mà vẫn "Không nợ".
-        const lateSessions = await addLateScheduledSessionsToCollectedCharge(chargeToUpdate, scheduledSessionCount);
+        const lateSessions = await addLateScheduledSessionsToCollectedCharge(chargeToUpdate, scheduledSessionCount, courseRemaining);
         if (lateSessions > 0) {
           updated++;
           continue;

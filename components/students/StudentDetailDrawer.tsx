@@ -14,6 +14,7 @@ import PauseEnrollmentButton from "@/components/students/PauseEnrollmentButton";
 import EnrollmentRowActions from "@/components/classes/EnrollmentRowActions";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
 import MonthBillingCheck, { needsMonthBilling, type MonthBilling } from "@/components/students/MonthBillingCheck";
+import PeriodCourseProgress, { CourseFinishedAdvice, type PeriodCourse } from "@/components/students/PeriodCourseProgress";
 import { Section, Row, Stat, ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { formatVnd, formatDate } from "@/lib/export-utils";
 
@@ -94,6 +95,7 @@ type StudentData = {
   // Chỉ có khi ví theo tháng đã hết/âm — đủ để nói đúng việc cần làm (xem drawer-data).
   walletAdvice?: { unpaidAmount: number; upcomingSessionCount: number; nextSessionDate: string | Date | null } | null;
   monthBilling?: MonthBilling | null;
+  periodCourse?: PeriodCourse | null;
   currentEnrollment?: {
     id: string;
     status: string;
@@ -109,6 +111,7 @@ type StudentData = {
     paidCatchupAmount: number;
     nextClassName?: string | null;
     nextClassId?: string | null;
+    classTotalSessions?: number | null;
     scheduleRules: Array<{
       weekday: string;
       startTime: string | null;
@@ -565,6 +568,17 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                   <Stat label="Dự kiến hết buổi">{formatDate(snapshot.expectedStudentEndDate)}</Stat>
                 ) : null}
                 <Stat label="Cách thu">{enrollment.billingModel === "PERIOD" ? "Theo tháng" : "Trọn khóa"}</Stat>
+                {!isCourseEnrollment && data.periodCourse && !enrollmentEnded ? (
+                  <Stat label="Số buổi khóa" wide>
+                    <PeriodCourseProgress
+                      enrollmentId={enrollment.id}
+                      value={data.periodCourse}
+                      suggestedTotal={enrollment.classTotalSessions ?? null}
+                      canManageFinance={data.permissions.canManageFinance}
+                      onSaved={() => void reload()}
+                    />
+                  </Stat>
+                ) : null}
                 {canSeeFinance && isCourseEnrollment ? (
                   <Stat label="Tiền còn lại">
                     {formatVnd(snapshot.remainingValue)} · {formatVnd(snapshot.unitPrice)}/buổi
@@ -605,7 +619,17 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                     </span>
                   </Stat>
                 ) : null}
-{!enrollmentEnded && !isCourseEnrollment && needsMonthBilling(data.monthBilling) ? (
+{!enrollmentEnded && !isCourseEnrollment && data.periodCourse?.total != null && data.periodCourse.remaining === 0 ? (
+                  <Stat label="Cần xử lý" wide>
+                    <CourseFinishedAdvice
+                      total={data.periodCourse.total}
+                      walletBalance={data.walletBalance ?? null}
+                      unpaidAmount={data.walletAdvice?.unpaidAmount ?? 0}
+                      nextClassName={enrollment.nextClassName}
+                    />
+                  </Stat>
+                ) : null}
+                {!enrollmentEnded && !isCourseEnrollment && data.periodCourse?.remaining !== 0 && needsMonthBilling(data.monthBilling) ? (
                   <Stat label="Cần xử lý" wide>
                     <MonthBillingCheck
                       enrollmentId={enrollment.id}
@@ -615,7 +639,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                     />
                   </Stat>
                 ) : null}
-                {!enrollmentEnded && !isCourseEnrollment && !needsMonthBilling(data.monthBilling) && data.walletBalance != null && data.walletBalance <= 0 ? (
+                {!enrollmentEnded && !isCourseEnrollment && data.periodCourse?.remaining !== 0 && !needsMonthBilling(data.monthBilling) && data.walletBalance != null && data.walletBalance <= 0 ? (
                   <Stat label="Cần xử lý" wide>
                     {(() => {
                       const advice = data.walletAdvice;

@@ -86,6 +86,9 @@ export default function EnrollStudentForm({
   // theo ngày kết thúc của mọi học viên giống hệt nhau. Số của lớp hiện làm gợi ý ngay
   // dưới ô nhập.
   const [mainSessionCount, setMainSessionCount] = useState("");
+  // Đóng theo tháng: số buổi của khóa (điền sẵn số buổi lớp dự kiến) — thu từng tháng tới
+  // khi đủ số này; vào giữa khóa vẫn học đủ, lớp hết lịch thì học nối sang lớp sau.
+  const [courseSessionCount, setCourseSessionCount] = useState(defaultMainSessionCount > 0 ? String(defaultMainSessionCount) : "");
   const [unitPrice, setUnitPrice] = useState(String(defaultUnitPrice || ""));
   // Chiết khấu ngay lúc ghi danh — cùng khái niệm với mục "Chiết khấu" trong hồ sơ học
   // viên. KHÔNG giữ lại cho người kế tiếp khi ghi danh liên tiếp (xem enroll()): mỗi em
@@ -174,6 +177,10 @@ export default function EnrollStudentForm({
 
   async function enroll() {
     if (!selected) return;
+    if (billingModel === "PERIOD" && (!courseSessionCount || Number(courseSessionCount) <= 0)) {
+      setError("Cần nhập số buổi của khóa — đóng theo tháng vẫn thu tới khi đủ số buổi này.");
+      return;
+    }
     if (installmentsMismatch) {
       setError("Tổng các đợt trả góp chưa khớp với tổng học phí — kiểm tra lại trước khi ghi danh.");
       return;
@@ -191,6 +198,7 @@ export default function EnrollStudentForm({
         billingModel,
         enrollDate: startDate,
         purchasedMainSessionCount: Number(mainSessionCount),
+        periodCourseSessionCount: billingModel === "PERIOD" ? Number(courseSessionCount) : undefined,
         tuitionUnitPriceSnapshot: Number(unitPrice),
         paidCatchupSessionCount: Number(paidCatchupSessionCount),
         paidCatchupUnitPrice: Number(paidCatchupUnitPrice || unitPrice),
@@ -471,11 +479,20 @@ export default function EnrollStudentForm({
                     </div>
                   </>
                 ) : (
-                  <div className="rounded-xl border border-emerald-200 bg-white px-4 py-3 md:col-span-2">
-                    <p className="text-sm text-emerald-900">
-                      Không cần nhập số buổi hay tổng tiền — mỗi tháng hệ thống tự tính đúng số buổi lớp thực dạy (tính từ ngày ghi danh) × đơn giá ở trên, ra hóa đơn tháng đó.
-                    </p>
-                  </div>
+                  <label className="form-group md:col-span-2">
+                    <span className="label-sm">Số buổi của khóa</span>
+                    <input
+                      type="number"
+                      min={1}
+                      className="input"
+                      value={courseSessionCount}
+                      onChange={(event) => setCourseSessionCount(event.target.value)}
+                      placeholder="VD: 48"
+                    />
+                    <span className="text-[10px] leading-tight text-ink-muted48">
+                      Mỗi tháng thu số buổi lớp dạy trong tháng × đơn giá, tới khi đủ số buổi này thì dừng (tháng cuối chỉ thu phần còn lại). Lớp hết lịch trước thì học nối sang lớp tiếp theo.
+                    </span>
+                  </label>
                 )}
               </div>
               <div className="border-t border-emerald-200 pt-4">
@@ -493,10 +510,10 @@ export default function EnrollStudentForm({
                       // reset về 0 nếu trước đó staff đã gõ khi đang ở COURSE.
                       setPaidCatchupSessionCount("0");
                     }}
-                    className={`rounded-xl border p-3 text-left transition ${billingModel === "PERIOD" ? "border-emerald-500 bg-white shadow-sm" : "border-emerald-200 bg-emerald-50/50"}`}
+                    className={`rounded-xl border p-3 text-left transition ${billingModel === "PERIOD" ? "border-[#0f1729] bg-white shadow-sm" : "border-[#e2e8f0] bg-white"}`}
                   >
                     <p className="text-sm font-semibold text-ink">Đóng theo tháng</p>
-                    <p className="mt-1 text-xs leading-5 text-ink-muted80">Sinh khoản thu theo từng kỳ tháng và chỉ tính các buổi thực tế từ ngày ghi danh.</p>
+                    <p className="mt-1 text-xs leading-5 text-ink-muted80">Trả dần theo từng tháng (tính từ ngày vào lớp) tới khi đủ số buổi của khóa.</p>
                   </button>
                   <button type="button" onClick={() => setBillingModel("INSTALLMENT")} className={`rounded-xl border p-3 text-left transition ${billingModel === "INSTALLMENT" ? "border-[#0f1729] bg-white shadow-sm" : "border-[#e2e8f0] bg-white"}`}>
                     <p className="text-sm font-semibold text-ink">Trả góp theo đợt</p>

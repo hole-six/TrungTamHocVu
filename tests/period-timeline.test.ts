@@ -211,6 +211,95 @@ async function main() {
     expectEqual(nextMonthCharge?.sessionCount ?? 0, 0, "tháng sau buổi cuối: không thu thêm ở lớp đã dạy xong");
   });
 
+  // ---------------------------------------------------------------- 5
+  // Đóng theo tháng nhưng khóa 20 buổi: thu từng tháng theo buổi lớp dạy, tháng cuối chỉ
+  // thu phần còn lại, đủ 20 thì thôi dù lớp vẫn còn lịch.
+  await test("Khóa 20 buổi đóng theo tháng: thu dần từng tháng, tháng cuối chỉ phần còn lại, đủ thì dừng", async () => {
+    const branch = await fx.seedBranch(db);
+    const cls = await fx.seedClass(db, branch.id, { tuitionPerSession: UNIT, totalSessions: 60 });
+    await seedTwiceWeekly(cls.id, "2026-06-01", "2026-10-31");
+    const student = await fx.seedStudent(db, branch.id, "Khóa 20 buổi");
+    const enrollment = await fx.seedEnrollment(db, { studentId: student.id, classId: cls.id, billingModel: "PERIOD", enrollDate: day("2026-06-01") });
+    await db.enrollment.update({ where: { id: enrollment.id }, data: { periodCourseSessionCount: 20 } });
+    await generatePeriodChargesForNewEnrollment(enrollment.id, day("2026-06-01"));
+    const payDue = async () => outstanding(student.id);
+    await simulate({
+      branchId: branch.id,
+      studentId: student.id,
+      classId: cls.id,
+      from: "2026-06-01",
+      to: "2026-09-13",
+      payOn: { "2026-06-05": payDue, "2026-07-05": payDue, "2026-08-05": payDue, "2026-09-05": payDue },
+    });
+    const charges = await db.charge.findMany({ where: { enrollmentId: enrollment.id }, include: { billingPeriod: true }, orderBy: { billingPeriod: { startDate: "asc" } } });
+    const byMonth = Object.fromEntries(charges.map((c) => [c.billingPeriod.periodName, c.sessionCount]));
+    const june = await db.classSession.count({ where: { classId: cls.id, sessionDate: { gte: day("2026-06-01"), lte: day("2026-06-30") } } });
+    const july = await db.classSession.count({ where: { classId: cls.id, sessionDate: { gte: day("2026-07-01"), lte: day("2026-07-31") } } });
+    expectEqual(byMonth["2026-06"], june, `tháng 6 thu đủ ${june} buổi`);
+    expectEqual(byMonth["2026-07"], july, `tháng 7 thu đủ ${july} buổi`);
+    expectEqual(byMonth["2026-08"], 20 - june - july, `tháng 8 chỉ thu ${20 - june - july} buổi còn lại của khóa`);
+    expectEqual(byMonth["2026-09"] ?? 0, 0, "tháng 9 không thu nữa");
+    expectEqual(charges.reduce((s, c) => s + c.sessionCount, 0), 20, "tổng cả khóa đúng 20 buổi");
+  });
+
+  // ---------------------------------------------------------------- 6
+  // Vào giữa chừng, khóa 20 buổi mà lớp chỉ còn 12 buổi: học hết lớp rồi nối sang lớp sau
+  // học nốt — lớp sau chỉ thu phần khóa còn lại, cả chuỗi đúng 20 buổi.
+  await test("Khóa 20 buổi, lớp hết lịch sau 12 buổi: sang lớp tiếp theo chỉ thu nốt 8 buổi", async () => {
+    const { getPeriodCourseRemaining } = await import("@/lib/server/billing-generation");
+    const { transferWalletToNewEnrollment } = await import("@/lib/server/enrollment-wallet");
+    const branch = await fx.seedBranch(db);
+    const clsA = await fx.seedClass(db, branch.id, { tuitionPerSession: UNIT, totalSessions: 12 });
+    const clsB = await fx.seedClass(db, branch.id, { tuitionPerSession: UNIT, totalSessions: 30 });
+    const sessionsA = await seedTwiceWeekly(clsA.id, "2026-06-01", "2026-12-31", 12);
+    const endA = ymd(sessionsA[sessionsA.length - 1].sessionDate);
+    const student = await fx.seedStudent(db, branch.id, "Nối lớp giữa khóa");
+    const enrollA = await fx.seedEnrollment(db, { studentId: student.id, classId: clsA.id, billingModel: "PERIOD", enrollDate: day("2026-06-01") });
+    await db.enrollment.update({ where: { id: enrollA.id }, data: { periodCourseSessionCount: 20 } });
+    await generatePeriodChargesForNewEnrollment(enrollA.id, day("2026-06-01"));
+    const payDue = async () => outstanding(student.id);
+    await simulate({ branchId: branch.id, studentId: student.id, classId: clsA.id, from: "2026-06-01", to: endA, payOn: { "2026-06-05": payDue, "2026-07-05": payDue } });
+    await pay(student.id, await outstanding(student.id), day(endA));
+
+    // Kết thúc lớp A → chuyển sang B đúng như route chuyển lớp: B nhận phần khóa còn lại.
+    const fresh = await db.enrollment.findUniqueOrThrow({ where: { id: enrollA.id } });
+    const remaining = await getPeriodCourseRemaining(fresh);
+    expectEqual(remaining, 8, "lớp A thu 12 buổi, còn 8 buổi của khóa");
+    const startB = ymd(new Date(day(endA).getTime() + 86_400_000));
+    await seedTwiceWeekly(clsB.id, startB, "2026-12-31");
+    await db.enrollment.update({ where: { id: enrollA.id }, data: { status: "TRANSFERRED", endDate: day(endA) } });
+    const enrollB = await fx.seedEnrollment(db, { studentId: student.id, classId: clsB.id, billingModel: "PERIOD", enrollDate: day(startB) });
+    await db.enrollment.update({ where: { id: enrollB.id }, data: { periodCourseSessionCount: remaining, transferredFromEnrollmentId: enrollA.id } });
+    await db.$transaction((tx) => transferWalletToNewEnrollment(tx, { fromEnrollmentId: enrollA.id, toEnrollmentId: enrollB.id, oldUnitPrice: UNIT, newUnitPrice: UNIT }));
+    await generatePeriodChargesForNewEnrollment(enrollB.id, day(startB));
+    const payB: Record<string, () => Promise<number>> = {};
+    for (const d of ["2026-08-05", "2026-09-05", "2026-10-05", "2026-11-05"]) payB[d] = payDue;
+    await simulate({ branchId: branch.id, studentId: student.id, classId: clsB.id, from: startB, to: "2026-11-30", payOn: payB });
+
+    const billedB = (await db.charge.findMany({ where: { enrollmentId: enrollB.id } })).reduce((s, c) => s + c.sessionCount, 0);
+    expectEqual(billedB, 8, "lớp B chỉ thu nốt 8 buổi");
+    const billedA = (await db.charge.findMany({ where: { enrollmentId: enrollA.id } })).reduce((s, c) => s + c.sessionCount, 0);
+    expectEqual(billedA + billedB, 20, "cả chuỗi 2 lớp đúng 20 buổi");
+  });
+
+  // ---------------------------------------------------------------- 7
+  await test("Phiếu đã thu, lớp xếp thêm buổi: cộng thêm không vượt số buổi khóa còn lại", async () => {
+    const branch = await fx.seedBranch(db);
+    const cls = await fx.seedClass(db, branch.id, { tuitionPerSession: UNIT, totalSessions: 60 });
+    const student = await fx.seedStudent(db, branch.id, "Khóa còn 2 buổi");
+    const enrollment = await fx.seedEnrollment(db, { studentId: student.id, classId: cls.id, billingModel: "PERIOD", enrollDate: day("2026-09-01") });
+    await db.enrollment.update({ where: { id: enrollment.id }, data: { periodCourseSessionCount: 6 } });
+    for (const d of ["02", "05", "09", "12"]) await fx.seedSession(db, cls.id, day(`2026-09-${d}`), "PLANNED");
+    const september = await fx.seedBillingPeriod(db, branch.id, "2026-09");
+    await generateChargesForPeriod(september.id);
+    const charge = await db.charge.findFirstOrThrow({ where: { enrollmentId: enrollment.id } });
+    await pay(student.id, 4 * UNIT, day("2026-09-02"));
+    for (const d of ["16", "19", "23"]) await fx.seedSession(db, cls.id, day(`2026-09-${d}`), "PLANNED");
+    await generateChargesForPeriod(september.id);
+    const after = await db.charge.findUniqueOrThrow({ where: { id: charge.id } });
+    expectEqual(after.sessionCount, 6, "chỉ cộng thêm 2 buổi cho đủ khóa 6 buổi, không phải 3");
+  });
+
   const failed = summary();
   await db.$disconnect();
   await sharedClient.$disconnect();

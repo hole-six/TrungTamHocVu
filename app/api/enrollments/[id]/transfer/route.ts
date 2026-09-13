@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
-import { generateCourseCharge } from "@/lib/server/billing-generation";
+import { generateCourseCharge, getPeriodCourseRemaining } from "@/lib/server/billing-generation";
 import { computeTransferConversionFromValue, getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { computeEffectiveUnitPrice } from "@/lib/server/tuition-rules";
 import { transferWalletToNewEnrollment, getWalletBalance } from "@/lib/server/enrollment-wallet";
@@ -128,6 +128,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     body.reason ? `Lý do: ${String(body.reason).trim()}` : null,
   ].filter(Boolean).join(" · ");
 
+  // Đóng theo tháng có số buổi khóa: lớp mới nhận đúng phần khóa CHƯA lập phiếu ở lớp cũ
+  // (buổi đã thu mà chưa học thì đi theo ví sang lớp mới) — tổng thu cả chuỗi lớp vẫn
+  // đúng bằng số buổi khóa. Tính TRƯỚC transaction (đọc ngoài tx sẽ bị SQLite khóa).
+  const periodCourseRemaining = isPeriod ? await getPeriodCourseRemaining(existing) : null;
+
   const created = await prisma.$transaction(async (tx) => {
     await tx.enrollment.update({
       where: { id: existing.id },
@@ -156,6 +161,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         enrollDate: now,
         learningStartDate: now,
         purchasedMainSessionCount: isPeriod ? null : conversion.convertedSessionCount,
+        periodCourseSessionCount: periodCourseRemaining,
         manualExtraSessionCount: isPeriod ? 0 : snapshot.manualExtraRemainingSessions,
         // Tiến độ điểm danh (đã học/bù bao nhiêu buổi thật) đi xuyên suốt các lớp nối
         // tiếp của cùng học sinh, không reset về 0 khi chuyển lớp — trước đây thiếu
