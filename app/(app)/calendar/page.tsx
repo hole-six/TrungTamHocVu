@@ -6,7 +6,8 @@ import { getCurrentBranchId } from "@/lib/branch-filter";
 import CalendarFilters from "@/components/calendar/CalendarFilters";
 import SessionCard from "@/components/calendar/SessionCard";
 import CalendarListView from "@/components/calendar/CalendarListView";
-import BulkAssignDrawer, { type BulkSession } from "@/components/calendar/BulkAssignDrawer";
+import BulkAssignDrawer, { type BulkSession, type ClassDefaultStaff } from "@/components/calendar/BulkAssignDrawer";
+import { assignmentRoleType } from "@/lib/assignment-roles";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import PageGuide from "@/components/ui/PageGuide";
@@ -273,6 +274,22 @@ export default async function CalendarPage({
       name: a.employee.shortName || a.employee.fullName,
     })),
   }));
+  // Nhân sự mặc định của các lớp đang hiện trên lịch (có thể 2 GV, 2 TG) — cho nút "Điền theo
+  // nhân sự mặc định của lớp" trong drawer phân công hàng loạt.
+  const classDefaults: ClassDefaultStaff = {};
+  if (canBulkAssign) {
+    const defaults = await prisma.classDefaultAssignment.findMany({
+      where: { classId: { in: [...new Set(sessions.map((item) => item.classId))] }, isActive: true, employee: { workStatus: "ACTIVE" } },
+      orderBy: [{ role: "asc" }],
+      select: { classId: true, role: true, employeeId: true },
+    });
+    for (const item of defaults) {
+      const entry = (classDefaults[item.classId] ??= { teacherIds: [], assistantIds: [] });
+      const type = assignmentRoleType(item.role);
+      if (type === "TEACHER") entry.teacherIds.push(item.employeeId);
+      else if (type === "ASSISTANT") entry.assistantIds.push(item.employeeId);
+    }
+  }
   const weekLabel = `tuần ${formatCompactDate(days[0]).replace("-", "/")} – ${formatCompactDate(days[6]).replace("-", "/")}`;
 
   return (
@@ -297,7 +314,7 @@ export default async function CalendarPage({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {canBulkAssign ? (
-            <BulkAssignDrawer sessions={bulkSessions} employees={bulkEmployees} classes={bulkClasses} weekLabel={weekLabel} />
+            <BulkAssignDrawer sessions={bulkSessions} employees={bulkEmployees} classes={bulkClasses} classDefaults={classDefaults} weekLabel={weekLabel} />
           ) : null}
           <SpotlightTour steps={CALENDAR_TOUR_STEPS} />
         </div>

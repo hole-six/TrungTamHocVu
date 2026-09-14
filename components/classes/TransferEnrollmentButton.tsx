@@ -3,6 +3,7 @@
 import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/Toast";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { formatVnd } from "@/lib/export-utils";
@@ -56,6 +57,7 @@ export default function TransferEnrollmentButton({
   onSuccess?: () => void;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [targetClassId, setTargetClassId] = useState(defaultTargetClassId ?? "");
@@ -110,6 +112,14 @@ export default function TransferEnrollmentButton({
     }
     setConfirmOpen(false);
     setOpen(false);
+    const converted = result.conversion?.convertedSessionCount ?? 0;
+    toast.success(
+      isPeriod
+        ? "Đã chuyển lớp. Ví buổi học và phiếu học phí đã được cập nhật theo lớp mới."
+        : `Đã chuyển lớp, quy đổi ${converted} buổi ở lớp mới.`,
+      "Chuyển lớp xong",
+    );
+    if (result.billingWarning) toast.warning(result.billingWarning, "Lưu ý học phí");
     router.refresh();
     onSuccess?.();
   }
@@ -150,8 +160,9 @@ export default function TransferEnrollmentButton({
                 thống tính sai, trong khi thực chất là học viên còn nợ học phí. */}
             {!isPeriod && remainingSessions > paidSessionsForValue ? (
               <p className="mt-1 rounded-lg bg-amber-50 px-2.5 py-2 text-sm font-semibold text-amber-800">
-                {remainingSessions - paidSessionsForValue} buổi chưa được mang sang vì học viên chưa đóng đủ học phí lớp cũ.
-                Khoản nợ đó vẫn giữ nguyên trên phiếu học phí cũ — thu đủ rồi chuyển lại sẽ ra số buổi cao hơn.
+                {remainingSessions - paidSessionsForValue} buổi chưa học mà cũng chưa nộp tiền nên không mang sang lớp mới —
+                và được bỏ khỏi phiếu học phí cũ (không còn tính nợ). Buổi đã học mà chưa nộp vẫn là nợ. Muốn học tiếp thì thu/mua
+                thêm buổi ở lớp mới sau khi chuyển.
               </p>
             ) : null}
             {!isPeriod && manualExtraRemainingSessions > 0 ? (

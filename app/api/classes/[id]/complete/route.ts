@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
-import { generateCourseCharge, getPeriodCourseRemaining } from "@/lib/server/billing-generation";
+import { generateCourseCharge, getPeriodCourseRemaining, trimOldCourseChargeOnTransfer, trimOldPeriodChargesOnTransfer } from "@/lib/server/billing-generation";
 import {
   computeTransferConversionFromValue,
   getEnrollmentLearningSnapshot,
@@ -144,6 +144,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const now = new Date();
   const createdEnrollmentIds: string[] = [];
   const createdEnrollmentBillingModel = new Map<string, string>();
+  const trimWarnings: string[] = [];
   const result = await prisma.$transaction(async (tx) => {
     let completed = 0;
     let transferred = 0;
@@ -290,6 +291,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           oldUnitPrice,
           newUnitPrice,
         });
+        // Kết thúc lớp sớm khi phiếu tháng còn buổi sau ngày kết thúc mà chưa đóng: bỏ các
+        // buổi đó để không thu trùng với lớp mới — cùng quy tắc với chuyển lớp đơn lẻ.
+        const trim = await trimOldPeriodChargesOnTransfer(tx, {
+          enrollmentId: enrollment.id,
+          leftAt: now,
+          reason: `Kết thúc lớp ${cls.className}, chuyển sang ${targetClass.className}`,
+        });
+        trimWarnings.push(...trim.warnings);
+      } else {
+        const trim = await trimOldCourseChargeOnTransfer(tx, {
+          enrollmentId: enrollment.id,
+          completedSessions: snapshot.completedMainSessions,
+          transferValueOut: conversion.remainingValue,
+          reason: `Kết thúc lớp ${cls.className}, chuyển sang ${targetClass.className}`,
+        });
+        trimWarnings.push(...trim.warnings);
       }
 
       if (chosenScholarshipPct > 0) {
@@ -325,7 +342,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return { completed, transferred, freeExtraCarried, transferValueAmount };
   });
 
-  const billingWarnings: string[] = [];
+  const billingWarnings: string[] = [...trimWarnings];
   for (const enrollmentId of createdEnrollmentIds) {
     // PERIOD không thu 1 cục lúc ghi danh (charge sinh theo tháng) — chỉ gọi
     // generateCourseCharge cho enrollment COURSE, tránh cảnh báo vô nghĩa

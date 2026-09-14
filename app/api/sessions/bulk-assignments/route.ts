@@ -19,12 +19,18 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const sessionIds: string[] = Array.isArray(body.sessionIds) ? [...new Set(body.sessionIds.map(String))].slice(0, 500) as string[] : [];
-  const teacherId = body.teacherId ? String(body.teacherId) : null;
-  const assistantId = body.assistantId ? String(body.assistantId) : null;
+  // Danh sách GV và TG (lớp có thể 2 giáo viên, 2 trợ giảng). Vẫn nhận teacherId/assistantId
+  // đơn lẻ cho tương thích.
+  const toIds = (list: unknown, single: unknown) =>
+    [...new Set([...(Array.isArray(list) ? list : []), ...(single ? [single] : [])].map(String).filter(Boolean))].slice(0, 5);
+  const teacherIds = toIds(body.teacherIds, body.teacherId);
+  const assistantIds = toIds(body.assistantIds, body.assistantId);
   const mode: BulkMode = body.mode === "REPLACE" ? "REPLACE" : "FILL_EMPTY";
   if (sessionIds.length === 0) return NextResponse.json({ error: "Chưa chọn buổi học nào." }, { status: 400 });
-  if (!teacherId && !assistantId) return NextResponse.json({ error: "Chọn giáo viên hoặc trợ giảng cần gán." }, { status: 400 });
-  if (teacherId && teacherId === assistantId) {
+  if (!teacherIds.length && !assistantIds.length) {
+    return NextResponse.json({ error: "Chọn giáo viên hoặc trợ giảng cần gán." }, { status: 400 });
+  }
+  if (teacherIds.some((id) => assistantIds.includes(id))) {
     return NextResponse.json({ error: "Một người không thể vừa là giáo viên vừa là trợ giảng của cùng buổi." }, { status: 400 });
   }
 
@@ -39,7 +45,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const input = { sessionIds, teacherId, assistantId, mode };
+  const input = { sessionIds, teacherIds, assistantIds, mode };
   if (!body.confirm) {
     const plan = await planBulkAssignment(prisma, input);
     return NextResponse.json({ plan: { items: plan.items, counts: plan.counts } });
@@ -58,7 +64,7 @@ export async function POST(req: NextRequest) {
       action: "bulk_assign_staff",
       entityType: "ClassSession",
       entityId: sessionIds[0],
-      after: JSON.stringify({ teacherId, assistantId, mode, sessions: sessionIds.length, counts: result.plan.counts }),
+      after: JSON.stringify({ teacherIds, assistantIds, mode, sessions: sessionIds.length, counts: result.plan.counts }),
     },
   });
 

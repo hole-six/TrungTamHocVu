@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
-import { generateCourseCharge, getPeriodCourseRemaining } from "@/lib/server/billing-generation";
+import { generateCourseCharge, generatePeriodChargesForNewEnrollment, getPeriodCourseRemaining, trimOldCourseChargeOnTransfer, trimOldPeriodChargesOnTransfer } from "@/lib/server/billing-generation";
 import { computeTransferConversionFromValue, getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { computeEffectiveUnitPrice } from "@/lib/server/tuition-rules";
 import { transferWalletToNewEnrollment, getWalletBalance } from "@/lib/server/enrollment-wallet";
@@ -189,6 +189,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // Bộ giáo trình chuẩn của lớp mới — trước đây chỉ luồng ghi danh tay mới gắn.
     await attachCourseBookRequirements(tx, { studentId: existing.studentId, classId: targetClass.id, enrollmentId: nextEnrollment.id });
 
+    let trimWarnings: string[] = [];
     if (isPeriod) {
       await transferWalletToNewEnrollment(tx, {
         fromEnrollmentId: existing.id,
@@ -196,6 +197,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         oldUnitPrice,
         newUnitPrice,
       });
+      // Phiếu lớp cũ chưa đóng: bỏ các buổi sau ngày chuyển (lớp mới sẽ thu các tuần đó) —
+      // không thì thu trùng. Xem trimOldPeriodChargesOnTransfer.
+      trimWarnings = (await trimOldPeriodChargesOnTransfer(tx, {
+        enrollmentId: existing.id,
+        leftAt: now,
+        reason: `Chuyển sang ${targetClass.className} ngày ${now.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}`,
+      })).warnings;
+    } else {
+      // Gói theo khóa: phiếu khóa cũ chỉ giữ buổi đã học + phần tiền mang sang; buổi chưa
+      // học chưa nộp không còn là nợ. Xem trimOldCourseChargeOnTransfer.
+      trimWarnings = (await trimOldCourseChargeOnTransfer(tx, {
+        enrollmentId: existing.id,
+        completedSessions: snapshot.completedMainSessions,
+        transferValueOut: conversion.remainingValue,
+        reason: `Chuyển sang ${targetClass.className} ngày ${now.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}`,
+      })).warnings;
     }
 
     if (chosenScholarshipPct > 0) {
@@ -222,16 +239,31 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     await syncStudentDerivedFields(existing.studentId, tx);
-    return nextEnrollment;
+    return { ...nextEnrollment, trimWarnings };
   });
 
-  const chargeResult = created.billingModel === "COURSE" && !targetClass.isRemedial ? await generateCourseCharge(created.id) : null;
+  // Quy đổi ra 0 buổi (chưa nộp tiền) thì chưa có gì để lập phiếu khóa ở lớp mới — báo rõ thay
+  // vì để generateCourseCharge báo "chưa cấu hình tổng số buổi" gây hiểu nhầm là lỗi lớp.
+  const chargeResult =
+    created.billingModel === "COURSE" && !targetClass.isRemedial && conversion.convertedSessionCount > 0
+      ? await generateCourseCharge(created.id)
+      : null;
+  const zeroCourseWarning =
+    !isPeriod && conversion.convertedSessionCount === 0
+      ? "Chưa có học phí đã nộp để quy đổi — lớp mới đang 0 buổi, cần thu/mua thêm buổi cho học viên."
+      : null;
+  // Đóng theo tháng: lập ngay phiếu tháng này ở lớp mới (chỉ các buổi từ ngày chuyển, trừ phần
+  // ví mang sang) để phụ huynh thấy đúng số phải đóng, không đợi đợt thu ban đêm.
+  const periodWarnings = isPeriod ? (await generatePeriodChargesForNewEnrollment(created.id, now)).warnings : [];
   const syncedStudent = await syncStudentDerivedFields(existing.studentId);
 
   return NextResponse.json({
     item: created,
     student: syncedStudent,
     conversion,
-    billingWarning: chargeResult && "error" in chargeResult ? chargeResult.error : undefined,
+    billingWarning:
+      [chargeResult && "error" in chargeResult ? chargeResult.error : null, zeroCourseWarning, ...created.trimWarnings, ...periodWarnings]
+        .filter(Boolean)
+        .join(" · ") || undefined,
   });
 }

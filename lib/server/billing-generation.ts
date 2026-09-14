@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   computeEffectiveUnitPrice,
@@ -806,6 +807,157 @@ export async function generateChargesForPeriod(
 // hay lỗi dữ liệu thì trả về cảnh báo để ghi danh vẫn thành công.
 // fromDate: tháng bắt đầu lập phiếu — mặc định là tháng ghi danh; khi đi học lại sau bảo lưu
 // thì là tháng đi học lại (không lập lại các tháng trước kỳ bảo lưu).
+// CHUYỂN LỚP GIỮA KỲ MÀ PHIẾU LỚP CŨ CHƯA ĐÓNG (HOẶC ĐÓNG MỘT PHẦN).
+//
+// Phiếu tháng của lớp cũ lập từ đầu tháng cho MỌI buổi của lớp cũ trong tháng. Chuyển lớp
+// ngày 16 thì các buổi sau ngày 16 em không học ở lớp cũ nữa mà học ở lớp mới — và lớp mới
+// lại lập phiếu cho đúng những tuần đó. Đã đóng đủ thì không sao: phần tiền của các buổi
+// chưa học nằm trong ví và được chuyển sang lớp mới (transferWalletToNewEnrollment). Nhưng
+// CHƯA ĐÓNG thì không có gì để chuyển: phiếu cũ vẫn đòi đủ tháng, phiếu mới đòi thêm các tuần
+// sau → thu trùng. Mô phỏng thật: chưa đóng tháng 9, chuyển 16/9 → lập phiếu 1.800.000đ cho
+// tháng chỉ học 8 buổi × 150.000đ; chuyển đúng ngày 1/10 → phiếu tháng 10 lớp cũ còn nguyên.
+//
+// Cách bỏ: với mỗi phiếu theo tháng của ghi danh cũ còn chứa buổi SAU lúc rời lớp, bỏ khỏi
+// phiếu số buổi = min(buổi chưa học ở lớp cũ, buổi chưa đóng tiền trên phiếu). Phần đã đóng
+// của buổi chưa học KHÔNG bỏ (tiền đó đã theo ví sang lớp mới); buổi đã học mà chưa đóng vẫn
+// nợ bình thường. Kỳ thu đã chốt thì không tự sửa, trả cảnh báo để kế toán xử lý.
+//
+// KHÔNG dùng cho Rút lớp: bỏ dở thì phiếu tháng giữ nguyên theo chính sách trung tâm.
+export async function trimOldPeriodChargesOnTransfer(
+  tx: Prisma.TransactionClient,
+  params: { enrollmentId: string; leftAt: Date; reason: string },
+) {
+  const warnings: string[] = [];
+  let trimmedSessions = 0;
+  const leftDayStart = new Date(Date.UTC(params.leftAt.getUTCFullYear(), params.leftAt.getUTCMonth(), params.leftAt.getUTCDate()));
+  const charges = await tx.charge.findMany({
+    where: { enrollmentId: params.enrollmentId, billingModel: "PERIOD", billingPeriod: { endDate: { gte: leftDayStart } } },
+    include: {
+      billingPeriod: true,
+      allocations: { where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } } },
+    },
+  });
+  const wallet = await tx.enrollmentWallet.findUnique({ where: { enrollmentId: params.enrollmentId } });
+
+  for (const charge of charges) {
+    if (charge.unitPrice <= 0 || charge.tuitionAmount <= 0) continue;
+    const period = charge.billingPeriod;
+    // Buổi của lớp cũ trong kỳ mà em KHÔNG học vì đã chuyển đi (sau lúc rời lớp, chưa bị
+    // trừ ví của ghi danh cũ). Buổi cùng ngày chuyển đã diễn ra trước đó thì vẫn là lớp cũ.
+    const laterSessions = await tx.classSession.findMany({
+      where: {
+        classId: charge.classId,
+        status: { notIn: ["CANCELLED", "RESCHEDULED"] },
+        sessionDate: { gte: period.startDate, lte: period.endDate, gt: params.leftAt },
+      },
+      select: { id: true },
+    });
+    let untaught = laterSessions.length;
+    if (wallet && untaught > 0) {
+      const debited = await tx.enrollmentWalletTxn.count({
+        where: { walletId: wallet.id, kind: "SESSION_DEBIT", sessionId: { in: laterSessions.map((x) => x.id) } },
+      });
+      untaught -= debited;
+    }
+    if (untaught <= 0) continue;
+
+    const billedSessions = Math.round(charge.tuitionAmount / charge.unitPrice);
+    const ownDue = charge.tuitionAmount + charge.materialsAmount;
+    const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
+    const tuitionPaid = ownDue > 0 ? Math.min(charge.tuitionAmount, paid * (charge.tuitionAmount / ownDue)) : 0;
+    // Làm tròn LÊN số buổi đã đóng: đóng lẻ nửa buổi thì coi như buổi đó đã có tiền, không bỏ.
+    const paidSessions = Math.ceil(tuitionPaid / charge.unitPrice - 1e-9);
+    const unpaidSessions = Math.max(0, billedSessions - paidSessions);
+    const remove = Math.min(untaught, unpaidSessions, charge.sessionCount);
+    if (remove <= 0) continue;
+
+    if (!canEditCharges(period.status)) {
+      warnings.push(
+        `Phiếu tháng ${period.periodName} của lớp cũ còn ${remove} buổi chưa học và chưa đóng nhưng kỳ thu đã chốt — cần kế toán điều chỉnh tay.`,
+      );
+      continue;
+    }
+
+    const sessionCount = charge.sessionCount - remove;
+    const tuitionAmount = computeTuitionAmount(sessionCount, 0, charge.deductedCount, charge.unitPrice);
+    const note = `${params.reason}: bỏ ${remove} buổi chưa học và chưa đóng khỏi phiếu (các tuần đó tính ở lớp mới).`;
+    await tx.charge.update({
+      where: { id: charge.id },
+      data: {
+        sessionCount,
+        scheduledSessionCount: Math.max(0, charge.scheduledSessionCount - remove),
+        mainTuitionAmount: tuitionAmount,
+        tuitionAmount,
+        totalAmount: computeTotalAmount(tuitionAmount, charge.materialsAmount, charge.openingBalance),
+        notes: charge.notes ? `${charge.notes}\n${note}` : note,
+      },
+    });
+    trimmedSessions += remove;
+  }
+  return { trimmedSessions, warnings };
+}
+
+// CHUYỂN LỚP GÓI THEO KHÓA: phiếu khóa cũ chỉ còn giữ giá trị ĐÃ DÙNG ở lớp cũ.
+//
+// Chốt nghiệp vụ: học phí đã nộp − các buổi đã học = phần quy ra buổi ở lớp mới. Phiếu khóa
+// cũ lập cho CẢ khóa (vd 24 buổi) nên sau khi chuyển phải còn đúng:
+//   giá trị các buổi đã học  +  giá trị mang sang lớp mới (lấy từ tiền đã nộp)
+// Phần còn lại là các buổi chưa học mà cũng chưa nộp → bỏ khỏi phiếu. Không bỏ thì:
+//   - chưa nộp, học 5/24 buổi rồi chuyển: vẫn nợ cả khóa 2.400.000đ thay vì 500.000đ;
+//   - nộp 10 buổi, học 5: sang lớp mới được 5 buổi mà vẫn nợ 1.400.000đ cho buổi không có.
+// Không bao giờ hạ phiếu xuống dưới số đã thu. Kỳ thu đã chốt thì chỉ cảnh báo.
+export async function trimOldCourseChargeOnTransfer(
+  tx: Prisma.TransactionClient,
+  params: { enrollmentId: string; completedSessions: number; transferValueOut: number; reason: string },
+) {
+  const warnings: string[] = [];
+  let trimmedAmount = 0;
+  const charges = await tx.charge.findMany({
+    where: { enrollmentId: params.enrollmentId, billingModel: "COURSE" },
+    include: { billingPeriod: true, allocations: { where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } } } },
+    orderBy: { createdAt: "asc" },
+  });
+  let learnedSessionsLeft = Math.max(0, params.completedSessions);
+  let valueOutLeft = Math.max(0, params.transferValueOut);
+
+  for (const charge of charges) {
+    const gross = charge.mainTuitionAmount + charge.paidCatchupAmount;
+    if (gross <= 0) continue;
+    const learnedValue = Math.min(gross, learnedSessionsLeft * charge.unitPrice);
+    learnedSessionsLeft = Math.max(0, learnedSessionsLeft - (charge.unitPrice > 0 ? Math.ceil(learnedValue / charge.unitPrice) : 0));
+    const keepGross = Math.min(gross, learnedValue + valueOutLeft);
+    valueOutLeft -= keepGross - learnedValue;
+
+    const ownDue = charge.tuitionAmount + charge.materialsAmount;
+    const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
+    const tuitionPaid = ownDue > 0 ? Math.round((paid * charge.tuitionAmount) / ownDue) : 0;
+    const tuitionAmount = Math.max(tuitionPaid, keepGross - charge.transferCreditAmount, 0);
+    if (tuitionAmount >= charge.tuitionAmount) continue;
+
+    if (!canEditCharges(charge.billingPeriod.status)) {
+      warnings.push(
+        `Phiếu khóa lớp cũ còn ${(charge.tuitionAmount - tuitionAmount).toLocaleString("vi-VN")}đ cho các buổi chưa học chưa nộp nhưng kỳ thu đã chốt — cần kế toán điều chỉnh tay.`,
+      );
+      continue;
+    }
+    const mainTuitionAmount = Math.max(0, tuitionAmount + charge.transferCreditAmount - charge.paidCatchupAmount);
+    const removed = charge.tuitionAmount - tuitionAmount;
+    const note = `${params.reason}: bỏ ${removed.toLocaleString("vi-VN")}đ của các buổi chưa học và chưa nộp khỏi phiếu khóa (đã học ${params.completedSessions} buổi, mang sang ${params.transferValueOut.toLocaleString("vi-VN")}đ).`;
+    await tx.charge.update({
+      where: { id: charge.id },
+      data: {
+        tuitionAmount,
+        mainTuitionAmount,
+        sessionCount: charge.unitPrice > 0 ? Math.ceil(mainTuitionAmount / charge.unitPrice) : charge.sessionCount,
+        totalAmount: computeTotalAmount(tuitionAmount, charge.materialsAmount, charge.openingBalance),
+        notes: charge.notes ? `${charge.notes}\n${note}` : note,
+      },
+    });
+    trimmedAmount += removed;
+  }
+  return { trimmedAmount, warnings };
+}
+
 export async function generatePeriodChargesForNewEnrollment(enrollmentId: string, now: Date = new Date(), fromDate?: Date) {
   const warnings: string[] = [];
   const enrollment = await prisma.enrollment.findUnique({
@@ -1154,3 +1306,4 @@ export async function previewChargeGenerationExceptions(periodId: string) {
     exceptions,
   };
 }
+

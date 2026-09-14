@@ -36,11 +36,16 @@ type PlanItem = {
   startTime: string | null;
   endTime: string | null;
   role: "TEACHER" | "ASSISTANT";
-  employeeName: string;
   action: "ASSIGN" | "REPLACE" | "KEEP" | "SKIP";
-  replacedNames: string[];
+  addNames: string[];
+  removeNames: string[];
+  keepNames: string[];
+  skipped: { name: string; reason: string }[];
   reason: string | null;
 };
+/** Nhân sự mặc định của lớp (có thể 2 GV, 2 TG) — để điền nhanh khi chọn buổi của 1 lớp. */
+export type ClassDefaultStaff = Record<string, { teacherIds: string[]; assistantIds: string[] }>;
+const MAX_PER_ROLE = 4;
 type Plan = { items: PlanItem[]; counts: Record<PlanItem["action"], number> };
 
 const WEEKDAY = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -63,11 +68,13 @@ export default function BulkAssignDrawer({
   sessions,
   employees,
   classes,
+  classDefaults,
   weekLabel,
 }: {
   sessions: BulkSession[];
   employees: Employee[];
   classes: ClassOption[];
+  classDefaults: ClassDefaultStaff;
   weekLabel: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -104,7 +111,7 @@ export default function BulkAssignDrawer({
               ))}
             </div>
             {tab === "sessions" ? (
-              <SessionsTab sessions={sessions} employees={employees} />
+              <SessionsTab sessions={sessions} employees={employees} classDefaults={classDefaults} />
             ) : (
               <ClassTab classes={classes} />
             )}
@@ -115,13 +122,24 @@ export default function BulkAssignDrawer({
   );
 }
 
-function SessionsTab({ sessions, employees }: { sessions: BulkSession[]; employees: Employee[] }) {
+function SessionsTab({
+  sessions,
+  employees,
+  classDefaults,
+}: {
+  sessions: BulkSession[];
+  employees: Employee[];
+  classDefaults: ClassDefaultStaff;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  const [teacherId, setTeacherId] = useState("");
-  const [assistantId, setAssistantId] = useState("");
+  // Danh sách người theo vai trò — lớp có thể 1–2 giáo viên, 1–2 trợ giảng. Ô trống = chưa chọn.
+  const [teacherIds, setTeacherIds] = useState<string[]>([""]);
+  const [assistantIds, setAssistantIds] = useState<string[]>([""]);
+  const chosenTeachers = teacherIds.filter(Boolean);
+  const chosenAssistants = assistantIds.filter(Boolean);
   const [mode, setMode] = useState<"FILL_EMPTY" | "REPLACE">("FILL_EMPTY");
   const [plan, setPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(false);
@@ -160,7 +178,7 @@ function SessionsTab({ sessions, employees }: { sessions: BulkSession[]; employe
     const res = await fetch("/api/sessions/bulk-assignments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionIds: [...selected], teacherId: teacherId || null, assistantId: assistantId || null, mode, confirm }),
+      body: JSON.stringify({ sessionIds: [...selected], teacherIds: chosenTeachers, assistantIds: chosenAssistants, mode, confirm }),
     });
     const data = await res.json().catch(() => ({}));
     setLoading(false);
@@ -183,6 +201,13 @@ function SessionsTab({ sessions, employees }: { sessions: BulkSession[]; employe
   }
 
   const actionable = plan ? plan.counts.ASSIGN + plan.counts.REPLACE : 0;
+  // Các buổi đang chọn cùng thuộc 1 lớp → cho điền nhanh đúng nhân sự mặc định của lớp đó.
+  const selectedClassIds = [...new Set(sessions.filter((x) => selected.has(x.id)).map((x) => x.classId))];
+  const onlyClassId = selectedClassIds.length === 1 ? selectedClassIds[0] : null;
+  const onlyClassDefaults = onlyClassId ? classDefaults[onlyClassId] : undefined;
+  const singleClassDefaults =
+    onlyClassDefaults && onlyClassDefaults.teacherIds.length + onlyClassDefaults.assistantIds.length > 0 ? onlyClassDefaults : null;
+  const singleClassCode = onlyClassId ? sessions.find((x) => x.classId === onlyClassId)?.classCode ?? "" : "";
 
   if (plan) {
     const order: PlanItem["action"][] = ["ASSIGN", "REPLACE", "SKIP", "KEEP"];
@@ -205,11 +230,21 @@ function SessionsTab({ sessions, employees }: { sessions: BulkSession[]; employe
                 </span>
                 <span className="text-xs font-bold">{ACTION_STYLE[item.action].label}</span>
               </div>
-              <p className="mt-0.5 text-xs">
-                {item.role === "TEACHER" ? "GV" : "TG"}:{" "}
-                {item.action === "REPLACE" ? `${item.replacedNames.join(", ")} → ${item.employeeName}` : item.employeeName}
-                {item.reason ? ` — ${item.reason}` : ""}
-              </p>
+              <div className="mt-0.5 space-y-0.5 text-xs">
+                <p>
+                  <span className="font-bold">{item.role === "TEACHER" ? "GV" : "TG"}:</span>{" "}
+                  {item.addNames.length ? <>thêm <strong>{item.addNames.join(", ")}</strong></> : null}
+                  {item.addNames.length && item.removeNames.length ? " · " : null}
+                  {item.removeNames.length ? <>gỡ <strong>{item.removeNames.join(", ")}</strong></> : null}
+                  {(item.addNames.length || item.removeNames.length) && item.keepNames.length ? " · " : null}
+                  {item.keepNames.length ? <>giữ {item.keepNames.join(", ")}</> : null}
+                  {!item.addNames.length && !item.removeNames.length && !item.keepNames.length ? "không đổi" : null}
+                </p>
+                {item.skipped.map((k, i) => (
+                  <p key={i}>⚠ {k.name}: {k.reason}</p>
+                ))}
+                {item.reason ? <p>{item.reason}</p> : null}
+              </div>
             </div>
           ))}
         </div>
@@ -286,34 +321,39 @@ function SessionsTab({ sessions, employees }: { sessions: BulkSession[]; employe
 
       <section className="space-y-3 rounded-2xl border border-hairline p-3 sm:p-4">
         <p className="text-sm font-bold text-ink">2. Chọn người và cách gán</p>
+        {singleClassDefaults ? (
+          <button
+            type="button"
+            className="btn-ghost-sm"
+            onClick={() => {
+              setTeacherIds(singleClassDefaults.teacherIds.length ? [...singleClassDefaults.teacherIds] : [""]);
+              setAssistantIds(singleClassDefaults.assistantIds.length ? [...singleClassDefaults.assistantIds] : [""]);
+              setPlan(null);
+            }}
+          >
+            Điền theo nhân sự mặc định của lớp {singleClassCode} ({singleClassDefaults.teacherIds.length} GV · {singleClassDefaults.assistantIds.length} TG)
+          </button>
+        ) : null}
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="form-group">
-            <span className="label-sm">Giáo viên</span>
-            <select className="input" value={teacherId} onChange={(e) => { setTeacherId(e.target.value); setPlan(null); }}>
-              <option value="">— Không gán giáo viên —</option>
-              {employees.map((e) => (
-                <option key={e.id} value={e.id} disabled={e.id === assistantId}>
-                  {e.fullName}{e.shortName ? ` (${e.shortName})` : ""}{e.position ? ` · ${e.position}` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="form-group">
-            <span className="label-sm">Trợ giảng</span>
-            <select className="input" value={assistantId} onChange={(e) => { setAssistantId(e.target.value); setPlan(null); }}>
-              <option value="">— Không gán trợ giảng —</option>
-              {employees.map((e) => (
-                <option key={e.id} value={e.id} disabled={e.id === teacherId}>
-                  {e.fullName}{e.shortName ? ` (${e.shortName})` : ""}{e.position ? ` · ${e.position}` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
+          <StaffListPicker
+            label="Giáo viên"
+            values={teacherIds}
+            onChange={(next) => { setTeacherIds(next); setPlan(null); }}
+            employees={employees}
+            blocked={chosenAssistants}
+          />
+          <StaffListPicker
+            label="Trợ giảng"
+            values={assistantIds}
+            onChange={(next) => { setAssistantIds(next); setPlan(null); }}
+            employees={employees}
+            blocked={chosenTeachers}
+          />
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           {([
-            ["FILL_EMPTY", "Chỉ điền buổi còn trống", "Buổi đã có người thì giữ nguyên. An toàn, nên dùng."],
-            ["REPLACE", "Thay người đang gán", "Dùng khi đổi người dạy các buổi này. Buổi đã dạy, đã check-in, đang dạy thay vẫn giữ nguyên."],
+            ["FILL_EMPTY", "Chỉ điền buổi còn trống", "Buổi chưa có GV (hoặc TG) thì gán cả danh sách; đã có người thì giữ nguyên. An toàn, nên dùng."],
+            ["REPLACE", "Đặt đúng danh sách này", "GV/TG của buổi thành đúng những người đã chọn: thêm người thiếu, gỡ người không có trong danh sách. Buổi đã dạy, đã check-in, đang dạy thay giữ nguyên."],
           ] as const).map(([value, label, hint]) => (
             <label key={value} className={`cursor-pointer rounded-xl border px-3 py-2 ${mode === value ? "border-sky-400 bg-sky-50" : "border-hairline"}`}>
               <span className="flex items-center gap-2 text-sm font-bold text-ink">
@@ -331,13 +371,67 @@ function SessionsTab({ sessions, employees }: { sessions: BulkSession[]; employe
         <button
           type="button"
           className="btn-primary"
-          disabled={loading || selected.size === 0 || (!teacherId && !assistantId)}
+          disabled={loading || selected.size === 0 || (!chosenTeachers.length && !chosenAssistants.length)}
           onClick={() => submit(false)}
         >
           {loading ? "Đang kiểm tra..." : `Xem trước (${selected.size} buổi)`}
         </button>
         <p className="text-xs text-ink-muted48">Chưa ghi gì cho tới khi bấm xác nhận ở bước xem trước. Trùng lịch sẽ tự bị bỏ qua kèm lý do.</p>
       </div>
+    </div>
+  );
+}
+
+function StaffListPicker({
+  label,
+  values,
+  onChange,
+  employees,
+  blocked,
+}: {
+  label: string;
+  values: string[];
+  onChange: (next: string[]) => void;
+  employees: Employee[];
+  /** Người đã chọn ở vai trò kia — không cho chọn trùng. */
+  blocked: string[];
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="label-sm">{label}</span>
+        {values.length < MAX_PER_ROLE ? (
+          <button type="button" className="btn-ghost-sm" onClick={() => onChange([...values, ""])}>
+            + Thêm {label.toLowerCase()}
+          </button>
+        ) : null}
+      </div>
+      {values.map((value, index) => (
+        <div key={index} className="flex items-center gap-2">
+          <select
+            className="input min-w-0 flex-1"
+            value={value}
+            onChange={(e) => onChange(values.map((v, i) => (i === index ? e.target.value : v)))}
+          >
+            <option value="">{`— ${label} ${index + 1}: không gán —`}</option>
+            {employees.map((e) => (
+              <option key={e.id} value={e.id} disabled={blocked.includes(e.id) || (values.includes(e.id) && e.id !== value)}>
+                {e.fullName}{e.shortName ? ` (${e.shortName})` : ""}{e.position ? ` · ${e.position}` : ""}
+              </option>
+            ))}
+          </select>
+          {values.length > 1 ? (
+            <button
+              type="button"
+              className="btn-ghost-sm text-rose-600"
+              aria-label={`Bỏ ${label.toLowerCase()} ${index + 1}`}
+              onClick={() => onChange(values.filter((_, i) => i !== index))}
+            >
+              Bỏ
+            </button>
+          ) : null}
+        </div>
+      ))}
     </div>
   );
 }

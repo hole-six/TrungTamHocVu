@@ -101,6 +101,17 @@ async function main() {
     expectEqual((await findStaffConflicts(db, other.id, [at14])).length, 1, "người dạy thay thì bận lúc 14:00");
   });
 
+  // ---------------------------------------------------------------- 4b
+  await test("Không tính trùng lịch với CHÍNH buổi đang xét (TG của buổi dạy thay GV buổi đó)", async () => {
+    const branch = await fx.seedBranch(db);
+    const cls = await fx.seedClass(db, branch.id);
+    const tg = await fx.seedEmployee(db, branch.id, { fullName: "TG trong buổi" });
+    const s = await session(cls.id, day("2026-06-12"), "07:00", "08:30");
+    await assign(s.id, tg.id, "ASSISTANT");
+    expectEqual((await findStaffConflicts(db, tg.id, [s])).length, 0, "truyền bản ghi buổi (id) — không trùng với chính nó");
+    expectEqual((await findStaffConflicts(db, tg.id, [{ sessionId: s.id, sessionDate: s.sessionDate, startTime: "07:00", endTime: "08:30" }])).length, 0, "truyền sessionId");
+  });
+
   // ---------------------------------------------------------------- 5
   await test("Sinh lịch tự động: GV mặc định đã kẹt lớp khác cùng giờ thì để trống, không xếp chồng", async () => {
     const branch = await fx.seedBranch(db);
@@ -231,7 +242,7 @@ async function main() {
     const filled = await session(cls.id, plusDays(4), "17:30", "19:00");
     await assign(filled.id, old.id, "TEACHER");
 
-    const input = { sessionIds: [empty.id, filled.id], teacherId: x.id, mode: "FILL_EMPTY" as const };
+    const input = { sessionIds: [empty.id, filled.id], teacherIds: [x.id], mode: "FILL_EMPTY" as const };
     const plan = await planBulkAssignment(db, input);
     expectEqual(plan.counts.ASSIGN, 1, "gán mới 1 buổi");
     expectEqual(plan.counts.KEEP, 1, "giữ nguyên buổi đã có GV cũ");
@@ -258,7 +269,7 @@ async function main() {
     await db.sessionAssignment.update({ where: { id: checkedRow.id }, data: { checkInAt: new Date() } });
     const cancelled = await session(cls.id, plusDays(6), "17:30", "19:00", "CANCELLED");
 
-    const input = { sessionIds: [upcoming.id, taught.id, taughtEmpty.id, checked.id, cancelled.id], teacherId: x.id, mode: "REPLACE" as const };
+    const input = { sessionIds: [upcoming.id, taught.id, taughtEmpty.id, checked.id, cancelled.id], teacherIds: [x.id], mode: "REPLACE" as const };
     const plan = await planBulkAssignment(db, input);
     const actionOf = (id: string) => plan.items.find((i) => i.sessionId === id)?.action;
     expectEqual(actionOf(upcoming.id), "REPLACE", "buổi chưa dạy: thay A → X");
@@ -287,12 +298,12 @@ async function main() {
     const busy = await session(lopC.id, d, "09:30", "11:00");
     await assign(busy.id, x.id, "TEACHER");
 
-    const plan = await planBulkAssignment(db, { sessionIds: [a7.id, b7.id, a9.id], teacherId: x.id, mode: "FILL_EMPTY" });
+    const plan = await planBulkAssignment(db, { sessionIds: [a7.id, b7.id, a9.id], teacherIds: [x.id], mode: "FILL_EMPTY" });
     const actionOf = (id: string) => plan.items.find((i) => i.sessionId === id);
     expectEqual(actionOf(a7.id)?.action, "ASSIGN", "07:00 lớp A: gán");
     expectEqual(actionOf(b7.id)?.action, "SKIP", "07:00 lớp B cùng giờ: bỏ qua");
     expectEqual(actionOf(a9.id)?.action, "SKIP", "09:00 chồng giờ lớp C 09:30: bỏ qua");
-    expectTrue(actionOf(b7.id)?.reason?.includes("Trùng") ?? false, "có lý do trùng: " + actionOf(b7.id)?.reason);
+    expectTrue(actionOf(b7.id)?.skipped.some((k) => k.reason.includes("trùng")) ?? false, "có lý do trùng: " + JSON.stringify(actionOf(b7.id)?.skipped));
   });
 
   // ---------------------------------------------------------------- 13
@@ -302,8 +313,89 @@ async function main() {
     const x = await fx.seedEmployee(db, branch.id, { fullName: "GV X" });
     const taught = await session(cls.id, day("2026-03-10"), "17:30", "19:00", "COMPLETED");
     await fx.seedPayrollRun(db, branch.id, "2026-03", "LOCKED");
-    const plan = await planBulkAssignment(db, { sessionIds: [taught.id], teacherId: x.id, mode: "FILL_EMPTY" });
+    const plan = await planBulkAssignment(db, { sessionIds: [taught.id], teacherIds: [x.id], mode: "FILL_EMPTY" });
     expectEqual(plan.items[0]?.action, "SKIP", "tháng lương đã chốt");
+  });
+
+  // ---------------------------------------------------------------- 14
+  await test("Lớp 2 GV + 2 TG: sinh buổi đủ 4 người; đổi GV thứ 2; chuyển TG lên làm GV", async () => {
+    const branch = await fx.seedBranch(db);
+    const cls = await fx.seedClass(db, branch.id);
+    const [a, b, c, d, e] = await Promise.all(
+      ["GV A", "GV B", "TG C", "TG D", "GV E"].map((fullName) =>
+        fx.seedEmployee(db, branch.id, { fullName, teachingHourlyRate: 200_000, assistantHourlyRate: 80_000 }),
+      ),
+    );
+    const weekday = new Date(plusDays(2)).getUTCDay();
+    await db.scheduleRule.create({ data: { classId: cls.id, weekday, startTime: "17:30", endTime: "19:00" } });
+    for (const [role, emp] of [["TEACHER_1", a], ["TEACHER_2", b], ["ASSISTANT_1", c], ["ASSISTANT_2", d]] as const) {
+      await db.classDefaultAssignment.create({ data: { classId: cls.id, employeeId: emp.id, role } });
+    }
+    await createSessionsInRange(cls.id, plusDays(1), plusDays(15));
+    const staffOf = async () => {
+      const s = await db.classSession.findFirst({ where: { classId: cls.id }, orderBy: { sessionDate: "asc" }, include: { assignments: { include: { employee: true } } } });
+      const pick = (type: string) => s!.assignments.filter((x) => (type === "GV" ? x.role === "TEACHER" : x.role !== "TEACHER")).map((x) => x.employee.fullName).sort().join(",");
+      return `GV=${pick("GV")} TG=${pick("TG")}`;
+    };
+    expectEqual(await staffOf(), "GV=GV A,GV B TG=TG C,TG D", "buổi mới có đủ 2 GV + 2 TG");
+
+    const save = (list: Array<[string, { id: string }]>) =>
+      db.$transaction((tx) => saveDefaultStaff(tx, cls.id, list.map(([role, emp]) => ({ role, employeeId: emp.id }))));
+    const r1 = await save([["TEACHER_1", a], ["TEACHER_2", e], ["ASSISTANT_1", c], ["ASSISTANT_2", d]]);
+    expectTrue(r1.ok, "đổi GV thứ 2 lưu được");
+    expectEqual(await staffOf(), "GV=GV A,GV E TG=TG C,TG D", "GV B → GV E, những người khác giữ");
+
+    const r2 = await save([["TEACHER_1", a], ["TEACHER_2", c], ["ASSISTANT_1", d]]);
+    expectTrue(r2.ok, "chuyển TG C lên GV lưu được: " + r2.plan.errors.join(" "));
+    expectEqual(await staffOf(), "GV=GV A,TG C TG=TG D", "C thành GV, không còn là TG; E bị gỡ");
+  });
+
+  // ---------------------------------------------------------------- 15
+  await test("Hàng loạt 2 GV + 2 TG – đặt đúng danh sách: thêm người thiếu, gỡ người ngoài danh sách", async () => {
+    const branch = await fx.seedBranch(db);
+    const cls = await fx.seedClass(db, branch.id);
+    const [x, y, t1, t2, old] = await Promise.all(
+      ["GV X", "GV Y", "TG 1", "TG 2", "GV cũ"].map((fullName) =>
+        fx.seedEmployee(db, branch.id, { fullName, teachingHourlyRate: 200_000, assistantHourlyRate: 80_000 }),
+      ),
+    );
+    const s1 = await session(cls.id, plusDays(3), "17:30", "19:00");
+    await assign(s1.id, old.id, "TEACHER");
+    await assign(s1.id, t1.id, "ASSISTANT", 80_000);
+
+    const input = { sessionIds: [s1.id], teacherIds: [x.id, y.id], assistantIds: [t1.id, t2.id], mode: "REPLACE" as const };
+    const plan = await planBulkAssignment(db, input);
+    const gv = plan.items.find((i) => i.role === "TEACHER");
+    const tg = plan.items.find((i) => i.role === "ASSISTANT");
+    expectEqual(gv?.action, "REPLACE", "GV: thay");
+    expectEqual(gv?.addNames.join(","), "GV X,GV Y", "GV: thêm X, Y");
+    expectEqual(gv?.removeNames.join(","), "GV cũ", "GV: gỡ GV cũ");
+    expectEqual(tg?.action, "ASSIGN", "TG: thêm");
+    expectEqual(tg?.addNames.join(","), "TG 2", "TG: thêm TG 2");
+    expectEqual(tg?.keepNames.join(","), "TG 1", "TG: giữ TG 1");
+
+    await db.$transaction(async (tx) => applyBulkAssignment(tx, await planBulkAssignment(tx, input)));
+    const rows = await db.sessionAssignment.findMany({ where: { sessionId: s1.id }, include: { employee: true } });
+    const list = rows.map((r) => `${r.role}:${r.employee.fullName}:${r.hourlyRate}`).sort().join(" | ");
+    expectEqual(list, "ASSISTANT:TG 1:80000 | ASSISTANT:TG 2:80000 | TEACHER:GV X:200000 | TEACHER:GV Y:200000", "buổi đúng 2 GV + 2 TG, đơn giá theo vai trò");
+  });
+
+  // ---------------------------------------------------------------- 16
+  await test("Hàng loạt 2 GV: 1 người trùng lịch thì chỉ bỏ qua người đó, người còn lại vẫn gán", async () => {
+    const branch = await fx.seedBranch(db);
+    const lopA = await fx.seedClass(db, branch.id);
+    const lopB = await fx.seedClass(db, branch.id);
+    const x = await fx.seedEmployee(db, branch.id, { fullName: "GV X bận" });
+    const y = await fx.seedEmployee(db, branch.id, { fullName: "GV Y rảnh" });
+    const d = plusDays(4);
+    const busy = await session(lopB.id, d, "07:00", "08:30");
+    await assign(busy.id, x.id, "TEACHER");
+    const target = await session(lopA.id, d, "07:00", "08:30");
+    const plan = await planBulkAssignment(db, { sessionIds: [target.id], teacherIds: [x.id, y.id], mode: "FILL_EMPTY" });
+    const gv = plan.items[0];
+    expectEqual(gv?.action, "ASSIGN", "vẫn gán");
+    expectEqual(gv?.addNames.join(","), "GV Y rảnh", "gán GV Y");
+    expectTrue(gv?.skipped.some((k) => k.name === "GV X bận" && k.reason.includes("trùng")) ?? false, "báo GV X trùng lịch");
   });
 
   const failed = summary();

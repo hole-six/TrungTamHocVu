@@ -162,6 +162,8 @@ export function computeLearningSnapshot(
   unitPriceOverride?: number,
   holidayDates?: Set<string>,
   paidTuitionAmount?: number,
+  /** Tiền mang sang từ lớp trước đã trừ vào phiếu khóa này (Charge.transferCreditAmount). */
+  transferredInAmount = 0,
 ) {
   const plan = computeEnrollmentTuitionPlan(enrollment, unitPriceOverride);
   const manualExtraSessions = resolveManualExtraSessions(enrollment);
@@ -198,10 +200,13 @@ export function computeLearningSnapshot(
   // KHÔNG sửa lại paidRemainingSessions tại chỗ: manualExtraRemainingSessions được
   // suy ra từ nó, hạ số này xuống sẽ thổi phồng số buổi cộng linh động miễn phí.
   const entitlementTransferValue = remainingValue;
+  // Tiền của học viên cho khóa này = tiền nộp trực tiếp + tiền đã mang sang từ lớp trước.
+  // Trước đây chỉ tính tiền nộp trực tiếp: chuyển lớp lần 2 (A → B → C) thì toàn bộ giá trị
+  // mang sang ở B bị coi là 0 và mất trắng (mô phỏng: còn 15 buổi đã trả tiền, sang C còn 0).
   const moneyTransferValue =
     paidTuitionAmount === undefined
       ? null
-      : Math.max(0, paidTuitionAmount - completedMainSessions * plan.unitPrice);
+      : Math.max(0, paidTuitionAmount + transferredInAmount - completedMainSessions * plan.unitPrice);
   const transferableValue = isPeriod
     ? 0
     : moneyTransferValue === null
@@ -269,6 +274,10 @@ export async function getEnrollmentLearningSnapshot(
     }),
     computeEnrollmentPaidTuitionAmount(prismaClient, enrollment),
   ]);
+  const transferredIn = await prismaClient.charge.aggregate({
+    where: { enrollmentId: enrollment.id, billingModel: "COURSE" },
+    _sum: { transferCreditAmount: true },
+  });
 
   // Học phí "còn lại quy đổi" (chuyển lớp / kết thúc lớp) phải dựa trên số tiền học
   // viên THỰC NỘP sau học bổng/điều chỉnh, không phải giá gốc — nếu không, học viên
@@ -290,7 +299,15 @@ export async function getEnrollmentLearningSnapshot(
   // luồng chuyển lớp biết CÓ học bổng hay không mà mở tuỳ chọn giữ nguyên/không giữ
   // khi ghi danh vào lớp mới — thay vì âm thầm mất học bổng sau khi chuyển.
   return {
-    ...computeLearningSnapshot(enrollment, completedMainSessions, futureMainSessions, effectiveUnitPrice, holidayDates, paidTuitionAmount),
+    ...computeLearningSnapshot(
+      enrollment,
+      completedMainSessions,
+      futureMainSessions,
+      effectiveUnitPrice,
+      holidayDates,
+      paidTuitionAmount,
+      transferredIn._sum.transferCreditAmount ?? 0,
+    ),
     scholarshipPct,
     adjustmentPct,
   };

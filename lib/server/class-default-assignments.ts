@@ -158,6 +158,7 @@ export async function planDefaultStaffSync(
     }
   }
   if (pending.length === 0) return { changes: [], affectedSessions: 0, errors: [], ops: [] };
+  const removedPairs = new Set(pending.filter((p) => p.from).map((p) => `${p.from}|${assignmentRoleType(p.role)}`));
 
   const employeeIds = [...new Set(pending.flatMap((p) => [p.from, p.to]).filter((id): id is string => Boolean(id)))];
   const [employees, sessions] = await Promise.all([
@@ -183,11 +184,28 @@ export async function planDefaultStaffSync(
     const targetSessions: typeof sessions = [];
 
     for (const session of sessions) {
+      // So theo LOẠI vai trò (TG gồm cả ASSISTANT2 thêm tay ở từng buổi), không so chuỗi.
+      const changeType = assignmentRoleType(change.role);
       const fromAssignment = change.from
-        ? session.assignments.find((a) => a.employeeId === change.from && a.role === change.role)
+        ? session.assignments.find((a) => a.employeeId === change.from && assignmentRoleType(a.role) === changeType)
         : null;
-      const locked = Boolean(fromAssignment && (fromAssignment.checkInAt || fromAssignment.substituteForId || fromAssignment.substitutedBy));
-      const alreadyHasTo = change.to ? session.assignments.some((a) => a.employeeId === change.to && a.role === change.role) : false;
+      const alreadyHasTo = change.to
+        ? session.assignments.some((a) => a.employeeId === change.to && assignmentRoleType(a.role) === changeType)
+        : false;
+      // Người mới đang giữ vai trò KHÁC ở buổi này (vd đang là TG, nay thành GV mặc định):
+      // không xếp 1 người 2 vai trò — coi như buổi cần xử lý tay, giữ nguyên.
+      // (Bỏ qua vai trò cũ đang được gỡ trong CÙNG lần lưu — vd chuyển TG lên làm GV.)
+      const toInOtherRole = change.to
+        ? session.assignments.some(
+            (a) =>
+              a.employeeId === change.to &&
+              assignmentRoleType(a.role) !== changeType &&
+              !removedPairs.has(`${a.employeeId}|${assignmentRoleType(a.role)}`),
+          )
+        : false;
+      const locked =
+        Boolean(fromAssignment && (fromAssignment.checkInAt || fromAssignment.substituteForId || fromAssignment.substitutedBy)) ||
+        (toInOtherRole && Boolean(fromAssignment));
 
       if (change.from && !change.to) {
         if (!fromAssignment) continue;
@@ -199,7 +217,7 @@ export async function planDefaultStaffSync(
         ops.push({ kind: "delete", assignmentId: fromAssignment.id });
         if (!alreadyHasTo) targetSessions.push(session);
       } else if (!change.from && change.to) {
-        if (alreadyHasTo) continue;
+        if (alreadyHasTo || toInOtherRole) continue;
         targetSessions.push(session);
       }
       sessionCount += 1;

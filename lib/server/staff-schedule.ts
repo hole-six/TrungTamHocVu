@@ -11,8 +11,9 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 type Db = PrismaClient | Prisma.TransactionClient;
 
 export type StaffSlot = {
-  /** Buổi đang xét — bỏ qua chính nó khi so. */
+  /** Buổi đang xét — bỏ qua chính nó khi so. Truyền thẳng bản ghi buổi học (có `id`) cũng được. */
   sessionId?: string | null;
+  id?: string;
   sessionDate: Date;
   startTime: string | null;
   endTime: string | null;
@@ -75,7 +76,10 @@ export async function findStaffConflicts(
   const conflicts: StaffConflict[] = [];
   for (const slot of usable) {
     for (const { session } of busy) {
-      if (session.id === slot.sessionId) continue;
+      // Không so buổi với chính nó. Trước đây chỉ đọc slot.sessionId trong khi hầu hết nơi gọi
+      // truyền bản ghi buổi học (khóa là `id`) → trợ giảng của CHÍNH buổi đó dạy thay giáo viên
+      // bị báo nhầm là trùng lịch với buổi mình đang đứng.
+      if (session.id === (slot.sessionId ?? slot.id)) continue;
       if (dayKey(session.sessionDate) !== dayKey(slot.sessionDate)) continue;
       if (!session.startTime || !session.endTime) continue;
       if (!timeRangesOverlap(slot.startTime!, slot.endTime!, session.startTime, session.endTime)) continue;
