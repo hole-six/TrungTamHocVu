@@ -41,6 +41,14 @@ fi
 npx prisma migrate deploy
 npx prisma generate
 
+# Xóa phần KHAI BÁO KIỂU (types/) của bản đang chạy trước khi build. Next.js tự thêm
+# ".next-a/types" và ".next-b/types" vào tsconfig, nên build vào thư mục này sẽ kiểm tra kiểu
+# luôn cả types cũ của thư mục kia — types đó sinh ra từ code CŨ. Code mới xóa một route (vd
+# app/api/payroll-lines) là build hỏng vì types cũ vẫn import route đã mất, và từ đó mọi lần
+# deploy đều hỏng. Thư mục types/ chỉ dùng để kiểm tra kiểu, server đang chạy không đọc tới,
+# nên xóa không ảnh hưởng site.
+rm -rf "$ACTIVE/types"
+
 rm -rf "$NEXT_DIST"
 NEXT_DIST_DIR="$NEXT_DIST" npm run build
 
