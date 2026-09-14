@@ -31,6 +31,15 @@ function assignmentDisplayName(item: DefaultAssignment): string {
   return item.employee?.shortName || item.employee?.fullName || item.employeeName || "Nhân sự không còn trong hệ thống";
 }
 
+type StaffChange = {
+  role: string;
+  fromName: string | null;
+  toName: string | null;
+  sessionCount: number;
+  keptLocked: number;
+};
+type StaffPlan = { changes: StaffChange[]; affectedSessions: number };
+
 type AssignmentDraft = {
   key: string;
   roleType: "TEACHER" | "ASSISTANT";
@@ -85,6 +94,8 @@ export default function ClassDefaultAssignmentManager({
   const [applyLoading, setApplyLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Kế hoạch đổi người ở các buổi chưa dạy — hiện cho xem trước, bấm xác nhận mới lưu.
+  const [pendingPlan, setPendingPlan] = useState<StaffPlan | null>(null);
 
   const initialDrafts = useMemo<AssignmentDraft[]>(() => {
     const teacherDrafts = assignments
@@ -122,6 +133,7 @@ export default function ClassDefaultAssignmentManager({
 
   function patch(key: string, field: "employeeId" | "notes", value: string) {
     setDrafts((current) => current.map((item) => (item.key === key ? { ...item, [field]: value } : item)));
+    setPendingPlan(null);
     setError(null);
     setMessage(null);
   }
@@ -141,15 +153,10 @@ export default function ClassDefaultAssignmentManager({
     setMessage(null);
   }
 
-  async function save() {
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
+  function buildPayload() {
     const teachers = drafts.filter((item) => item.roleType === "TEACHER" && item.employeeId);
     const assistants = drafts.filter((item) => item.roleType === "ASSISTANT" && item.employeeId);
-
-    const payload = [
+    return [
       ...teachers.map((item, index) => ({
         role: normalizeRole("TEACHER", index),
         employeeId: item.employeeId,
@@ -161,21 +168,40 @@ export default function ClassDefaultAssignmentManager({
         notes: item.notes.trim() || null,
       })),
     ];
+  }
 
-    const response = await fetch(`/api/classes/${classId}`, {
-      method: "PATCH",
+  // Lưu 2 bước: lần đầu chỉ xin kế hoạch; nếu có buổi chưa dạy bị đổi người thì hiện ra
+  // cho xem trước, bấm "Xác nhận đổi" mới gửi confirm và lưu thật.
+  async function save(confirm = false) {
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+
+    const response = await fetch(`/api/classes/${classId}/default-assignments`, {
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ defaultAssignments: payload }),
+      body: JSON.stringify({ defaultAssignments: buildPayload(), confirm }),
     });
     const result = await response.json().catch(() => ({}));
     setLoading(false);
 
     if (!response.ok) {
+      setPendingPlan(null);
       setError(result.error ?? "Không lưu được nhân sự mặc định.");
       return;
     }
+    if (result.needsConfirm) {
+      setPendingPlan(result.plan);
+      return;
+    }
 
-    setMessage("Đã lưu nhân sự mặc định cho lớp.");
+    setPendingPlan(null);
+    const affected = result.plan?.affectedSessions ?? 0;
+    setMessage(
+      affected > 0
+        ? `Đã lưu nhân sự mặc định và cập nhật ${affected} buổi chưa dạy.`
+        : "Đã lưu nhân sự mặc định cho lớp. Không có buổi chưa dạy nào cần đổi.",
+    );
     router.refresh();
     onSuccess?.();
   }
@@ -196,7 +222,11 @@ export default function ClassDefaultAssignmentManager({
       return;
     }
 
-    setMessage(`Đã bổ sung ${result.created ?? 0} phân công mặc định vào ${result.sessionsChecked ?? 0} buổi đã sinh.`);
+    const skipped: string[] = result.skippedConflicts ?? [];
+    setMessage(
+      `Đã bổ sung ${result.created ?? 0} phân công vào các buổi chưa dạy còn trống (đã xét ${result.sessionsChecked ?? 0} buổi).` +
+        (skipped.length ? ` Bỏ qua ${skipped.length} chỗ vì trùng lịch: ${skipped.slice(0, 3).join(" ")}` : ""),
+    );
     router.refresh();
     onSuccess?.();
   }
@@ -265,7 +295,7 @@ export default function ClassDefaultAssignmentManager({
         open={open}
         onClose={() => setOpen(false)}
         title="Nhân sự mặc định của lớp"
-        description="Thêm bao nhiêu giáo viên hoặc trợ giảng tùy nhu cầu. Buổi học sinh mới sẽ tự nhận theo cấu hình này."
+        description="Đổi người ở đây thì các buổi CHƯA DẠY (từ hôm nay) đổi theo; buổi đã dạy giữ nguyên để lương không đổi."
         widthClassName="max-w-4xl"
       >
         <div className="space-y-6">
@@ -323,15 +353,49 @@ export default function ClassDefaultAssignmentManager({
             })}
           </div>
 
+          {pendingPlan ? (
+            <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-semibold">Thay đổi này sẽ cập nhật {pendingPlan.affectedSessions} buổi chưa dạy (từ hôm nay):</p>
+              <ul className="space-y-1">
+                {pendingPlan.changes.map((change, index) => (
+                  <li key={index}>
+                    • {getRoleLabel(change.role)}:{" "}
+                    {change.fromName && change.toName ? (
+                      <>
+                        <strong>{change.fromName}</strong> → <strong>{change.toName}</strong>
+                      </>
+                    ) : change.toName ? (
+                      <>thêm <strong>{change.toName}</strong></>
+                    ) : (
+                      <>bỏ <strong>{change.fromName}</strong></>
+                    )}{" "}
+                    — {change.sessionCount} buổi
+                    {change.keptLocked > 0 ? ` (giữ nguyên ${change.keptLocked} buổi đã check-in hoặc đang có người dạy thay)` : ""}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs">
+                Buổi đã dạy, buổi của ngày đã qua và buổi đang phân công riêng người khác không bị đổi — lương các buổi đó giữ nguyên.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => save(true)} disabled={loading} className="btn-primary">
+                  {loading ? "Đang lưu..." : "Xác nhận đổi"}
+                </button>
+                <button type="button" onClick={() => setPendingPlan(null)} disabled={loading} className="btn-ghost">
+                  Quay lại sửa
+                </button>
+              </div>
+            </div>
+          ) : null}
           {message ? <div className="alert-success">{message}</div> : null}
           {error ? <div className="alert-danger">{error}</div> : null}
 
           <div className="flex flex-wrap gap-3 border-t border-hairline pt-4">
-            <button type="button" onClick={save} disabled={loading} className="btn-primary">
+            <button type="button" onClick={() => save(false)} disabled={loading || Boolean(pendingPlan)} className="btn-primary">
               {loading ? "Đang lưu..." : "Lưu nhân sự"}
             </button>
             <button type="button" onClick={applyToPlannedSessions} disabled={applyLoading} className="btn-ghost">
-              {applyLoading ? "Đang áp dụng..." : "Áp dụng cho buổi đã sinh"}
+              {applyLoading ? "Đang bổ sung..." : "Bổ sung vào buổi còn trống"}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
               Đóng

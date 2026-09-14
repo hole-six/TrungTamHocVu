@@ -4,7 +4,9 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { computeExtendedEndDate, estimateEndDate, estimateEndDateFromRules } from "@/lib/server/class-rules";
-import { computeSessionBaseHours } from "@/lib/server/payroll-rules";
+import { buildAssignmentPay } from "@/lib/server/class-default-assignments";
+import { findStaffConflicts, describeStaffConflicts } from "@/lib/server/staff-schedule";
+import { isEmployeeWorkingOn } from "@/lib/assignment-roles";
 import { getHolidayDateSet } from "@/lib/server/holidays";
 import { canAccessBranch } from "@/lib/branch-filter";
 
@@ -63,6 +65,31 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
   if (conflict) return NextResponse.json({ error: "Lớp đã có buổi học trùng hoặc chồng giờ" }, { status: 409 });
 
+  // Nhân sự mang sang buổi bù: người ĐỨNG LỚP theo phân công gốc (GV/TG chính). Người dạy
+  // thay chỉ thay cho đúng NGÀY cũ nên không mang sang; người được thay thì được trả lại
+  // vị trí ở buổi bù. Trước đây chép nguyên cả hai → buổi bù trả lương 2 người cho 1 chỗ.
+  const carriedAssignments = original.assignments.filter((assignment) => !assignment.substituteForId);
+  const carryErrors: string[] = [];
+  for (const assignment of carriedAssignments) {
+    if (!isEmployeeWorkingOn(assignment.employee, newDate)) {
+      carryErrors.push(`${assignment.employee.fullName} đã nghỉ việc vào ngày buổi bù.`);
+      continue;
+    }
+    const staffConflicts = await findStaffConflicts(
+      prisma,
+      assignment.employeeId,
+      [{ sessionDate: newDate, startTime: nextStartTime, endTime: nextEndTime }],
+      { ignoreSessionIds: [original.id] },
+    );
+    if (staffConflicts.length) carryErrors.push(describeStaffConflicts(assignment.employee.fullName, staffConflicts));
+  }
+  if (carryErrors.length) {
+    return NextResponse.json(
+      { error: `Không dời được sang khung giờ này: ${carryErrors.join(" ")} Chọn giờ khác hoặc đổi người trước.` },
+      { status: 409 },
+    );
+  }
+
   const holidayDates = await getHolidayDateSet(original.class.branchId);
   const currentEnd =
     original.class.expectedEndDate ??
@@ -84,21 +111,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       },
     });
 
-    if (original.assignments.length > 0) {
+    if (carriedAssignments.length > 0) {
       await tx.sessionAssignment.createMany({
-        data: original.assignments.map((assignment) => {
-          const hours = computeSessionBaseHours(assignment.employee.payMode, makeupSession.startTime, makeupSession.endTime);
-          const hourlyRate =
-            assignment.role === "TEACHER" ? assignment.employee.teachingHourlyRate ?? 0 : assignment.employee.assistantHourlyRate ?? 0;
-          return {
-            sessionId: makeupSession.id,
-            employeeId: assignment.employeeId,
-            role: assignment.role,
-            hours,
-            hourlyRate,
-            amount: Math.round(hours * hourlyRate),
-          };
-        }),
+        data: carriedAssignments.map((assignment) => ({
+          sessionId: makeupSession.id,
+          employeeId: assignment.employeeId,
+          role: assignment.role,
+          ...buildAssignmentPay(assignment.role, assignment.employee, makeupSession),
+        })),
       });
     }
 

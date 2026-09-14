@@ -19,9 +19,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const existing = await prisma.sessionAssignment.findUnique({
     where: { id: params.id },
-    include: { session: true, employee: true },
+    include: { session: true, employee: true, substitutedBy: { select: { id: true } } },
   });
   if (!existing) return NextResponse.json({ error: "Không tìm thấy phân công" }, { status: 404 });
+  // Người đã có người dạy thay: công buổi này đã về 0 và tính cho người thay. Cho sửa trừ/
+  // cộng giờ ở đây là trả lại giờ cho người không đứng lớp → một buổi trả lương 2 lần.
+  if (existing.substitutedBy) {
+    return NextResponse.json(
+      { error: "Buổi này đã có người dạy thay nên không chỉnh công người gốc được. Muốn trả công lại thì bấm Hủy dạy thay." },
+      { status: 409 },
+    );
+  }
 
   const body = await req.json();
   const deductedHours = body.deductedHours !== undefined ? Number(body.deductedHours) : existing.deductedHours;
@@ -57,8 +65,14 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: "Vai trò của bạn không có quyền xóa phân công" }, { status: 403 });
   }
 
-  const target = await prisma.sessionAssignment.findUnique({ where: { id: params.id } });
+  const target = await prisma.sessionAssignment.findUnique({ where: { id: params.id }, include: { substitutedBy: { select: { id: true } } } });
   if (!target) return NextResponse.json({ error: "Không tìm thấy phân công" }, { status: 404 });
+  if (target.substitutedBy) {
+    return NextResponse.json(
+      { error: "Phân công này đang có người dạy thay. Hủy dạy thay trước rồi mới xóa được." },
+      { status: 409 },
+    );
+  }
 
   // Xóa 1 phân công DẠY THAY = hủy sắp xếp thay người, không chỉ là xóa 1 dòng —
   // phải trả lại giờ công cho người bị thay ban đầu (đã bị trừ về 0 khi tạo dạy

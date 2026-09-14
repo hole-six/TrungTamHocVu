@@ -136,7 +136,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
       orderBy: { student: { fullName: "asc" } },
     }),
     prisma.employee.findMany({
-      where: { branchId: session.class.branchId },
+      where: { branchId: session.class.branchId, workStatus: "ACTIVE" },
       orderBy: { fullName: "asc" },
     }),
   ]);

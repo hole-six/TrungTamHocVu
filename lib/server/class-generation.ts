@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { generateSessionDates } from "@/lib/server/class-rules";
-import { computeSessionBaseHours } from "@/lib/server/payroll-rules";
+import { buildAssignmentPay } from "@/lib/server/class-default-assignments";
+import { findStaffConflicts, describeStaffConflicts } from "@/lib/server/staff-schedule";
+import { isEmployeeWorkingOn, toSessionRole } from "@/lib/assignment-roles";
 import { getHolidayDateSet } from "@/lib/server/holidays";
 
 export async function createSessionsInRange(classId: string, fromDate: Date, toDate: Date) {
@@ -41,22 +43,37 @@ export async function createSessionsInRange(classId: string, fromDate: Date, toD
   // Vận hành thực tế có thể kéo lớp 50 buổi thành 60 buổi để dạy cho đủ mà không tự
   // tăng học phí; tiền đã được khóa theo từng enrollment.
 
+  let staffSkipped = 0;
   if (toCreate.length > 0) {
-    await prisma.$transaction(
-      toCreate.map((candidate) => {
-        const assignments = cls.defaultAssignments.map((assignment) => {
-          const hours = computeSessionBaseHours(assignment.employee.payMode, candidate.startTime, candidate.endTime);
-          const hourlyRate =
-            assignment.role === "TEACHER" ? assignment.employee.teachingHourlyRate ?? 0 : assignment.employee.assistantHourlyRate ?? 0;
-          return {
-            employeeId: assignment.employeeId,
-            role: assignment.role,
-            hours,
-            hourlyRate,
-            amount: Math.round(hours * hourlyRate),
-          };
-        });
+    // Nhân sự mặc định → phân công của từng buổi mới. Vai trò ghi xuống buổi PHẢI là
+    // TEACHER/ASSISTANT/ASSISTANT2 (không chép "TEACHER_1") — xem lib/assignment-roles.ts.
+    // Sinh lịch chạy tự động nên không chặn được: người đã nghỉ việc hoặc trùng lịch lớp
+    // khác ở đúng khung giờ đó thì để trống vị trí ở buổi đó (hiện "Chưa có nhân sự"),
+    // không xếp một người đứng 2 lớp cùng lúc.
+    const plannedAssignments: Array<Array<{ employeeId: string; role: string; hours: number; hourlyRate: number; amount: number }>> = [];
+    for (const candidate of toCreate) {
+      const rows = [];
+      for (const assignment of cls.defaultAssignments) {
+        const role = toSessionRole(assignment.role);
+        if (!role) continue;
+        if (!isEmployeeWorkingOn(assignment.employee, candidate.sessionDate)) {
+          staffSkipped += 1;
+          continue;
+        }
+        const conflicts = await findStaffConflicts(prisma, assignment.employeeId, [candidate]);
+        if (conflicts.length) {
+          staffSkipped += 1;
+          console.warn(`[class-generation] ${describeStaffConflicts(assignment.employee.fullName, conflicts, 1)} Bỏ trống ở buổi ${candidate.sessionDate.toISOString().slice(0, 10)} lớp ${cls.classCode}.`);
+          continue;
+        }
+        rows.push({ employeeId: assignment.employeeId, role, ...buildAssignmentPay(role, assignment.employee, candidate) });
+      }
+      plannedAssignments.push(rows);
+    }
 
+    await prisma.$transaction(
+      toCreate.map((candidate, index) => {
+        const assignments = plannedAssignments[index];
         return prisma.classSession.create({
           data: {
             classId,
@@ -80,7 +97,7 @@ export async function createSessionsInRange(classId: string, fromDate: Date, toD
     }
   }
 
-  return { created: toCreate.length, skipped: candidates.length - toCreate.length };
+  return { created: toCreate.length, skipped: candidates.length - toCreate.length, staffSkipped };
 }
 
 const MAX_SPAN_MS = 1000 * 60 * 60 * 24 * 120;

@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { buildAssignmentPay } from "@/lib/server/class-default-assignments";
+import { computeAdjustedHours } from "@/lib/server/payroll-rules";
+import { getVietnamToday } from "@/lib/server/class-rules";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
@@ -81,6 +84,53 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (field in body) data[field] = body[field] ? new Date(body[field]) : null;
   }
 
+  const before = await prisma.employee.findUnique({ where: { id: params.id } });
+  if (!before) return NextResponse.json({ error: "Không tìm thấy nhân viên" }, { status: 404 });
   const employee = await prisma.employee.update({ where: { id: params.id }, data });
-  return NextResponse.json({ item: employee });
+
+  // ĐỔI ĐƠN GIÁ / CÁCH TRẢ LƯƠNG: áp luôn vào các buổi CHƯA DẠY (từ hôm nay, còn trong kế
+  // hoạch). Lịch sinh sẵn ~1 tháng, nếu chỉ chốt lúc sinh thì tăng lương hôm nay mà cả
+  // tháng sau vẫn trả giá cũ. Buổi đã dạy / ngày đã qua giữ nguyên đơn giá đã chốt.
+  const payChanged =
+    before.teachingHourlyRate !== employee.teachingHourlyRate ||
+    before.assistantHourlyRate !== employee.assistantHourlyRate ||
+    before.payMode !== employee.payMode;
+  let repricedSessions = 0;
+  if (payChanged) {
+    const upcoming = await prisma.sessionAssignment.findMany({
+      where: {
+        employeeId: employee.id,
+        session: { status: { in: ["PLANNED", "CONFIRMED"] }, sessionDate: { gte: getVietnamToday() } },
+      },
+      include: { session: true, substitutedBy: { select: { id: true } } },
+    });
+    for (const assignment of upcoming) {
+      const pay = buildAssignmentPay(assignment.role, employee, assignment.session);
+      // Người đã có người dạy thay vẫn giữ 0 giờ; người khác giữ nguyên phần trừ/cộng giờ.
+      const hours = assignment.substitutedBy ? 0 : computeAdjustedHours(pay.hours, assignment.deductedHours, assignment.addedHours);
+      await prisma.sessionAssignment.update({
+        where: { id: assignment.id },
+        data: {
+          hourlyRate: pay.hourlyRate,
+          hours,
+          amount: Math.round(hours * pay.hourlyRate),
+          ...(assignment.substitutedBy ? { deductedHours: pay.hours } : {}),
+        },
+      });
+      repricedSessions += 1;
+    }
+  }
+
+  // Đặt ngày nghỉ việc mà vẫn còn buổi được xếp sau ngày đó → báo để đổi người.
+  const sessionsAfterResign = employee.resignDate
+    ? await prisma.sessionAssignment.count({
+        where: {
+          employeeId: employee.id,
+          substitutedBy: { is: null },
+          session: { status: { in: ["PLANNED", "CONFIRMED"] }, sessionDate: { gt: employee.resignDate } },
+        },
+      })
+    : 0;
+
+  return NextResponse.json({ item: employee, repricedSessions, sessionsAfterResign });
 }

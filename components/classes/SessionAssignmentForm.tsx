@@ -61,7 +61,12 @@ function AssignmentRow({ assignment, isSelf, employees }: { assignment: Assignme
   const [subError, setSubError] = useState<string | null>(null);
 
   async function remove() {
-    await fetch(`/api/session-assignments/${assignment.id}`, { method: "DELETE" });
+    const res = await fetch(`/api/session-assignments/${assignment.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setCheckError(data.error ?? "Không xóa được phân công.");
+      return;
+    }
     router.refresh();
   }
 
@@ -125,7 +130,7 @@ function AssignmentRow({ assignment, isSelf, employees }: { assignment: Assignme
     event.preventDefault();
     setLoading(true);
 
-    await fetch(`/api/session-assignments/${assignment.id}`, {
+    const res = await fetch(`/api/session-assignments/${assignment.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -137,6 +142,11 @@ function AssignmentRow({ assignment, isSelf, employees }: { assignment: Assignme
     });
 
     setLoading(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setCheckError(data.error ?? "Không lưu được điều chỉnh công.");
+      return;
+    }
     setEditing(false);
     router.refresh();
   }
@@ -158,20 +168,26 @@ function AssignmentRow({ assignment, isSelf, employees }: { assignment: Assignme
                 {subOpen ? "Đóng" : "Nhờ dạy thay"}
               </button>
             ) : null}
-            <button type="button" onClick={() => setEditing((current) => !current)} className="status-action">
-              {editing ? "Đóng" : "Chỉnh công"}
-            </button>
-            <ConfirmActionButton
-              title={`Xóa phân công của ${assignment.employee.fullName}?`}
-              description="Thao tác này sẽ gỡ nhân sự khỏi buổi học và ảnh hưởng tới công của buổi này."
-              confirmLabel="Xác nhận xóa"
-              cancelLabel="Quay lại"
-              tone="danger"
-              onConfirm={remove}
-              className="status-action text-red-600 hover:text-red-600"
-            >
-              Xóa
-            </ConfirmActionButton>
+            {/* Đã có người dạy thay: công người gốc về 0 — không cho chỉnh công hay xóa ở đây,
+                muốn trả lại thì "Hủy dạy thay" (tránh trả lương 2 người cho 1 buổi). */}
+            {!assignment.substitutedBy ? (
+              <>
+                <button type="button" onClick={() => setEditing((current) => !current)} className="status-action">
+                  {editing ? "Đóng" : "Chỉnh công"}
+                </button>
+                <ConfirmActionButton
+                  title={`Xóa phân công của ${assignment.employee.fullName}?`}
+                  description="Thao tác này sẽ gỡ nhân sự khỏi buổi học và ảnh hưởng tới công của buổi này."
+                  confirmLabel="Xác nhận xóa"
+                  cancelLabel="Quay lại"
+                  tone="danger"
+                  onConfirm={remove}
+                  className="status-action text-red-600 hover:text-red-600"
+                >
+                  Xóa
+                </ConfirmActionButton>
+              </>
+            ) : null}
           </div>
         </div>
 

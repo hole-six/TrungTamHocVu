@@ -4,6 +4,9 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { computeSessionBaseHours } from "@/lib/server/payroll-rules";
+import { buildAssignmentPay } from "@/lib/server/class-default-assignments";
+import { findStaffConflicts, describeStaffConflicts } from "@/lib/server/staff-schedule";
+import { isEmployeeWorkingOn } from "@/lib/assignment-roles";
 
 // Nhờ người dạy thay đột xuất cho ĐÚNG 1 phân công gốc — không phải sửa/xóa phân công
 // gốc rồi tạo mới (mất dấu vết ai đáng lẽ dạy), mà tạo 1 bản ghi MỚI cho người dạy
@@ -38,6 +41,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const substituteEmployee = await prisma.employee.findUnique({ where: { id: substituteEmployeeId } });
   if (!substituteEmployee) return NextResponse.json({ error: "Không tìm thấy nhân viên dạy thay" }, { status: 404 });
+  if (original.session.status === "CANCELLED" || original.session.status === "RESCHEDULED") {
+    return NextResponse.json({ error: "Buổi này đã hủy hoặc đã dời, không sắp xếp dạy thay được." }, { status: 409 });
+  }
+  if (!isEmployeeWorkingOn(substituteEmployee, original.session.sessionDate)) {
+    return NextResponse.json({ error: `${substituteEmployee.fullName} đã nghỉ việc, không dạy thay được.` }, { status: 409 });
+  }
+  // Người thay có thể đang ở CHÍNH buổi này (trợ giảng đứng lớp thay giáo viên) — hợp lệ,
+  // findStaffConflicts chỉ so với buổi KHÁC.
+  const scheduleConflicts = await findStaffConflicts(prisma, substituteEmployeeId, [original.session]);
+  if (scheduleConflicts.length) {
+    return NextResponse.json({ error: describeStaffConflicts(substituteEmployee.fullName, scheduleConflicts) }, { status: 409 });
+  }
 
   const conflict = await prisma.sessionAssignment.findUnique({
     where: { sessionId_employeeId_role: { sessionId: original.sessionId, employeeId: substituteEmployeeId, role: original.role } },
@@ -50,9 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     ? `Dạy thay: ${substituteEmployee.fullName} — Lý do: ${reason}`
     : `Dạy thay: ${substituteEmployee.fullName}`;
   const originalBaseHours = computeSessionBaseHours(original.employee.payMode, original.session.startTime, original.session.endTime);
-  const subHours = computeSessionBaseHours(substituteEmployee.payMode, original.session.startTime, original.session.endTime);
-  const subHourlyRate = original.role === "TEACHER" ? substituteEmployee.teachingHourlyRate ?? 0 : substituteEmployee.assistantHourlyRate ?? 0;
-  const subAmount = Math.round(subHours * subHourlyRate);
+  const { hours: subHours, hourlyRate: subHourlyRate, amount: subAmount } = buildAssignmentPay(original.role, substituteEmployee, original.session);
 
   const result = await prisma.$transaction(async (tx) => {
     const substituteAssignment = await tx.sessionAssignment.create({

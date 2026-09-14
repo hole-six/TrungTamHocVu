@@ -53,6 +53,7 @@ export default function EmployeeProfileEditor({
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   // Mở sẵn ô thứ 2 nếu hồ sơ đang thật sự có 2 đơn giá khác nhau (dữ liệu cũ) — nếu
   // không, người sửa sẽ tưởng hệ thống làm mất mức trợ giảng đã nhập trước đó.
   const [splitRates, setSplitRates] = useState(
@@ -96,6 +97,12 @@ export default function EmployeeProfileEditor({
       setError(data.error ?? "Không lưu được thông tin nhân sự.");
       return;
     }
+    // Đổi đơn giá thì các buổi chưa dạy tính lại theo giá mới; đặt ngày nghỉ mà còn buổi
+    // được xếp sau ngày đó thì nhắc đổi người (xem PATCH /api/employees/[id]).
+    const notes: string[] = [];
+    if (data.repricedSessions > 0) notes.push(`Đã áp đơn giá mới cho ${data.repricedSessions} buổi chưa dạy. Buổi đã dạy giữ nguyên đơn giá cũ.`);
+    if (data.sessionsAfterResign > 0) notes.push(`Còn ${data.sessionsAfterResign} buổi chưa dạy được xếp sau ngày nghỉ việc — cần đổi người ở các buổi đó.`);
+    setNotice(notes.length ? notes.join(" ") : null);
     setEditing(false);
     router.refresh();
   }
@@ -135,6 +142,7 @@ export default function EmployeeProfileEditor({
         </div>
       )}
 
+      {notice ? <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{notice}</p> : null}
       {!editing ? (
         bare ? (
           <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">

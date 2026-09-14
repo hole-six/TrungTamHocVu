@@ -8,7 +8,9 @@ import { canAccessBranch } from "@/lib/branch-filter";
 import { estimateEndDate } from "@/lib/server/class-rules";
 import { syncClassDerivedFields } from "@/lib/server/database-sync";
 import { ensureClassRoadmapItems, normalizeRoadmapItemsInput } from "@/lib/server/class-roadmap";
-import { isValidClassAssignmentRole } from "@/lib/server/class-default-assignments";
+import { normalizeDefaultStaffInput, saveDefaultStaff } from "@/lib/server/class-default-assignments";
+
+class StaffSyncBlocked extends Error {}
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -138,74 +140,50 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
   }
 
-  const defaultAssignments = Array.isArray(body.defaultAssignments) ? body.defaultAssignments : null;
+  // Nhân sự mặc định: lưu kèm đổi người ở các buổi chưa dạy (xem saveDefaultStaff). Màn
+  // "Chỉnh nhân sự" dùng /api/classes/[id]/default-assignments để xem trước rồi mới lưu.
+  const defaultStaff = Array.isArray(body.defaultAssignments) ? normalizeDefaultStaffInput(body.defaultAssignments) : null;
+  if (defaultStaff?.error) return NextResponse.json({ error: defaultStaff.error }, { status: 400 });
+  let staffErrors: string[] = [];
   const roadmapItems = "roadmapItems" in body ? normalizeRoadmapItemsInput(body.roadmapItems, nextTotalSessions) : null;
 
-  const updated = await prisma.$transaction(async (tx) => {
-    const classUpdated = await tx.class.update({ where: { id: params.id }, data });
+  let updated;
+  try {
+    updated = await prisma.$transaction(async (tx) => {
+      const classUpdated = await tx.class.update({ where: { id: params.id }, data });
 
-    if (defaultAssignments) {
-      const normalizedAssignments: Array<{ role: string; employeeId: string; notes: string | null }> = defaultAssignments
-        .map((item: { role?: string; employeeId?: string | null; notes?: string | null }) => ({
-          role: String(item.role ?? "").trim(),
-          employeeId: item.employeeId ? String(item.employeeId).trim() : "",
-          notes: String(item.notes ?? "").trim() || null,
-        }))
-        .filter((item: { role: string }) => isValidClassAssignmentRole(item.role));
-
-      const seenRoles = new Set<string>();
-      for (const assignment of normalizedAssignments) {
-        if (seenRoles.has(assignment.role)) {
-          throw new Error(`Vai trò ${assignment.role} đang bị gửi trùng.`);
+      if (defaultStaff) {
+        const saved = await saveDefaultStaff(tx, params.id, defaultStaff.items);
+        if (!saved.ok) {
+          staffErrors = saved.plan.errors;
+          throw new StaffSyncBlocked();
         }
-        seenRoles.add(assignment.role);
       }
 
-      await tx.classDefaultAssignment.updateMany({
-        where: { classId: params.id, role: { notIn: normalizedAssignments.map((item: { role: string }) => item.role) } },
-        data: { isActive: false },
-      });
-
-      for (const assignment of normalizedAssignments) {
-        if (!assignment.employeeId) continue;
-        await tx.classDefaultAssignment.upsert({
-          where: { classId_role: { classId: params.id, role: assignment.role } },
-          create: {
-            classId: params.id,
-            employeeId: assignment.employeeId,
-            role: assignment.role,
-            notes: assignment.notes,
-            isActive: true,
-          },
-          update: {
-            employeeId: assignment.employeeId,
-            notes: assignment.notes,
-            isActive: true,
-          },
-        });
+      if (roadmapItems) {
+        await tx.classRoadmapItem.deleteMany({ where: { classId: params.id } });
+        if (roadmapItems.length > 0) {
+          await tx.classRoadmapItem.createMany({
+            data: roadmapItems.map((item) => ({
+              classId: params.id,
+              sessionNumber: item.sessionNumber,
+              title: item.title,
+              objective: item.objective,
+              materials: item.materials,
+              teacherGuide: item.teacherGuide,
+              homeworkGuide: item.homeworkGuide,
+              teacherRequirement: item.teacherRequirement,
+            })),
+          });
+        }
       }
-    }
 
-    if (roadmapItems) {
-      await tx.classRoadmapItem.deleteMany({ where: { classId: params.id } });
-      if (roadmapItems.length > 0) {
-        await tx.classRoadmapItem.createMany({
-          data: roadmapItems.map((item) => ({
-            classId: params.id,
-            sessionNumber: item.sessionNumber,
-            title: item.title,
-            objective: item.objective,
-            materials: item.materials,
-            teacherGuide: item.teacherGuide,
-            homeworkGuide: item.homeworkGuide,
-            teacherRequirement: item.teacherRequirement,
-          })),
-        });
-      }
-    }
-
-    return classUpdated;
-  });
+      return classUpdated;
+    });
+  } catch (error) {
+    if (error instanceof StaffSyncBlocked) return NextResponse.json({ error: staffErrors.join(" ") }, { status: 409 });
+    throw error;
+  }
   if (existing && !(await canAccessBranch(existing.branchId))) {
     return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
   }

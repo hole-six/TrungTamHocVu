@@ -61,7 +61,8 @@ export async function GET(
 
     // Get employees for assignment
     const employees = await prisma.employee.findMany({
-      where: { branchId: session.class.branchId },
+      // Người đã nghỉ việc không hiện trong danh sách chọn phân công / dạy thay.
+      where: { branchId: session.class.branchId, workStatus: "ACTIVE" },
       orderBy: { fullName: "asc" },
       select: { id: true, fullName: true, shortName: true },
     });
