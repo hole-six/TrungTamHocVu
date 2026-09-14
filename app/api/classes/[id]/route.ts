@@ -112,6 +112,32 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
   }
 
+  // Không cho giảm tổng số buổi xuống DƯỚI số buổi đã dạy. Xóa buổi trong lộ trình làm tổng
+  // số buổi giảm theo, và nội dung nối với buổi học theo vị trí — nếu cho giảm quá mức này
+  // thì buổi đã dạy mất nội dung, lịch sử buổi học hiện trống. Giao diện đã khóa các buổi
+  // đã dạy, đây là chốt cuối phòng gọi API trực tiếp.
+  if (nextTotalSessions !== null && nextTotalSessions !== existing.totalSessions) {
+    const taughtSessions = await prisma.classSession.findMany({
+      where: { classId: params.id, status: { not: "CANCELLED" } },
+      orderBy: { sessionDate: "asc" },
+      select: { status: true },
+    });
+    let lastTaughtPosition = 0;
+    taughtSessions.forEach((session, index) => {
+      if (session.status === "COMPLETED") lastTaughtPosition = index + 1;
+    });
+    if (nextTotalSessions < lastTaughtPosition) {
+      return NextResponse.json(
+        {
+          error:
+            `Lớp đã dạy tới buổi ${lastTaughtPosition}, không giảm tổng số buổi xuống ${nextTotalSessions} được. ` +
+            `Chỉ xóa được các buổi sau buổi ${lastTaughtPosition}.`,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   const defaultAssignments = Array.isArray(body.defaultAssignments) ? body.defaultAssignments : null;
   const roadmapItems = "roadmapItems" in body ? normalizeRoadmapItemsInput(body.roadmapItems, nextTotalSessions) : null;
 

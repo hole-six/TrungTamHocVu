@@ -6,12 +6,13 @@ import CurrencyInput from "@/components/ui/CurrencyInput";
 import PickOrCreateSelect from "@/components/ui/PickOrCreateSelect";
 import { useClassDrawer } from "@/contexts/ClassDrawerContext";
 import { formatVnd as formatVndBase } from "@/lib/export-utils";
+import ClassRoadmapEditor, { isAuthoredRoadmapDraft, useRoadmapDrafts, type RoadmapSessionDate } from "@/components/classes/ClassRoadmapEditor";
 
-// CỐ TÌNH chỉ giữ đúng những gì cần để tính ra học phí + lịch (mã/tên lớp, khóa
-// học, học phí/buổi, tổng số buổi, ngày khai giảng, lịch cố định) — lộ trình từng
-// buổi và nhân sự mặc định bỏ khỏi form tạo lớp, cấu hình sau ở "Sửa lớp"/"Cấu
-// hình" trong chi tiết lớp (API vẫn nhận roadmapItems/defaultAssignments rỗng
-// bình thường — server tự sinh khung lộ trình rỗng cho lớp không phải bổ trợ).
+// Form tạo lớp giữ phần BẮT BUỘC gọn (mã/tên lớp, khóa học, học phí/buổi, tổng số buổi,
+// ngày khai giảng, lịch cố định). Tài liệu học tập theo từng buổi là mục MỞ RỘNG không
+// bắt buộc ngay trong form: trước đây phải tạo lớp xong, đóng form, mở lại "Sửa lớp" mới
+// soạn được giáo án — hai bước cho một việc. Bỏ trống thì server tự sinh khung rỗng như
+// cũ. Nhân sự mặc định vẫn cấu hình sau trong chi tiết lớp.
 
 type Course = {
   id: string;
@@ -66,6 +67,36 @@ function parseYmdToUtc(value: string): Date | null {
 function formatDateLabel(value: Date | null) {
   if (!value) return "—";
   return value.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+// Ngày học của từng buổi theo lịch cố định, bỏ ngày nghỉ trung tâm — cùng cách đếm với
+// estimateEndDateFromRules bên dưới. Dùng để khung lộ trình hiện "Buổi 12 · T3 14/10" ngay
+// lúc tạo lớp, chèn buổi ôn thi vào đúng tuần mong muốn mà không phải lưu rồi mở lại.
+function listSessionDatesFromRules(
+  startDate: Date | null,
+  count: number,
+  rules: ScheduleRuleDraft[],
+  holidayDates: Set<string>,
+): Record<number, RoadmapSessionDate> {
+  const result: Record<number, RoadmapSessionDate> = {};
+  const validRules = rules.filter((rule) => rule.startTime && Number.isInteger(Number(rule.weekday)));
+  if (!startDate || count <= 0 || validRules.length === 0) return result;
+  const cursor = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
+  let counted = 0;
+  let guard = 0;
+  while (counted < count && guard < 3660) {
+    const iso = cursor.toISOString().slice(0, 10);
+    if (!holidayDates.has(iso)) {
+      for (const _rule of validRules.filter((rule) => Number(rule.weekday) === cursor.getUTCDay())) {
+        counted += 1;
+        result[counted] = { date: iso, status: "PROJECTED" };
+        if (counted >= count) break;
+      }
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+    guard += 1;
+  }
+  return result;
 }
 
 function estimateEndDateFromRules(
@@ -141,9 +172,17 @@ export default function NewClassForm({
       .catch(() => {});
   }, [open]);
   const [scheduleRules, setScheduleRules] = useState<ScheduleRuleDraft[]>([buildEmptyRule()]);
+  const [showRoadmap, setShowRoadmap] = useState(false);
 
   const tuitionPerSession = form.tuitionPerSession === "" ? null : Number(form.tuitionPerSession);
   const totalSessions = form.totalSessions === "" ? null : Number(form.totalSessions);
+  const { setRoadmapItems, roadmapItemsInRange } = useRoadmapDrafts([], totalSessions ?? 0);
+  const authoredRoadmapCount = roadmapItemsInRange.filter(isAuthoredRoadmapDraft).length;
+  // Tính dư 20 buổi để mục vừa chèn thêm cũng có ngày ngay.
+  const roadmapSessionDates = useMemo(
+    () => listSessionDatesFromRules(parseYmdToUtc(form.startDate), (totalSessions ?? 0) + 20, scheduleRules, holidayDateSet),
+    [form.startDate, totalSessions, scheduleRules, holidayDateSet],
+  );
   const sessionsPerWeek = scheduleRules.length;
   const normalizedStartDate = useMemo(() => parseYmdToUtc(form.startDate), [form.startDate]);
   const estimatedEndDate = useMemo(
@@ -216,6 +255,8 @@ export default function NewClassForm({
       isRemedial: false,
     });
     setScheduleRules([buildEmptyRule()]);
+    setRoadmapItems([]);
+    setShowRoadmap(false);
     setError(null);
   }
 
@@ -248,7 +289,19 @@ export default function NewClassForm({
           endTime: rule.endTime,
           room: rule.room.trim() || null,
         })),
-        roadmapItems: [],
+        // Chỉ gửi những buổi ĐÃ SOẠN nội dung — các buổi còn lại server tự sinh khung
+        // rỗng "Buổi N" (ensureClassRoadmapItems), khỏi gửi vài chục dòng trống.
+        roadmapItems: form.isRemedial
+          ? []
+          : roadmapItemsInRange.filter(isAuthoredRoadmapDraft).map((item) => ({
+              sessionNumber: item.sessionNumber,
+              title: item.title,
+              objective: item.objective,
+              materials: item.materials,
+              teacherGuide: item.teacherGuide,
+              homeworkGuide: item.homeworkGuide,
+              teacherRequirement: item.teacherRequirement,
+            })),
         defaultAssignments: [],
       };
 
@@ -397,6 +450,40 @@ export default function NewClassForm({
               ))}
             </div>
           </div>
+
+          {!form.isRemedial ? (
+            <div className="rounded-xl border border-[#dbe7ff] bg-[#f8fbff] p-4">
+              <button
+                type="button"
+                onClick={() => setShowRoadmap((current) => !current)}
+                className="flex w-full items-center justify-between gap-3 text-left"
+                aria-expanded={showRoadmap}
+              >
+                <span>
+                  <span className="block text-sm font-semibold text-ink">Tài liệu học tập theo từng buổi (không bắt buộc)</span>
+                  <span className="mt-0.5 block text-xs text-[#64748b]">
+                    {authoredRoadmapCount > 0
+                      ? `Đã soạn ${authoredRoadmapCount}/${roadmapItemsInRange.length} buổi — sẽ lưu cùng lúc tạo lớp.`
+                      : "Sao chép từ lớp cùng khóa, nạp file Excel, hoặc để trống và soạn sau."}
+                  </span>
+                </span>
+                <span className="btn-ghost-sm whitespace-nowrap">{showRoadmap ? "Thu gọn" : "Mở ra soạn"}</span>
+              </button>
+              {showRoadmap ? (
+                <div className="mt-4 border-t border-[#e5eaf7] pt-4">
+                  <ClassRoadmapEditor
+                    items={roadmapItemsInRange}
+                    setItems={setRoadmapItems}
+                    totalSessions={totalSessions ?? 0}
+                    classCode={form.classCode}
+                    courseId={form.courseId || null}
+                    sessionDates={roadmapSessionDates}
+                    onTotalSessionsChange={(next) => patchForm("totalSessions", String(next))}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="rounded-xl border border-[#e5eaf7] bg-[#f8faff] p-4">
             <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Tạm tính</p>

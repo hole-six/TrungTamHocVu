@@ -176,7 +176,11 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  if (roadmapItems.length === 0 && !isRemedial) {
+  // Luôn điền đủ khung cho các buổi CÒN THIẾU, kể cả khi form đã gửi kèm vài buổi soạn
+  // sẵn: form tạo lớp chỉ gửi những buổi có nội dung, nên nếu chỉ sinh khung khi danh sách
+  // rỗng thì lớp soạn trước 10/48 buổi sẽ thiếu 38 buổi còn lại. Hàm này chỉ thêm buổi
+  // chưa có, không ghi đè buổi đã soạn.
+  if (!isRemedial) {
     await ensureClassRoadmapItems(created.id, normalizedTotalSessions);
   }
   const synced = await syncClassDerivedFields(created.id);

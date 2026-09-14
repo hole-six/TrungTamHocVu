@@ -6,19 +6,10 @@ import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import FormGuide from "@/components/ui/FormGuide";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import { formatVnd as formatVndBase } from "@/lib/export-utils";
+import ClassRoadmapEditor, { useRoadmapDrafts, type RoadmapDraft, type RoadmapSessionDate } from "@/components/classes/ClassRoadmapEditor";
 
 type Course = { id: string; code: string; name: string };
 type ClassOption = { id: string; classCode: string; className: string };
-
-type RoadmapDraft = {
-  sessionNumber: number;
-  title: string;
-  objective: string;
-  materials: string;
-  teacherGuide: string;
-  homeworkGuide: string;
-  teacherRequirement: string;
-};
 
 type ClassProfile = {
   id: string;
@@ -43,18 +34,6 @@ function toDateInput(value: string | null) {
 
 function formatVnd(amount: number | null) {
   return amount == null || Number.isNaN(amount) ? "—" : formatVndBase(amount);
-}
-
-function buildRoadmapDraft(sessionNumber: number): RoadmapDraft {
-  return {
-    sessionNumber,
-    title: `Buổi ${sessionNumber}`,
-    objective: "",
-    materials: "",
-    teacherGuide: "",
-    homeworkGuide: "",
-    teacherRequirement: "",
-  };
 }
 
 const CLASS_EDIT_GUIDE_SECTIONS = [
@@ -108,8 +87,6 @@ export default function ClassEditForm({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [importSummary, setImportSummary] = useState<string | null>(null);
-  const [visibleRoadmapCount, setVisibleRoadmapCount] = useState(12);
   // Gợi ý autocomplete cho "Nhóm lớp" — chọn lại đúng ngăn cũ hoặc gõ tên ngăn mới nếu
   // chưa có, tránh gõ lệch chính tả sinh ra ngăn trùng nghĩa.
   const [classGroupOptions, setClassGroupOptions] = useState<string[]>([]);
@@ -132,122 +109,35 @@ export default function ClassEditForm({
     nextClassId: cls.nextClassId ?? "",
     notes: cls.notes ?? "",
   });
-  const [roadmapItems, setRoadmapItems] = useState<RoadmapDraft[]>(cls.roadmapItems ?? []);
-
   const totalSessions = form.totalSessions === "" ? 0 : Number(form.totalSessions);
-  // Chỉ hiện/lưu các buổi trong phạm vi totalSessions hiện tại — KHÔNG xóa các buổi
-  // vượt quá khỏi state khi người dùng giảm số buổi (khác hành vi cũ). Nếu họ tăng số
-  // buổi trở lại, nội dung đã soạn cho các buổi đó vẫn còn nguyên thay vì mất trắng.
-  const roadmapItemsInRange = roadmapItems.filter((item) => item.sessionNumber <= totalSessions);
-  const visibleRoadmapItems = roadmapItemsInRange.slice(0, visibleRoadmapCount);
-  const hiddenAuthoredRoadmapCount = roadmapItems.filter(
-    (item) =>
-      item.sessionNumber > totalSessions &&
-      (item.title.trim() || item.objective.trim() || item.materials.trim() || item.teacherGuide.trim() || item.homeworkGuide.trim()),
-  ).length;
+  // Khung lộ trình dùng chung với form Tạo lớp — xem components/classes/ClassRoadmapEditor.tsx.
+  const {
+    setRoadmapItems,
+    roadmapItemsInRange,
+    hiddenAuthoredCount: hiddenAuthoredRoadmapCount,
+  } = useRoadmapDrafts(cls.roadmapItems ?? [], totalSessions);
 
+  // Ngày thật của từng buổi (buổi đã sinh lịch) + ngày dự kiến theo lịch cố định cho các buổi
+  // chưa sinh, và số buổi đã dạy để khóa vị trí — xem app/api/classes/[id]/roadmap-dates.
+  const [sessionDates, setSessionDates] = useState<Record<number, RoadmapSessionDate>>({});
+  const [taughtCount, setTaughtCount] = useState(0);
   useEffect(() => {
-    const normalizedTotal = Number.isFinite(totalSessions) && totalSessions > 0 ? totalSessions : 0;
-    setRoadmapItems((prev) => {
-      if (normalizedTotal <= 0) return prev;
-      const next = [...prev];
-      for (let sessionNumber = 1; sessionNumber <= normalizedTotal; sessionNumber += 1) {
-        if (!next.some((item) => item.sessionNumber === sessionNumber)) {
-          next.push(buildRoadmapDraft(sessionNumber));
-        }
-      }
-      next.sort((a, b) => a.sessionNumber - b.sessionNumber);
-      return next;
-    });
-    setVisibleRoadmapCount((current) => {
-      if (normalizedTotal <= 0) return 12;
-      return Math.max(12, Math.min(normalizedTotal, current));
-    });
-  }, [totalSessions]);
-
-  function patchRoadmap(sessionNumber: number, key: keyof Omit<RoadmapDraft, "sessionNumber">, value: string) {
-    setRoadmapItems((prev) => prev.map((item) => (item.sessionNumber === sessionNumber ? { ...item, [key]: value } : item)));
-    setError(null);
-    setImportSummary(null);
-  }
-
-  async function downloadRoadmapTemplate() {
-    if (!roadmapItemsInRange.length) {
-      setError("Cần nhập tổng số buổi trước rồi mới tải được file mẫu lộ trình.");
-      return;
-    }
-
-    setError(null);
-    setImportSummary(null);
-
-    const query = new URLSearchParams({
-      totalSessions: String(roadmapItemsInRange.length),
-      classCode: cls.classCode.trim() || "lop-hoc",
-    });
-
-    const response = await fetch(`/api/classes/roadmap-template?${query.toString()}`);
-    if (!response.ok) {
-      const result = await response.json().catch(() => ({}));
-      setError(result.error ?? "Không thể tạo file mẫu Excel.");
-      return;
-    }
-
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `mau-lo-trinh-${cls.classCode.trim() || "lop-hoc"}-${roadmapItemsInRange.length}-buoi.xlsx`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    setImportSummary("Đã tải file mẫu .xlsx để điền giáo án/tài liệu theo từng buổi.");
-  }
-
-  async function importRoadmapFile(file: File) {
-    if (!roadmapItemsInRange.length) {
-      setError("Cần nhập tổng số buổi trước rồi mới nhập file lộ trình.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const response = await fetch("/api/classes/roadmap-import", {
-      method: "POST",
-      body: formData,
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      setError(result.error ?? "Không thể đọc file lộ trình đã tải lên.");
-      return;
-    }
-
-    const importedRows: RoadmapDraft[] = Array.isArray(result.items) ? result.items : [];
-    // Đếm số buổi khớp NGAY TỪ importedRows/roadmapItems hiện có, không đếm bằng cách
-    // mutate 1 biến ngoài bên trong callback của setState — updater đó không đảm bảo
-    // chạy đồng bộ trước dòng đọc mergedCount, nên số hiện ra hay bị sai (luôn ra 0).
-    const mergedCount = roadmapItemsInRange.filter((item) => importedRows.some((row) => row.sessionNumber === item.sessionNumber)).length;
-    setRoadmapItems((prev) =>
-      prev.map((item) => {
-        const imported = importedRows.find((row) => row.sessionNumber === item.sessionNumber);
-        if (!imported) return item;
-        return {
-          ...item,
-          title: imported.title || item.title,
-          objective: imported.objective || item.objective,
-          materials: imported.materials || item.materials,
-          teacherGuide: imported.teacherGuide || item.teacherGuide,
-          homeworkGuide: imported.homeworkGuide || item.homeworkGuide,
-          teacherRequirement: imported.teacherRequirement || item.teacherRequirement,
-        };
-      }),
-    );
-
-    setError(null);
-    setImportSummary(`Đã merge ${mergedCount} buổi từ file "${file.name}" vào lộ trình lớp.`);
-  }
+    if (!open) return;
+    let cancelled = false;
+    fetch(`/api/classes/${cls.id}/roadmap-dates?total=${totalSessions}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        const map: Record<number, RoadmapSessionDate> = {};
+        for (const item of data.dates ?? []) map[item.sessionNumber] = { date: item.date, status: item.status };
+        setSessionDates(map);
+        setTaughtCount(Number(data.taughtCount) || 0);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, cls.id, totalSessions]);
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
@@ -449,102 +339,22 @@ export default function ClassEditForm({
             </div>
           </div>
 
-          <div className="space-y-4 rounded-[24px] border border-[#dbe7ff] bg-[#f8fbff] p-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-[#0f1729]">Tài liệu học tập theo từng buổi</p>
-                <p className="mt-1 text-xs text-[#64748b]">Sửa trực tiếp từng buổi hoặc tải file Excel mẫu để điền rồi merge lại.</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={downloadRoadmapTemplate} className="btn-ghost-sm">
-                  Tải file Excel mẫu
-                </button>
-                <label className="inline-flex cursor-pointer items-center rounded-full border border-[#dbe7ff] bg-white px-4 py-2 text-sm font-semibold text-[#0f1729] transition hover:border-primary/40 hover:text-primary">
-                  Merge file Excel
-                  <input
-                    type="file"
-                    accept=".xlsx,.csv"
-                    className="hidden"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) void importRoadmapFile(file);
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                </label>
-              </div>
+          <div className="space-y-3 rounded-[24px] border border-[#dbe7ff] bg-[#f8fbff] p-4">
+            <div>
+              <p className="text-sm font-semibold text-[#0f1729]">Tài liệu học tập theo từng buổi</p>
+              <p className="mt-1 text-xs text-[#64748b]">Sao chép từ lớp đã có, nạp file Excel, hoặc sửa trực tiếp từng buổi.</p>
             </div>
-
-            {importSummary ? <div className="rounded-2xl border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-sm text-[#1d4ed8]">{importSummary}</div> : null}
-
-            {roadmapItems.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[#dbe7ff] bg-white px-4 py-8 text-center text-sm text-[#64748b]">
-                Cần nhập tổng số buổi để tạo khung tài liệu học tập.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {visibleRoadmapItems.map((item) => (
-                  <div key={item.sessionNumber} className="rounded-[22px] border border-[#e5eaf7] bg-white p-4">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-[#0f1729]">Buổi {item.sessionNumber}</p>
-                        <p className="mt-1 text-xs text-[#64748b]">Tên bài, mục tiêu, tài liệu và ghi chú cho giáo viên.</p>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <label className="form-group md:col-span-2">
-                        <span className="label">Tên bài / tiêu đề buổi</span>
-                        <input className="input" value={item.title} onChange={(event) => patchRoadmap(item.sessionNumber, "title", event.target.value)} />
-                      </label>
-
-                      <label className="form-group">
-                        <span className="label">Mục tiêu buổi học</span>
-                        <textarea className="input min-h-[96px] resize-y" value={item.objective} onChange={(event) => patchRoadmap(item.sessionNumber, "objective", event.target.value)} />
-                      </label>
-
-                      <label className="form-group">
-                        <span className="label">Tài liệu / học cụ</span>
-                        <textarea className="input min-h-[96px] resize-y" value={item.materials} onChange={(event) => patchRoadmap(item.sessionNumber, "materials", event.target.value)} />
-                      </label>
-
-                      <label className="form-group">
-                        <span className="label">Hướng dẫn giáo viên</span>
-                        <textarea className="input min-h-[96px] resize-y" value={item.teacherGuide} onChange={(event) => patchRoadmap(item.sessionNumber, "teacherGuide", event.target.value)} />
-                      </label>
-
-                      <label className="form-group">
-                        <span className="label">Bài tập / dặn dò</span>
-                        <textarea className="input min-h-[96px] resize-y" value={item.homeworkGuide} onChange={(event) => patchRoadmap(item.sessionNumber, "homeworkGuide", event.target.value)} />
-                      </label>
-
-                      <label className="form-group md:col-span-2">
-                        <span className="label">Yêu cầu giáo viên phải làm cho buổi này (để trống = không có yêu cầu)</span>
-                        <textarea
-                          className="input min-h-[72px] resize-y"
-                          value={item.teacherRequirement}
-                          onChange={(event) => patchRoadmap(item.sessionNumber, "teacherRequirement", event.target.value)}
-                          placeholder="Ví dụ: Phải giao bài tập Unit 3, chấm và trả kết quả trước buổi sau..."
-                        />
-                        <p className="form-hint">Sau khi điểm danh xong buổi này, hệ thống sẽ yêu cầu xác nhận Đã nộp/Chưa nộp cho đúng nội dung này.</p>
-                      </label>
-                    </div>
-                  </div>
-                ))}
-
-                {visibleRoadmapCount < roadmapItems.length ? (
-                  <div className="flex justify-center">
-                    <button
-                      type="button"
-                      onClick={() => setVisibleRoadmapCount((current) => Math.min(current + 12, roadmapItems.length))}
-                      className="btn-ghost-sm"
-                    >
-                      Xem thêm {Math.min(12, roadmapItems.length - visibleRoadmapCount)} buổi nữa
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            )}
+            <ClassRoadmapEditor
+              items={roadmapItemsInRange}
+              setItems={setRoadmapItems}
+              totalSessions={totalSessions}
+              classCode={cls.classCode}
+              courseId={form.courseId || null}
+              excludeClassId={cls.id}
+              sessionDates={sessionDates}
+              taughtCount={taughtCount}
+              onTotalSessionsChange={(next) => setForm((current) => ({ ...current, totalSessions: String(next) }))}
+            />
           </div>
 
           <label className="form-group">
