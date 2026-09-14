@@ -59,6 +59,36 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }> = Array.isArray(body.entries) ? body.entries : [];
   const publish = Boolean(body.publish);
 
+  // CHẶN ĐIỂM VƯỢT THANG ĐIỂM. Ô nhập có max=10 nhưng thuộc tính đó của trình duyệt không
+  // chặn được việc gõ tay, còn API trước đây lưu nguyên mọi con số — dữ liệu thật đã có
+  // "Minitest từ = 123/10", "Nghe = 123123/10", đẩy điểm trung bình học viên lên hàng chục
+  // nghìn. Điểm nhật ký là căn cứ báo tiến bộ cho phụ huynh nên phải đúng từ lúc nhập.
+  const nameById = new Map(
+    (
+      await prisma.student.findMany({
+        where: { id: { in: entries.map((e) => e.studentId).filter(Boolean) } },
+        select: { id: true, fullName: true },
+      })
+    ).map((item) => [item.id, item.fullName]),
+  );
+  for (const e of entries) {
+    for (const s of e.scores ?? []) {
+      if (s.score === null || s.score === undefined || (typeof s.score === "string" && s.score === "")) continue;
+      const score = Number(s.score);
+      const maxScore = s.maxScore === undefined || s.maxScore === null ? 10 : Number(s.maxScore);
+      const who = nameById.get(e.studentId) ?? "học viên";
+      if (!Number.isFinite(maxScore) || maxScore <= 0) {
+        return NextResponse.json({ error: `Thang điểm cột "${s.label}" của ${who} không hợp lệ.` }, { status: 400 });
+      }
+      if (!Number.isFinite(score) || score < 0 || score > maxScore) {
+        return NextResponse.json(
+          { error: `Điểm "${s.label}" của ${who} là ${s.score} — phải nằm trong khoảng 0 đến ${maxScore}.` },
+          { status: 400 },
+        );
+      }
+    }
+  }
+
   const journal = await prisma.$transaction(async (tx) => {
     const existing = await tx.classSessionJournal.findUnique({ where: { sessionId: session.id } });
 

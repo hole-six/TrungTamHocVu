@@ -34,7 +34,9 @@
     "test:timeline": "tsx tests/period-timeline.test.ts",
     "test:sessions": "tsx tests/session-count.test.ts",
     "test:enrollment": "tsx tests/enrollment.test.ts",
-    "test": "npm run test:money && npm run test:payroll && npm run test:billing && npm run test:timeline && npm run test:sessions && npm run test:enrollment",
+    "test:roadmap": "tsx tests/roadmap.test.ts",
+    "test:history": "tsx tests/learning-history.test.ts",
+    "test": "npm run test:money && npm run test:payroll && npm run test:billing && npm run test:timeline && npm run test:sessions && npm run test:enrollment && npm run test:roadmap && npm run test:history",
     "check:ui": "node scripts/ui_smoke.mjs"
   },
   "prisma": {

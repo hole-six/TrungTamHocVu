@@ -10,6 +10,7 @@ import ScholarshipAdjustmentForm from "./ScholarshipAdjustmentForm";
 import AssignEnrollmentForm from "./AssignEnrollmentForm";
 import AddGuardianForm from "./AddGuardianForm";
 import TransferEnrollmentButton from "@/components/classes/TransferEnrollmentButton";
+import StudentLearningHistory from "@/components/students/StudentLearningHistory";
 import PauseEnrollmentButton from "@/components/students/PauseEnrollmentButton";
 import EnrollmentRowActions from "@/components/classes/EnrollmentRowActions";
 import QuickPaymentButton from "@/components/tuition/QuickPaymentButton";
@@ -747,44 +748,10 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
             </Section>
           ) : null}
 
-          <Section
-            title="Buổi học gần đây"
-            hint={data.recentSessions.length > 0 ? `${data.recentSessions.length} buổi` : "Chưa có buổi nào"}
-          >
-            {data.recentSessions.length > 0 ? (
-              <div className="space-y-2">
-                {data.recentSessions.slice(0, 8).map((session: any) => (
-                  <div key={session.attendance.id} className="flex items-center justify-between gap-3 border-b border-[#f1f5f9] pb-2 last:border-0 last:pb-0">
-                    <div className="min-w-0">
-                      <Link
-                        href={`/classes/${session.attendance.session.classId}/sessions/${session.attendance.session.id}`}
-                        className="text-sm font-bold text-[#0f1729] hover:text-[#1d4ed8]"
-                      >
-                        {formatDate(session.attendance.session.sessionDate)}
-                        {session.sessionNumber ? ` · Buổi ${session.sessionNumber}` : ""}
-                      </Link>
-                      <p className="truncate text-xs text-[#64748b]">
-                        {session.attendance.session.class.className}
-                        {session.teachers ? ` · ${session.teachers}` : ""}
-                      </p>
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-md px-2 py-1 text-xs font-bold ${
-                        session.attendance.status === "ABSENT"
-                          ? "bg-[#fee2e2] text-[#991b1b]"
-                          : session.attendance.status === "MAKEUP"
-                            ? "bg-[#e0f2fe] text-[#075985]"
-                            : "bg-[#dcfce7] text-[#166534]"
-                      }`}
-                    >
-                      {ATTENDANCE_LABEL[session.attendance.status] ?? session.attendance.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-[#94a3b8]">Chưa có buổi học nào được điểm danh.</p>
-            )}
+          {/* Lịch sử học tập thay cho "Buổi học gần đây": đủ mọi buổi (10 buổi/trang), điểm
+              nhật ký từng buổi nối tiếp nhau và điểm trung bình — để thấy con tiến bộ tới đâu. */}
+          <Section title="Lịch sử học tập" hint="Điểm nhật ký từng buổi và điểm trung bình">
+            <StudentLearningHistory studentId={data.id} compact />
           </Section>
 
           <Section

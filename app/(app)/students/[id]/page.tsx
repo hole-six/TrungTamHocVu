@@ -5,6 +5,7 @@ import StudentEditForm from "@/components/students/StudentEditForm";
 import AssignEnrollmentForm from "@/components/students/AssignEnrollmentForm";
 import PauseEnrollmentButton from "@/components/students/PauseEnrollmentButton";
 import FinishEnrollmentActions from "@/components/students/FinishEnrollmentActions";
+import StudentLearningHistory from "@/components/students/StudentLearningHistory";
 import EnrollmentRowActions from "@/components/classes/EnrollmentRowActions";
 import StudentFinanceDesk from "@/components/students/StudentFinanceDesk";
 import StudentSessionCredits from "@/components/students/StudentSessionCredits";
@@ -352,56 +353,8 @@ export default async function StudentDetailPage({
     { present: 0, absent: 0, makeup: 0 }
   );
 
-  const recentAttendanceClassIds = [...new Set(student.attendances.map((attendance) => attendance.session.classId))];
-  const classLearningPlans =
-    recentAttendanceClassIds.length > 0
-      ? await prisma.class.findMany({
-          where: { id: { in: recentAttendanceClassIds } },
-          select: {
-            id: true,
-            sessions: {
-              where: { status: { not: "CANCELLED" } },
-              orderBy: [{ sessionDate: "asc" }, { startTime: "asc" }],
-              select: { id: true },
-            },
-            roadmapItems: {
-              orderBy: { sessionNumber: "asc" },
-              select: { sessionNumber: true, title: true, objective: true },
-            },
-          },
-        })
-      : [];
-  const classLearningPlanMap = new Map(
-    classLearningPlans.map((classPlan) => [
-      classPlan.id,
-      {
-        sessionNumberById: new Map(classPlan.sessions.map((session, index) => [session.id, index + 1])),
-        roadmapBySessionNumber: new Map(classPlan.roadmapItems.map((item) => [item.sessionNumber, item])),
-      },
-    ]),
-  );
-
-  const recentSessions = student.attendances.map((attendance) => {
-    const teachers = attendance.session.assignments
-      .filter((assignment) => assignment.role === "TEACHER")
-      .map((assignment) => assignment.employee.fullName)
-      .join(", ");
-    const assistants = attendance.session.assignments
-      .filter((assignment) => assignment.role !== "TEACHER")
-      .map((assignment) => assignment.employee.shortName || assignment.employee.fullName)
-      .join(", ");
-    const learningPlan = classLearningPlanMap.get(attendance.session.classId);
-    const sessionNumber = learningPlan?.sessionNumberById.get(attendance.session.id) ?? null;
-    const roadmapItem = sessionNumber ? learningPlan?.roadmapBySessionNumber.get(sessionNumber) ?? null : null;
-
-    return {
-      attendance,
-      teachers,
-      assistants,
-      sessionNumber,
-      roadmapItem,
-    };
-  });
+  // (Khối "Buổi học gần đây" đã thay bằng StudentLearningHistory — tự lấy dữ liệu qua API,
+  // nên không còn phải dựng sẵn danh sách buổi gần đây ở đây nữa.)
 
   const unusedCreditAmount = student.creditBalances.reduce((sum, credit) => sum + credit.amount, 0);
   const chargeRemainingMap = new Map<string, { paidAmount: number; remainingAmount: number }>();
@@ -1245,65 +1198,18 @@ export default async function StudentDetailPage({
                   canManage={canManageSchedule}
                 />
 
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                  <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
-                    <div className="mb-5">
-                      <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Buổi học gần đây</h2>
-                      <p className="mt-1 text-sm text-[#64748b]">Xem nhanh tình trạng học ở các buổi gần nhất.</p>
-                    </div>
-                    <div className="space-y-3">
-                      {recentSessions.map(({ attendance, teachers, assistants, sessionNumber, roadmapItem }) => {
-                        const sessionHref = `/classes/${attendance.session.classId}/sessions/${attendance.session.id}`;
-                        const classHref = `/classes/${attendance.session.classId}`;
-                        const journalLesson = attendance.session.journal?.unitLesson?.trim();
-                        const lessonTitle = roadmapItem?.title?.trim() || journalLesson || null;
-                        const lessonDetail = roadmapItem?.objective?.trim() || attendance.session.journal?.teacherNote?.trim() || null;
-
-                        return (
-                          <div key={attendance.id} className="rounded-xl bg-[#f8faff] border border-[#e5eaf7] p-4 transition-colors hover:border-[#0f1729]">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                  <Link href={sessionHref} className="font-bold text-[#0f1729] hover:text-[#2563eb]">
-                                    {formatDate(attendance.session.sessionDate)}
-                                    {sessionNumber ? ` · Buổi ${sessionNumber}` : ""}
-                                  </Link>
-                                  <span className="text-xs font-semibold text-[#94a3b8]">trong</span>
-                                  <Link href={classHref} className="text-sm font-bold text-[#f97316] hover:text-[#ea580c]">
-                                    {attendance.session.class.className}
-                                  </Link>
-                                </div>
-
-                                <div className="mt-2 rounded-lg border border-[#e5eaf7] bg-white px-3 py-2">
-                                  <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">Bài đã học</p>
-                                  <p className="mt-1 text-sm font-bold text-[#0f1729]">
-                                    {lessonTitle ?? "Chưa gắn bài/roadmap cho buổi này"}
-                                  </p>
-                                  {lessonDetail ? <p className="mt-1 text-xs leading-5 text-[#64748b]">{lessonDetail}</p> : null}
-                                </div>
-
-                                <p className="mt-2 text-xs text-[#64748b]">
-                                  GV: {teachers || "Chưa phân công"} · TG: {assistants || "—"} · Nhật ký: {attendance.session.journal?.publishedAt ? "Đã gửi PH" : attendance.session.journal ? "Đang lưu nháp" : "Chưa có"}
-                                </p>
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  <Link href={sessionHref} className="inline-flex items-center rounded-lg border border-[#e2e8f0] bg-white px-2.5 py-1 text-xs font-bold text-[#0f1729] hover:border-[#0f1729]">
-                                    Mở buổi học →
-                                  </Link>
-                                  <Link href={classHref} className="inline-flex items-center rounded-lg bg-white border border-[#e5eaf7] px-2.5 py-1 text-xs font-bold text-[#64748b] hover:border-[#0f1729] hover:text-[#0f1729]">
-                                    Mở lớp →
-                                  </Link>
-                                </div>
-                              </div>
-                              <span className={`inline-flex shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold whitespace-nowrap ${attendance.status === "ABSENT" ? "bg-[#fee2e2] text-[#991b1b]" : attendance.status === "MAKEUP" ? "bg-[#e0f2fe] text-[#075985]" : "bg-[#dcfce7] text-[#166534]"}`}>
-                                {attendanceLabel(attendance.status)}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {recentSessions.length === 0 && <p className="text-sm text-[#64748b] bg-[#f8faff] rounded-xl p-4 border border-[#e5eaf7]">Chưa có buổi học nào để đối chiếu.</p>}
-                    </div>
+                {/* Lịch sử học tập thay cho "Buổi học gần đây" (chỉ vài buổi, không có điểm): đủ mọi
+                    buổi đã học, 10 buổi/trang, điểm nhật ký từng buổi nối tiếp nhau và điểm trung
+                    bình — mục tiêu là thấy được con tiến bộ tới đâu. Cách tính: lib/server/learning-history.ts */}
+                <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
+                  <div className="mb-5">
+                    <h2 className="text-lg font-black tracking-tight text-[#0f1729]">Lịch sử học tập</h2>
+                    <p className="mt-1 text-sm text-[#64748b]">Mọi buổi đã học, điểm nhật ký từng buổi và điểm trung bình.</p>
                   </div>
+                  <StudentLearningHistory studentId={student.id} />
+                </div>
+
+                <div className="grid grid-cols-1 gap-5">
 
                   <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
                     <div className="mb-5">
