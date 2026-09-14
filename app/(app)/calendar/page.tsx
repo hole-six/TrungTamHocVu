@@ -6,6 +6,8 @@ import { getCurrentBranchId } from "@/lib/branch-filter";
 import CalendarFilters from "@/components/calendar/CalendarFilters";
 import SessionCard from "@/components/calendar/SessionCard";
 import CalendarListView from "@/components/calendar/CalendarListView";
+import BulkAssignDrawer, { type BulkSession } from "@/components/calendar/BulkAssignDrawer";
+import { canUpdate } from "@/lib/server/role-matrix";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
@@ -20,7 +22,7 @@ const CALENDAR_TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="calendar-week"]',
     title: "Mỗi thẻ buổi học mở thẳng vào trang buổi đó",
-    description: "Nhãn \"Thiếu phân công\" ở đầu mỗi ngày cảnh báo buổi chưa gán giáo viên/trợ giảng — bấm vào thẻ buổi để phân công ngay.",
+    description: "Nhãn \"Thiếu phân công\" ở đầu mỗi ngày cảnh báo buổi chưa gán giáo viên/trợ giảng — bấm vào thẻ buổi để phân công từng buổi, hoặc nút \"Phân công hàng loạt\" để gán nhiều buổi cùng lúc.",
     placement: "top",
   },
 ];
@@ -67,6 +69,7 @@ const CALENDAR_PAGE_GUIDE_SECTIONS = [
       "Xem toàn bộ lịch học trong tuần theo từng ngày.",
       "Kiểm tra nhanh giờ học, phòng, giáo viên, trợ giảng và trạng thái buổi.",
       "Mở thẳng vào buổi học khi cần điểm danh, đổi lịch hoặc viết nhật ký.",
+      "Gán giáo viên/trợ giảng cho nhiều buổi cùng lúc bằng nút Phân công hàng loạt (có xem trước, tự bỏ qua buổi trùng lịch).",
     ],
     tone: "info" as const,
   },
@@ -238,6 +241,40 @@ export default async function CalendarPage({
   const totalMissingAssignments = sessions.filter((session) => session.assignments.length === 0).length;
   const totalStudentTouches = sessionsByDay.reduce((sum, day) => sum + day.totalStudents, 0);
 
+  // Phân công hàng loạt: chỉ cho người được sửa lịch (không cho GV/TG). Danh sách buổi là
+  // đúng các buổi đang hiện trên lịch tuần này (đã theo bộ lọc), để "chọn tuần, lọc, gán".
+  const canBulkAssign = !teacherScoped && canUpdate("schedule", role);
+  const [bulkEmployees, bulkClasses] = canBulkAssign
+    ? await Promise.all([
+        prisma.employee.findMany({
+          where: { workStatus: "ACTIVE", ...(activeBranchId ? { branchId: activeBranchId } : {}) },
+          orderBy: { fullName: "asc" },
+          select: { id: true, fullName: true, shortName: true, position: true },
+        }),
+        prisma.class.findMany({
+          where: { status: "ACTIVE", ...(activeBranchId ? { branchId: activeBranchId } : {}) },
+          orderBy: { classCode: "asc" },
+          select: { id: true, classCode: true, className: true },
+        }),
+      ])
+    : [[], []];
+  const bulkSessions: BulkSession[] = sessions.map((session) => ({
+    id: session.id,
+    classId: session.classId,
+    classCode: session.class.classCode,
+    className: session.class.className,
+    sessionDate: session.sessionDate.toISOString(),
+    startTime: session.startTime,
+    endTime: session.endTime,
+    status: session.status,
+    assignments: session.assignments.map((a) => ({
+      role: a.role,
+      employeeId: a.employeeId,
+      name: a.employee.shortName || a.employee.fullName,
+    })),
+  }));
+  const weekLabel = `tuần ${formatCompactDate(days[0]).replace("-", "/")} – ${formatCompactDate(days[6]).replace("-", "/")}`;
+
   return (
     <div className="space-y-4 sm:space-y-5">
       <PageGuide
@@ -258,7 +295,12 @@ export default async function CalendarPage({
             </p>
           </div>
         </div>
-        <SpotlightTour steps={CALENDAR_TOUR_STEPS} />
+        <div className="flex flex-wrap items-center gap-2">
+          {canBulkAssign ? (
+            <BulkAssignDrawer sessions={bulkSessions} employees={bulkEmployees} classes={bulkClasses} weekLabel={weekLabel} />
+          ) : null}
+          <SpotlightTour steps={CALENDAR_TOUR_STEPS} />
+        </div>
       </div>
 
       <div data-tour="calendar-filters">

@@ -17,6 +17,7 @@ async function main() {
   const { toSessionRole, hourlyRateForRole, isEmployeeWorkingOn } = await import("@/lib/assignment-roles");
   const { generatePayrollForRun } = await import("@/lib/server/payroll-generation");
   const { getVietnamToday } = await import("@/lib/server/class-rules");
+  const { planBulkAssignment, applyBulkAssignment } = await import("@/lib/server/bulk-staff-assignment");
   const { prisma: shared } = await import("@/lib/prisma");
   const fx = await import("./fixtures");
 
@@ -218,6 +219,91 @@ async function main() {
     await assign(s.id, a.id, "TEACHER");
     const saved = await db.$transaction((tx) => saveDefaultStaff(tx, cls.id, [{ role: "TEACHER_1", employeeId: gone.id }]));
     expectEqual(saved.ok, false, "chặn xếp người đã nghỉ");
+  });
+
+  // ---------------------------------------------------------------- 10
+  await test("Hàng loạt – chỉ điền buổi trống: buổi đã có người giữ nguyên, buổi trống được gán đúng vai trò/đơn giá", async () => {
+    const branch = await fx.seedBranch(db);
+    const cls = await fx.seedClass(db, branch.id);
+    const x = await fx.seedEmployee(db, branch.id, { fullName: "GV X", teachingHourlyRate: 220_000, assistantHourlyRate: 60_000 });
+    const old = await fx.seedEmployee(db, branch.id, { fullName: "GV cũ" });
+    const empty = await session(cls.id, plusDays(2), "17:30", "19:00");
+    const filled = await session(cls.id, plusDays(4), "17:30", "19:00");
+    await assign(filled.id, old.id, "TEACHER");
+
+    const input = { sessionIds: [empty.id, filled.id], teacherId: x.id, mode: "FILL_EMPTY" as const };
+    const plan = await planBulkAssignment(db, input);
+    expectEqual(plan.counts.ASSIGN, 1, "gán mới 1 buổi");
+    expectEqual(plan.counts.KEEP, 1, "giữ nguyên buổi đã có GV cũ");
+    await db.$transaction(async (tx) => applyBulkAssignment(tx, await planBulkAssignment(tx, input)));
+    const row = await db.sessionAssignment.findFirst({ where: { sessionId: empty.id } });
+    expectEqual(row?.role, "TEACHER", "vai trò TEACHER");
+    expectEqual(row?.hourlyRate, 220_000, "đơn giá dạy của GV X");
+    expectEqual((await db.sessionAssignment.findFirst({ where: { sessionId: filled.id } }))?.employeeId, old.id, "buổi đã có người vẫn là GV cũ");
+  });
+
+  // ---------------------------------------------------------------- 11
+  await test("Hàng loạt – thay người: không đụng buổi đã dạy có người, người đã check-in; buổi đã dạy còn trống thì bổ sung", async () => {
+    const branch = await fx.seedBranch(db);
+    const cls = await fx.seedClass(db, branch.id);
+    const x = await fx.seedEmployee(db, branch.id, { fullName: "GV X", teachingHourlyRate: 200_000 });
+    const a = await fx.seedEmployee(db, branch.id, { fullName: "GV A" });
+    const upcoming = await session(cls.id, plusDays(3), "17:30", "19:00");
+    await assign(upcoming.id, a.id, "TEACHER");
+    const taught = await session(cls.id, plusDays(-5), "17:30", "19:00", "COMPLETED");
+    await assign(taught.id, a.id, "TEACHER");
+    const taughtEmpty = await session(cls.id, plusDays(-3), "17:30", "19:00", "COMPLETED");
+    const checked = await session(cls.id, plusDays(0), "17:30", "19:00");
+    const checkedRow = await assign(checked.id, a.id, "TEACHER");
+    await db.sessionAssignment.update({ where: { id: checkedRow.id }, data: { checkInAt: new Date() } });
+    const cancelled = await session(cls.id, plusDays(6), "17:30", "19:00", "CANCELLED");
+
+    const input = { sessionIds: [upcoming.id, taught.id, taughtEmpty.id, checked.id, cancelled.id], teacherId: x.id, mode: "REPLACE" as const };
+    const plan = await planBulkAssignment(db, input);
+    const actionOf = (id: string) => plan.items.find((i) => i.sessionId === id)?.action;
+    expectEqual(actionOf(upcoming.id), "REPLACE", "buổi chưa dạy: thay A → X");
+    expectEqual(actionOf(taught.id), "KEEP", "buổi đã dạy có A: giữ");
+    expectEqual(actionOf(taughtEmpty.id), "ASSIGN", "buổi đã dạy còn trống: bổ sung");
+    expectEqual(actionOf(checked.id), "KEEP", "A đã check-in: giữ");
+    expectEqual(actionOf(cancelled.id), "SKIP", "buổi đã hủy: bỏ qua");
+    await db.$transaction(async (tx) => applyBulkAssignment(tx, await planBulkAssignment(tx, input)));
+    const who = async (id: string) => (await db.sessionAssignment.findMany({ where: { sessionId: id } })).map((r) => r.employeeId).join(",");
+    expectEqual(await who(upcoming.id), x.id, "buổi chưa dạy chỉ còn GV X");
+    expectEqual(await who(taught.id), a.id, "buổi đã dạy vẫn là A");
+    expectEqual(await who(checked.id), a.id, "buổi đã check-in vẫn là A");
+  });
+
+  // ---------------------------------------------------------------- 12
+  await test("Hàng loạt – trùng lịch: 2 lớp cùng 07:00 cùng chọn thì chỉ gán 1; kẹt lớp khác thì bỏ qua", async () => {
+    const branch = await fx.seedBranch(db);
+    const lopA = await fx.seedClass(db, branch.id);
+    const lopB = await fx.seedClass(db, branch.id);
+    const lopC = await fx.seedClass(db, branch.id);
+    const x = await fx.seedEmployee(db, branch.id, { fullName: "GV X" });
+    const d = plusDays(5);
+    const a7 = await session(lopA.id, d, "07:00", "08:30");
+    const b7 = await session(lopB.id, d, "07:00", "08:30");
+    const a9 = await session(lopA.id, d, "09:00", "10:30");
+    const busy = await session(lopC.id, d, "09:30", "11:00");
+    await assign(busy.id, x.id, "TEACHER");
+
+    const plan = await planBulkAssignment(db, { sessionIds: [a7.id, b7.id, a9.id], teacherId: x.id, mode: "FILL_EMPTY" });
+    const actionOf = (id: string) => plan.items.find((i) => i.sessionId === id);
+    expectEqual(actionOf(a7.id)?.action, "ASSIGN", "07:00 lớp A: gán");
+    expectEqual(actionOf(b7.id)?.action, "SKIP", "07:00 lớp B cùng giờ: bỏ qua");
+    expectEqual(actionOf(a9.id)?.action, "SKIP", "09:00 chồng giờ lớp C 09:30: bỏ qua");
+    expectTrue(actionOf(b7.id)?.reason?.includes("Trùng") ?? false, "có lý do trùng: " + actionOf(b7.id)?.reason);
+  });
+
+  // ---------------------------------------------------------------- 13
+  await test("Hàng loạt – buổi đã dạy thuộc tháng lương đã chốt: không bổ sung", async () => {
+    const branch = await fx.seedBranch(db);
+    const cls = await fx.seedClass(db, branch.id);
+    const x = await fx.seedEmployee(db, branch.id, { fullName: "GV X" });
+    const taught = await session(cls.id, day("2026-03-10"), "17:30", "19:00", "COMPLETED");
+    await fx.seedPayrollRun(db, branch.id, "2026-03", "LOCKED");
+    const plan = await planBulkAssignment(db, { sessionIds: [taught.id], teacherId: x.id, mode: "FILL_EMPTY" });
+    expectEqual(plan.items[0]?.action, "SKIP", "tháng lương đã chốt");
   });
 
   const failed = summary();

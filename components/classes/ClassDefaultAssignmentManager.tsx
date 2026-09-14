@@ -73,23 +73,24 @@ function normalizeRole(roleType: "TEACHER" | "ASSISTANT", index: number) {
   return roleType === "TEACHER" ? `TEACHER_${index + 1}` : `ASSISTANT_${index + 1}`;
 }
 
-export default function ClassDefaultAssignmentManager({
+/**
+ * Bộ sửa nhân sự mặc định của lớp (GV/TG + xem trước đổi người ở buổi chưa dạy). Dùng chung
+ * cho trang lớp và drawer "Phân công hàng loạt" ở lịch tổng — một chỗ sửa, hai nơi giống hệt.
+ */
+export function DefaultStaffEditor({
   classId,
   employees,
   assignments,
-  onSuccess,
-  bare = false,
+  onSaved,
+  onClose,
 }: {
   classId: string;
   employees: Employee[];
   assignments: DefaultAssignment[];
-  onSuccess?: () => void;
-  /** Truyền true khi nơi gọi (drawer) đã tự có khung viền riêng — bỏ khung/nền của
-   *  hàng tiêu đề (vẫn giữ 2 khối GV/TG bên dưới vì đó là 2 danh sách khác nhau). */
-  bare?: boolean;
+  onSaved?: () => void;
+  onClose?: () => void;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [applyLoading, setApplyLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -124,12 +125,6 @@ export default function ClassDefaultAssignmentManager({
   const [drafts, setDrafts] = useState<AssignmentDraft[]>(
     initialDrafts.length > 0 ? initialDrafts : [createDraft("TEACHER"), createDraft("ASSISTANT")],
   );
-
-  const summary = useMemo(() => {
-    const teachers = assignments.filter((item) => getRoleType(item.role) === "TEACHER");
-    const assistants = assignments.filter((item) => getRoleType(item.role) === "ASSISTANT");
-    return { teachers, assistants };
-  }, [assignments]);
 
   function patch(key: string, field: "employeeId" | "notes", value: string) {
     setDrafts((current) => current.map((item) => (item.key === key ? { ...item, [field]: value } : item)));
@@ -203,7 +198,7 @@ export default function ClassDefaultAssignmentManager({
         : "Đã lưu nhân sự mặc định cho lớp. Không có buổi chưa dạy nào cần đổi.",
     );
     router.refresh();
-    onSuccess?.();
+    onSaved?.();
   }
 
   async function applyToPlannedSessions() {
@@ -228,8 +223,140 @@ export default function ClassDefaultAssignmentManager({
         (skipped.length ? ` Bỏ qua ${skipped.length} chỗ vì trùng lịch: ${skipped.slice(0, 3).join(" ")}` : ""),
     );
     router.refresh();
-    onSuccess?.();
+    onSaved?.();
   }
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-4">
+        {(["TEACHER", "ASSISTANT"] as const).map((roleType) => {
+          const rows = drafts.filter((item) => item.roleType === roleType);
+          const label = getRoleLabel(roleType);
+          return (
+            <div key={roleType} className="space-y-3 rounded-[24px] border border-hairline px-4 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-ink">{label}</p>
+                  <p className="mt-1 text-xs text-ink-muted48">Có thể thêm nhiều người cùng lúc.</p>
+                </div>
+                <button type="button" onClick={() => addDraft(roleType)} className="btn-ghost-sm">
+                  + Thêm {label.toLowerCase()}
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {rows.map((item, index) => (
+                  <div key={item.key} className="grid gap-3 rounded-[20px] border border-hairline px-3 py-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto]">
+                    <label className="form-group">
+                      <span className="label-sm">{label} {index + 1}</span>
+                      <select className="input" value={item.employeeId} onChange={(event) => patch(item.key, "employeeId", event.target.value)}>
+                        <option value="">Chưa gắn</option>
+                        {employees.map((employee) => (
+                          <option key={employee.id} value={employee.id}>
+                            {employee.fullName} {employee.shortName ? `(${employee.shortName})` : ""} {employee.position ? `· ${employee.position}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="form-group">
+                      <span className="label-sm">Ghi chú</span>
+                      <input
+                        className="input"
+                        placeholder="Ghi chú ngắn nếu cần"
+                        value={item.notes}
+                        onChange={(event) => patch(item.key, "notes", event.target.value)}
+                      />
+                    </label>
+
+                    <div className="flex items-end">
+                      <button type="button" onClick={() => removeDraft(item.key)} className="btn-ghost-sm text-rose-600 hover:text-rose-700">
+                        Xóa
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {pendingPlan ? (
+        <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">Thay đổi này sẽ cập nhật {pendingPlan.affectedSessions} buổi chưa dạy (từ hôm nay):</p>
+          <ul className="space-y-1">
+            {pendingPlan.changes.map((change, index) => (
+              <li key={index}>
+                • {getRoleLabel(change.role)}:{" "}
+                {change.fromName && change.toName ? (
+                  <>
+                    <strong>{change.fromName}</strong> → <strong>{change.toName}</strong>
+                  </>
+                ) : change.toName ? (
+                  <>thêm <strong>{change.toName}</strong></>
+                ) : (
+                  <>bỏ <strong>{change.fromName}</strong></>
+                )}{" "}
+                — {change.sessionCount} buổi
+                {change.keptLocked > 0 ? ` (giữ nguyên ${change.keptLocked} buổi đã check-in hoặc đang có người dạy thay)` : ""}
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs">
+            Buổi đã dạy, buổi của ngày đã qua và buổi đang phân công riêng người khác không bị đổi — lương các buổi đó giữ nguyên.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => save(true)} disabled={loading} className="btn-primary">
+              {loading ? "Đang lưu..." : "Xác nhận đổi"}
+            </button>
+            <button type="button" onClick={() => setPendingPlan(null)} disabled={loading} className="btn-ghost">
+              Quay lại sửa
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {message ? <div className="alert-success">{message}</div> : null}
+      {error ? <div className="alert-danger">{error}</div> : null}
+
+      <div className="flex flex-wrap gap-3 border-t border-hairline pt-4">
+        <button type="button" onClick={() => save(false)} disabled={loading || Boolean(pendingPlan)} className="btn-primary">
+          {loading ? "Đang lưu..." : "Lưu nhân sự"}
+        </button>
+        <button type="button" onClick={applyToPlannedSessions} disabled={applyLoading} className="btn-ghost">
+          {applyLoading ? "Đang bổ sung..." : "Bổ sung vào buổi còn trống"}
+        </button>
+        {onClose ? (
+          <button type="button" onClick={onClose} className="btn-ghost">
+            Đóng
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export default function ClassDefaultAssignmentManager({
+  classId,
+  employees,
+  assignments,
+  onSuccess,
+  bare = false,
+}: {
+  classId: string;
+  employees: Employee[];
+  assignments: DefaultAssignment[];
+  onSuccess?: () => void;
+  /** Truyền true khi nơi gọi (drawer) đã tự có khung viền riêng — bỏ khung/nền của
+   *  hàng tiêu đề (vẫn giữ 2 khối GV/TG bên dưới vì đó là 2 danh sách khác nhau). */
+  bare?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const summary = useMemo(() => {
+    const teachers = assignments.filter((item) => getRoleType(item.role) === "TEACHER");
+    const assistants = assignments.filter((item) => getRoleType(item.role) === "ASSISTANT");
+    return { teachers, assistants };
+  }, [assignments]);
 
   return (
     <>
@@ -291,117 +418,22 @@ export default function ClassDefaultAssignmentManager({
         </div>
       </div>
 
-      <ResponsiveDrawer 
+      <ResponsiveDrawer
         open={open}
         onClose={() => setOpen(false)}
         title="Nhân sự mặc định của lớp"
         description="Đổi người ở đây thì các buổi CHƯA DẠY (từ hôm nay) đổi theo; buổi đã dạy giữ nguyên để lương không đổi."
         widthClassName="max-w-4xl"
       >
-        <div className="space-y-6">
-          <div className="space-y-4">
-            {(["TEACHER", "ASSISTANT"] as const).map((roleType) => {
-              const rows = drafts.filter((item) => item.roleType === roleType);
-              const label = getRoleLabel(roleType);
-              return (
-                <div key={roleType} className="space-y-3 rounded-[24px] border border-hairline px-4 py-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-ink">{label}</p>
-                      <p className="mt-1 text-xs text-ink-muted48">Có thể thêm nhiều người cùng lúc.</p>
-                    </div>
-                    <button type="button" onClick={() => addDraft(roleType)} className="btn-ghost-sm">
-                      + Thêm {label.toLowerCase()}
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {rows.map((item, index) => (
-                      <div key={item.key} className="grid gap-3 rounded-[20px] border border-hairline px-3 py-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto]">
-                        <label className="form-group">
-                          <span className="label-sm">{label} {index + 1}</span>
-                          <select className="input" value={item.employeeId} onChange={(event) => patch(item.key, "employeeId", event.target.value)}>
-                            <option value="">Chưa gắn</option>
-                            {employees.map((employee) => (
-                              <option key={employee.id} value={employee.id}>
-                                {employee.fullName} {employee.shortName ? `(${employee.shortName})` : ""} {employee.position ? `· ${employee.position}` : ""}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-
-                        <label className="form-group">
-                          <span className="label-sm">Ghi chú</span>
-                          <input
-                            className="input"
-                            placeholder="Ghi chú ngắn nếu cần"
-                            value={item.notes}
-                            onChange={(event) => patch(item.key, "notes", event.target.value)}
-                          />
-                        </label>
-
-                        <div className="flex items-end">
-                          <button type="button" onClick={() => removeDraft(item.key)} className="btn-ghost-sm text-rose-600 hover:text-rose-700">
-                            Xóa
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {pendingPlan ? (
-            <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              <p className="font-semibold">Thay đổi này sẽ cập nhật {pendingPlan.affectedSessions} buổi chưa dạy (từ hôm nay):</p>
-              <ul className="space-y-1">
-                {pendingPlan.changes.map((change, index) => (
-                  <li key={index}>
-                    • {getRoleLabel(change.role)}:{" "}
-                    {change.fromName && change.toName ? (
-                      <>
-                        <strong>{change.fromName}</strong> → <strong>{change.toName}</strong>
-                      </>
-                    ) : change.toName ? (
-                      <>thêm <strong>{change.toName}</strong></>
-                    ) : (
-                      <>bỏ <strong>{change.fromName}</strong></>
-                    )}{" "}
-                    — {change.sessionCount} buổi
-                    {change.keptLocked > 0 ? ` (giữ nguyên ${change.keptLocked} buổi đã check-in hoặc đang có người dạy thay)` : ""}
-                  </li>
-                ))}
-              </ul>
-              <p className="text-xs">
-                Buổi đã dạy, buổi của ngày đã qua và buổi đang phân công riêng người khác không bị đổi — lương các buổi đó giữ nguyên.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => save(true)} disabled={loading} className="btn-primary">
-                  {loading ? "Đang lưu..." : "Xác nhận đổi"}
-                </button>
-                <button type="button" onClick={() => setPendingPlan(null)} disabled={loading} className="btn-ghost">
-                  Quay lại sửa
-                </button>
-              </div>
-            </div>
-          ) : null}
-          {message ? <div className="alert-success">{message}</div> : null}
-          {error ? <div className="alert-danger">{error}</div> : null}
-
-          <div className="flex flex-wrap gap-3 border-t border-hairline pt-4">
-            <button type="button" onClick={() => save(false)} disabled={loading || Boolean(pendingPlan)} className="btn-primary">
-              {loading ? "Đang lưu..." : "Lưu nhân sự"}
-            </button>
-            <button type="button" onClick={applyToPlannedSessions} disabled={applyLoading} className="btn-ghost">
-              {applyLoading ? "Đang bổ sung..." : "Bổ sung vào buổi còn trống"}
-            </button>
-            <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
-              Đóng
-            </button>
-          </div>
-        </div>
+        {open ? (
+          <DefaultStaffEditor
+            classId={classId}
+            employees={employees}
+            assignments={assignments}
+            onSaved={onSuccess}
+            onClose={() => setOpen(false)}
+          />
+        ) : null}
       </ResponsiveDrawer>
     </>
   );
