@@ -68,6 +68,7 @@ export type LeadDetailData = {
     gender: string | null;
     dob: string | null;
     currentSchoolGrade: string | null;
+    schoolName?: string | null;
     phone: string | null;
     guardianRelation: string | null;
     secondaryGuardianName: string | null;
@@ -117,6 +118,7 @@ export default function LeadDetailContent({
     gender: lead.gender ?? "",
     dob: toYmd(lead.dob),
     currentSchoolGrade: lead.currentSchoolGrade ?? "",
+    schoolName: lead.schoolName ?? "",
     guardianName: lead.guardian?.fullName ?? "",
     guardianRelation: lead.guardianRelation ?? "",
     phone: lead.phone ?? "",
@@ -240,7 +242,7 @@ export default function LeadDetailContent({
           {deletable && !isConverted ? (
             <ConfirmActionButton
               title="Xác nhận xóa lead?"
-              description={`Lead ${lead.fullName} sẽ bị xóa khỏi CRM.`}
+              description={`Lead ${lead.fullName} sẽ bị xóa khỏi Data tuyển sinh.`}
               confirmLabel="Xóa lead"
               tone="danger"
               className="btn-ghost-sm text-rose-600"
@@ -298,6 +300,9 @@ export default function LeadDetailContent({
             </EditRow>
             <EditRow label="Lớp ở trường">
               <input className="input h-9" value={form.currentSchoolGrade} onChange={(e) => set("currentSchoolGrade", e.target.value)} />
+            </EditRow>
+            <EditRow label="Tên trường">
+              <input className="input h-9" value={form.schoolName} onChange={(e) => set("schoolName", e.target.value)} placeholder="VD: Tiểu học Nguyễn Trãi" />
             </EditRow>
             <EditRow label="Phụ huynh 1">
               <input className="input h-9" value={form.guardianName} onChange={(e) => set("guardianName", e.target.value)} />
@@ -397,6 +402,7 @@ export default function LeadDetailContent({
           <Row label="Giới tính">{lead.gender ? GENDER_LABEL[lead.gender] ?? lead.gender : ""}</Row>
           <Row label="Ngày sinh">{formatDate(lead.dob)}</Row>
           <Row label="Lớp ở trường">{lead.currentSchoolGrade ?? ""}</Row>
+          <Row label="Tên trường">{lead.schoolName ?? ""}</Row>
           <Row label="Phụ huynh 1">
             {[lead.guardian?.fullName, lead.guardianRelation ? `(${lead.guardianRelation})` : null, lead.phone].filter(Boolean).join(" ")}
           </Row>

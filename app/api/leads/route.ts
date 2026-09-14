@@ -170,6 +170,7 @@ export async function POST(req: NextRequest) {
       gender: body.gender || null,
       dob: body.dob ? new Date(body.dob) : null,
       currentSchoolGrade: body.currentSchoolGrade || null,
+      schoolName: typeof body.schoolName === "string" ? body.schoolName.trim() || null : null,
       guardianId,
       phone: phone || null,
       guardianRelation: body.guardianRelation || null,

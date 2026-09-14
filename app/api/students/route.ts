@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canViewFullWithOverride, canViewWithOverride, canCreateWithOverride } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
+import { nextStudentCode, withStudentCodeRetry } from "@/lib/server/student-code";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -147,10 +148,12 @@ export async function POST(req: NextRequest) {
   const fullName = String(body.fullName ?? "").trim();
   if (!fullName) return NextResponse.json({ error: "Thiếu họ tên học viên" }, { status: 400 });
 
-  const studentCode = String(body.studentCode ?? "").trim() || `HV${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-
-  const existing = await prisma.student.findUnique({ where: { studentCode } });
-  if (existing) return NextResponse.json({ error: "Mã học viên đã tồn tại" }, { status: 409 });
+  // Để trống thì tự cấp mã HV-001, HV-002... — xem lib/server/student-code.ts.
+  const manualStudentCode = String(body.studentCode ?? "").trim();
+  if (manualStudentCode) {
+    const existing = await prisma.student.findUnique({ where: { studentCode: manualStudentCode } });
+    if (existing) return NextResponse.json({ error: "Mã học viên đã tồn tại" }, { status: 409 });
+  }
 
   const leadId = body.leadId ? String(body.leadId) : null;
   const linkedLead = leadId
@@ -164,7 +167,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Lead nay da duoc chuyen thanh hoc vien" }, { status: 409 });
   }
 
-  const student = await prisma.$transaction(async (tx) => {
+  const student = await withStudentCodeRetry(() => prisma.$transaction(async (tx) => {
+    const studentCode = manualStudentCode || (await nextStudentCode(tx));
     const created = await tx.student.create({
       data: {
         branchId,
@@ -250,7 +254,7 @@ export async function POST(req: NextRequest) {
       });
     }
     return created;
-  });
+  }));
 
   const synced = await syncStudentDerivedFields(student.id);
 

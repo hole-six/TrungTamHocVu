@@ -110,7 +110,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: Icon.dashboard, color: "from-blue-500 to-blue-600" },
   { href: "/students", label: "Học viên", icon: Icon.students, color: "from-emerald-500 to-emerald-600" },
   { href: "/classes", label: "Lớp học", icon: Icon.classes, color: "from-violet-500 to-violet-600" },
-  { href: "/leads", label: "CRM", icon: Icon.leads, color: "from-sky-500 to-sky-600" },
+  { href: "/leads", label: "Data", icon: Icon.leads, color: "from-sky-500 to-sky-600" },
   { href: "/calendar", label: "Lịch", icon: Icon.calendar, color: "from-pink-500 to-pink-600" },
   { href: "/tuition", label: "Học phí", icon: Icon.tuition, color: "from-amber-500 to-amber-600" },
   { href: "/inventory", label: "Tài liệu", icon: Icon.inventory, color: "from-teal-500 to-teal-600" },
@@ -147,7 +147,7 @@ export default function MobileBottomNav() {
     { href: "/students", label: "Học viên", icon: Icon.students },
     { href: "/classes", label: "Lớp học", icon: Icon.classes },
     { href: "/tuition", label: "Học phí", icon: Icon.tuition },
-    { href: "/leads", label: "CRM", icon: Icon.leads },
+    { href: "/leads", label: "Data", icon: Icon.leads },
   ];
 
   return (

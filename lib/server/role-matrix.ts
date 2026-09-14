@@ -228,7 +228,7 @@ export const MODULE_LABEL: Record<ModuleKey, string> = {
   usersRoles: "Người dùng & phân quyền",
   schedule: "Lịch học",
   timesheet: "Chấm công",
-  leads: "CRM tuyển sinh",
+  leads: "Data tuyển sinh",
   students: "Học viên",
   tuition: "Học phí",
   cashbook: "Thu chi",

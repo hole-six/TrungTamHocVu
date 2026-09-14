@@ -488,8 +488,24 @@ export async function generateChargesForPeriod(
     // ví đầy lại đúng mức dự kiến. Đây là toàn bộ công thức — không cần "deductedCount
     // do buổi hủy" nữa vì ví tự nhiên không bị trừ khi buổi đó không diễn ra (xem
     // debitWalletsForCompletedSession) nên phần dư luôn tự mang sang tháng sau.
+    // BẢO LƯU: tháng mà học viên ĐANG bảo lưu từ trước khi tháng bắt đầu thì không thu
+    // những buổi rơi vào kỳ bảo lưu — tháng đi học lại giữa chừng chỉ thu từ ngày đi học
+    // lại. Trước đây đếm cả tháng: bảo lưu từ tháng 9, đi học lại 20/10, ví hết buổi dư,
+    // thì phiếu tháng 10 thu 8 buổi trong khi em chỉ học 3.
+    //
+    // KHÔNG trừ khi kỳ bảo lưu BẮT ĐẦU GIỮA tháng: phiếu tháng đó đã lập (và thường đã
+    // thu) lúc em còn đang học, buổi chưa học nằm lại trong ví và tự mang sang sau khi đi
+    // học lại. Trừ thêm ở đây là tính giá trị hai lần — vừa giảm phiếu, vừa còn buổi ví.
+    const pausedBeforePeriod = enrollment.pausedFrom !== null && enrollment.pausedFrom <= period.startDate;
     const scheduledSessionCount = await prisma.classSession.count({
-      where: { classId, status: { notIn: ["CANCELLED", "RESCHEDULED"] }, sessionDate: { gte: sessionRangeStart, lte: period.endDate } },
+      where: {
+        classId,
+        status: { notIn: ["CANCELLED", "RESCHEDULED"] },
+        sessionDate: { gte: sessionRangeStart, lte: period.endDate },
+        ...(pausedBeforePeriod
+          ? { NOT: { sessionDate: { gte: enrollment.pausedFrom as Date, lte: enrollment.pausedTo ?? new Date(Date.UTC(9999, 0, 1)) } } }
+          : {}),
+      },
     });
     // Số dư ví như lúc ĐẦU kỳ, không phải số dư ngay lúc bấm — xem
     // getCarriedSessionsForPeriod: sinh lại phiếu giữa tháng sau khi đã dạy vài buổi
@@ -788,7 +804,9 @@ export async function generateChargesForPeriod(
 // hơn khi nhân viên ghi danh lùi ngày). Công thức số buổi dùng chung với đợt thu cả kỳ
 // nên tháng đầu tự thu lẻ đúng số buổi từ ngày vào. Không bao giờ ném lỗi — kỳ đã khóa
 // hay lỗi dữ liệu thì trả về cảnh báo để ghi danh vẫn thành công.
-export async function generatePeriodChargesForNewEnrollment(enrollmentId: string, now: Date = new Date()) {
+// fromDate: tháng bắt đầu lập phiếu — mặc định là tháng ghi danh; khi đi học lại sau bảo lưu
+// thì là tháng đi học lại (không lập lại các tháng trước kỳ bảo lưu).
+export async function generatePeriodChargesForNewEnrollment(enrollmentId: string, now: Date = new Date(), fromDate?: Date) {
   const warnings: string[] = [];
   const enrollment = await prisma.enrollment.findUnique({
     where: { id: enrollmentId },
@@ -798,7 +816,7 @@ export async function generatePeriodChargesForNewEnrollment(enrollmentId: string
     return { warnings };
   }
 
-  const startKey = monthKey(enrollment.enrollDate);
+  const startKey = monthKey(fromDate ?? enrollment.enrollDate);
   const nowKey = monthKey(now);
   const months: string[] = [];
   const [startYear, startMonth] = startKey.split("-").map(Number);

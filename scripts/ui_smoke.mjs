@@ -65,7 +65,7 @@ async function main() {
 
   const pages = [
     ["dashboard", "Tổng quan"],
-    ["leads", "CRM tuyển sinh"],
+    ["leads", "Data tuyển sinh"],
     ["students", "Học viên"],
     ["classes", "Lớp học"],
     ["calendar", "Thời khoá biểu"],

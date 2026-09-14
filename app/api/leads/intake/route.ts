@@ -5,6 +5,7 @@ import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canCreate, canCreateWithOverride, canUpdate } from "@/lib/server/role-matrix";
 import { getValidBranchIdForCreation } from "@/lib/branch-filter";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
+import { nextStudentCode, withStudentCodeRetry } from "@/lib/server/student-code";
 import { provisionGuardianPortalAccount } from "@/lib/server/guardian-accounts";
 import { generateCourseCharge, generatePeriodChargesForNewEnrollment } from "@/lib/server/billing-generation";
 import { attachCourseBookRequirements } from "@/lib/server/enrollment-materials";
@@ -135,15 +136,16 @@ export async function POST(req: NextRequest) {
   }
 
   const leadCode = normalizeText(body.leadCode) ?? `LEAD${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-  const studentCode = normalizeText(body.studentCode) ?? leadCode.replace(/^LEAD/i, "HV");
+  // Nhập tay mã thì giữ; để trống thì tự cấp HV-001, HV-002... ngay lúc tạo (trong giao dịch).
+  const manualStudentCode = normalizeText(body.studentCode);
 
   const existingLeadCode = await prisma.lead.findUnique({ where: { leadCode } });
   if (existingLeadCode) {
     return NextResponse.json({ error: "Mã lead đã tồn tại." }, { status: 409 });
   }
 
-  if (mode === "ENROLL_NOW" && !existingStudent) {
-    const existingStudentCode = await prisma.student.findUnique({ where: { studentCode } });
+  if (mode === "ENROLL_NOW" && !existingStudent && manualStudentCode) {
+    const existingStudentCode = await prisma.student.findUnique({ where: { studentCode: manualStudentCode } });
     if (existingStudentCode) {
       return NextResponse.json({ error: "Mã học viên đã tồn tại." }, { status: 409 });
     }
@@ -214,7 +216,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withStudentCodeRetry(() => prisma.$transaction(async (tx) => {
     let guardian = existingStudent?.guardians[0]?.guardian
       ? existingStudent.guardians[0].guardian
       : contactPhone
@@ -294,7 +296,7 @@ export async function POST(req: NextRequest) {
       : await tx.student.create({
           data: {
             branchId,
-            studentCode,
+            studentCode: manualStudentCode ?? (await nextStudentCode(tx)),
             fullName: resolvedFullName,
             leadId: lead.id,
             gender: normalizeText(body.gender),
@@ -391,7 +393,7 @@ export async function POST(req: NextRequest) {
       enrollmentId: enrollment.id,
       guardianPortal,
     };
-  });
+  }));
 
   if (result.studentId) {
     await syncStudentDerivedFields(result.studentId);

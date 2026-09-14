@@ -18,7 +18,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/leads",
-    label: "CRM tuyển sinh",
+    label: "Data tuyển sinh",
     status: "live",
     description: "Theo dõi phụ huynh/học viên tiềm năng từ lúc liên hệ đến khi test đầu vào và ghi danh (nguồn: DSTest).",
     sections: ["Lead", "Lịch hẹn", "Test đầu vào", "Pipeline", "Tỉ lệ chuyển đổi", "Lịch sử tương tác"],

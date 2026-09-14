@@ -23,7 +23,7 @@ import { computeOutstandingBalance } from "@/lib/server/balance";
 import { chargeOwnDueAmount, overlapsWindow } from "@/lib/server/tuition-rules";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { getWalletBalance } from "@/lib/server/enrollment-wallet";
-import { getVietnamToday, WEEKDAY_LABEL } from "@/lib/server/class-rules";
+import { getVietnamToday, WEEKDAY_LABEL, pickCurrentEnrollment } from "@/lib/server/class-rules";
 import { buildEnrollmentPipeline } from "@/lib/server/enrollment-pipeline";
 import EditableDateField from "@/components/ui/EditableDateField";
 import { getCurrentUser } from "@/lib/server/current-user";
@@ -325,7 +325,11 @@ export default async function StudentDetailPage({
 
   const outstanding = canSeeFinance ? await computeOutstandingBalance(student.id) : 0;
   const activeEnrollments = student.enrollments.filter((e) => e.status === "ACTIVE");
-  const currentEnrollment = activeEnrollments[0] ?? student.enrollments[0] ?? null;
+  // Đang học trước, rồi đang BẢO LƯU — không thì học viên bảo lưu có ghi danh cũ đã xong sẽ
+  // hiện nhầm lớp cũ và mất nút "Đi học lại". Xem pickCurrentEnrollment.
+  const currentEnrollment = activeEnrollments[0] ?? pickCurrentEnrollment(student.enrollments);
+  // Student.status chỉ có Đang học/Đã nghỉ; bảo lưu là trạng thái của ghi danh hiện tại.
+  const isPausedNow = currentEnrollment?.status === "PAUSED";
   const learningSnapshots = await Promise.all(
     student.enrollments.map(async (enrollment) => ({
       enrollmentId: enrollment.id,
@@ -570,10 +574,10 @@ export default async function StudentDetailPage({
         }
         avatarLabel={student.fullName.charAt(0).toUpperCase()}
         statusPill={
-          <span className={`inline-flex items-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wide ${student.status === "ACTIVE" ? "bg-[#10b981] text-white" : "bg-[#64748b] text-white"}`}>
+          <span className={`inline-flex items-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wide ${student.status === "ACTIVE" && !isPausedNow ? "bg-[#10b981] text-white" : "bg-[#64748b] text-white"}`}>
             <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-white" />
-            <span className="hidden sm:inline">{student.status === "ACTIVE" ? "ĐANG HỌC" : "ĐÃ NGHỈ"}</span>
-            <span className="sm:hidden">{student.status === "ACTIVE" ? "HỌC" : "NGHỈ"}</span>
+            <span className="hidden sm:inline">{student.status !== "ACTIVE" ? "ĐÃ NGHỈ" : isPausedNow ? "BẢO LƯU" : "ĐANG HỌC"}</span>
+            <span className="sm:hidden">{student.status !== "ACTIVE" ? "NGHỈ" : isPausedNow ? "BẢO LƯU" : "HỌC"}</span>
           </span>
         }
         title={student.fullName}
@@ -622,6 +626,7 @@ export default async function StudentDetailPage({
                   enrollmentId={currentEnrollment.id}
                   status={currentEnrollment.status}
                   studentName={student.fullName}
+                  pausedFrom={currentEnrollment.pausedFrom}
                 />
                 {/* Hết buổi đã mua thì có 2 lối đi nữa ngoài chuyển/rút lớp: mua thêm
                     buổi học tiếp ở chính lớp này, hoặc đánh dấu đã học xong. */}

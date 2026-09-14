@@ -278,7 +278,8 @@ export async function buildPeriodicReport(params: { branchId: string | null; ran
       fullName: lead.fullName,
       dob: lead.dob?.toISOString() ?? null,
       age: ageAt(lead.dob, meet),
-      schoolGrade: lead.currentSchoolGrade,
+      // Cột "Trường" của báo cáo: lớp + tên trường, ví dụ "Lớp 4 · TH Nguyễn Trãi".
+      schoolGrade: [lead.currentSchoolGrade, lead.schoolName].filter(Boolean).join(" · ") || null,
       guardianName: lead.guardian?.fullName ?? null,
       phone: lead.phone ?? lead.guardian?.phone ?? null,
       testDate: (test?.testDate ?? test?.scheduledDate)?.toISOString() ?? null,

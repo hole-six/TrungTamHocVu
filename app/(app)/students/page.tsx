@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { pickCurrentEnrollment } from "@/lib/server/class-rules";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canView, canViewFullWithOverride, canViewWithOverride } from "@/lib/server/role-matrix";
@@ -108,7 +109,7 @@ async function computeGlobalStudentStats(where: Prisma.StudentWhereInput) {
       if (outstanding > 0) debtCount++;
 
       const activeEnrollment = student.enrollments.find((item) => item.status === "ACTIVE");
-      const currentEnrollment = activeEnrollment ?? student.enrollments[0];
+      const currentEnrollment = activeEnrollment ?? pickCurrentEnrollment(student.enrollments) ?? undefined;
       if (!currentEnrollment || !currentEnrollment.class) return;
 
       // Ví: tính trên ghi danh HIỆN TẠI kể cả đã rút lớp — ví âm là tiền còn phải thu,
@@ -211,7 +212,13 @@ export default async function StudentsPage({
   };
   const where: Prisma.StudentWhereInput = {
     ...baseWhere,
-    ...(status ? { status } : {}),
+    // "Bảo lưu" không phải trạng thái của học viên (Student.status chỉ có Đang học/Đã nghỉ)
+    // mà của GHI DANH: có ghi danh đang bảo lưu và không còn lớp nào đang học.
+    ...(status === "PAUSED"
+      ? { AND: [{ enrollments: { some: { status: "PAUSED" }, none: { status: "ACTIVE" } } }] }
+      : status
+        ? { status }
+        : {}),
     ...(codeFilter ? { studentCode: { contains: codeFilter } } : {}),
     ...(nameFilter ? { fullName: { contains: nameFilter } } : {}),
     ...(classNameFilter
@@ -279,7 +286,7 @@ export default async function StudentsPage({
 
   const studentIds = items.map((item) => item.id);
   const currentEnrollments = items
-    .map((item) => item.enrollments.find((enrollment) => enrollment.status === "ACTIVE") ?? item.enrollments[0] ?? null)
+    .map((item) => pickCurrentEnrollment(item.enrollments))
     .filter((enrollment): enrollment is NonNullable<typeof enrollment> => Boolean(enrollment));
   const [chargeRows, allocationTotals, bookIssueRows, studentMetaRows, availableSessionCreditRows, learningSnapshots, walletBalances] = await Promise.all([
     canViewFinance ? prisma.charge.findMany({
@@ -458,7 +465,7 @@ export default async function StudentsPage({
 
   const normalizedItems = items.map((item) => {
     const primaryGuardian = item.guardians.find((guardianLink) => guardianLink.isPrimary)?.guardian ?? item.guardians[0]?.guardian ?? null;
-    const currentEnrollment = item.enrollments.find((enrollment) => enrollment.status === "ACTIVE") ?? item.enrollments[0] ?? null;
+    const currentEnrollment = pickCurrentEnrollment(item.enrollments);
     const counts = studentMetaById.get(item.id);
     const learningSnapshot = currentEnrollment ? learningSnapshotByEnrollment.get(currentEnrollment.id) ?? null : null;
     return {
@@ -467,6 +474,9 @@ export default async function StudentsPage({
       currentClassName: currentEnrollment?.class?.className ?? currentEnrollment?.packageLabel ?? null,
       currentClassCode: currentEnrollment?.class?.classCode ?? null,
       currentClassStatus: currentEnrollment?.class?.status ?? null,
+      // Trạng thái GHI DANH hiện tại (khác Student.status) — để bảng hiện "Bảo lưu" ngay ngoài danh sách.
+      currentEnrollmentStatus: currentEnrollment?.status ?? null,
+      currentPausedFrom: currentEnrollment?.status === "PAUSED" ? currentEnrollment.pausedFrom?.toISOString() ?? null : null,
       currentBillingModel: currentEnrollment?.billingModel ?? null,
       currentWalletBalance: currentEnrollment?.billingModel === "PERIOD" ? walletBalanceByEnrollment.get(currentEnrollment.id) ?? 0 : null,
       leadCode: item.lead?.leadCode ?? null,
@@ -532,6 +542,9 @@ export default async function StudentsPage({
     : filteredItems;
 
   const stats = Object.fromEntries(grouped.map((row) => [row.status, row._count._all])) as Record<string, number>;
+  const pausedCount = await prisma.student.count({
+    where: { ...baseWhere, AND: [{ enrollments: { some: { status: "PAUSED" }, none: { status: "ACTIVE" } } }] },
+  });
   const { portalCount, debtCount, needTransferCount, endingSoonCount, walletNegativeCount, walletLowCount } =
     await computeGlobalStudentStats(where);
 
@@ -561,6 +574,7 @@ export default async function StudentsPage({
           total,
           active: stats.ACTIVE ?? 0,
           left: stats.LEFT ?? 0,
+          paused: pausedCount,
           portal: portalCount,
           debt: debtCount,
           needTransfer: needTransferCount,

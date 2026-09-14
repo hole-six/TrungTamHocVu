@@ -157,7 +157,7 @@ export type EnrollmentStatus = (typeof ENROLLMENT_STATUSES)[number];
 export const ENROLLMENT_STATUS_LABEL: Record<EnrollmentStatus, string> = {
   PENDING: "Chờ xử lý",
   ACTIVE: "Đang học",
-  PAUSED: "Tạm nghỉ",
+  PAUSED: "Bảo lưu",
   TRANSFERRED: "Đã chuyển lớp",
   COMPLETED: "Hoàn thành",
   WITHDRAWN: "Đã rút",
@@ -201,3 +201,49 @@ export function isEnrollmentInactive(status: string): boolean {
 // Lớp CSS làm mờ dòng — dùng chung để trang chi tiết lớp và drawer lớp trông giống
 // nhau, thay vì mỗi nơi tự chọn một kiểu mờ khác nhau.
 export const INACTIVE_ROW_CLASS = "opacity-55 grayscale";
+
+
+// ---- BẢO LƯU: mốc ngày ----
+//
+// Buổi học lưu theo NGÀY (nửa đêm UTC), còn trước đây bảo lưu ghi mốc bằng GIỜ bấm nút
+// (vd 10:00). Hệ quả lệch một ngày theo hai chiều ngược nhau:
+//   - bấm "Bảo lưu" lúc 10:00 → buổi HÔM NAY (00:00 < 10:00) vẫn có tên trong điểm danh;
+//   - bấm "Đi học lại" lúc 10:00 → buổi HÔM NAY vẫn KHÔNG có tên, dù thông báo nói
+//     "tính lại từ hôm nay".
+// Nay quy hết về ranh giới ngày: bảo lưu TỪ ngày F = nửa đêm đầu ngày F; đi học lại TỪ
+// ngày R = khoảnh khắc cuối cùng của ngày trước R. Quy tắc danh sách điểm danh
+// (pausedFrom <= ngày buổi, và đã đi học lại khi pausedTo < ngày buổi) nhờ vậy khớp
+// đúng ý người bấm.
+
+/** "YYYY-MM-DD" → nửa đêm UTC đầu ngày đó. Không hợp lệ thì trả null. */
+export function dateKeyToUtcStart(key: string | null | undefined): Date | null {
+  if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return null;
+  const [y, m, d] = key.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** Mốc bắt đầu bảo lưu: đầu ngày được chọn (mặc định hôm nay theo giờ Việt Nam). */
+export function pauseStartBoundary(fromKey?: string | null): Date {
+  return dateKeyToUtcStart(fromKey) ?? getVietnamToday();
+}
+
+/** Mốc kết thúc bảo lưu khi đi học lại TỪ ngày R: cuối ngày trước R. */
+export function pauseEndBoundary(resumeKey?: string | null): Date {
+  const resumeStart = dateKeyToUtcStart(resumeKey) ?? getVietnamToday();
+  return new Date(resumeStart.getTime() - 1);
+}
+
+/**
+ * Ghi danh "hiện tại" của học viên để hiển thị: đang học trước, rồi đang BẢO LƯU, rồi mới
+ * tới ghi danh khác. Trước đây chỉ ưu tiên ACTIVE rồi lấy phần tử đầu tiên — học viên đang
+ * bảo lưu mà còn một ghi danh cũ đã hoàn thành thì bảng hiện nhầm lớp cũ.
+ */
+export function pickCurrentEnrollment<T extends { status: string }>(enrollments: T[]): T | null {
+  return (
+    enrollments.find((item) => item.status === "ACTIVE") ??
+    enrollments.find((item) => item.status === "PAUSED") ??
+    enrollments[0] ??
+    null
+  );
+}

@@ -12,7 +12,7 @@ export type LeadStatus = (typeof LEAD_STATUSES)[number];
 export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
   CONTACTING: "Đã liên hệ",
   QUALIFIED: "Đạt",
-  ENROLLED: "Đã ghi danh",
+  ENROLLED: "Đã nhập học",
   LOST: "Không có nhu cầu",
 };
 

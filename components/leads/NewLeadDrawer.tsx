@@ -29,6 +29,7 @@ export default function NewLeadDrawer({ classOptions }: Props) {
         gender: formData.get("gender") || null,
         dob: formData.get("dob") || null,
         currentSchoolGrade: formData.get("currentSchoolGrade") || null,
+        schoolName: formData.get("schoolName") || null,
         guardianName: formData.get("guardianName") || null,
         guardianRelation: formData.get("guardianRelation") || null,
         phone: formData.get("phone") || null,
@@ -117,7 +118,7 @@ export default function NewLeadDrawer({ classOptions }: Props) {
             <div className="slideover-header">
               <div>
                 <h2 className="text-xl sm:text-2xl font-black tracking-tight text-[#0f172a]">Thêm lead mới</h2>
-                <p className="mt-1 text-xs sm:text-sm text-[#64748b]">Tạo hồ sơ học viên tiềm năng vào CRM</p>
+                <p className="mt-1 text-xs sm:text-sm text-[#64748b]">Tạo hồ sơ học viên tiềm năng vào Data tuyển sinh</p>
               </div>
               <button
                 onClick={() => setOpen(false)}
@@ -178,6 +179,16 @@ export default function NewLeadDrawer({ classOptions }: Props) {
                       name="currentSchoolGrade"
                       className="input"
                       placeholder="VD: Lớp 3"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="label">Tên trường</label>
+                    <input
+                      type="text"
+                      name="schoolName"
+                      className="input"
+                      placeholder="VD: Tiểu học Nguyễn Trãi"
                     />
                   </div>
                 </div>

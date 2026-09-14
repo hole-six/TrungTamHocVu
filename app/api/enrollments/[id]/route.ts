@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
-import { canTransitionEnrollment } from "@/lib/server/class-rules";
+import { canTransitionEnrollment, dateKeyToUtcStart, pauseEndBoundary, pauseStartBoundary } from "@/lib/server/class-rules";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
-import { ensureBillingPeriod, generateChargesForPeriod } from "@/lib/server/billing-generation";
+import { ensureBillingPeriod, generateChargesForPeriod, generatePeriodChargesForNewEnrollment } from "@/lib/server/billing-generation";
 import { canEditCharges } from "@/lib/server/tuition-rules";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import { forfeitWallet } from "@/lib/server/enrollment-wallet";
@@ -37,6 +37,35 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const isPeriod = existing.billingModel === "PERIOD";
+
+  // BẢO LƯU / ĐI HỌC LẠI: chốt mốc theo NGÀY, không theo giờ bấm nút — xem pauseStartBoundary.
+  const pauseFrom = body.status === "PAUSED" ? pauseStartBoundary(body.pausedFrom) : null;
+  const resuming = existing.status === "PAUSED" && body.status === "ACTIVE";
+  const pauseTo = resuming ? pauseEndBoundary(body.resumeDate ?? body.pausedTo) : null;
+  // Ngày bảo lưu có hiệu lực: làm tròn LÊN nửa đêm (dữ liệu cũ ghi theo giờ bấm nút, buổi
+  // học đầu tiên bị loại khỏi điểm danh là buổi của ngày làm tròn này).
+  const pauseEffectiveStart = existing.pausedFrom
+    ? new Date(Math.ceil(existing.pausedFrom.getTime() / 86_400_000) * 86_400_000)
+    : null;
+  // Đi học lại ĐÚNG ngày bắt đầu bảo lưu = bấm nhầm, hủy bảo lưu: không có buổi nào nằm
+  // trong kỳ nghỉ nên xóa hẳn khoảng nghỉ thay vì ghi một khoảng rỗng.
+  const cancelsPause = Boolean(pauseTo && pauseEffectiveStart && pauseTo.getTime() + 1 === pauseEffectiveStart.getTime());
+  if (body.status === "PAUSED" && body.pausedFrom && !dateKeyToUtcStart(body.pausedFrom)) {
+    return NextResponse.json({ error: "Ngày bắt đầu bảo lưu không hợp lệ." }, { status: 400 });
+  }
+  if (pauseFrom && pauseFrom < new Date(Date.UTC(existing.enrollDate.getUTCFullYear(), existing.enrollDate.getUTCMonth(), existing.enrollDate.getUTCDate()))) {
+    return NextResponse.json({ error: "Ngày bắt đầu bảo lưu không được trước ngày vào lớp." }, { status: 400 });
+  }
+  if (resuming && body.resumeDate && !dateKeyToUtcStart(body.resumeDate)) {
+    return NextResponse.json({ error: "Ngày đi học lại không hợp lệ." }, { status: 400 });
+  }
+  if (pauseTo && pauseEffectiveStart && pauseTo.getTime() + 1 < pauseEffectiveStart.getTime()) {
+    const [y, m, d] = pauseEffectiveStart.toISOString().slice(0, 10).split("-");
+    return NextResponse.json(
+      { error: `Ngày đi học lại không được trước ngày bắt đầu bảo lưu (${d}/${m}/${y}).` },
+      { status: 400 },
+    );
+  }
   // "Đã hoàn tiền"/"Giữ lại" — chốt nghiệp vụ mục 3.10: KHÔNG tự động quyết, nhân
   // CHÍNH SÁCH TRUNG TÂM: BỎ DỞ THÌ KHÔNG HOÀN TIỀN.
   //
@@ -48,7 +77,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   // Trước đây code làm NGƯỢC lại: gói theo khóa thì cấp SessionCredit cho toàn bộ số
   // buổi chưa học (tức trả lại giá trị dưới dạng buổi bổ trợ), gói theo tháng thì hỏi
   // nhân viên "hoàn tiền hay giữ lại". Cả hai đều trái chính sách.
-  if (body.status === "WITHDRAWN" && isPeriod && existing.classId) {
+  // Rút lớp hoặc BẢO LƯU gói theo tháng: chốt phiếu học phí tháng này NGAY LÚC CÒN ĐANG HỌC.
+  // Đợt thu chỉ xét ghi danh ACTIVE, nên nếu không chốt trước thì những buổi đã học thật
+  // trong tháng (trước ngày rút/bảo lưu) vĩnh viễn không nằm trong phiếu nào.
+  if ((body.status === "WITHDRAWN" || body.status === "PAUSED") && isPeriod && existing.classId) {
     // PERIOD: KHÔNG tính "buổi dư trong tháng" theo lịch nữa — quyền học nằm trong Ví
     // buổi học (nạp/trừ liên tục qua nhiều tháng), không phải 1 con số suy ra từ lịch
     // tháng hiện tại. Chỉ cần chốt phiếu học phí tháng này NGAY LÚC CÒN ACTIVE trước
@@ -76,12 +108,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         // một khoảng mới (chưa có ngày kết thúc); đi học lại thì đóng khoảng đó lại.
         // Nhờ vậy danh sách điểm danh của các buổi đã diễn ra trong kỳ nghỉ vẫn đúng
         // mãi về sau — xem lib/server/class-roster.ts.
-        ...(body.status === "PAUSED"
-          ? { pausedFrom: body.pausedFrom ? new Date(body.pausedFrom) : new Date(), pausedTo: null }
-          : {}),
-        ...(existing.status === "PAUSED" && body.status === "ACTIVE"
-          ? { pausedTo: body.pausedTo ? new Date(body.pausedTo) : new Date() }
-          : {}),
+        ...(pauseFrom ? { pausedFrom: pauseFrom, pausedTo: null } : {}),
+        ...(cancelsPause ? { pausedFrom: null, pausedTo: null } : pauseTo ? { pausedTo: pauseTo } : {}),
       },
     });
 
@@ -114,6 +142,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return { updated: enrollment, forfeitedSessions };
   });
 
+  // Đi học lại gói theo tháng: lập ngay phiếu học phí cho phần CÒN LẠI của tháng đi học lại
+  // (và các tháng sau đó nếu nhập lùi ngày). Trong kỳ bảo lưu đợt thu bỏ qua ghi danh này,
+  // nên nếu không lập ở đây thì học viên học hết tháng mà không có phiếu nào. Số buổi của
+  // tháng đi học lại chỉ đếm từ ngày đi học lại — xem điều kiện bảo lưu trong
+  // generateChargesForPeriod.
+  let resumeBillingWarnings: string[] = [];
+  if (pauseTo && isPeriod) {
+    const { warnings } = await generatePeriodChargesForNewEnrollment(existing.id, new Date(), new Date(pauseTo.getTime() + 1));
+    resumeBillingWarnings = warnings;
+  }
+
   const syncedStudent = await syncStudentDerivedFields(existing.studentId);
 
   return NextResponse.json({
@@ -122,5 +161,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     // Số buổi còn dư bị mất khi rút lớp — frontend hiện lại để nhân viên nói rõ với
     // phụ huynh ngay lúc đó, tránh tranh cãi về sau.
     forfeitedSessions: forfeitedSessions || undefined,
+    billingWarnings: resumeBillingWarnings.length ? resumeBillingWarnings : undefined,
   });
 }

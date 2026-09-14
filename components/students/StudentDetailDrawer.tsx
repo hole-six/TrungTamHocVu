@@ -107,6 +107,7 @@ type StudentData = {
     courseName?: string | null;
     enrollDate: Date;
     endDate?: Date | null;
+    pausedFrom?: string | Date | null;
     learningStartDate?: Date | null;
     billingModel: string;
     paidCatchupSessionCount: number;
@@ -231,7 +232,7 @@ const STATUS_LABEL: Record<string, string> = {
   ACTIVE: "Đang học",
   LEFT: "Đã nghỉ",
   PENDING: "Chờ xếp lớp",
-  PAUSED: "Tạm nghỉ",
+  PAUSED: "Bảo lưu",
   COMPLETED: "Hoàn thành",
   WITHDRAWN: "Rút lớp",
   TRANSFERRED: "Đã chuyển",
@@ -348,10 +349,10 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
             ) : null}
             <span
               className={`rounded-md px-2 py-1 font-bold text-white ${
-                data.status === "ACTIVE" ? "bg-[#10b981]" : "bg-[#64748b]"
+                data.status === "ACTIVE" && enrollment?.status !== "PAUSED" ? "bg-[#10b981]" : "bg-[#64748b]"
               }`}
             >
-              {STATUS_LABEL[data.status] ?? data.status}
+              {data.status === "ACTIVE" && enrollment?.status === "PAUSED" ? "Bảo lưu" : STATUS_LABEL[data.status] ?? data.status}
             </span>
             {data.lead ? (
               <Link href={`/leads/${data.lead.id}`} className="font-bold text-[#f97316] hover:underline">
@@ -472,6 +473,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
                   enrollmentId={enrollment.id}
                   status={enrollment.status}
                   studentName={data.fullName}
+                  pausedFrom={enrollment.pausedFrom ?? null}
                   onSuccess={() => void reload()}
                   className={ACTION_CLASS}
                 />

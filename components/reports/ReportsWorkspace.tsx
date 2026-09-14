@@ -134,7 +134,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
           { metric: "Học viên đang học", value: data.dashboard.studentActive },
           { metric: "Tổng lead", value: data.dashboard.totalLeads },
           { metric: "Tỉ lệ chuyển đổi", value: `${data.dashboard.conversionRate}%` },
-          { metric: "Tổng thu", value: formatVnd(data.dashboard.totalThu) },
+          { metric: "Doanh thu", value: formatVnd(data.dashboard.totalThu) },
           { metric: "Tổng chi", value: formatVnd(data.dashboard.totalChi) },
         ] },
       { title: "Pipeline lead", columns: [{ key: "status", label: "Trạng thái" }, { key: "count", label: "Số lượng" }],
@@ -236,8 +236,8 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
             <KpiTile label="Tổng lead" value={String(data.dashboard.totalLeads)} color="#ea580c" />
             <KpiTile label="Tỉ lệ CĐ" value={`${data.dashboard.conversionRate}%`} sub="lead → HV" color="#10b981" />
             <KpiTile label="Cần cấp portal" value={String(data.dashboard.studentsWithoutPortal)} color="#f59e0b" />
-            <KpiTile label="Tổng thu" value={formatVnd(data.dashboard.totalThu)} color="#10b981" />
-            <KpiTile label="Dư / Thâm" value={formatVnd(data.dashboard.totalThu - data.dashboard.totalChi)} color={data.dashboard.totalThu - data.dashboard.totalChi >= 0 ? "#10b981" : "#ef4444"} />
+            <KpiTile label="Doanh thu" value={formatVnd(data.dashboard.totalThu)} color="#10b981" />
+            <KpiTile label="Lợi nhuận" value={formatVnd(data.dashboard.totalThu - data.dashboard.totalChi)} color={data.dashboard.totalThu - data.dashboard.totalChi >= 0 ? "#10b981" : "#ef4444"} />
           </div>
 
           {/* ── Row 2: Pipeline + Revenue ─────────────── */}
@@ -339,7 +339,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
                 <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-3">Dòng tiền tổng</p>
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div>
-                    <p className="text-xs text-[#64748b]">Tổng thu</p>
+                    <p className="text-xs text-[#64748b]">Doanh thu</p>
                     <p className="text-lg font-black text-[#10b981]">{formatVnd(data.dashboard.totalThu)}</p>
                   </div>
                   <div>
@@ -347,7 +347,7 @@ export default function ReportsWorkspace({ canAccessReports }: { canAccessReport
                     <p className="text-lg font-black text-[#ef4444]">{formatVnd(data.dashboard.totalChi)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-[#64748b]">Số dư</p>
+                    <p className="text-xs text-[#64748b]">Lợi nhuận</p>
                     <p className={`text-lg font-black ${data.dashboard.totalThu - data.dashboard.totalChi >= 0 ? "text-[#f97316]" : "text-[#f59e0b]"}`}>
                       {formatVnd(data.dashboard.totalThu - data.dashboard.totalChi)}
                     </p>

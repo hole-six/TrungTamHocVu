@@ -323,7 +323,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
             {showCrm && (
               <Link href="/leads" className="inline-flex items-center gap-1.5 rounded-lg bg-[#0f1729] border border-[#0f1729] px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#1e293b] hover:border-[#1e293b] transition-all sm:rounded-xl sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm md:px-5 md:py-3">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sm:h-[18px] sm:w-[18px]"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                CRM
+                Data tuyển sinh
                 {stats.openLeads > 0 && <span className="rounded-full bg-white/20 backdrop-blur px-1.5 py-0.5 text-[9px] font-black sm:text-[10px] sm:px-2">{stats.openLeads}</span>}
               </Link>
             )}
@@ -406,7 +406,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
           {/* Lead pipeline funnel */}
           <div className="rounded-2xl border border-[#e5eaf7] bg-white p-6 shadow-sm">
-            <SectionHeading action={<Link href="/leads" className="text-sm font-bold text-[#f97316] hover:text-[#ea580c]">Mở CRM →</Link>}>
+            <SectionHeading action={<Link href="/leads" className="text-sm font-bold text-[#f97316] hover:text-[#ea580c]">Mở Data tuyển sinh →</Link>}>
               Phễu tuyển sinh
             </SectionHeading>
             <div className="mb-4 grid grid-cols-3 gap-3">

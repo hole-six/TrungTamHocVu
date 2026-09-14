@@ -280,7 +280,7 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
-          Quay lại CRM tuyển sinh
+          Quay lại Data tuyển sinh
         </BackButton>
 
         <div className="overflow-hidden rounded-[32px] border-2 border-[#fed7aa] bg-gradient-to-r from-[#fff7ed] via-[#ffedd5] to-[#fed7aa] p-6 shadow-lg">
@@ -720,7 +720,7 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                   </div>
                 ) : (
                   <div className="mt-4 rounded-2xl border border-dashed border-[#d7deeb] bg-white px-4 py-6 text-sm text-ink-muted48">
-                    Chưa gắn lớp. Đây vẫn là hợp lệ nếu bạn chỉ đang ghi nhận nhu cầu ban đầu ở CRM và sẽ xếp lớp sau.
+                    Chưa gắn lớp. Đây vẫn là hợp lệ nếu bạn chỉ đang ghi nhận nhu cầu ban đầu ở Data tuyển sinh và sẽ xếp lớp sau.
                   </div>
                 )}
               </div>
@@ -760,7 +760,7 @@ export default function EnrollmentIntakeWizard({ courses, classes, students }: P
                 <div className="rounded-2xl border border-[#e6ebf5] bg-white p-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-ink-muted48">Xử lý hệ thống</p>
                   <ul className="mt-2 space-y-2 text-sm text-ink">
-                    <li>• Luôn tạo 1 lead để giữ vết CRM.</li>
+                    <li>• Luôn tạo 1 lead để giữ vết trong Data tuyển sinh.</li>
                     {form.studentTarget === "NEW_STUDENT" ? <li>• Tạo học viên mới nếu bạn chọn nhập học ngay.</li> : <li>• Dùng lại học viên hiện có, không tạo trùng hồ sơ.</li>}
                     {form.mode === "ENROLL_NOW" ? <li>• Tạo enrollment gắn vào lớp đã chọn.</li> : <li>• Chỉ lưu nhu cầu, chưa phát sinh enrollment.</li>}
                     {form.createPortalAccount ? <li>• Cấp portal phụ huynh ngay sau khi hoàn tất.</li> : null}

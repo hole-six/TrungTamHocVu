@@ -177,8 +177,8 @@ export default function LeadsTable({
         { key: "outstanding", label: "Công nợ" },
         { key: "status", label: "Trạng thái" },
       ],
-      "crm-tuyen-sinh",
-      "CRM"
+      "data-tuyen-sinh",
+      "Data tuyển sinh"
     );
   };
 
@@ -453,7 +453,7 @@ export default function LeadsTable({
           {canDelete("leads", userRole) ? (
             <ConfirmActionButton
               title="Xác nhận xóa lead?"
-              description={`Lead ${row.fullName} sẽ bị xóa khỏi CRM.`}
+              description={`Lead ${row.fullName} sẽ bị xóa khỏi Data tuyển sinh.`}
               confirmLabel="Xóa lead"
               tone="danger"
               className="btn-icon text-rose-600"
@@ -649,7 +649,7 @@ export default function LeadsTable({
             className={statusChipClass("ENROLLED", statusFilter === "ENROLLED", enrolledCount)}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${statusFilter === "ENROLLED" ? "bg-white" : LEAD_STATUS_CONFIG.ENROLLED.dot}`} />
-            <span>Đã ghi danh</span>
+            <span>Đã nhập học</span>
             <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black ${statusFilter === "ENROLLED" ? "bg-white/20 text-white" : "bg-current/10"}`}>
               {enrolledCount}
             </span>
@@ -752,7 +752,7 @@ export default function LeadsTable({
       }}
       emptyState={{
         title: "Chưa có lead",
-        description: "Bắt đầu bằng cách bấm nút \"Thêm lead\" ở trên để thêm lead đầu tiên vào hệ thống CRM.",
+        description: "Bắt đầu bằng cách bấm nút \"Thêm lead\" ở trên để thêm lead đầu tiên vào Data tuyển sinh.",
       }}
       loading={loading}
       stickyHeader

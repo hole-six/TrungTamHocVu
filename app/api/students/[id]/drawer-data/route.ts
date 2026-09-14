@@ -645,6 +645,7 @@ export async function GET(
             courseName: currentEnrollment.class?.course?.name,
             enrollDate: currentEnrollment.enrollDate,
             endDate: currentEnrollment.endDate,
+            pausedFrom: currentEnrollment.pausedFrom,
             learningStartDate: currentEnrollment.learningStartDate,
             billingModel: currentEnrollment.billingModel,
             paidCatchupSessionCount: currentEnrollment.paidCatchupSessionCount,

@@ -479,7 +479,7 @@ export default function PeriodicReportView({ report }: { report: PeriodicReport 
           <SectionTitle index="3." title="Thu – chi" />
           <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-[#e2e8f0] bg-[#e2e8f0]">
             {[
-              { label: "Tổng thu học phí", value: cashFlow.incomeTotal },
+              { label: "Doanh thu học phí", value: cashFlow.incomeTotal },
               { label: "Tổng chi", value: cashFlow.expenseTotal },
               { label: "Chênh lệch", value: cashFlow.incomeTotal - cashFlow.expenseTotal },
             ].map((item) => (

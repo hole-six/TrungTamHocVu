@@ -44,6 +44,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
       gender: lead.gender,
       dob: lead.dob ? lead.dob.toISOString() : null,
       currentSchoolGrade: lead.currentSchoolGrade,
+      schoolName: lead.schoolName,
       phone: lead.phone,
       secondaryPhone: lead.secondaryPhone,
       guardianRelation: lead.guardianRelation,
@@ -80,7 +81,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   return (
     <div className="space-y-4 pb-8">
       <BackButton href="/leads" className="inline-flex items-center gap-2 text-sm font-medium text-[#3b82f6] hover:underline">
-        ← Về CRM tuyển sinh
+        ← Về Data tuyển sinh
       </BackButton>
       <h1 className="text-xl font-black tracking-tight text-[#0f1729]">{lead.fullName}</h1>
       <LeadDetailContent data={data} classOptions={classOptions} />

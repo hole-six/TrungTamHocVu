@@ -261,6 +261,7 @@ model Lead {
   gender                  String? // GioiTinh
   dob                     DateTime? // DoB
   currentSchoolGrade      String?   @map("current_school_grade") // Lớp đang học ở trường (khác lớp dự kiến ở trung tâm)
+  schoolName              String?   @map("school_name") // Tên trường đang học
   guardianId              String?   @map("guardian_id")
   phone                   String? // Sdt (mẹ)
   secondaryPhone          String?   @map("secondary_phone") // Sdt thứ 2 (thường là bố) — DSTest có 2 dòng Sdt

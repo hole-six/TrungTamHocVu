@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
+import { nextStudentCode, withStudentCodeRetry } from "@/lib/server/student-code";
 import { canAccessBranch } from "@/lib/branch-filter";
 
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -26,11 +27,12 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "Lead này đã được chuyển thành học viên trước đó" }, { status: 409 });
   }
 
-  const studentCode = lead.leadCode;
   const now = new Date();
   const branchId = lead.branchId;
 
-  const student = await prisma.$transaction(async (tx) => {
+  // Mã học viên cấp mới theo dãy HV-001, HV-002... chứ không lấy lại mã lead ("LEAD-0101").
+  const student = await withStudentCodeRetry(() => prisma.$transaction(async (tx) => {
+    const studentCode = await nextStudentCode(tx);
     const created = await tx.student.create({
       data: {
         branchId,
@@ -56,7 +58,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     await syncStudentDerivedFields(created.id, tx);
 
     return created;
-  });
+  }));
 
   const synced = await syncStudentDerivedFields(student.id);
 

@@ -26,6 +26,9 @@ type Student = {
   leadCode?: string | null;
   currentClassName?: string | null;
   currentClassStatus?: string | null;
+  /** Trạng thái ghi danh hiện tại: ACTIVE | PAUSED | ... — khác Student.status. */
+  currentEnrollmentStatus?: string | null;
+  currentPausedFrom?: string | null;
   currentClassCode?: string | null;
   outstanding?: number;
   enrollmentsCount?: number;
@@ -79,6 +82,7 @@ type StudentsTableProps = {
   searchQuery?: string;
   status?: string;
   stats?: {
+    paused?: number;
     total: number;
     active: number;
     left: number;
@@ -174,7 +178,7 @@ export default function StudentsTable({
         // ScholarshipAdjustmentForm.tsx) — export cũng gộp theo, không tách 2 cột.
         discountCount: (row.scholarshipCount ?? 0) + (row.adjustmentCount ?? 0),
         sessionCreditCount: row.sessionCreditCount ?? 0,
-        status: row.status === "ACTIVE" ? "Đang học" : "Đã nghỉ",
+        status: row.status !== "ACTIVE" ? "Đã nghỉ" : row.currentEnrollmentStatus === "PAUSED" ? "Bảo lưu" : "Đang học",
       })),
       [
         { key: "studentCode", label: "Mã HV" },
@@ -241,6 +245,16 @@ export default function StudentsTable({
               {row.status === "LEFT" ? (
                 <span className="rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-700">Đã nghỉ</span>
               ) : null}
+              {/* Bảo lưu hiện NGAY cạnh tên — trước đây học viên bảo lưu trông y hệt người đang
+                  học, giáo vụ gọi nhắc học phí nhầm người đang nghỉ. */}
+              {row.status !== "LEFT" && row.currentEnrollmentStatus === "PAUSED" ? (
+                <span
+                  className="rounded-md border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700"
+                  title={row.currentPausedFrom ? `Bảo lưu từ ${formatDate(row.currentPausedFrom)}` : "Đang bảo lưu"}
+                >
+                  Bảo lưu
+                </span>
+              ) : null}
               {/* Luôn hiện ở đây (không đặt trong cột "Học phí còn nợ") — cột đó bị ẩn với
                   vai trò không có quyền xem tài chính, trong khi "có học bổng hay không"
                   không nhạy cảm bằng số tiền nợ cụ thể, không nên mất theo. */}
@@ -276,6 +290,11 @@ export default function StudentsTable({
               <p className="text-xs text-ink-muted48">
                 {row.enrollmentsCount ?? 0} enrollment · {billingModeLabel(row.currentBillingModel) || "Chưa rõ mode"}
               </p>
+              {row.currentEnrollmentStatus === "PAUSED" ? (
+                <p className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                  ⏸ Đang bảo lưu{row.currentPausedFrom ? ` từ ${formatDate(row.currentPausedFrom)}` : ""}
+                </p>
+              ) : null}
             </>
           ) : (
             <>
@@ -532,6 +551,7 @@ export default function StudentsTable({
             { label: "Tất cả", value: stats.total, href: "/students", active: !status, activeClass: "bg-primary text-white", idleValueClass: "text-primary" },
             { label: "Đang học", value: stats.active, href: "/students?status=ACTIVE", active: status === "ACTIVE", activeClass: "bg-emerald-500 text-white", idleValueClass: "text-emerald-700" },
             { label: "Đã nghỉ", value: stats.left, href: "/students?status=LEFT", active: status === "LEFT", activeClass: "bg-rose-500 text-white", idleValueClass: "text-rose-700" },
+            { label: "Bảo lưu", value: stats.paused ?? 0, href: "/students?status=PAUSED", active: status === "PAUSED", activeClass: "bg-slate-600 text-white", idleValueClass: "text-slate-700" },
             // Ví buổi học là thước đo của 95% học viên (đóng theo tháng) — 2 chip này
             // bấm được để lọc ra đúng nhóm cần gọi thu, thay cho 2 chip cũ theo mô hình
             // khóa vốn luôn bằng 0 với nhóm đó.
