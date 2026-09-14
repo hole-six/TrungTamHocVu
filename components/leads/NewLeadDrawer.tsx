@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { suggestSchoolGrade } from "@/lib/school-grade";
 
 type Props = {
   classOptions: Array<{ id: string; className: string }>;
@@ -12,6 +13,17 @@ export default function NewLeadDrawer({ classOptions }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Ngày sinh + lớp ở trường điều khiển bằng state để gợi ý lớp ngay khi nhập ngày sinh.
+  const [dob, setDob] = useState("");
+  const [schoolGrade, setSchoolGrade] = useState("");
+  const gradeSuggestion = suggestSchoolGrade(dob);
+
+  function openDrawer() {
+    setDob("");
+    setSchoolGrade("");
+    setSubmitError(null);
+    setOpen(true);
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -92,7 +104,7 @@ export default function NewLeadDrawer({ classOptions }: Props) {
     <>
       {/* Trigger Button */}
       <button
-        onClick={() => setOpen(true)}
+        onClick={openDrawer}
         className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5"
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-3.5 sm:h-3.5">
@@ -168,6 +180,8 @@ export default function NewLeadDrawer({ classOptions }: Props) {
                         type="date"
                         name="dob"
                         className="input"
+                        value={dob}
+                        onChange={(event) => setDob(event.target.value)}
                       />
                     </div>
                   </div>
@@ -178,8 +192,32 @@ export default function NewLeadDrawer({ classOptions }: Props) {
                       type="text"
                       name="currentSchoolGrade"
                       className="input"
-                      placeholder="VD: Lớp 3"
+                      placeholder={gradeSuggestion ? `Gợi ý: ${gradeSuggestion.value}` : "VD: Lớp 3"}
+                      value={schoolGrade}
+                      onChange={(event) => setSchoolGrade(event.target.value)}
                     />
+                    {/* Gợi ý theo ngày sinh (tròn 6 tuổi trong năm thì vào lớp 1, năm học từ tháng 9)
+                        — chỉ gợi ý, không tự điền; học sớm/muộn tuổi thì sửa tay. Xem lib/school-grade.ts. */}
+                    {gradeSuggestion ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                        <span>
+                          Gợi ý theo ngày sinh: <strong>{gradeSuggestion.value}</strong>
+                          {gradeSuggestion.grade ? ` · ${gradeSuggestion.level}` : ""} · {gradeSuggestion.age} tuổi
+                          {gradeSuggestion.note ? ` — ${gradeSuggestion.note}` : ""}
+                        </span>
+                        {schoolGrade.trim() !== gradeSuggestion.value ? (
+                          <button
+                            type="button"
+                            className="rounded-lg border border-sky-300 bg-white px-2 py-0.5 font-bold text-sky-800 hover:bg-sky-100"
+                            onClick={() => setSchoolGrade(gradeSuggestion.value)}
+                          >
+                            Dùng gợi ý
+                          </button>
+                        ) : (
+                          <span className="font-semibold text-emerald-700">✓ Đã điền</span>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="form-group">

@@ -41,7 +41,8 @@
     "test:staff": "tsx tests/staff-assignment.test.ts",
     "test:transfer": "tsx tests/transfer-billing.test.ts",
     "test:course-transfer": "tsx tests/course-transfer.test.ts",
-    "test": "npm run test:money && npm run test:payroll && npm run test:billing && npm run test:timeline && npm run test:sessions && npm run test:enrollment && npm run test:roadmap && npm run test:history && npm run test:pause && npm run test:codes && npm run test:staff && npm run test:transfer && npm run test:course-transfer",
+    "test:grade": "tsx tests/school-grade.test.ts",
+    "test": "npm run test:money && npm run test:payroll && npm run test:billing && npm run test:timeline && npm run test:sessions && npm run test:enrollment && npm run test:roadmap && npm run test:history && npm run test:pause && npm run test:codes && npm run test:staff && npm run test:transfer && npm run test:course-transfer && npm run test:grade",
     "check:ui": "node scripts/ui_smoke.mjs"
   },
   "prisma": {
