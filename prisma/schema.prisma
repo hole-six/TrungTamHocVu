@@ -445,7 +445,8 @@ model Holiday {
   name      String
   createdAt DateTime @default(now()) @map("created_at")
 
-  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  branch            Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  cancelledSessions ClassSession[]
 
   @@unique([branchId, date])
   @@index([branchId, date])
@@ -634,6 +635,11 @@ model ClassSession {
   replacesSession   ClassSession? @relation("SessionReschedule", fields: [replacesSessionId], references: [id])
   replacedBySession ClassSession? @relation("SessionReschedule")
 
+  // Buổi bị cho nghỉ vì NGÀY NGHỈ CỦA TRUNG TÂM (khai ở Lịch tổng → Ngày nghỉ). Giữ lại để xóa
+  // ngày nghỉ thì khôi phục đúng những buổi đó — không đụng buổi cho nghỉ lẻ vì lý do khác.
+  cancelledByHolidayId String?  @map("cancelled_by_holiday_id")
+  cancelledByHoliday   Holiday? @relation(fields: [cancelledByHolidayId], references: [id], onDelete: SetNull)
+
   class                   Class                    @relation(fields: [classId], references: [id], onDelete: Cascade)
   assignments             SessionAssignment[]
   attendances             StudentAttendance[]
@@ -646,6 +652,7 @@ model ClassSession {
   walletTxns              EnrollmentWalletTxn[]
 
   @@index([classId, sessionDate])
+  @@index([cancelledByHolidayId])
   @@map("class_sessions")
 }
 

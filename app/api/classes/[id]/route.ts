@@ -9,6 +9,7 @@ import { estimateEndDate } from "@/lib/server/class-rules";
 import { syncClassDerivedFields } from "@/lib/server/database-sync";
 import { ensureClassRoadmapItems, normalizeRoadmapItemsInput } from "@/lib/server/class-roadmap";
 import { normalizeDefaultStaffInput, saveDefaultStaff } from "@/lib/server/class-default-assignments";
+import { lastTaughtNumber } from "@/lib/session-numbering";
 
 class StaffSyncBlocked extends Error {}
 
@@ -119,15 +120,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   // thì buổi đã dạy mất nội dung, lịch sử buổi học hiện trống. Giao diện đã khóa các buổi
   // đã dạy, đây là chốt cuối phòng gọi API trực tiếp.
   if (nextTotalSessions !== null && nextTotalSessions !== existing.totalSessions) {
-    const taughtSessions = await prisma.classSession.findMany({
-      where: { classId: params.id, status: { not: "CANCELLED" } },
+    const classSessions = await prisma.classSession.findMany({
+      where: { classId: params.id },
       orderBy: { sessionDate: "asc" },
-      select: { status: true },
+      select: { id: true, sessionDate: true, startTime: true, status: true, replacesSessionId: true },
     });
-    let lastTaughtPosition = 0;
-    taughtSessions.forEach((session, index) => {
-      if (session.status === "COMPLETED") lastTaughtPosition = index + 1;
-    });
+    const lastTaughtPosition = lastTaughtNumber(classSessions);
     if (nextTotalSessions < lastTaughtPosition) {
       return NextResponse.json(
         {

@@ -26,7 +26,7 @@ import ClassTaskManager from "@/components/classes/ClassTaskManager";
 import ClassRecurringTaskManager from "@/components/classes/ClassRecurringTaskManager";
 import ClassQuickActions from "@/components/classes/ClassQuickActions";
 import RescheduleSessionButton from "@/components/classes/RescheduleSessionButton";
-import CancelSessionButton from "@/components/classes/CancelSessionButton";
+import CancelSessionButton, { RestoreSessionButton } from "@/components/classes/CancelSessionButton";
 import PauseEnrollmentButton from "@/components/students/PauseEnrollmentButton";
 import ClassDefaultAssignmentManager from "@/components/classes/ClassDefaultAssignmentManager";
 import RemedialBulkAssignPanel from "@/components/classes/RemedialBulkAssignPanel";
@@ -44,6 +44,7 @@ import { getEnrollmentLearningSnapshot, enrollmentNeedsTransferOnComplete } from
 import { getWalletBalance } from "@/lib/server/enrollment-wallet";
 import { buildEnrollmentPipeline } from "@/lib/server/enrollment-pipeline";
 import { formatVnd, formatDate } from "@/lib/export-utils";
+import { buildClassScheduleRows } from "@/lib/server/class-schedule";
 
 function weekdayLabel(weekday: number) {
   return ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][weekday] ?? String(weekday);
@@ -347,26 +348,16 @@ export default async function ClassDetailPage({ params }: { params: { id: string
   const latestCompletedSession = cls.sessions.find((s) => s.status === "COMPLETED") ?? latestSession ?? null;
   const vietnamToday = getVietnamToday();
 
-  const sessionsChronological = [...cls.sessions]
-    .filter((s) => s.status !== "CANCELLED")
-    .sort((a, b) => a.sessionDate.getTime() - b.sessionDate.getTime());
-  const sessionNumberById = new Map(sessionsChronological.map((s, i) => [s.id, i + 1]));
-
-  const projectedSlots =
-    cls.startDate && suggestedEnd && cls.scheduleRules.length > 0
-      ? generateSessionDates(cls.scheduleRules, cls.startDate, suggestedEnd, holidayDates)
-      : [];
-  // KHÔNG cắt danh sách buổi theo totalSessions nữa. Đó là số buổi DỰ KIẾN, còn lịch
-  // thật có thể dài hơn (buổi bù, lớp kéo dài) — cắt đi là giấu mất chính những buổi
-  // đang diễn ra, giáo vụ mở lớp ra không thấy buổi hôm nay đâu.
-  const projectedSchedule = projectedSlots.map((slot, index) => ({
-    number: index + 1,
-    sessionDate: slot.sessionDate,
-    startTime: slot.startTime,
-    endTime: slot.endTime,
-    timing: computeSessionTiming(slot.sessionDate, vietnamToday),
-    session: cls.sessions.find((s) => isSameUtcDay(s.sessionDate, slot.sessionDate)) ?? null,
-  }));
+  // Danh sách buổi = buổi THẬT (đánh số theo lib/session-numbering.ts: nghỉ thì dồn, dời thì
+  // giữ số) + các buổi dự kiến còn lại tới đủ tổng số buổi. Xem lib/server/class-schedule.ts.
+  const { rows: projectedSchedule, total: scheduleTotal } = buildClassScheduleRows({
+    sessions: cls.sessions,
+    rules: cls.scheduleRules.filter((rule) => rule.isActive),
+    holidayDates,
+    totalSessions: cls.totalSessions,
+    startDate: cls.startDate,
+    today: vietnamToday,
+  });
   const occurredByCalendar = projectedSchedule.filter((s) => s.timing === "past" || s.timing === "today").length;
 
   const latestAttendanceStats = latestCompletedSession
@@ -771,7 +762,9 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                       <tbody>
                         {projectedSchedule.map((slot) => {
                           const session = slot.session;
-                          const roadmapItem = roadmapItems.find((item) => item.sessionNumber === slot.number) ?? null;
+                          const roadmapItem = slot.number != null ? roadmapItems.find((item) => item.sessionNumber === slot.number) ?? null : null;
+                          const isOff = session?.status === "CANCELLED";
+                          const isMoved = session?.status === "RESCHEDULED";
                           const present = session ? session.attendances.filter((a) => a.status === "PRESENT").length : 0;
                           const absent = session ? session.attendances.filter((a) => a.status === "ABSENT").length : 0;
                           const teacherNames = session
@@ -782,21 +775,46 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                             : "";
                           const timing = slot.timing;
                           return (
-                            <tr key={slot.number} className="border-b border-[#eef3f9] align-top hover:bg-[#fbfdff] last:border-0 transition-colors">
+                            <tr key={slot.key} className={`border-b border-[#eef3f9] align-top hover:bg-[#fbfdff] last:border-0 transition-colors ${isOff || isMoved ? "bg-slate-50/70 text-slate-500" : ""}`}>
                               <td className="px-5 py-5">
-                                <p className="inline-flex rounded-full bg-[#eff6ff] px-3 py-1 font-mono text-xs font-bold text-[#2563eb]">#{slot.number}/{projectedSchedule.length}</p>
+                                {slot.number != null ? (
+                                  <p className="inline-flex rounded-full bg-[#eff6ff] px-3 py-1 font-mono text-xs font-bold text-[#2563eb]">#{slot.number}/{scheduleTotal}</p>
+                                ) : isOff ? (
+                                  <p className="inline-flex rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700">Nghỉ</p>
+                                ) : (
+                                  <p className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">Đã dời{slot.movedNumber ? ` · buổi ${slot.movedNumber}` : ""}</p>
+                                )}
                                 <p className="mt-2 text-base font-bold text-[#12304a]">{formatDate(slot.sessionDate)}</p>
                                 <p className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${timingClass(timing)}`}>{timingLabel(timing)}</p>
                                 <p className="mt-2 inline-flex rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-3 py-1 text-xs font-semibold text-[#4b6480]">{slot.startTime ?? "—"} – {slot.endTime ?? "—"}</p>
                                 {!session ? <p className="mt-2 inline-flex rounded-full border border-[#ffe0b2] bg-[#fff8eb] px-3 py-1 text-xs font-semibold text-[#c67c14]">Chưa tạo buổi</p> : null}
                               </td>
                               <td className="px-5 py-5">
+                                {isOff ? (
+                                  <>
+                                    <p className="text-base font-bold text-rose-700">Trung tâm cho nghỉ</p>
+                                    <p className="mt-2 text-sm leading-6 text-[#64748b]">
+                                      {session?.notes?.trim() || "Buổi không diễn ra."} Tài liệu dồn sang buổi học kế tiếp.
+                                    </p>
+                                  </>
+                                ) : isMoved ? (
+                                  <>
+                                    <p className="text-base font-bold text-amber-700">Buổi đã dời lịch</p>
+                                    <p className="mt-2 text-sm leading-6 text-[#64748b]">
+                                      Tài liệu {slot.movedNumber ? `buổi ${slot.movedNumber}` : "của buổi này"} học vào ngày bù
+                                      {session?.replacedBySession ? ` ${formatDate(session.replacedBySession.sessionDate)}` : ""}.
+                                    </p>
+                                  </>
+                                ) : (
+                                  <>
                                 <p className="text-base font-bold text-[#12304a]">
                                   {roadmapItem?.title?.trim() || `Buổi ${slot.number}`}
                                 </p>
                                   <p className="mt-2 text-sm leading-6 text-[#64748b]">
                                     {roadmapItem?.objective?.trim() || "Chưa có mục tiêu hoặc ghi chú dạy cho buổi này."}
                                   </p>
+                                  </>
+                                )}
                                 {roadmapItem?.materials?.trim() ? (
                                   <p className="mt-3 inline-flex rounded-2xl border border-[#e8eef8] bg-[#f8fbff] px-3 py-2 text-xs font-medium text-[#0f1729]">
                                     Tài liệu: <span className="ml-1 text-[#64748b]">{roadmapItem.materials}</span>
@@ -851,7 +869,8 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                       Điểm danh / nhật ký
                                     </SessionLinkWithDrawer>
                                     {canManageClass && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession ? <RescheduleSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} /> : null}
-                                    {canManageClass && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession ? <CancelSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} /> : null}
+                                    {canManageClass && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && session.status !== "COMPLETED" && !session.replacedBySession ? <CancelSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} /> : null}
+                                    {canManageClass && session.status === "CANCELLED" && slot.timing !== "past" ? <RestoreSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} /> : null}
                                   </div>
                                 ) : canManageClass ? (
                                   <span className="text-xs text-[#f59e0b] font-semibold">Sinh buổi trước</span>
@@ -886,7 +905,9 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                 <div className="lg:hidden space-y-2 p-4">
                   {projectedSchedule.map((slot) => {
                     const session = slot.session;
-                    const roadmapItem = roadmapItems.find((item) => item.sessionNumber === slot.number) ?? null;
+                    const roadmapItem = slot.number != null ? roadmapItems.find((item) => item.sessionNumber === slot.number) ?? null : null;
+                    const isOff = session?.status === "CANCELLED";
+                    const isMoved = session?.status === "RESCHEDULED";
                     const present = session ? session.attendances.filter((a) => a.status === "PRESENT").length : 0;
                     const absent = session ? session.attendances.filter((a) => a.status === "ABSENT").length : 0;
                     const teacherNames = session
@@ -898,12 +919,12 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                     const timing = slot.timing;
 
                     return (
-                      <div key={slot.number} className="rounded-xl border border-[#e5eaf7] bg-white p-3 shadow-sm">
+                      <div key={slot.key} className={`rounded-xl border border-[#e5eaf7] p-3 shadow-sm ${isOff || isMoved ? "bg-slate-50" : "bg-white"}`}>
                         {/* Header row - Session info + Status */}
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <span className="inline-flex shrink-0 rounded-full bg-[#eff6ff] px-2 py-0.5 font-mono text-[10px] font-bold text-[#2563eb]">
-                              #{slot.number}
+                            <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] font-bold ${slot.number != null ? "bg-[#eff6ff] text-[#2563eb]" : isOff ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"}`}>
+                              {slot.number != null ? `#${slot.number}` : isOff ? "Nghỉ" : "Đã dời"}
                             </span>
                             <span className="text-sm font-bold text-[#12304a] truncate">{formatDate(slot.sessionDate)}</span>
                             <span className={`shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${timingClass(timing)}`}>
@@ -932,8 +953,12 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                               {slot.startTime ?? "—"} – {slot.endTime ?? "—"}
                             </span>
-                            <p className="mt-0.5 text-xs font-medium text-[#12304a] line-clamp-1">
-                              {roadmapItem?.title?.trim() || `Buổi ${slot.number}`}
+                            <p className={`mt-0.5 text-xs font-medium line-clamp-1 ${isOff ? "text-rose-700" : isMoved ? "text-amber-700" : "text-[#12304a]"}`}>
+                              {isOff
+                                ? `Trung tâm cho nghỉ${session?.notes ? ` — ${session.notes}` : ""}`
+                                : isMoved
+                                  ? `Đã dời — tài liệu buổi ${slot.movedNumber ?? "?"} học vào ngày bù`
+                                  : roadmapItem?.title?.trim() || `Buổi ${slot.number}`}
                             </p>
                           </div>
                         </div>
@@ -978,9 +1003,14 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                               {canManageClass && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && !session.replacedBySession && (
                                 <div className="shrink-0">
                                   <RescheduleSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} />
-                                  <CancelSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} />
+                                  {session.status !== "COMPLETED" ? <CancelSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} /> : null}
                                 </div>
                               )}
+                              {canManageClass && session.status === "CANCELLED" && slot.timing !== "past" ? (
+                                <div className="shrink-0">
+                                  <RestoreSessionButton sessionId={session.id} sessionDateLabel={formatDate(session.sessionDate)} />
+                                </div>
+                              ) : null}
                             </>
                           ) : canManageClass ? (
                             <p className="flex-1 text-center text-[11px] text-[#f59e0b] font-semibold py-1">Sinh buổi trước</p>

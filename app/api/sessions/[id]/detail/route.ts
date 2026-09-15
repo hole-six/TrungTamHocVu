@@ -5,6 +5,7 @@ import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { computeCareAlerts } from "@/lib/server/journal-alerts";
 import { computeSessionTiming, getVietnamToday } from "@/lib/server/class-rules";
+import { computeSessionNumbers } from "@/lib/session-numbering";
 
 export async function GET(
   req: NextRequest,
@@ -28,10 +29,10 @@ export async function GET(
             branch: true,
             course: true,
             roadmapItems: { orderBy: { sessionNumber: "asc" } },
+            // Cả buổi nghỉ/đã dời để đánh số đúng quy tắc chung — xem lib/session-numbering.ts.
             sessions: {
-              where: { status: { not: "CANCELLED" } },
               orderBy: { sessionDate: "asc" },
-              select: { id: true, sessionDate: true },
+              select: { id: true, sessionDate: true, startTime: true, status: true, replacesSessionId: true },
             },
           },
         },
@@ -71,10 +72,8 @@ export async function GET(
       session.attendances.map((attendance) => [attendance.studentId, attendance.status])
     );
 
-    const sessionNumber =
-      session.class.sessions.findIndex((item) => item.id === session.id) >= 0
-        ? session.class.sessions.findIndex((item) => item.id === session.id) + 1
-        : null;
+    const numbering = computeSessionNumbers(session.class.sessions);
+    const sessionNumber = numbering.numberById.get(session.id) ?? null;
 
     const roadmapItem =
       sessionNumber != null
@@ -152,7 +151,7 @@ export async function GET(
         branchName: session.class.branch.name,
       },
       sessionNumber,
-      totalSessions: session.class.sessions.length,
+      totalSessions: Math.max(session.class.totalSessions ?? 0, numbering.count),
       roadmapItem: roadmapItem ? {
         title: roadmapItem.title,
         objective: roadmapItem.objective,

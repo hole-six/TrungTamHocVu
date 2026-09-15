@@ -8,6 +8,7 @@ import { chargeOwnDueAmount, monthKey } from "@/lib/server/tuition-rules";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import { getWalletBalance } from "@/lib/server/enrollment-wallet";
+import { computeSessionNumbers } from "@/lib/session-numbering";
 
 export async function GET(
   request: Request,
@@ -528,9 +529,8 @@ export async function GET(
             select: {
               id: true,
               sessions: {
-                where: { status: { not: "CANCELLED" } },
                 orderBy: [{ sessionDate: "asc" }, { startTime: "asc" }],
-                select: { id: true },
+                select: { id: true, sessionDate: true, startTime: true, status: true, replacesSessionId: true },
               },
               roadmapItems: {
                 orderBy: { sessionNumber: "asc" },
@@ -543,9 +543,7 @@ export async function GET(
       classLearningPlans.map((classPlan) => [
         classPlan.id,
         {
-          sessionNumberById: new Map(
-            classPlan.sessions.map((session, index) => [session.id, index + 1])
-          ),
+          sessionNumberById: computeSessionNumbers(classPlan.sessions).numberById,
           roadmapBySessionNumber: new Map(
             classPlan.roadmapItems.map((item) => [item.sessionNumber, item])
           ),

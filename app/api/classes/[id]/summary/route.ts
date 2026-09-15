@@ -18,6 +18,7 @@ import { getEnrollmentLearningSnapshot, enrollmentNeedsTransferOnComplete } from
 import { getWalletBalance } from "@/lib/server/enrollment-wallet";
 import { buildEnrollmentPipeline } from "@/lib/server/enrollment-pipeline";
 import { isTaskDueOn, computeTaskLogStatus } from "@/lib/server/class-task-rules";
+import { buildClassScheduleRows } from "@/lib/server/class-schedule";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -181,23 +182,20 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     estimateEndDateFromRules(cls.startDate, cls.totalSessions, cls.scheduleRules, holidayDates) ??
     estimateEndDate(cls.startDate, cls.totalSessions, cls.sessionsPerWeek);
 
-  // Generate projected schedule
-  const projectedSlots =
-    cls.startDate && suggestedEnd && cls.scheduleRules.length > 0
-      ? generateSessionDates(cls.scheduleRules, cls.startDate, suggestedEnd, holidayDates)
-      : [];
-      
-  // KHÔNG cắt danh sách buổi theo totalSessions nữa. Đó là số buổi DỰ KIẾN, còn lịch
-  // thật có thể dài hơn (buổi bù, lớp kéo dài) — cắt đi là giấu mất chính những buổi
-  // đang diễn ra, giáo vụ mở lớp ra không thấy buổi hôm nay đâu.
-  const projectedSchedule = projectedSlots.map((slot, index) => ({
-    number: index + 1,
-    sessionDate: slot.sessionDate.toISOString(),
-    startTime: slot.startTime,
-    endTime: slot.endTime,
-    timing: computeSessionTiming(slot.sessionDate, vietnamToday),
-    session: cls.sessions.find((s) => isSameUtcDay(s.sessionDate, slot.sessionDate)) ?? null,
-    roadmapItem: roadmapItems.find((item) => item.sessionNumber === index + 1) ?? null,
+  // Danh sách buổi = buổi THẬT (đánh số theo lib/session-numbering.ts: nghỉ thì dồn, dời thì
+  // giữ số) + các buổi dự kiến còn lại tới đủ tổng số buổi. Xem lib/server/class-schedule.ts.
+  const { rows: scheduleRows, total: scheduleTotal } = buildClassScheduleRows({
+    sessions: cls.sessions,
+    rules: cls.scheduleRules.filter((rule) => rule.isActive),
+    holidayDates,
+    totalSessions: cls.totalSessions,
+    startDate: cls.startDate,
+    today: vietnamToday,
+  });
+  const projectedSchedule = scheduleRows.map((row) => ({
+    ...row,
+    sessionDate: row.sessionDate.toISOString(),
+    roadmapItem: row.number != null ? roadmapItems.find((item) => item.sessionNumber === row.number) ?? null : null,
   }));
 
   // Enrollment learning snapshots with FULL details
@@ -520,6 +518,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       isActive: a.isActive,
     })),
     projectedSchedule,
+    scheduleTotal,
     enrollments: enrollmentsWithLearning,
     attentionItems,
     dueTodayTasks,

@@ -11,7 +11,7 @@ import EnrollmentRowActions from "./EnrollmentRowActions";
 import TransferEnrollmentButton from "./TransferEnrollmentButton";
 import AddEnrollmentSessionsButton from "./AddEnrollmentSessionsButton";
 import RescheduleSessionButton from "./RescheduleSessionButton";
-import CancelSessionButton from "./CancelSessionButton";
+import CancelSessionButton, { RestoreSessionButton } from "./CancelSessionButton";
 // Nhãn trạng thái dùng CHUNG với các màn khác (class-rules.ts là file thuần, không kéo
 // prisma vào bundle) — trước đây drawer tự khai map riêng thiếu PAUSED/PENDING, và trạng
 // thái buổi học hiện nguyên chữ tiếng Anh (COMPLETED, PLANNED...).
@@ -255,17 +255,29 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                 </div>
               </Section>
 
-              <Section title="Buổi học" hint={`${data.projectedSchedule.length} buổi`}>
+              <Section title="Buổi học" hint={`${data.scheduleTotal ?? data.projectedSchedule.length} buổi`}>
                 <div className="divide-y divide-[#f1f5f9]">
                   {data.projectedSchedule.map((slot: any) => (
-                    <div key={slot.number} className="py-3 first:pt-0 last:pb-0">
+                    <div key={slot.key ?? slot.number} className={`py-3 first:pt-0 last:pb-0 ${slot.session?.status === "CANCELLED" || slot.session?.status === "RESCHEDULED" ? "opacity-70" : ""}`}>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-                          <span className="shrink-0 rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-bold text-[#2563eb]">#{slot.number}/{data.projectedSchedule.length}</span>
+                          {slot.number != null ? (
+                            <span className="shrink-0 rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-bold text-[#2563eb]">#{slot.number}/{data.scheduleTotal ?? data.projectedSchedule.length}</span>
+                          ) : slot.session?.status === "CANCELLED" ? (
+                            <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">Nghỉ</span>
+                          ) : (
+                            <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">Đã dời{slot.movedNumber ? ` · buổi ${slot.movedNumber}` : ""}</span>
+                          )}
                           <span className="shrink-0 text-sm font-bold">{formatDate(slot.sessionDate)}</span>
                           <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${timingClass(slot.timing)}`}>{timingLabel(slot.timing)}</span>
                           <span className="shrink-0 rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-2 py-0.5 text-[10px] font-semibold text-[#4b6480]">{slot.startTime ?? "—"} – {slot.endTime ?? "—"}</span>
-                          <span className="truncate text-sm font-bold text-[#0f1729]">{slot.roadmapItem?.title?.trim() || `Buổi ${slot.number}`}</span>
+                          <span className={`truncate text-sm font-bold ${slot.session?.status === "CANCELLED" ? "text-rose-700" : slot.session?.status === "RESCHEDULED" ? "text-amber-700" : "text-[#0f1729]"}`}>
+                            {slot.session?.status === "CANCELLED"
+                              ? `Trung tâm cho nghỉ${slot.session.notes ? ` — ${slot.session.notes}` : ""}`
+                              : slot.session?.status === "RESCHEDULED"
+                                ? `Đã dời — tài liệu buổi ${slot.movedNumber ?? "?"} học vào ngày bù`
+                                : slot.roadmapItem?.title?.trim() || `Buổi ${slot.number}`}
+                          </span>
                         </div>
 
                         {slot.session ? (
@@ -273,12 +285,17 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                             <span className={`rounded px-1.5 py-0.5 font-bold ${badgeClass(slot.session.status)}`}>{SESSION_STATUS_LABEL[slot.session.status] ?? slot.session.status}</span>
                             <span className="font-semibold text-[#64748b]">Điểm danh <strong className="text-[#0f1729]">{slot.session.attendances?.length || 0}</strong></span>
                             <span className="font-semibold text-[#64748b]">Nhật ký <strong className="text-[#0f1729]">{slot.session.journal?.publishedAt ? "Gửi" : slot.session.journal ? "Nháp" : "Chưa"}</strong></span>
-                            {data.permissions.canManageClass && slot.session.status !== "CANCELLED" && (
+                            {data.permissions.canManageClass && slot.session.status !== "CANCELLED" && slot.session.status !== "RESCHEDULED" && (
                               <>
                                 <RescheduleSessionButton sessionId={slot.session.id} sessionDateLabel={formatDate(slot.session.sessionDate)} onSuccess={() => void reload()} />
-                                <CancelSessionButton sessionId={slot.session.id} sessionDateLabel={formatDate(slot.session.sessionDate)} onSuccess={() => void reload()} />
+                                {slot.session.status !== "COMPLETED" ? (
+                                  <CancelSessionButton sessionId={slot.session.id} sessionDateLabel={formatDate(slot.session.sessionDate)} onSuccess={() => void reload()} />
+                                ) : null}
                               </>
                             )}
+                            {data.permissions.canManageClass && slot.session.status === "CANCELLED" && slot.timing !== "past" ? (
+                              <RestoreSessionButton sessionId={slot.session.id} sessionDateLabel={formatDate(slot.session.sessionDate)} onSuccess={() => void reload()} />
+                            ) : null}
                             <SessionLinkWithDrawer
                               sessionId={slot.session.id}
                               classId={data.id}

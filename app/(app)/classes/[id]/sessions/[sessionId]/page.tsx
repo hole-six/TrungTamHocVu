@@ -14,6 +14,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { computeCareAlerts } from "@/lib/server/journal-alerts";
 import { computeSessionTiming, getVietnamToday } from "@/lib/server/class-rules";
+import { computeSessionNumbers } from "@/lib/session-numbering";
 
 const SESSION_TOUR_STEPS: TourStep[] = [
   {
@@ -102,10 +103,10 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
           branch: true,
           course: true,
           roadmapItems: { orderBy: { sessionNumber: "asc" } },
+          // Cả buổi nghỉ/đã dời để đánh số đúng quy tắc chung — xem lib/session-numbering.ts.
           sessions: {
-            where: { status: { not: "CANCELLED" } },
             orderBy: { sessionDate: "asc" },
-            select: { id: true, sessionDate: true },
+            select: { id: true, sessionDate: true, startTime: true, status: true, replacesSessionId: true },
           },
         },
       },
@@ -142,10 +143,8 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
   ]);
 
   const attendanceByStudent = Object.fromEntries(session.attendances.map((attendance) => [attendance.studentId, attendance.status]));
-  const sessionNumber =
-    session.class.sessions.findIndex((item) => item.id === session.id) >= 0
-      ? session.class.sessions.findIndex((item) => item.id === session.id) + 1
-      : null;
+  const numbering = computeSessionNumbers(session.class.sessions);
+  const sessionNumber = numbering.numberById.get(session.id) ?? null;
   const roadmapItem =
     sessionNumber != null ? session.class.roadmapItems.find((item) => item.sessionNumber === sessionNumber) ?? null : null;
 

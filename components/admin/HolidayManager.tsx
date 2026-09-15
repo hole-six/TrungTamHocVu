@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import HolidayClosureDrawer from "@/components/calendar/HolidayClosureDrawer";
 
 type Holiday = {
   id: string;
@@ -46,35 +47,8 @@ export default function HolidayManager({
   searchParams: Record<string, string | undefined>;
 }) {
   const router = useRouter();
-  const [branchId, setBranchId] = useState(defaultBranchId);
-  const [date, setDate] = useState("");
-  const [name, setName] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const branchId = defaultBranchId;
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function addHoliday(event: React.FormEvent) {
-    event.preventDefault();
-    if (!branchId || !date || !name.trim()) return;
-    setSubmitting(true);
-    setError(null);
-
-    const res = await fetch("/api/holidays", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ branchId, date, name: name.trim() }),
-    });
-    const data = await res.json().catch(() => ({}));
-    setSubmitting(false);
-
-    if (!res.ok) {
-      setError(data.error ?? "Không thể thêm ngày nghỉ lễ.");
-      return;
-    }
-    setDate("");
-    setName("");
-    router.refresh();
-  }
 
   async function removeHoliday(id: string) {
     setDeletingId(id);
@@ -85,36 +59,13 @@ export default function HolidayManager({
 
   return (
     <div className="space-y-4">
-      <form onSubmit={addHoliday} className="card flex flex-wrap items-end gap-3">
-        <label className="form-group">
-          <span className="label-sm">Cơ sở</span>
-          <select className="input" value={branchId} onChange={(e) => setBranchId(e.target.value)}>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="form-group">
-          <span className="label-sm">Ngày nghỉ lễ</span>
-          <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
-        </label>
-        <label className="form-group flex-1 min-w-[200px]">
-          <span className="label-sm">Tên ngày lễ</span>
-          <input
-            type="text"
-            className="input"
-            placeholder="Ví dụ: Giỗ Tổ Hùng Vương"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
-        <button type="submit" disabled={submitting} className="btn-primary">
-          {submitting ? "Đang lưu..." : "+ Thêm ngày nghỉ lễ"}
-        </button>
-        {error ? <p className="w-full text-xs text-red-600">{error}</p> : null}
-      </form>
+      {/* Khai ngày nghỉ theo lịch tháng + xem trước các buổi bị cho nghỉ — dùng chung với Lịch tổng. */}
+      <div className="card flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-ink-muted80">
+          Khai ngày nghỉ bằng lịch tháng: các lớp tự cho nghỉ buổi rơi vào ngày đó, nội dung dồn sang buổi sau.
+        </p>
+        <HolidayClosureDrawer branches={branches} defaultBranchId={branchId} buttonClassName="btn-primary" />
+      </div>
 
       <div className="card overflow-x-auto p-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <table className="w-full text-left text-sm">
@@ -135,7 +86,7 @@ export default function HolidayManager({
                 <td className="px-4 py-3 text-right">
                   <ConfirmActionButton
                     title="Xác nhận xóa ngày nghỉ?"
-                    description={`Ngày nghỉ "${h.name}" tại ${h.branch.name} sẽ bị xóa khỏi lịch hệ thống.`}
+                    description={`Bỏ ngày nghỉ "${h.name}" tại ${h.branch.name}: các buổi đã cho nghỉ vì ngày này được khôi phục, buổi đã nối thêm ở cuối khóa được bỏ.`}
                     confirmLabel="Xóa ngày nghỉ"
                     tone="danger"
                     disabled={deletingId === h.id}

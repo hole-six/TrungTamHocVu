@@ -7,6 +7,11 @@ import { canUpdate } from "@/lib/server/role-matrix";
 import { findLockedPeriodForSession } from "@/lib/server/billing-generation";
 import { BILLING_PERIOD_STATUS_LABEL } from "@/lib/server/tuition-rules";
 import { reverseWalletDebitsForSession } from "@/lib/server/enrollment-wallet";
+import {
+  countTaughtSessionsAfter,
+  extendScheduleAfterCancellation,
+  trimExcessUpcomingSessions,
+} from "@/lib/server/session-cancellation";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -23,6 +28,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const existing = await prisma.classSession.findUnique({ where: { id: params.id } });
   if (!existing) return NextResponse.json({ error: "Không tìm thấy buổi học" }, { status: 404 });
+
+  const cancelling = body.status === "CANCELLED" && existing.status !== "CANCELLED";
+  const uncancelling = existing.status === "CANCELLED" && body.status !== "CANCELLED";
+  // Cho nghỉ LÙI một buổi mà sau nó đã có buổi dạy thật: các buổi đã dạy bị đổi số → đổi tài
+  // liệu (xem lib/session-numbering.ts). Chặn và nói rõ.
+  if (cancelling && (await countTaughtSessionsAfter(prisma, existing)) > 0) {
+    return NextResponse.json(
+      { error: "Sau buổi này lớp đã có buổi dạy rồi — cho nghỉ lùi sẽ làm lệch tài liệu của các buổi đã dạy. Nếu buổi này không diễn ra, hãy dời lịch sang ngày khác." },
+      { status: 409 },
+    );
+  }
 
   if (existing.status === "COMPLETED" && body.status === "CANCELLED") {
     const lockedPeriod = await findLockedPeriodForSession(existing.classId, existing.sessionDate);
@@ -41,6 +57,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   // và hoàn lại buổi bổ trợ đã dùng để học bù vào chính buổi này (mirror logic present->absent
   // ở app/api/sessions/[id]/attendance/route.ts).
   const updated = await prisma.$transaction(async (tx) => {
+    if (cancelling && existing.status !== "COMPLETED") {
+      // Học viên đã đặt học bù vào buổi này: buổi không diễn ra thì trả lại buổi bổ trợ.
+      await tx.sessionCredit.updateMany({
+        where: { consumedSessionId: params.id, status: "CONSUMED" },
+        data: { status: "AVAILABLE", consumedSessionId: null, consumedAt: null },
+      });
+    }
     if (existing.status === "COMPLETED" && body.status === "CANCELLED") {
       await tx.sessionCredit.updateMany({
         where: { consumedSessionId: params.id, status: "CONSUMED" },
@@ -83,9 +106,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         status: body.status,
         completedAt: body.status === "COMPLETED" ? new Date() : null,
         notes: "notes" in body ? body.notes || null : undefined,
+        ...(uncancelling ? { cancelledByHolidayId: null } : {}),
       },
     });
   });
 
-  return NextResponse.json({ item: updated });
+  // Cho nghỉ: các buổi sau dồn lên nên khóa cần thêm 1 buổi ở cuối. Bỏ cho nghỉ: bỏ buổi đã
+  // nối thêm. Xem lib/server/session-cancellation.ts.
+  const extended = cancelling ? (await extendScheduleAfterCancellation(existing.classId, 1)).created : 0;
+  const removed = uncancelling ? (await trimExcessUpcomingSessions(existing.classId)).removed : 0;
+
+  return NextResponse.json({ item: updated, extended, removed });
 }

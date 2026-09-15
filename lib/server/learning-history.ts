@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { computeSessionNumbers } from "@/lib/session-numbering";
 
 // LỊCH SỬ HỌC TẬP của một học viên — mọi buổi đã học kèm điểm nhật ký, để thấy con tiến bộ
 // tới đâu qua từng buổi.
@@ -107,14 +108,14 @@ export async function getStudentLearningHistory(
     : [];
 
   // Số thứ tự buổi trong lớp + tên bài theo lộ trình — cùng quy tắc với trang buổi học: buổi
-  // thứ k (theo ngày, bỏ buổi đã hủy) lấy nội dung mục thứ k.
+  // thứ k lấy nội dung mục thứ k — đánh số theo lib/session-numbering.ts (nghỉ thì dồn, dời thì giữ).
   const classIds = [...new Set(sessions.map((item) => item.classId))];
   const plans = classIds.length
     ? await db.class.findMany({
         where: { id: { in: classIds } },
         select: {
           id: true,
-          sessions: { where: { status: { not: "CANCELLED" } }, orderBy: [{ sessionDate: "asc" }, { startTime: "asc" }], select: { id: true } },
+          sessions: { orderBy: [{ sessionDate: "asc" }, { startTime: "asc" }], select: { id: true, sessionDate: true, startTime: true, status: true, replacesSessionId: true }, },
           roadmapItems: { select: { sessionNumber: true, title: true } },
         },
       })
@@ -122,7 +123,7 @@ export async function getStudentLearningHistory(
   const numberBySession = new Map<string, number>();
   const titleByClassNumber = new Map<string, string>();
   for (const plan of plans) {
-    plan.sessions.forEach((item, index) => numberBySession.set(item.id, index + 1));
+    for (const [id, number] of computeSessionNumbers(plan.sessions).numberById) numberBySession.set(id, number);
     for (const item of plan.roadmapItems) titleByClassNumber.set(`${plan.id}:${item.sessionNumber}`, item.title);
   }
 

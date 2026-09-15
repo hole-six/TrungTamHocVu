@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { computeSessionNumbers } from "@/lib/session-numbering";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
@@ -32,10 +33,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       startDate: true,
       totalSessions: true,
       scheduleRules: { where: { isActive: true } },
+      // Cả buổi nghỉ/đã dời để đánh số đúng quy tắc chung — xem lib/session-numbering.ts.
       sessions: {
-        where: { status: { not: "CANCELLED" } },
         orderBy: { sessionDate: "asc" },
-        select: { sessionDate: true, status: true },
+        select: { id: true, sessionDate: true, startTime: true, status: true, replacesSessionId: true },
       },
     },
   });
@@ -46,9 +47,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const wanted = Math.min(requested + 20, 400);
 
   const dates: { sessionNumber: number; date: string; status: "TAUGHT" | "SCHEDULED" | "PROJECTED" }[] = [];
-  cls.sessions.slice(0, wanted).forEach((session, index) => {
+  // Buổi k = buổi đang giữ vị trí k (nghỉ thì dồn, dời thì lấy ngày bù).
+  const { numberById } = computeSessionNumbers(cls.sessions);
+  const holders = cls.sessions
+    .filter((session) => numberById.has(session.id))
+    .sort((a, b) => numberById.get(a.id)! - numberById.get(b.id)!);
+  holders.slice(0, wanted).forEach((session) => {
     dates.push({
-      sessionNumber: index + 1,
+      sessionNumber: numberById.get(session.id)!,
       date: session.sessionDate.toISOString().slice(0, 10),
       status: session.status === "COMPLETED" ? "TAUGHT" : "SCHEDULED",
     });
@@ -56,7 +62,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   // Buổi chưa sinh lịch: suy tiếp từ lịch cố định, bắt đầu sau buổi cuối đã có.
   if (dates.length < wanted && cls.scheduleRules.length > 0 && cls.startDate) {
-    const last = cls.sessions.at(-1)?.sessionDate ?? null;
+    const last = cls.sessions.reduce<Date | null>((max, s) => (!max || s.sessionDate > max ? s.sessionDate : max), null);
     const from = last ? new Date(last.getTime() + 24 * 60 * 60 * 1000) : cls.startDate;
     const to = new Date(from.getTime() + 3 * 366 * 24 * 60 * 60 * 1000);
     const holidays = await getHolidayDateSet(cls.branchId);

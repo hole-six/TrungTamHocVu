@@ -7,6 +7,7 @@ import CalendarFilters from "@/components/calendar/CalendarFilters";
 import SessionCard from "@/components/calendar/SessionCard";
 import CalendarListView from "@/components/calendar/CalendarListView";
 import BulkAssignDrawer, { type BulkSession, type ClassDefaultStaff } from "@/components/calendar/BulkAssignDrawer";
+import HolidayClosureDrawer from "@/components/calendar/HolidayClosureDrawer";
 import { assignmentRoleType } from "@/lib/assignment-roles";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { getVietnamToday } from "@/lib/server/class-rules";
@@ -245,6 +246,13 @@ export default async function CalendarPage({
   // Phân công hàng loạt: chỉ cho người được sửa lịch (không cho GV/TG). Danh sách buổi là
   // đúng các buổi đang hiện trên lịch tuần này (đã theo bộ lọc), để "chọn tuần, lọc, gán".
   const canBulkAssign = !teacherScoped && canUpdate("schedule", role);
+  const holidayBranches = canBulkAssign
+    ? await prisma.branch.findMany({
+        where: activeBranchId ? { id: activeBranchId } : {},
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      })
+    : [];
   const [bulkEmployees, bulkClasses] = canBulkAssign
     ? await Promise.all([
         prisma.employee.findMany({
@@ -313,6 +321,9 @@ export default async function CalendarPage({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {canBulkAssign && holidayBranches.length > 0 ? (
+            <HolidayClosureDrawer branches={holidayBranches} defaultBranchId={activeBranchId ?? holidayBranches[0].id} />
+          ) : null}
           {canBulkAssign ? (
             <BulkAssignDrawer sessions={bulkSessions} employees={bulkEmployees} classes={bulkClasses} classDefaults={classDefaults} weekLabel={weekLabel} />
           ) : null}

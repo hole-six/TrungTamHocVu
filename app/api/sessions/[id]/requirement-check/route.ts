@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { computeSessionTiming, getVietnamToday } from "@/lib/server/class-rules";
+import { computeSessionNumbers } from "@/lib/session-numbering";
 
 async function canCheckRequirement(userId: string): Promise<boolean> {
   const role = await getUserRole(userId);
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         include: {
           branch: true,
           roadmapItems: { orderBy: { sessionNumber: "asc" } },
-          sessions: { where: { status: { not: "CANCELLED" } }, orderBy: { sessionDate: "asc" }, select: { id: true } },
+          sessions: { orderBy: { sessionDate: "asc" }, select: { id: true, sessionDate: true, startTime: true, status: true, replacesSessionId: true }, },
         },
       },
       assignments: true,
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Chỉ có thể ghi hoặc sửa xác nhận này trong đúng ngày diễn ra buổi học." }, { status: 409 });
   }
 
-  const sessionNumber = session.class.sessions.findIndex((item) => item.id === session.id) + 1;
+  const sessionNumber = computeSessionNumbers(session.class.sessions).numberById.get(session.id) ?? 0;
   const roadmapItem = session.class.roadmapItems.find((item) => item.sessionNumber === sessionNumber) ?? null;
   const requirementText = roadmapItem?.teacherRequirement?.trim() || "";
   if (!requirementText) {

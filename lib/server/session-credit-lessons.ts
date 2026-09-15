@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { computeSessionNumbers } from "@/lib/session-numbering";
 
 // Dùng chung cho app/(app)/session-credits/page.tsx và RemedialSessionRoster —
 // cả 2 nơi đều cần trả lời "buổi vắng đó là buổi nào, hôm đó dạy bài gì" cho 1 danh
@@ -33,7 +34,7 @@ export async function resolveSourceLessonDetails(credits: CreditForLesson[]): Pr
     classIds.length
       ? prisma.classSession.findMany({
           where: { classId: { in: classIds } },
-          select: { id: true, classId: true },
+          select: { id: true, classId: true, sessionDate: true, startTime: true, status: true, replacesSessionId: true },
           orderBy: [{ classId: "asc" }, { sessionDate: "asc" }, { startTime: "asc" }, { id: "asc" }],
         })
       : Promise.resolve([]),
@@ -45,12 +46,12 @@ export async function resolveSourceLessonDetails(credits: CreditForLesson[]): Pr
       : Promise.resolve([]),
   ]);
 
+  // Đánh số theo quy tắc chung (trước đây đếm cả buổi đã hủy/đã dời nên lệch bài).
   const sessionNumberById = new Map<string, number>();
-  const orderByClass = new Map<string, number>();
-  for (const session of classSessions) {
-    const nextNumber = (orderByClass.get(session.classId) ?? 0) + 1;
-    orderByClass.set(session.classId, nextNumber);
-    sessionNumberById.set(session.id, nextNumber);
+  const sessionsByClass = new Map<string, typeof classSessions>();
+  for (const session of classSessions) sessionsByClass.set(session.classId, [...(sessionsByClass.get(session.classId) ?? []), session]);
+  for (const list of sessionsByClass.values()) {
+    for (const [id, number] of computeSessionNumbers(list).numberById) sessionNumberById.set(id, number);
   }
   const roadmapByClassAndNumber = new Map(roadmapItems.map((item) => [`${item.classId}:${item.sessionNumber}`, item]));
 
