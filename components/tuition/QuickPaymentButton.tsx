@@ -7,9 +7,7 @@ import FormGuide from "@/components/ui/FormGuide";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import { formatVnd } from "@/lib/export-utils";
-
-const CASH_METHOD = "Tiền mặt";
-const MAX_CASH_DISCOUNT_PERCENT = 10;
+import { CASH_METHOD, MAX_CASH_DISCOUNT_PERCENT, computeCashDiscount } from "@/lib/cash-discount";
 
 const GUIDE_SECTIONS = [
   {
@@ -94,19 +92,28 @@ export default function QuickPaymentButton({
   // cho kỳ sau là chuyện hàng ngày, phần vượt được giữ lại thành tiền đóng trước và tự
   // trừ vào phiếu học phí kỳ sau — xem lib/server/advance-payment.ts.
   const outstanding = Math.max(0, balance ? balance.outstanding : suggestedAmount);
-  const advanceAmount = Math.max(0, numericAmount - outstanding);
-  // Chiết khấu là giảm giá trên khoản ĐANG NỢ, không phải tiền mặt thật, nên chỉ được
-  // giảm tối đa phần nợ mà tiền mặt chưa trả hết.
-  const maxDiscountAmount = Math.max(0, outstanding - numericAmount);
   const numericDiscountPercent = Math.min(MAX_CASH_DISCOUNT_PERCENT, Math.max(0, Number(discountPercent) || 0));
   const cashDiscountActive = method === CASH_METHOD && enableCashDiscount && numericDiscountPercent > 0;
-  const discountAmount = cashDiscountActive ? Math.round((numericAmount * numericDiscountPercent) / 100) : 0;
-  const totalDebtReduction = numericAmount + discountAmount;
+  // Dùng CHUNG một phép tính với API thu tiền (lib/cash-discount.ts) để màn hình và số thực
+  // ghi nhận không bao giờ lệch nhau: giảm x% nghĩa là phụ huynh trả (100 − x)% khoản nợ
+  // được xóa, không phải cộng thêm x% vào số tiền mặt.
+  const settlement = computeCashDiscount({
+    cash: numericAmount,
+    percent: cashDiscountActive ? numericDiscountPercent : 0,
+    outstanding,
+  });
+  const discountAmount = settlement.discountAmount;
+  const advanceAmount = settlement.advanceAmount;
+  const totalDebtReduction = settlement.settledAmount;
 
   const discountSummary = useMemo(() => {
     if (!cashDiscountActive) return null;
-    return `Thu thực nhận ${formatVnd(numericAmount)} · Giảm ${numericDiscountPercent}% = ${formatVnd(discountAmount)} · Công nợ giảm ${formatVnd(totalDebtReduction)}`;
-  }, [cashDiscountActive, discountAmount, numericAmount, numericDiscountPercent, totalDebtReduction]);
+    return (
+      `Thu tiền mặt ${formatVnd(settlement.cashForDebt)} · Giảm ${numericDiscountPercent}% = ${formatVnd(discountAmount)}` +
+      ` · Xóa nợ ${formatVnd(totalDebtReduction)} · Còn nợ ${formatVnd(settlement.remainingDebt)}` +
+      (settlement.advanceAmount > 0 ? ` · Đóng trước ${formatVnd(settlement.advanceAmount)}` : "")
+    );
+  }, [cashDiscountActive, discountAmount, numericDiscountPercent, settlement.advanceAmount, settlement.cashForDebt, settlement.remainingDebt, totalDebtReduction]);
 
   function validate(): boolean {
     setError(null);
@@ -115,11 +122,8 @@ export default function QuickPaymentButton({
       setError("Số tiền thực thu phải lớn hơn 0.");
       return false;
     }
-    if (discountAmount > maxDiscountAmount) {
-      setError(
-        `Chiết khấu ${formatVnd(discountAmount)} vượt phần công nợ còn lại sau tiền mặt (${formatVnd(maxDiscountAmount)}). ` +
-          "Giảm % chiết khấu hoặc giảm số tiền thu.",
-      );
+    if (cashDiscountActive && outstanding <= 0) {
+      setError("Học viên không còn công nợ nên không có gì để chiết khấu. Bỏ chiết khấu rồi thu lại.");
       return false;
     }
     if (cashDiscountActive && !discountReason.trim()) {
@@ -190,7 +194,11 @@ export default function QuickPaymentButton({
             <p className="mt-2 text-base font-semibold">
               Học viên còn nợ <strong>{formatVnd(outstanding)}</strong>.
             </p>
-            {cashDiscountActive ? <p className="mt-1 text-sm text-rose-700">Tổng giảm công nợ sau chiết khấu hiện là <strong>{formatVnd(totalDebtReduction)}</strong>.</p> : null}
+            {cashDiscountActive ? (
+              <p className="mt-1 text-sm text-rose-700">
+                Giảm {numericDiscountPercent}% tiền mặt: thu đủ <strong>{formatVnd(settlement.cashToClearAll)}</strong> là hết nợ.
+              </p>
+            ) : null}
             {balance && balance.advanceBalance > 0 ? (
               <p className="mt-2 text-sm text-rose-700">
                 Đang có sẵn <strong>{formatVnd(balance.advanceBalance)}</strong> tiền đóng trước chưa dùng tới.
@@ -284,6 +292,15 @@ export default function QuickPaymentButton({
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 md:col-span-2">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#c76700]">Tác động sau khi thu</p>
                     <p className="mt-2 text-sm font-semibold text-ink">{discountSummary ?? "Chưa có chiết khấu hợp lệ."}</p>
+                    {cashDiscountActive && outstanding > 0 && numericAmount !== settlement.cashToClearAll ? (
+                      <button
+                        type="button"
+                        className="btn-ghost-sm mt-2"
+                        onClick={() => setAmount(String(settlement.cashToClearAll))}
+                      >
+                        Điền {formatVnd(settlement.cashToClearAll)} — thu đủ để hết nợ sau giảm {numericDiscountPercent}%
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ) : null}
@@ -314,7 +331,7 @@ export default function QuickPaymentButton({
         description={[
           `Số tiền thu: ${formatVnd(numericAmount)} · ${method}`,
           cashDiscountActive
-            ? `Chiết khấu ${numericDiscountPercent}%: giảm thêm ${formatVnd(discountAmount)} — công nợ giảm tổng cộng ${formatVnd(totalDebtReduction)}`
+            ? `Chiết khấu ${numericDiscountPercent}%: giảm ${formatVnd(discountAmount)} trên phiếu học phí — tổng công nợ được xóa ${formatVnd(totalDebtReduction)}`
             : "",
           // Nói thẳng công nợ trước và sau khi thu — nhân viên đối chiếu ngay với số tiền
           // đang cầm trên tay, không phải tự trừ nhẩm.
