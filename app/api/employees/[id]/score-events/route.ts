@@ -54,6 +54,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       type,
       points,
       reason: body.reason || null,
+      // Quy chế: 1 nội dung bị nhắc ở cả 3 báo cáo (ngày, tuần, tháng) → mặc định −10% lương.
+      tripleReported: type === "DEDUCT" && Boolean(body.tripleReported),
       createdById: user.id,
     },
   });

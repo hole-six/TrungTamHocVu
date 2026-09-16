@@ -436,7 +436,7 @@ export default function PayrollWorkspace({
           canEditPayrollLine={canEditPayrollLine}
           assistant={
             permissions.canManagePayrollRuns
-              ? { employeeId: selectedRow.id, month: period, branches, bonusByBranch: selectedRow.assistantBonusByBranch }
+              ? { employeeId: selectedRow.id, month: period, branches, ratingBonusPercent: selectedRow.ratingBonusPercent }
               : null
           }
         />

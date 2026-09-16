@@ -183,15 +183,13 @@ function ScoreEventsList({ employeeId, month, branches, refreshKey }: { employee
   );
 }
 
-function BranchBonusRow({
+function MonthlyRatingRow({
   employeeId,
   month,
-  branch,
   currentBonus,
 }: {
   employeeId: string;
   month: string;
-  branch: Branch;
   currentBonus: number | null;
 }) {
   const router = useRouter();
@@ -204,15 +202,15 @@ function BranchBonusRow({
     const res = await fetch(`/api/employees/${employeeId}/monthly-bonus`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ month, branchId: branch.id, bonusPercent: Number(bonusPercent) / 100 }),
+      body: JSON.stringify({ month, bonusPercent: Number(bonusPercent) / 100 }),
     });
     setLoading(false);
     if (res.ok) router.refresh();
   }
 
   return (
-    <form onSubmit={saveBonus} className="flex flex-wrap items-center gap-3 border-b border-[#f1f5f9] pb-3 last:border-0">
-      <span className="min-w-[120px] text-sm font-semibold text-[#0f1729]">{branch.name}</span>
+    <form onSubmit={saveBonus} className="flex flex-wrap items-center gap-3">
+      <span className="min-w-[120px] text-sm font-semibold text-[#0f1729]">Mức tháng này</span>
       <div className="flex flex-1 items-center gap-2">
         <input
           type="number"
@@ -236,24 +234,21 @@ function BranchBonusRow({
 export function BranchBonusForm({
   employeeId,
   month,
-  branches,
-  bonusByBranch,
+  ratingBonusPercent,
 }: {
   employeeId: string;
   month: string;
-  branches: Branch[];
-  bonusByBranch: Record<string, number | null>;
+  ratingBonusPercent: number | null;
 }) {
   // Không tự vẽ khung/tiêu đề — component này chỉ được dùng bên trong Section của
   // drawer nhân sự, vốn đã có sẵn khung + tiêu đề.
   return (
     <div className="space-y-3">
       <p className="text-sm text-[#64748b]">
-        Nhập tay sau khi xem tỉ lệ A của từng cơ sở — hệ thống không tự suy ra mức thưởng.
+        Một mức cho cả tháng, tính trên tổng số ca ở MỌI cơ sở (quy chế thưởng phạt). Mức đề xuất
+        theo quy chế xem ở trang Chấm điểm tích cực; ở đây chỉ chốt số cuối cùng.
       </p>
-      {branches.map((b) => (
-        <BranchBonusRow key={b.id} employeeId={employeeId} month={month} branch={b} currentBonus={bonusByBranch[b.id] ?? null} />
-      ))}
+      <MonthlyRatingRow employeeId={employeeId} month={month} currentBonus={ratingBonusPercent} />
     </div>
   );
 }

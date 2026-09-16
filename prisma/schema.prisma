@@ -56,7 +56,6 @@ model Branch {
   importJobs              ImportJob[]
   assets                  Asset[]
   assistantScoreEvents    AssistantScoreEvent[]
-  assistantMonthlyBonuses AssistantMonthlyBonus[]
 
   @@map("branches")
 }
@@ -177,6 +176,10 @@ model Employee {
   teachingHourlyRate  Int?      @map("teaching_hourly_rate") // Luongh_GV
   assistantHourlyRate Int?      @map("assistant_hourly_rate") // Luongh_TG
   payMode             String    @default("HOURLY") @map("pay_mode") // HOURLY (Giờ) | SESSION (Ca)
+  // Định mức giờ làm/tháng theo hợp đồng (nhân sự fulltime trả lương tháng). Để trống =
+  // không đặt định mức. Dùng ở bảng "Giờ dự kiến & thực tế" để biết ai đang thiếu giờ mà
+  // xếp thêm lớp, thay vì thuê ngoài.
+  contractHoursPerMonth Float? @map("contract_hours_per_month")
   staffDailyRate      Int?      @map("staff_daily_rate") // Don gia 1 cong hanh chinh
   bankName            String?   @map("bank_name")
   bankAccountNumber   String?   @map("bank_account_number")
@@ -190,13 +193,14 @@ model Employee {
   contracts               EmploymentContract[]
   payPolicies             PayPolicy[]
   sessionAssignments      SessionAssignment[]
+  staffHoursNotes         StaffHoursNote[]
   classDefaultAssignments ClassDefaultAssignment[]
   timesheetEntries        TimesheetEntry[]
   payrollLines            PayrollLine[]
   leadInteractions        LeadInteraction[]
   appointments            Appointment[]
   scoreEvents             AssistantScoreEvent[]
-  monthlyBonuses          AssistantMonthlyBonus[]
+  monthlyRatings          EmployeeMonthlyRating[]
   requirementChecks       SessionRequirementCheck[]
 
   @@index([workStatus])
@@ -1541,7 +1545,7 @@ model PayrollLine {
   // trong ĐỀ XUẤT CHỈNH SỬA.xlsx) — trước đây chỉ có 2 số chung (bonus/penalty),
   // không đủ để in đúng phiếu lương thật. otAmount/kpiBonus/... đều nhập tay qua
   // PayrollLineAdjustForm, trừ assistantRatingBonus tính tự động từ
-  // AssistantMonthlyBonus.bonusPercent (xem lib/server/payroll-generation.ts).
+  // EmployeeMonthlyRating.bonusPercent (xem lib/server/payroll-generation.ts).
   otHours                  Float   @default(0) @map("ot_hours")
   otAmount                 Int     @default(0) @map("ot_amount")
   kpiBonus                 Int     @default(0) @map("kpi_bonus")
@@ -1794,6 +1798,23 @@ model ClassTaskLog {
 // nhân sự tự nhập/xác nhận mức thưởng mỗi tháng thay vì đoán công thức rồi tính sai lương.
 // =============================================================================
 
+// Ghi chú giải trình chênh lệch GIỜ DỰ KIẾN vs GIỜ THỰC TẾ của một nhân sự trong 1 tuần
+// hoặc 1 tháng — cột "Ghi chú" của bảng tổng hợp công (vd "nghỉ lễ 2/9", "dạy thay lớp B1").
+model StaffHoursNote {
+  id          String   @id @default(uuid())
+  employeeId  String   @map("employee_id")
+  // "2026-09" cho cả tháng, "2026-09-14" cho tuần bắt đầu từ ngày đó (thứ Hai).
+  periodKey   String   @map("period_key")
+  note        String
+  updatedById String?  @map("updated_by_id")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, periodKey])
+  @@map("staff_hours_notes")
+}
+
 model AssistantScoreEvent {
   id          String   @id @default(uuid())
   employeeId  String   @map("employee_id")
@@ -1802,6 +1823,9 @@ model AssistantScoreEvent {
   type        String // DEDUCT | ADD
   points      Float
   reason      String?
+  // Quy chế: 1 nội dung bị nhắc ở CẢ 3 báo cáo (ngày, tuần, tháng) thì tháng đó mặc định
+  // −10% lương, không phụ thuộc tỉ lệ A.
+  tripleReported Boolean @default(false) @map("triple_reported")
   createdById String?  @map("created_by_id")
   createdAt   DateTime @default(now()) @map("created_at")
 
@@ -1813,25 +1837,23 @@ model AssistantScoreEvent {
   @@map("assistant_score_events")
 }
 
-// Mức thưởng/phạt theo tháng — TÁCH RIÊNG TỪNG CƠ SỞ (mỗi cơ sở 1 tỉ lệ, làm tốt ở
-// cơ sở này không bù được lỗi ở cơ sở khác — quyết định của Giám đốc). Nhân sự tự
-// nhập sau khi xem tỉ lệ A tính được theo từng cơ sở, không suy ra tự động (xem lý
-// do ở comment đầu mục 15 lib/server/assistant-score-rules.ts).
-model AssistantMonthlyBonus {
+// Mức thưởng/phạt theo tháng của MỘT nhân sự — GỘP TOÀN BỘ CƠ SỞ (yêu cầu của chủ trung
+// tâm: cộng tất cả giờ/ca làm ở mọi cơ sở rồi mới xét thưởng phạt, không xét riêng từng cơ
+// sở). Mức đề xuất tính tự động theo quy chế (lib/assistant-rating.ts), người phụ trách
+// xác nhận hoặc sửa rồi chốt vào đây; bảng lương lấy đúng mức đã chốt.
+model EmployeeMonthlyRating {
   id           String   @id @default(uuid())
   employeeId   String   @map("employee_id")
-  branchId     String   @map("branch_id")
   month        String   @map("month") // "2026-06"
-  bonusPercent Float    @map("bonus_percent") // vd 0.2 = 20%, -0.05 = -5%
+  bonusPercent Float    @map("bonus_percent") // 0.2 = +20%, -0.05 = −5%
   notes        String?
   decidedById  String?  @map("decided_by_id")
   decidedAt    DateTime @default(now()) @map("decided_at")
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  branch   Branch   @relation(fields: [branchId], references: [id])
 
-  @@unique([employeeId, branchId, month])
-  @@map("assistant_monthly_bonuses")
+  @@unique([employeeId, month])
+  @@map("employee_monthly_ratings")
 }
 
 model SchoolExamScore {

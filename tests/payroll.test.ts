@@ -173,14 +173,14 @@ async function main() {
   });
 
   // ---------------------------------------------------------------- 10
-  await test("Thưởng đánh giá trợ giảng tính theo % thu nhập trợ giảng", async () => {
+  await test("Thưởng đánh giá tháng tính trên toàn bộ thu nhập theo ca (dạy + trợ giảng)", async () => {
     const branch = await fixtures.seedBranch(db);
     const cls = await fixtures.seedClass(db, branch.id);
     const assistant = await fixtures.seedEmployee(db, branch.id, { fullName: "TG E", assistantHourlyRate: 100_000 });
     const session = await fixtures.seedSession(db, cls.id, day("2026-05-18"), "COMPLETED");
     await fixtures.seedSessionAssignment(db, { sessionId: session.id, employeeId: assistant.id, role: "ASSISTANT", hours: 10, hourlyRate: 100_000 });
-    await db.assistantMonthlyBonus.create({
-      data: { employeeId: assistant.id, branchId: branch.id, month: "2026-05", bonusPercent: 0.1 },
+    await db.employeeMonthlyRating.create({
+      data: { employeeId: assistant.id, month: "2026-05", bonusPercent: 0.1 },
     });
 
     const run = await fixtures.seedPayrollRun(db, branch.id, "2026-05");
@@ -190,6 +190,29 @@ async function main() {
     expectEqual(line?.assistantAmount, 1_000_000, "thu nhập trợ giảng");
     expectEqual(line?.assistantRatingBonus, 100_000, "thưởng đánh giá 10%");
     expectEqual(line?.totalAmount, 1_100_000, "tổng lương");
+  });
+
+  // ---------------------------------------------------------------- 10b
+  // Quy chế ghi "Lương ± %": người vừa đứng lớp vừa trợ giảng thì tính trên CẢ HAI phần,
+  // trước đây chỉ nhân với phần trợ giảng nên phần đứng lớp bị bỏ sót.
+  await test("Người vừa dạy vừa trợ giảng: % thưởng tính trên cả tiền dạy lẫn tiền trợ giảng", async () => {
+    const branch = await fixtures.seedBranch(db);
+    const cls = await fixtures.seedClass(db, branch.id);
+    const staff = await fixtures.seedEmployee(db, branch.id, { fullName: "GV kiêm TG", teachingHourlyRate: 200_000, assistantHourlyRate: 100_000 });
+    const s1 = await fixtures.seedSession(db, cls.id, day("2026-05-11"), "COMPLETED");
+    const s2 = await fixtures.seedSession(db, cls.id, day("2026-05-12"), "COMPLETED");
+    await fixtures.seedSessionAssignment(db, { sessionId: s1.id, employeeId: staff.id, role: "TEACHER", hours: 5, hourlyRate: 200_000 });
+    await fixtures.seedSessionAssignment(db, { sessionId: s2.id, employeeId: staff.id, role: "ASSISTANT", hours: 5, hourlyRate: 100_000 });
+    await db.employeeMonthlyRating.create({ data: { employeeId: staff.id, month: "2026-05", bonusPercent: 0.2 } });
+
+    const run = await fixtures.seedPayrollRun(db, branch.id, "2026-05");
+    await generatePayrollForRun(run.id);
+
+    const line = await db.payrollLine.findFirst({ where: { payrollRunId: run.id, employeeId: staff.id } });
+    expectEqual(line?.teachingAmount, 1_000_000, "tiền dạy");
+    expectEqual(line?.assistantAmount, 500_000, "tiền trợ giảng");
+    expectEqual(line?.assistantRatingBonus, 300_000, "thưởng 20% trên 1.500.000đ");
+    expectEqual(line?.totalAmount, 1_800_000, "tổng lương");
   });
 
   // ---------------------------------------------------------------- 11

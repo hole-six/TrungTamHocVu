@@ -8,18 +8,31 @@ export type ScoreEventDraft = {
   eventDate: string;
   branchId: string;
   reason: string;
+  /** Quy chế: 1 nội dung bị nhắc ở CẢ 3 báo cáo (ngày, tuần, tháng) → tháng đó mặc định −10% lương. */
+  tripleReported: boolean;
 };
 
 // Lý do hay dùng — bấm 1 phát thay vì gõ lại mỗi lần. Trước đây chấm điểm phải mở màn
 // lương, vào từng nhân sự, gõ tay đủ 5 ô.
-const DEDUCT_REASONS = [
-  "Không nộp bài tập buổi học",
-  "Đi muộn",
-  "Không điểm danh / nhật ký lớp",
-  "Không báo phụ huynh theo yêu cầu",
-  "Nghỉ không báo trước",
+// Đúng 9 mục TRỪ ĐIỂM và các mục CỘNG ĐIỂM của bảng "XÉT THƯỞNG TRỢ GIẢNG" trong quy chế —
+// bấm chọn là điền sẵn đúng số điểm quy chế, khỏi phải nhớ.
+const DEDUCT_REASONS: { label: string; points: string }[] = [
+  { label: "Nghỉ đột xuất, không báo trước / không tìm được người cover", points: "1" },
+  { label: "Chấm sai Minitest, BTVN (trên 2 lỗi)", points: "1" },
+  { label: "Bị nhắc truy thu muộn (minitest dưới 7, video đọc từ...)", points: "1" },
+  { label: "Gửi nhật ký lớp muộn (sau 9h sáng hôm sau)", points: "1" },
+  { label: "Không gửi nhật ký cho giáo vụ mà tự gửi nhóm lớp", points: "1" },
+  { label: "Không mặc đúng đồng phục", points: "1" },
+  { label: "Vứt đồ lung tung (flashcard, mic, chân quay, giấy minitest)", points: "1" },
+  { label: "Nghỉ họp không lý do, báo gấp", points: "2" },
+  { label: "Trông minitest không nghiêm, để HS gian lận", points: "3" },
 ];
-const ADD_REASONS = ["Phụ huynh khen", "Nhận dạy thay", "Hỗ trợ sự kiện trung tâm", "Chủ động bổ trợ học viên yếu"];
+const ADD_REASONS: { label: string; points: string }[] = [
+  { label: "Cover lớp học cho trợ giảng khác", points: "1" },
+  { label: "Phụ huynh khen", points: "1" },
+  { label: "Hỗ trợ sự kiện trung tâm", points: "1" },
+  { label: "Chủ động bổ trợ học viên yếu", points: "1" },
+];
 const POINT_CHIPS = ["0.5", "1", "2", "3"];
 
 export default function ScoreEventDialog({
@@ -51,7 +64,7 @@ export default function ScoreEventDialog({
     if (!open) return;
     setDraft(initial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initial.type, initial.points, initial.eventDate, initial.branchId, initial.reason]);
+  }, [open, initial.type, initial.points, initial.eventDate, initial.branchId, initial.reason, initial.tripleReported]);
 
   if (!open) return null;
   const reasons = draft.type === "DEDUCT" ? DEDUCT_REASONS : ADD_REASONS;
@@ -139,14 +152,14 @@ export default function ScoreEventDialog({
             <div className="flex flex-wrap gap-1.5">
               {reasons.map((reason) => (
                 <button
-                  key={reason}
+                  key={reason.label}
                   type="button"
-                  onClick={() => set("reason", reason)}
+                  onClick={() => setDraft((current) => ({ ...current, reason: reason.label, points: reason.points }))}
                   className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                    draft.reason === reason ? "border-[#0f1729] bg-[#0f1729] text-white" : "border-[#e2e8f0] bg-white text-[#0f1729] hover:border-[#0f1729]"
+                    draft.reason === reason.label ? "border-[#0f1729] bg-[#0f1729] text-white" : "border-[#e2e8f0] bg-white text-[#0f1729] hover:border-[#0f1729]"
                   }`}
                 >
-                  {reason}
+                  {reason.label} ({reason.points === "1" ? "−1" : `−${reason.points}`}đ)
                 </button>
               ))}
             </div>
@@ -157,6 +170,22 @@ export default function ScoreEventDialog({
               placeholder="Hoặc ghi lý do cụ thể..."
             />
           </div>
+
+          {/* Quy chế: cùng 1 nội dung mà bị nhắc ở cả 3 báo cáo thì tháng đó mặc định −10% lương,
+              không phụ thuộc tỉ lệ A — đánh dấu ở đây để hệ thống đề xuất đúng mức. */}
+          {draft.type === "DEDUCT" ? (
+            <label className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={draft.tripleReported}
+                onChange={(event) => set("tripleReported", event.target.checked)}
+              />
+              <span>
+                Nội dung này bị nhắc ở <strong>cả 3 báo cáo</strong> (ngày, tuần, tháng) — theo quy chế tháng đó mặc định −10% lương.
+              </span>
+            </label>
+          ) : null}
         </div>
 
         {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}

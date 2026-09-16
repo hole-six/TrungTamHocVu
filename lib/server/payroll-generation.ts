@@ -70,12 +70,11 @@ export async function generatePayrollForRun(runId: string) {
         },
       }),
       prisma.timesheetEntry.findMany({ where: { employeeId: employee.id, workDate: { gte: start, lte: end } } }),
-      // % đánh giá TG hàng tháng theo cơ sở (AssistantScoreForm) — nhân với đúng thu
-      // nhập TG kỳ này để tự ra số tiền, thay vì bắt nhân sự tự quy đổi % ra VNĐ rồi
-      // gõ tay vào ô "Thưởng" chung như trước (đúng dòng "Đánh giá TG (%/VNĐ)" trên
-      // phiếu lương thật).
-      prisma.assistantMonthlyBonus.findUnique({
-        where: { employeeId_branchId_month: { employeeId: employee.id, branchId: run.branchId, month: run.periodName } },
+      // % thưởng/phạt tháng theo QUY CHẾ, gộp toàn bộ cơ sở (1 mức cho mỗi người mỗi
+      // tháng — xem lib/server/assistant-score-rules.ts). Nhân với đúng thu nhập theo ca
+      // kỳ này để tự ra số tiền, thay vì bắt nhân sự tự quy đổi % ra VNĐ rồi gõ tay.
+      prisma.employeeMonthlyRating.findUnique({
+        where: { employeeId_month: { employeeId: employee.id, month: run.periodName } },
       }),
     ]);
 
@@ -94,7 +93,10 @@ export async function generatePayrollForRun(runId: string) {
     if (assistantAssignments.length > 0 && assistantAmount === 0) {
       warnings.push({ employeeId: employee.id, employeeName: employee.fullName, message: `có ${assistantAssignments.length} buổi trợ giảng nhưng thành tiền 0đ — kiểm tra đơn giá trợ giảng trong hồ sơ nhân sự.` });
     }
-    const assistantRatingBonus = Math.round(assistantAmount * (monthlyBonus?.bonusPercent ?? 0));
+    // Quy chế ghi "Lương ± %": tính trên TOÀN BỘ thu nhập theo ca của người đó trong tháng
+    // (đứng lớp + trợ giảng), không chỉ phần trợ giảng — người vừa dạy vừa trợ giảng trước
+    // đây bị bỏ sót phần đứng lớp.
+    const assistantRatingBonus = Math.round((teachingAmount + assistantAmount) * (monthlyBonus?.bonusPercent ?? 0));
 
     const existingLine = await prisma.payrollLine.findUnique({
       where: { payrollRunId_employeeId: { payrollRunId: run.id, employeeId: employee.id } },
@@ -205,8 +207,8 @@ export async function ensurePayrollLineForEmployee(employeeId: string, periodNam
       where: { employeeId, role: { in: ["ASSISTANT", "ASSISTANT2"] }, session: { sessionDate: { gte: start, lte: end }, status: "COMPLETED" } },
     }),
     prisma.timesheetEntry.findMany({ where: { employeeId, workDate: { gte: start, lte: end } } }),
-    prisma.assistantMonthlyBonus.findUnique({
-      where: { employeeId_branchId_month: { employeeId, branchId: employee.branchId, month: periodName } },
+    prisma.employeeMonthlyRating.findUnique({
+      where: { employeeId_month: { employeeId, month: periodName } },
     }),
     prisma.payrollLine.findUnique({ where: { payrollRunId_employeeId: { payrollRunId: run.id, employeeId } } }),
   ]);
@@ -217,7 +219,7 @@ export async function ensurePayrollLineForEmployee(employeeId: string, periodNam
   const assistantAmount = assistantAssignments.reduce((sum, item) => sum + (item.amount ?? 0), 0);
   const staffDays = timesheetEntries.reduce((sum, item) => sum + (item.days ?? 0), 0);
   const baseSalaryAmount = Math.round(staffDays * (employee.staffDailyRate ?? 0));
-  const assistantRatingBonus = Math.round(assistantAmount * (monthlyBonus?.bonusPercent ?? 0));
+  const assistantRatingBonus = Math.round((teachingAmount + assistantAmount) * (monthlyBonus?.bonusPercent ?? 0));
 
   const manualAdd =
     (existingLine?.otAmount ?? 0) +

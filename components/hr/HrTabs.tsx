@@ -12,6 +12,7 @@ const HR_TABS = [
   { href: "/employees", label: "Hồ sơ nhân sự", hint: "Thông tin, đơn giá, hợp đồng" },
   { href: "/timesheets", label: "Chấm công", hint: "Ngày công theo tháng" },
   { href: "/timesheets/day", label: "Sổ ngày", hint: "Toàn cảnh 1 ngày" },
+  { href: "/timesheets/hours", label: "Giờ dự kiến", hint: "Dự kiến vs thực tế" },
   { href: "/payroll", label: "Lương", hint: "Tính lương, phiếu lương" },
 ];
 
@@ -21,7 +22,9 @@ export default function HrTabs({ allowed }: { allowed?: string[] }) {
   // chỉ xem được Lương của mình) — chỉ hiện tab họ thực sự vào được, tránh bấm vào rồi
   // ăn màn báo không có quyền.
   const tabs = allowed
-    ? HR_TABS.filter((tab) => allowed.includes(tab.href) || (tab.href === "/timesheets/day" && allowed.includes("/timesheets")))
+    ? HR_TABS.filter(
+        (tab) => allowed.includes(tab.href) || (tab.href.startsWith("/timesheets/") && allowed.includes("/timesheets")),
+      )
     : HR_TABS;
   if (tabs.length <= 1) return null;
 

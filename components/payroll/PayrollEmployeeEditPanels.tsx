@@ -18,15 +18,24 @@ type BranchScorecard = {
   countedShifts: number;
   deducted: number;
   added: number;
+};
+
+// Tổng của cả tháng — gộp mọi cơ sở, đúng quy chế thưởng phạt.
+type Scorecard = {
+  byBranch: BranchScorecard[];
+  countedShifts: number;
+  reminderCount: number;
+  tripleReported: boolean;
   ratio: number | null;
-  bonus: { bonusPercent: number } | null;
+  suggestion: { percent: number | null; reasons: string[] };
+  rating: { bonusPercent: number } | null;
 };
 
 // Client-side vì component này được PayrollEmployeeDrawer ("use client") render trực
 // tiếp, không qua children slot — nên không thể gọi computeAssistantScorecard() (dùng
 // prisma) thẳng ở đây, phải gọi qua route GET /api/employees/[id]/assistant-score có sẵn.
 function AssistantScorecardSummary({ employeeId, month }: { employeeId: string; month: string }) {
-  const [data, setData] = useState<{ byBranch: BranchScorecard[] } | null>(null);
+  const [data, setData] = useState<Scorecard | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -59,24 +68,29 @@ function AssistantScorecardSummary({ employeeId, month }: { employeeId: string; 
         <p className="text-sm text-[#94a3b8]">Chưa có ca/điểm nào ghi nhận trong tháng {month}.</p>
       ) : null}
 
-      {data && data.byBranch.length > 0
-        ? data.byBranch.map((b) => (
-            <div key={b.branchId} className="border-b border-[#f1f5f9] pb-3 last:border-0">
-              <p className="text-xs font-bold uppercase tracking-wide text-[#94a3b8]">{b.branchName}</p>
-              <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-5">
-                <Stat label="Số ca tính">{b.countedShifts}</Stat>
-                <Stat label="Điểm trừ">
-                  <span className={b.deducted > 0 ? "text-red-600" : undefined}>{b.deducted}</span>
-                </Stat>
-                <Stat label="Điểm cộng">
-                  <span className={b.added > 0 ? "text-emerald-700" : undefined}>{b.added}</span>
-                </Stat>
-                <Stat label="Tỉ lệ A">{b.ratio !== null ? `${b.ratio.toFixed(1)}%` : null}</Stat>
-                <Stat label="% Thưởng">{b.bonus ? `${(b.bonus.bonusPercent * 100).toFixed(0)}%` : null}</Stat>
-              </div>
-            </div>
-          ))
-        : null}
+      {data ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-5">
+            <Stat label="Tổng ca (mọi cơ sở)">{data.countedShifts}</Stat>
+            <Stat label="Số lần bị nhắc">
+              <span className={data.reminderCount > 0 ? "text-red-600" : undefined}>{data.reminderCount}</span>
+            </Stat>
+            <Stat label="Tỉ lệ A">{data.ratio !== null ? `${data.ratio.toFixed(1)}%` : null}</Stat>
+            <Stat label="Đề xuất">
+              {data.suggestion.percent != null ? `${data.suggestion.percent > 0 ? "+" : ""}${Math.round(data.suggestion.percent * 100)}%` : "chưa xét"}
+            </Stat>
+            <Stat label="% đã chốt">{data.rating ? `${(data.rating.bonusPercent * 100).toFixed(0)}%` : null}</Stat>
+          </div>
+          {data.suggestion.reasons.length > 0 ? (
+            <p className="rounded-lg bg-[#f8fafc] px-2.5 py-1.5 text-xs text-[#334155]">{data.suggestion.reasons.join(" → ")}</p>
+          ) : null}
+          {data.byBranch.length > 0 ? (
+            <p className="text-xs text-[#94a3b8]">
+              Ca theo cơ sở: {data.byBranch.map((b) => `${b.branchName} ${b.countedShifts} ca`).join(" · ")}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <Link href={`/teacher-tasks?employeeId=${employeeId}&status=NOT_SUBMITTED`} className={ACTION_CLASS}>
         Xem việc chưa nộp
@@ -296,7 +310,7 @@ export default function PayrollEmployeeEditPanels({
     notes: string | null;
   } | null;
   canEditPayrollLine: boolean;
-  assistant: { employeeId: string; month: string; branches: { id: string; name: string }[]; bonusByBranch: Record<string, number | null> } | null;
+  assistant: { employeeId: string; month: string; branches: { id: string; name: string }[]; ratingBonusPercent: number | null } | null;
   /** Trang /payroll/employees/[id] đã tự query sẵn — truyền thẳng vào đây. Drawer quản
    *  lý ở /payroll không có sẵn (không muốn nặng thêm mỗi dòng danh sách) nên để trống,
    *  component tự fetch lười qua GET /api/employees/[id] khi mount. */
@@ -439,12 +453,11 @@ export default function PayrollEmployeeEditPanels({
           <Section title="Đánh giá trợ giảng" hint={`Tháng ${assistant.month}`}>
             <AssistantScorecardSummary employeeId={assistant.employeeId} month={assistant.month} />
           </Section>
-          <Section title="Mức thưởng theo cơ sở" hint={`${assistant.branches.length} cơ sở`}>
+          <Section title="Mức thưởng/phạt tháng" hint="Gộp toàn bộ cơ sở">
             <BranchBonusForm
               employeeId={assistant.employeeId}
               month={assistant.month}
-              branches={assistant.branches}
-              bonusByBranch={assistant.bonusByBranch}
+              ratingBonusPercent={assistant.ratingBonusPercent}
             />
           </Section>
           <Section title="Ghi nhận điểm trừ/cộng">

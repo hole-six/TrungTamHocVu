@@ -17,7 +17,12 @@ export type ScoreboardRowData = {
   deducted: number;
   added: number;
   net: number;
+  reminderCount: number;
+  tripleReported: boolean;
   ratio: number | null;
+  autoPoints: { cover: number; shiftTier: number };
+  suggestedPercent: number | null;
+  suggestionReasons: string[];
   bonusPercent: number | null;
   events: {
     id: string;
@@ -27,6 +32,7 @@ export type ScoreboardRowData = {
     reason: string | null;
     branchId: string;
     branchName: string;
+    tripleReported: boolean;
     fromRequirement: boolean;
   }[];
 };
@@ -120,6 +126,7 @@ export default function TeacherScoreboard({
       eventDate: defaultEventDate,
       branchId: defaultBranchId || branches[0]?.id || "",
       reason: "",
+      tripleReported: false,
     };
   }
 
@@ -194,7 +201,7 @@ export default function TeacherScoreboard({
     const response = await fetch(`/api/employees/${employeeId}/monthly-bonus`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ month, branchId: defaultBranchId || branches[0]?.id, bonusPercent: percent / 100 }),
+      body: JSON.stringify({ month, bonusPercent: percent / 100 }),
     });
     const result = await response.json().catch(() => ({}));
     setLoading(false);
@@ -310,7 +317,8 @@ export default function TeacherScoreboard({
           <div>
             <h2 className="text-sm font-black uppercase tracking-wide text-[#0f1729]">Bảng điểm tháng {month.split("-").reverse().join("/")}</h2>
             <p className="mt-0.5 text-xs text-[#64748b]">
-              Chỉ số A = (điểm trừ − điểm cộng) / số ca tính điểm. Càng thấp càng tốt; mức thưởng nhập tay theo từng cơ sở.
+              Theo quy chế: A = số lần bị nhắc ÷ tổng số ca (gộp mọi cơ sở) × 100. A = 0 → +20%, A ≤ 5 → +10%,
+              5 &lt; A &lt; 10 → 0%, A ≥ 10 → −5%; 5–15 ca thì trần +5%. Hệ thống đề xuất, người duyệt chốt.
             </p>
           </div>
           <input
@@ -325,11 +333,11 @@ export default function TeacherScoreboard({
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
-                {["Nhân sự", "Ca tính điểm", "Điểm trừ", "Điểm cộng", "Chỉ số A", "% thưởng", ""].map((label, index) => (
+                {["Nhân sự", "Tổng ca", "Lần bị nhắc", "Điểm trừ", "Điểm cộng tự động", "Chỉ số A", "Đề xuất", "% đã chốt", ""].map((label, index) => (
                   <th
                     key={label + index}
                     className={`border-b border-[#cbd5e1] bg-[#f1f5f9] px-2.5 py-2 text-[11px] font-bold uppercase tracking-wide text-[#334155] ${
-                      index === 0 || index === 6 ? "text-left" : "text-right"
+                      index === 0 || index === 8 ? "text-left" : "text-right"
                     }`}
                   >
                     {label}
@@ -354,13 +362,45 @@ export default function TeacherScoreboard({
                       {row.countedShifts}
                       {row.substituteShifts > 0 ? <span className="text-xs text-[#94a3b8]"> (+{row.substituteShifts} dạy thay)</span> : null}
                     </td>
+                    <td className="border-b border-[#f1f5f9] px-2.5 py-2 text-right tabular-nums">
+                      {row.reminderCount}
+                      {row.tripleReported ? (
+                        <span className="ml-1 rounded bg-rose-100 px-1 py-0.5 text-[10px] font-bold text-rose-700">3 báo cáo</span>
+                      ) : null}
+                    </td>
                     <td className="border-b border-[#f1f5f9] px-2.5 py-2 text-right tabular-nums font-bold text-[#b91c1c]">
                       {row.deducted > 0 ? `−${row.deducted}` : "0"}
                     </td>
-                    <td className="border-b border-[#f1f5f9] px-2.5 py-2 text-right tabular-nums font-bold text-[#0f1729]">
-                      {row.added > 0 ? `+${row.added}` : "0"}
+                    <td className="border-b border-[#f1f5f9] px-2.5 py-2 text-right tabular-nums text-[#0f1729]">
+                      <span className="font-bold">
+                        {row.added + row.autoPoints.cover + row.autoPoints.shiftTier > 0
+                          ? `+${Math.round((row.added + row.autoPoints.cover + row.autoPoints.shiftTier) * 100) / 100}`
+                          : "0"}
+                      </span>
+                      <span className="block text-[10px] text-[#94a3b8]">
+                        {row.autoPoints.shiftTier > 0 ? `đủ ca +${row.autoPoints.shiftTier}` : "chưa đủ mốc ca"}
+                        {row.autoPoints.cover > 0 ? ` · dạy thay +${row.autoPoints.cover}` : ""}
+                      </span>
                     </td>
                     <td className="border-b border-[#f1f5f9] px-2.5 py-2 text-right tabular-nums">{ratioLabel(row.ratio)}</td>
+                    <td className="border-b border-[#f1f5f9] px-2.5 py-2 text-right">
+                      <span
+                        className="tabular-nums font-semibold text-[#2563eb]"
+                        title={row.suggestionReasons.join(" | ")}
+                      >
+                        {row.suggestedPercent != null ? `${row.suggestedPercent > 0 ? "+" : ""}${Math.round(row.suggestedPercent * 100)}%` : "chưa xét"}
+                      </span>
+                      {canDecide && row.suggestedPercent != null && row.bonusPercent !== row.suggestedPercent ? (
+                        <button
+                          type="button"
+                          onClick={() => void saveBonus(row.employeeId, String(Math.round(row.suggestedPercent! * 100)))}
+                          disabled={loading}
+                          className="ml-1 rounded-md border border-[#bfdbfe] px-1.5 py-0.5 text-[10px] font-bold text-[#2563eb] hover:bg-[#eff6ff]"
+                        >
+                          Dùng
+                        </button>
+                      ) : null}
+                    </td>
                     <td className="border-b border-[#f1f5f9] px-2.5 py-2 text-right">
                       {bonusDraft?.employeeId === row.employeeId ? (
                         <span className="inline-flex items-center gap-1">
@@ -406,7 +446,12 @@ export default function TeacherScoreboard({
                   </tr>
                   {expanded === row.employeeId ? (
                     <tr>
-                      <td colSpan={7} className="border-b border-[#f1f5f9] bg-[#f8fafc] px-4 py-3">
+                      <td colSpan={9} className="border-b border-[#f1f5f9] bg-[#f8fafc] px-4 py-3">
+                        {row.suggestionReasons.length > 0 ? (
+                          <p className="mb-2 rounded-lg bg-white px-2.5 py-1.5 text-xs text-[#334155]">
+                            <strong>Cách ra mức đề xuất:</strong> {row.suggestionReasons.join(" → ")}
+                          </p>
+                        ) : null}
                         {row.events.length === 0 ? (
                           <p className="text-sm text-[#64748b]">Tháng này chưa có điểm trừ/cộng nào.</p>
                         ) : (
@@ -441,6 +486,7 @@ export default function TeacherScoreboard({
                                             eventDate: event.eventDate.slice(0, 10),
                                             branchId: event.branchId,
                                             reason: event.reason ?? "",
+                                            tripleReported: event.tripleReported,
                                           },
                                         })
                                       }

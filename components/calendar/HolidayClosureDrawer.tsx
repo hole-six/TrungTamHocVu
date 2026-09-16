@@ -25,8 +25,23 @@ type PlanItem = {
   endTime: string | null;
   action: "CANCEL" | "SKIP";
   reason: string | null;
+  hours: number;
+  teachers: string[];
+  assistants: string[];
 };
-type Plan = { dates: string[]; items: PlanItem[]; cancelCount: number; classCount: number };
+type StaffHours = { employeeId: string; fullName: string; role: "TEACHER" | "ASSISTANT"; sessions: number; hours: number };
+type Plan = {
+  dates: string[];
+  items: PlanItem[];
+  cancelCount: number;
+  classCount: number;
+  totalHours: number;
+  staffHours: StaffHours[];
+};
+
+function hoursLabel(hours: number) {
+  return `${String(Math.round(hours * 100) / 100).replace(".", ",")}h`;
+}
 
 const WEEKDAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const REASONS = ["Nghỉ lễ", "Nghỉ Tết", "Bão / thời tiết xấu", "Sự cố cơ sở", "Trung tâm tổ chức sự kiện"];
@@ -138,7 +153,7 @@ function HolidayClosureBody({ branches, defaultBranchId }: { branches: Branch[];
     }
     const r = json.result;
     toast.success(
-      `Đã khai ${r.dates.length} ngày nghỉ, cho nghỉ ${r.cancelCount} buổi của ${r.classCount} lớp` +
+      `Đã khai ${r.dates.length} ngày nghỉ, cho nghỉ ${r.cancelCount} buổi của ${r.classCount} lớp (${hoursLabel(r.totalHours ?? 0)} giờ dạy)` +
         (r.extended ? `, nối thêm ${r.extended} buổi ở cuối khóa.` : "."),
       "Đã áp dụng ngày nghỉ",
     );
@@ -268,7 +283,7 @@ function HolidayClosureBody({ branches, defaultBranchId }: { branches: Branch[];
           {plan ? (
             <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
               <p className="font-semibold">
-                Sẽ cho nghỉ {plan.cancelCount} buổi của {plan.classCount} lớp.
+                Sẽ cho nghỉ {plan.cancelCount} buổi của {plan.classCount} lớp · tổng {hoursLabel(plan.totalHours)} giờ dạy.
                 {plan.items.some((i) => i.action === "SKIP") ? ` Bỏ qua ${plan.items.filter((i) => i.action === "SKIP").length} buổi.` : ""}
               </p>
               <p className="text-xs">
@@ -279,11 +294,29 @@ function HolidayClosureBody({ branches, defaultBranchId }: { branches: Branch[];
                 {plan.items.length === 0 ? <p className="text-xs">Không có buổi học nào vào những ngày này.</p> : null}
                 {plan.items.map((item) => (
                   <p key={item.sessionId} className={`rounded-lg px-2 py-1 text-xs ${item.action === "CANCEL" ? "bg-white" : "bg-rose-100 text-rose-800"}`}>
-                    {dmy(item.sessionDate)} {item.startTime}–{item.endTime} · <strong>{item.classCode}</strong> {item.className}
+                    {dmy(item.sessionDate)} {item.startTime}–{item.endTime} ({hoursLabel(item.hours)}) · <strong>{item.classCode}</strong> {item.className}
+                    {" · "}
+                    GV: {item.teachers.length ? item.teachers.join(", ") : "chưa phân công"}
+                    {" · "}
+                    TG: {item.assistants.length ? item.assistants.join(", ") : "chưa phân công"}
                     {item.action === "SKIP" ? ` — bỏ qua: ${item.reason}` : ""}
                   </p>
                 ))}
               </div>
+
+              {/* Giờ nghỉ theo từng người — để đối soát công/giờ dạy của GV, TG. */}
+              {plan.staffHours.length > 0 ? (
+                <div className="rounded-lg bg-white p-2">
+                  <p className="text-xs font-semibold">Giờ nghỉ theo nhân sự</p>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {plan.staffHours.map((staff) => (
+                      <span key={staff.employeeId} className="rounded-full border border-amber-200 px-2 py-0.5 text-xs">
+                        {staff.role === "TEACHER" ? "GV" : "TG"} <strong>{staff.fullName}</strong>: {hoursLabel(staff.hours)} ({staff.sessions} ca)
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
 

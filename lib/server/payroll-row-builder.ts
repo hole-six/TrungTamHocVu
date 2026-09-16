@@ -57,7 +57,7 @@ export type PayrollEmployeeRow = {
   /** @deprecated Không còn ý nghĩa từ khi công/tiền luôn tính theo dữ liệu thật. */
   hasMismatch: boolean;
   hasRateIssue: boolean;
-  assistantBonusByBranch: Record<string, number | null>;
+  ratingBonusPercent: number | null;
 };
 
 // Gộp giờ dạy/trợ giảng/công hành chính của TẤT CẢ nhân sự trong chi nhánh cho 1 tháng,
@@ -100,7 +100,7 @@ export async function buildPayrollEmployeeRows(params: {
       },
     }),
     runId ? prisma.payrollLine.findMany({ where: { payrollRunId: runId } }) : Promise.resolve([]),
-    prisma.assistantMonthlyBonus.findMany({ where: { month: period, ...(branchId ? { branchId } : {}) } }),
+    prisma.employeeMonthlyRating.findMany({ where: { month: period } }),
   ]);
 
   const teachingByEmployee = new Map<string, { hours: number; amount: number; sessions: number }>();
@@ -130,12 +130,9 @@ export async function buildPayrollEmployeeRows(params: {
   }
 
   const lineByEmployee = new Map(lines.map((line) => [line.employeeId, line]));
-  const bonusByEmployee = new Map<string, Record<string, number | null>>();
-  for (const bonus of monthlyBonuses) {
-    const current = bonusByEmployee.get(bonus.employeeId) ?? {};
-    current[bonus.branchId] = bonus.bonusPercent;
-    bonusByEmployee.set(bonus.employeeId, current);
-  }
+  // Mức thưởng/phạt gộp toàn hệ thống: mỗi người mỗi tháng đúng 1 mức.
+  const bonusByEmployee = new Map<string, number>();
+  for (const rating of monthlyBonuses) bonusByEmployee.set(rating.employeeId, rating.bonusPercent);
 
   const rows: PayrollEmployeeRow[] = employeesRaw.map(({ contracts, ...employee }) => {
     const teaching = teachingByEmployee.get(employee.id) ?? { hours: 0, amount: 0, sessions: 0 };
@@ -218,7 +215,7 @@ export async function buildPayrollEmployeeRows(params: {
       lineId: line ? line.id : null,
       hasMismatch: false,
       hasRateIssue,
-      assistantBonusByBranch: bonusByEmployee.get(employee.id) ?? {},
+      ratingBonusPercent: bonusByEmployee.get(employee.id) ?? null,
     };
   });
 

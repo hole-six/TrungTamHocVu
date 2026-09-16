@@ -44,7 +44,10 @@
     "test:grade": "tsx tests/school-grade.test.ts",
     "test:numbering": "tsx tests/session-numbering.test.ts",
     "test:closure": "tsx tests/holiday-closure.test.ts",
-    "test": "npm run test:money && npm run test:payroll && npm run test:billing && npm run test:timeline && npm run test:sessions && npm run test:enrollment && npm run test:roadmap && npm run test:history && npm run test:pause && npm run test:codes && npm run test:staff && npm run test:transfer && npm run test:course-transfer && npm run test:grade && npm run test:numbering && npm run test:closure",
+    "test:rating": "tsx tests/assistant-rating.test.ts",
+    "test:scorecard": "tsx tests/assistant-scorecard.test.ts",
+    "test:hours": "tsx tests/staff-hours.test.ts",
+    "test": "npm run test:money && npm run test:payroll && npm run test:billing && npm run test:timeline && npm run test:sessions && npm run test:enrollment && npm run test:roadmap && npm run test:history && npm run test:pause && npm run test:codes && npm run test:staff && npm run test:transfer && npm run test:course-transfer && npm run test:grade && npm run test:numbering && npm run test:closure && npm run test:rating && npm run test:scorecard && npm run test:hours",
     "check:ui": "node scripts/ui_smoke.mjs"
   },
   "prisma": {

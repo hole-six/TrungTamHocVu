@@ -4,6 +4,8 @@ import { computeSessionNumbers } from "@/lib/session-numbering";
 import { dateKey, generateSessionDates, getVietnamToday } from "@/lib/server/class-rules";
 import { getHolidayDateSet } from "@/lib/server/holidays";
 import { createSessionsInRange } from "@/lib/server/class-generation";
+import { computeHoursFromTimeRange } from "@/lib/server/payroll-rules";
+import { assignmentRoleType } from "@/lib/assignment-roles";
 
 // TRUNG TÂM CHO NGHỈ — một buổi lẻ hoặc cả ngày nghỉ của trung tâm (lễ, bão...).
 //
@@ -123,6 +125,19 @@ export type ClosureItem = {
   endTime: string | null;
   action: "CANCEL" | "SKIP";
   reason: string | null;
+  /** Số giờ của ca (theo khung giờ buổi học) — để đối soát công/giờ dạy khi cho nghỉ. */
+  hours: number;
+  teachers: string[];
+  assistants: string[];
+};
+
+/** Giờ nghỉ cộng dồn của từng GV/TG trong đợt cho nghỉ này. */
+export type ClosureStaffHours = {
+  employeeId: string;
+  fullName: string;
+  role: "TEACHER" | "ASSISTANT";
+  sessions: number;
+  hours: number;
 };
 
 function toDates(keys: string[]) {
@@ -132,14 +147,29 @@ function toDates(keys: string[]) {
 /** Xem trước: các buổi học rơi vào những ngày nghỉ đã chọn sẽ bị cho nghỉ hay bỏ qua (kèm lý do). */
 export async function planHolidayClosure(db: Db, params: { branchId: string; dateKeys: string[] }) {
   const dates = toDates(params.dateKeys);
-  if (dates.length === 0) return { dates: [] as string[], items: [] as ClosureItem[], cancelCount: 0, classCount: 0 };
+  if (dates.length === 0)
+    return { dates: [] as string[], items: [] as ClosureItem[], cancelCount: 0, classCount: 0, totalHours: 0, staffHours: [] as ClosureStaffHours[] };
   const sessions = await db.classSession.findMany({
     where: { sessionDate: { in: dates }, status: { notIn: ["CANCELLED", "RESCHEDULED"] }, class: { branchId: params.branchId } },
-    include: { class: { select: { id: true, classCode: true, className: true } } },
+    include: {
+      class: { select: { id: true, classCode: true, className: true } },
+      // Ai đứng lớp buổi này — để bảng xem trước ghi rõ GV/TG nào nghỉ mấy giờ. Người đã có
+      // người dạy thay thì không tính (họ vốn không dạy buổi đó).
+      assignments: {
+        where: { substitutedBy: { is: null } },
+        include: { employee: { select: { id: true, fullName: true } } },
+        orderBy: [{ role: "asc" }, { employeeId: "asc" }],
+      },
+    },
     orderBy: [{ sessionDate: "asc" }, { startTime: "asc" }],
   });
   const items: ClosureItem[] = [];
+  const staffHours = new Map<string, ClosureStaffHours>();
   for (const session of sessions) {
+    const hours =
+      session.startTime && session.endTime ? computeHoursFromTimeRange(session.startTime, session.endTime) : 0;
+    const teachers = session.assignments.filter((a) => assignmentRoleType(a.role) === "TEACHER");
+    const assistants = session.assignments.filter((a) => assignmentRoleType(a.role) === "ASSISTANT");
     const base = {
       sessionId: session.id,
       classId: session.class.id,
@@ -148,6 +178,9 @@ export async function planHolidayClosure(db: Db, params: { branchId: string; dat
       sessionDate: session.sessionDate.toISOString(),
       startTime: session.startTime,
       endTime: session.endTime,
+      hours,
+      teachers: teachers.map((a) => a.employee.fullName),
+      assistants: assistants.map((a) => a.employee.fullName),
     };
     if (session.status === "COMPLETED") {
       items.push({ ...base, action: "SKIP", reason: "Buổi đã dạy (đã điểm danh) — giữ nguyên." });
@@ -158,6 +191,20 @@ export async function planHolidayClosure(db: Db, params: { branchId: string; dat
       continue;
     }
     items.push({ ...base, action: "CANCEL", reason: null });
+    for (const assignment of session.assignments) {
+      const role = assignmentRoleType(assignment.role);
+      if (!role) continue;
+      const current = staffHours.get(assignment.employeeId) ?? {
+        employeeId: assignment.employeeId,
+        fullName: assignment.employee.fullName,
+        role,
+        sessions: 0,
+        hours: 0,
+      };
+      current.sessions += 1;
+      current.hours = Math.round((current.hours + hours) * 100) / 100;
+      staffHours.set(assignment.employeeId, current);
+    }
   }
   const cancel = items.filter((i) => i.action === "CANCEL");
   return {
@@ -165,6 +212,8 @@ export async function planHolidayClosure(db: Db, params: { branchId: string; dat
     items,
     cancelCount: cancel.length,
     classCount: new Set(cancel.map((i) => i.classId)).size,
+    totalHours: Math.round(cancel.reduce((sum, item) => sum + item.hours, 0) * 100) / 100,
+    staffHours: [...staffHours.values()].sort((a, b) => b.hours - a.hours || a.fullName.localeCompare(b.fullName, "vi")),
   };
 }
 
