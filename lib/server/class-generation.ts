@@ -39,9 +39,11 @@ export async function createSessionsInRange(classId: string, fromDate: Date, toD
   const existingSessions = new Set(existing.map(sessionKey));
   let toCreate = candidates.filter((candidate) => !existingSessions.has(sessionKey(candidate)));
 
-  // totalSessions là cam kết học phí/lộ trình gốc, không còn là trần cứng của lịch lớp.
-  // Vận hành thực tế có thể kéo lớp 50 buổi thành 60 buổi để dạy cho đủ mà không tự
-  // tăng học phí; tiền đã được khóa theo từng enrollment.
+  // totalSessions là SỐ BUỔI DỰ KIẾN của lộ trình, không phải trần cứng của lịch lớp: kéo
+  // lớp 50 buổi thành 60 buổi để dạy cho đủ là chuyện bình thường.
+  // NHƯNG buổi sinh thêm KHÔNG miễn phí: học viên PERIOD bị trừ ví mỗi buổi lớp dạy
+  // (lib/server/enrollment-wallet.ts) nên kỳ học phí sau sẽ thu đúng số buổi đó. Chỉ học
+  // viên COURSE đã mua đứt N buổi mới không bị thu thêm cho buổi vượt quá N.
 
   let staffSkipped = 0;
   if (toCreate.length > 0) {

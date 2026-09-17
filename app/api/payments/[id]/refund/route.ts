@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { hasPermission } from "@/lib/server/permissions";
 import { canAccessBranch } from "@/lib/branch-filter";
+import { syncBookIssuesOfPayment } from "@/lib/server/book-issue-payment";
 
 // Hoàn tiền — spec §14 liệt kê "Hoàn tiền/hủy payment" là điểm không được tự động
 // quyết định, nên bắt buộc gác quyền payment.refund (không mặc định cho mọi user
@@ -151,6 +152,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       where: { id: payment.id },
       data: { status: newTotalRefunded >= payment.amount ? "REFUNDED" : "PARTIALLY_REFUNDED" },
     });
+
+    // Hoàn hết tiền thì phiếu học phí hết "đã trả đủ" — sách thu theo kỳ gắn vào phiếu đó
+    // phải quay lại "chưa thanh toán", không để sổ kho báo đã thu trong khi tiền đã trả lại.
+    await syncBookIssuesOfPayment(tx, payment.id);
 
     await tx.auditLog.create({
       data: {

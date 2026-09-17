@@ -111,7 +111,9 @@ export default async function CalendarPage({
   const TODAY_YMD = getVietnamToday().toISOString().slice(0, 10);
   const q = searchParams.q?.trim() ?? "";
   const timePreset = searchParams.timePreset?.trim() ?? "all";
-  const view = searchParams.view === "list" ? "list" : "grid";
+  // Vận hành đọc thời khóa biểu chủ yếu ở DẠNG DANH SÁCH (mỗi buổi 1 dòng) — nên đó là
+  // mặc định; lưới tuần vẫn mở được bằng nút "Lưới".
+  const view = searchParams.view === "grid" ? "grid" : "list";
   const anchor = searchParams.week ? new Date(searchParams.week) : new Date();
   const weekStart = startOfWeek(anchor);
   const weekEnd = new Date(weekStart);

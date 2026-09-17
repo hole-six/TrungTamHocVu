@@ -30,6 +30,14 @@ function statusBadgeClass(status: string) {
   return "border-[#dce7f3] bg-slate-100 text-slate-700";
 }
 
+// Nền chìm xen kẽ theo THỨ để mắt tách được các ngày trong danh sách dài:
+// thứ 2/4/6 nền nhạt, thứ 3/5/7 nền trắng (chủ nhật theo nhóm nền nhạt).
+function weekdayRowClass(value: string | Date) {
+  const weekday = new Date(value).getUTCDay();
+  const tinted = weekday === 1 || weekday === 3 || weekday === 5 || weekday === 0;
+  return tinted ? "bg-[#f6f9fd] hover:bg-[#eef4fb]" : "bg-white hover:bg-[#fafdff]";
+}
+
 function formatRowDate(value: string | Date) {
   const d = new Date(value);
   return `${WEEKDAY_SHORT[d.getUTCDay()]} ${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -90,7 +98,7 @@ export default function CalendarListView({
               return (
                 <tr
                   key={row.id}
-                  className={`align-top transition ${isToday ? "bg-red-50 shadow-[inset_4px_0_0_0_#dc2626] hover:bg-red-100/70" : "hover:bg-[#fafdff]"}`}
+                  className={`align-top transition ${isToday ? "bg-red-50 shadow-[inset_4px_0_0_0_#dc2626] hover:bg-red-100/70" : weekdayRowClass(row.sessionDate)}`}
                 >
                   <td className={`whitespace-nowrap px-4 py-3 ${isToday ? "font-black text-red-700" : "font-semibold text-ink"}`}>
                     <div className="flex items-center gap-2">
@@ -118,13 +126,30 @@ export default function CalendarListView({
                   <td className="px-4 py-3">
                     <span className={row.room ? "text-ink" : "font-semibold text-amber-600"}>{row.room || "Chưa gán phòng"}</span>
                   </td>
+                  {/* Thiếu người thì bôi CAM y như "Chưa gán phòng" — 3 thứ thiếu của một
+                      buổi (phòng, GV, TG) phải nhìn ra ngay trên cùng một dòng.
+                      Lớp có 2 trợ giảng thì mỗi người một dòng, không dồn 1 dòng dài. */}
                   <td className="px-4 py-3 text-xs leading-5 text-ink-muted80">
                     <p>
-                      <span className="font-semibold text-ink">GV:</span> {teacherNames.length > 0 ? teacherNames.join(", ") : "Chưa có"}
+                      <span className="font-semibold text-ink">GV:</span>{" "}
+                      {teacherNames.length > 0 ? (
+                        teacherNames.join(", ")
+                      ) : (
+                        <span className="font-semibold text-amber-600">Chưa có giáo viên</span>
+                      )}
                     </p>
-                    <p>
-                      <span className="font-semibold text-ink">TG:</span> {assistantNames.length > 0 ? assistantNames.join(", ") : "Chưa có"}
-                    </p>
+                    {assistantNames.length > 0 ? (
+                      assistantNames.map((name, index) => (
+                        <p key={`${row.id}-tg-${index}`}>
+                          <span className="font-semibold text-ink">TG{assistantNames.length > 1 ? ` ${index + 1}` : ""}:</span> {name}
+                        </p>
+                      ))
+                    ) : (
+                      <p>
+                        <span className="font-semibold text-ink">TG:</span>{" "}
+                        <span className="font-semibold text-amber-600">Chưa có trợ giảng</span>
+                      </p>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-center font-semibold text-ink">{enrollmentCount}</td>
                   <td className="px-4 py-3 text-right">

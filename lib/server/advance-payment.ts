@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import { topUpWalletFromPayment } from "@/lib/server/enrollment-wallet";
+import { syncBookIssuePaymentStatus } from "@/lib/server/book-issue-payment";
 
 // TIỀN ĐÓNG TRƯỚC / THU DƯ — khoản tiền đã thu thật của học viên nhưng chưa gắn được
 // vào phiếu học phí nào.
@@ -105,6 +106,12 @@ export async function settleChargesFromAdvancePayments(
         });
       }
     }
+  }
+
+  // Tiền đóng trước gắn vào phiếu nào thì sách thu theo kỳ của phiếu đó cũng phải đổi
+  // trạng thái theo — xem lib/server/book-issue-payment.ts.
+  for (const chargeId of touchedCharges) {
+    await syncBookIssuePaymentStatus(tx, chargeId);
   }
 
   return { allocated, chargeIds: touchedCharges };

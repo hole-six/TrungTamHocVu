@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { computeOutstandingBalance } from "@/lib/server/balance";
 import { chargeOwnDueAmount, computeTotalAmount } from "@/lib/server/tuition-rules";
+import { syncBookIssuePaymentStatus } from "@/lib/server/book-issue-payment";
 import { topUpWalletFromPayment } from "@/lib/server/enrollment-wallet";
 import { computeAdvanceBalance } from "@/lib/server/advance-payment";
 import { computeCashDiscount } from "@/lib/cash-discount";
@@ -82,6 +83,7 @@ export async function recordStudentPayment(tx: Prisma.TransactionClient, params:
     let remainingCash = discount.cashForDebt;
     let remainingDiscount = discountAmount;
     let allocatedCash = 0;
+    const touchedChargeIds = new Set<string>();
     const chargeDiscountNote = `Giảm ${params.discountPercent}% do thu tiền mặt (phiếu thu ${paymentNo})${params.discountReason ? ` · ${params.discountReason}` : ""}`;
 
     for (const charge of openCharges) {
@@ -102,9 +104,11 @@ export async function recordStudentPayment(tx: Prisma.TransactionClient, params:
         });
         remainingCash -= cashPart;
         allocatedCash += cashPart;
+        touchedChargeIds.add(charge.id);
       }
 
       if (discountPart > 0) {
+        touchedChargeIds.add(charge.id);
         const tuitionAmount = Math.max(0, charge.tuitionAmount - discountPart);
         await tx.charge.update({
           where: { id: charge.id },
@@ -134,6 +138,13 @@ export async function recordStudentPayment(tx: Prisma.TransactionClient, params:
         });
       }
     }
+    // Phiếu học phí nào vừa được trả đủ thì sách thu theo kỳ gắn vào phiếu đó cũng là đã
+    // thu — nếu không, sổ xuất giáo trình báo "chưa thanh toán" vĩnh viễn dù phụ huynh đã
+    // đóng học phí (xem lib/server/book-issue-payment.ts).
+    for (const chargeId of touchedChargeIds) {
+      await syncBookIssuePaymentStatus(tx, chargeId);
+    }
+
     const remaining = params.amount - allocatedCash;
 
     const cashTxn = await tx.cashTransaction.create({

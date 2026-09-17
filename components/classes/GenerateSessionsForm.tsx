@@ -11,14 +11,23 @@ const GENERATE_SESSIONS_GUIDE_SECTIONS = [
     items: [
       "Dùng để biến lịch chuẩn thành các buổi học thực tế trong một khoảng ngày.",
       "Có thể chạy nhiều lần; hệ thống tự bỏ qua buổi đã tồn tại.",
-      "Nếu lớp cần dạy kéo dài cho học viên học đủ, sinh thêm buổi ở đây và học phí không tự tăng.",
+      "Cần dạy kéo dài cho học viên học đủ thì sinh thêm buổi ở đây.",
     ],
     tone: "info" as const,
   },
   {
+    title: "Sinh thêm buổi là có thêm tiền",
+    items: [
+      "Học viên đóng THEO THÁNG (đa số): mỗi buổi lớp dạy trừ 1 buổi trong ví học của em đó, hết ví là phải đóng tiếp — sinh thêm buổi nghĩa là kỳ sau thu thêm tiền, không phải dạy thêm miễn phí.",
+      "Học viên mua TRỌN KHÓA: đã trả đủ số buổi đã mua, buổi vượt quá số đó không thu thêm.",
+      "Muốn dạy bù/dạy thêm mà KHÔNG thu tiền thì đừng sinh buổi mới ở đây — dùng buổi bổ trợ cho từng học viên.",
+    ],
+    tone: "warning" as const,
+  },
+  {
     title: "Cần nhớ",
     items: [
-      "Tổng số buổi của lớp là mốc cam kết/lộ trình/học phí, không phải trần cứng của lịch.",
+      "Tổng số buổi của lớp chỉ là số buổi dự kiến của lộ trình, không phải trần cứng của lịch.",
       "Sửa lịch chuẩn chỉ ảnh hưởng lần sinh buổi mới về sau, không sửa buổi quá khứ.",
       "Buổi học lệch lịch hoặc đổi buổi nên xử lý trên từng session riêng.",
     ],
@@ -93,7 +102,7 @@ export default function GenerateSessionsForm({
         open={open}
         onClose={() => setOpen(false)}
         title="Sinh buổi học theo lịch chuẩn"
-        description="Tạo buổi học thực tế từ lịch chuẩn của lớp. Lớp có thể kéo dài thêm buổi mà không làm học phí tự tăng."
+        description="Tạo buổi học thực tế từ lịch chuẩn của lớp. Học viên đóng theo tháng trả tiền theo số buổi lớp thật sự dạy, nên sinh thêm buổi là kỳ sau thu thêm."
         guide={
           <FormGuide
             title="Hướng dẫn sinh buổi học"
@@ -109,9 +118,9 @@ export default function GenerateSessionsForm({
             <p className="mt-1">
               {totalSessions
                 ? remainingToCommitment && remainingToCommitment > 0
-                  ? `Lớp cam kết ${totalSessions} buổi — đã sinh ${existingSessionCount} buổi, còn thiếu ${remainingToCommitment} buổi để đủ lộ trình. Chọn khoảng ngày bên dưới để sinh tiếp.`
-                  : `Lớp cam kết ${totalSessions} buổi — đã sinh đủ ${existingSessionCount} buổi. Sinh thêm ở đây (nếu cần dạy kéo dài) sẽ không làm học phí tự tăng.`
-                : "Tổng số buổi là mốc học phí/lộ trình, không phải trần cứng của lịch — danh sách buổi học có thể dài hơn nếu lớp cần dạy tiếp cho học viên chưa học đủ."}
+                  ? `Lớp dự kiến ${totalSessions} buổi — đã sinh ${existingSessionCount} buổi, còn thiếu ${remainingToCommitment} buổi để đủ lộ trình. Chọn khoảng ngày bên dưới để sinh tiếp.`
+                  : `Lớp dự kiến ${totalSessions} buổi — đã sinh đủ ${existingSessionCount} buổi. Sinh thêm ở đây là lớp dạy thêm buổi thật: học viên đóng theo tháng sẽ bị trừ ví mỗi buổi và phải đóng tiền cho những buổi đó.`
+                : "Tổng số buổi chỉ là số buổi dự kiến của lộ trình, không phải trần cứng của lịch — nhưng tiền thì tính theo số buổi lớp thật sự dạy."}
             </p>
             <button type="button" onClick={fillNext90Days} className="mt-3 text-xs font-bold text-primary">
               Điền nhanh 90 ngày tới
