@@ -128,6 +128,7 @@ model User {
   guardian        Guardian?            @relation(fields: [guardianId], references: [id])
   auditLogs       AuditLog[]
   moduleOverrides UserModuleOverride[]
+  bookIssues      BookIssue[]          @relation("BookIssueIssuedBy")
 
   @@map("users")
 }
@@ -1363,6 +1364,9 @@ model BookIssue {
   classId       String?  @map("class_id")
   studentId     String   @map("student_id")
   chargeId      String?  @map("charge_id")
+  // NGƯỜI THỰC HIỆN xuất sách — mỗi nhân sự một tài khoản nên truy ra được ai đã phát
+  // cuốn này. Nullable vì phiếu cũ (trước khi có cột) không truy ngược được.
+  issuedById    String?  @map("issued_by_id")
   quantity      Int      @default(1)
   unitPrice     Int      @map("unit_price")
   amount        Int
@@ -1372,6 +1376,7 @@ model BookIssue {
 
   book        Book                    @relation(fields: [bookId], references: [id])
   class       Class?                  @relation(fields: [classId], references: [id])
+  issuedBy    User?                   @relation("BookIssueIssuedBy", fields: [issuedById], references: [id])
   student     Student                 @relation(fields: [studentId], references: [id])
   charge      Charge?                 @relation(fields: [chargeId], references: [id])
   requirement StudentBookRequirement?

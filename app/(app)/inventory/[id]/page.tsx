@@ -20,6 +20,7 @@ export default async function BookDetailPage({ params }: { params: { id: string 
     where: { id: params.id },
     include: {
       stockTransactions: { orderBy: { txnDate: "desc" } },
+      // Ai nhập / ai giao — mỗi nhân sự một tài khoản nên truy được người thực hiện.
       bookIssues: { include: { student: true, class: true }, orderBy: { issueDate: "desc" } },
     },
   });
@@ -28,6 +29,20 @@ export default async function BookDetailPage({ params }: { params: { id: string 
   const currentUser = await getCurrentUser();
   if (currentUser?.branchId && book.branchId !== currentUser.branchId) notFound();
   const role = currentUser ? await getUserRole(currentUser.id) : null;
+
+  // Tên người thực hiện của các dòng nhập kho / xuất sách — lấy 1 lượt theo id.
+  const userIds = [
+    ...new Set([
+      ...book.stockTransactions.map((txn) => txn.receivedById),
+      ...book.bookIssues.map((issue) => issue.issuedById),
+    ].filter((id): id is string => Boolean(id))),
+  ];
+  const userNameById = new Map(
+    (userIds.length > 0
+      ? await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, fullName: true } })
+      : []
+    ).map((item) => [item.id, item.fullName]),
+  );
 
   const balance = await computeStockBalance(book.id);
   const receiptCost = book.stockTransactions.filter((t) => t.type === "RECEIPT").reduce((sum, t) => sum + t.totalAmount, 0);
@@ -149,6 +164,7 @@ export default async function BookDetailPage({ params }: { params: { id: string 
                   <th className="py-2 font-medium">SL</th>
                   <th className="py-2 font-medium">Giá nhập</th>
                   <th className="py-2 font-medium">Thành tiền</th>
+                  <th className="py-2 font-medium">Người thực hiện</th>
                 </tr>
               </thead>
               <tbody>
@@ -159,11 +175,12 @@ export default async function BookDetailPage({ params }: { params: { id: string 
                     <td className="py-2 font-medium">{txn.quantity}</td>
                     <td className="py-2 text-ink-muted80">{formatVnd(txn.unitPrice)}</td>
                     <td className="py-2 font-medium">{formatVnd(txn.totalAmount)}</td>
+                    <td className="py-2 text-xs text-ink-muted80">{userNameById.get(txn.receivedById ?? "") ?? "—"}</td>
                   </tr>
                 ))}
                 {book.stockTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-ink-muted48">
+                    <td colSpan={6} className="py-6 text-center text-ink-muted48">
                       Chưa có giao dịch nhập kho.
                     </td>
                   </tr>
@@ -220,6 +237,7 @@ export default async function BookDetailPage({ params }: { params: { id: string 
                   <th className="py-2 font-medium">Lớp</th>
                   <th className="py-2 font-medium">SL</th>
                   <th className="py-2 font-medium">Thành tiền</th>
+                  <th className="py-2 font-medium">Người xuất</th>
                 </tr>
               </thead>
               <tbody>
@@ -234,11 +252,12 @@ export default async function BookDetailPage({ params }: { params: { id: string 
                     <td className="py-2 text-ink-muted80">{issue.class?.className ?? "—"}</td>
                     <td className="py-2 text-ink-muted80">{issue.quantity}</td>
                     <td className="py-2 font-medium">{formatVnd(issue.amount)}</td>
+                    <td className="py-2 text-xs text-ink-muted80">{userNameById.get(issue.issuedById ?? "") ?? "—"}</td>
                   </tr>
                 ))}
                 {book.bookIssues.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-ink-muted48">
+                    <td colSpan={6} className="py-6 text-center text-ink-muted48">
                       Chưa xuất cho học viên nào.
                     </td>
                   </tr>

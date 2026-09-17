@@ -26,7 +26,11 @@ type CashRow = {
   categoryName: string | null;
   /** Lớp của khoản thu học phí — suy ra từ phiếu thu, xem app/(app)/cashbook/page.tsx. */
   className?: string | null;
+  studentCode?: string | null;
+  studentName?: string | null;
   handledByName: string | null;
+  /** Bóc tách số tiền của phiếu thu: học phí / giáo trình / đóng trước. */
+  breakdown?: { tuition: number; materials: number; advance: number; books: string[]; periods: string[] } | null;
   isDerived: boolean;
 };
 
@@ -99,6 +103,21 @@ export default function CashbookTable({
       render: (value) => value ?? "Chưa phân loại",
     },
     {
+      // MÃ + TÊN HỌC SINH: soát sổ quỹ hay phải tra "khoản này của em nào" — gõ mã hoặc
+      // tên vào 1 trong 2 ô lọc đều ra (cùng một bộ lọc ở server).
+      key: "studentCode",
+      label: "Mã học sinh",
+      filter: { type: "text", paramKey: "student", placeholder: "Mã/tên HV..." },
+      render: (value) =>
+        value ? <span className="font-mono text-xs font-bold text-[#f97316]">{value}</span> : <span className="text-xs text-ink-muted48">—</span>,
+    },
+    {
+      key: "studentName",
+      label: "Tên học sinh",
+      filter: { type: "text", paramKey: "student", placeholder: "Mã/tên HV..." },
+      render: (value) => (value ? <span className="font-medium text-ink">{value}</span> : <span className="text-xs text-ink-muted48">—</span>),
+    },
+    {
       key: "description",
       label: "Nội dung thu chi",
       filter: { type: "text", paramKey: "search", placeholder: "Tìm nội dung..." },
@@ -110,7 +129,20 @@ export default function CashbookTable({
           {row.className ? (
             <p className="text-xs font-semibold text-[#2563eb]">Lớp: {row.className}</p>
           ) : null}
-          <p className="text-xs text-ink-muted48">{row.handledByName ? `Người xử lý: ${row.handledByName}` : "Chưa rõ người xử lý"}</p>
+          {/* Bóc tách nhanh ngay trên dòng: 850.000đ gồm học phí bao nhiêu, sách bao nhiêu. */}
+          {row.breakdown && (row.breakdown.tuition > 0 || row.breakdown.materials > 0 || row.breakdown.advance > 0) ? (
+            <div className="flex flex-wrap items-center gap-1">
+              {row.breakdown.tuition > 0 ? (
+                <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-bold text-emerald-700">Học phí {formatVnd(row.breakdown.tuition)}</span>
+              ) : null}
+              {row.breakdown.materials > 0 ? (
+                <span className="rounded-md bg-violet-50 px-1.5 py-0.5 text-[11px] font-bold text-violet-700">Sách {formatVnd(row.breakdown.materials)}</span>
+              ) : null}
+              {row.breakdown.advance > 0 ? (
+                <span className="rounded-md bg-sky-50 px-1.5 py-0.5 text-[11px] font-bold text-sky-700">Đóng trước {formatVnd(row.breakdown.advance)}</span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ),
     },
@@ -122,6 +154,14 @@ export default function CashbookTable({
       render: (value) => (value ? <span className="font-semibold text-emerald-600">{formatVnd(value)}</span> : "—"),
     },
     { key: "chiAmount", label: "Chi ra", align: "right", render: (value) => (value ? <span className="font-semibold text-rose-600">{formatVnd(value)}</span> : "—") },
+    {
+      // NGƯỜI THU / NGƯỜI THỰC HIỆN — mỗi nhân sự một tài khoản nên truy được ngay ai
+      // đã thu khoản này (trước đây chỉ nằm chìm trong cột nội dung, không lọc được).
+      key: "handledByName",
+      label: "Người thu",
+      filter: { type: "text", paramKey: "handler", placeholder: "Tên người thu..." },
+      render: (value) => (value ? <span className="text-xs font-semibold text-ink-muted80">{value}</span> : <span className="text-xs text-ink-muted48">Chưa rõ</span>),
+    },
     {
       key: "status",
       label: "Trạng thái",
@@ -171,6 +211,8 @@ export default function CashbookTable({
     amountFrom: searchParams.get("amountFrom") ?? "",
     amountTo: searchParams.get("amountTo") ?? "",
     status: searchParams.get("status") ?? "",
+    student: searchParams.get("student") ?? "",
+    handler: searchParams.get("handler") ?? "",
   };
   const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
     updateParams({ [key]: value, ...extra, page: "1" });
@@ -206,6 +248,14 @@ export default function CashbookTable({
   }
   if (urlSearch) {
     chips.push({ key: "search", label: `"${urlSearch}"`, onRemove: () => handleFilterChange("search", null) });
+  }
+  const urlStudent = searchParams.get("student");
+  const urlHandler = searchParams.get("handler");
+  if (urlStudent) {
+    chips.push({ key: "student", label: `Học viên: ${urlStudent}`, onRemove: () => handleFilterChange("student", null) });
+  }
+  if (urlHandler) {
+    chips.push({ key: "handler", label: `Người thu: ${urlHandler}`, onRemove: () => handleFilterChange("handler", null) });
   }
   if (urlStatus) {
     chips.push({ key: "status", label: STATUS_LABEL[urlStatus] ?? urlStatus, onRemove: () => handleFilterChange("status", null) });
@@ -243,7 +293,7 @@ export default function CashbookTable({
         ) : undefined
       }
       primaryColumn="description"
-      secondaryColumns={["txnDate", "type", "thuAmount", "chiAmount", "status"]}
+      secondaryColumns={["txnDate", "type", "studentName", "thuAmount", "chiAmount", "handledByName", "status"]}
       emptyState={{ title: "Chưa có phiếu thu/chi nào", description: "Không có phiếu nào trong khoảng ngày đang xem." }}
       loading={isPending}
       pagination={{

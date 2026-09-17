@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
     issueDate: body.issueDate ? new Date(body.issueDate) : undefined,
     notes: body.notes ?? null,
     paidNow: body.paidNow === true,
+    issuedById: user.id,
   });
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
 

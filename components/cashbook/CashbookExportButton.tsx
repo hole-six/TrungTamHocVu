@@ -7,6 +7,10 @@ type Transaction = {
   type: "THU" | "CHI";
   categoryName: string | null;
   className?: string | null;
+  studentCode?: string | null;
+  studentName?: string | null;
+  handledByName?: string | null;
+  breakdown?: { tuition: number; materials: number; advance: number } | null;
   amount: number;
   description: string | null;
   status: string;
@@ -70,9 +74,15 @@ export default function CashbookExportButton({
             { key: "txnDate", label: "Ngay" },
             { key: "type", label: "Loai" },
             { key: "categoryName", label: "Danh muc" },
+            { key: "studentCode", label: "Ma hoc sinh" },
+            { key: "studentName", label: "Ten hoc sinh" },
             { key: "className", label: "Lop" },
             { key: "amountIn", label: "Thu vao" },
             { key: "amountOut", label: "Chi ra" },
+            { key: "tuitionPart", label: "Trong do: hoc phi" },
+            { key: "materialsPart", label: "Trong do: sach" },
+            { key: "advancePart", label: "Trong do: dong truoc" },
+            { key: "handledByName", label: "Nguoi thu" },
             { key: "description", label: "Dien giai" },
             { key: "status", label: "Trang thai" },
           ],
@@ -80,9 +90,15 @@ export default function CashbookExportButton({
             txnDate: formatDate(item.txnDate),
             type: item.type,
             categoryName: item.categoryName ?? "",
+            studentCode: item.studentCode ?? "",
+            studentName: item.studentName ?? "",
             className: item.className ?? "",
             amountIn: item.type === "THU" ? formatVnd(item.amount) : "",
             amountOut: item.type === "CHI" ? formatVnd(item.amount) : "",
+            tuitionPart: item.breakdown?.tuition ? formatVnd(item.breakdown.tuition) : "",
+            materialsPart: item.breakdown?.materials ? formatVnd(item.breakdown.materials) : "",
+            advancePart: item.breakdown?.advance ? formatVnd(item.breakdown.advance) : "",
+            handledByName: item.handledByName ?? "",
             description: item.description ?? "",
             status: item.status,
           })),

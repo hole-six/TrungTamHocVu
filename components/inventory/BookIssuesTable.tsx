@@ -21,6 +21,7 @@ type IssueRow = {
   unitPrice: number;
   amount: number;
   paymentStatus: string;
+  issuedByName: string;
   notes: string;
 };
 
@@ -77,6 +78,7 @@ export default function BookIssuesTable({
     amountFrom: searchParams.get("amountFrom") ?? "",
     amountTo: searchParams.get("amountTo") ?? "",
     paymentStatus: searchParams.get("paymentStatus") ?? "",
+    issuedBy: searchParams.get("issuedBy") ?? "",
   };
   const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) =>
     updateParams({ [key]: value, ...extra, issuePage: "1" });
@@ -143,6 +145,13 @@ export default function BookIssuesTable({
       align: "right",
       filter: { type: "numberRange", paramKeyFrom: "amountFrom", paramKeyTo: "amountTo", placeholder: "đ" },
       render: (value) => <span className="font-medium">{formatVnd(value)}</span>,
+    },
+    {
+      // NGƯỜI THỰC HIỆN xuất sách — mỗi nhân sự một tài khoản nên truy được ngay ai phát.
+      key: "issuedByName",
+      label: "Người xuất",
+      filter: { type: "text", paramKey: "issuedBy", placeholder: "Tên người xuất..." },
+      render: (value) => (value ? <span className="text-xs font-semibold text-ink-muted80">{value}</span> : <span className="text-xs text-ink-muted48">—</span>),
     },
     {
       key: "paymentStatus",

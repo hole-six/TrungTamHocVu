@@ -13,6 +13,7 @@ import CashbookTable from "@/components/cashbook/CashbookTable";
 import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { formatVnd } from "@/lib/export-utils";
+import { splitPaymentAmount } from "@/lib/server/cash-breakdown";
 
 const CASHBOOK_TOUR_STEPS: TourStep[] = [
   {
@@ -86,6 +87,8 @@ export default async function CashbookPage({
     amountFrom?: string;
     amountTo?: string;
     status?: string;
+    student?: string;
+    handler?: string;
     page?: string;
     tab?: string;
   };
@@ -123,6 +126,11 @@ export default async function CashbookPage({
   const amountFromFilter = searchParams?.amountFrom?.trim() ?? "";
   const amountToFilter = searchParams?.amountTo?.trim() ?? "";
   const statusFilter = searchParams?.status?.trim() ?? "";
+  // Lọc theo HỌC VIÊN (mã hoặc tên) và NGƯỜI THU — soát sổ quỹ hay phải tra "khoản này
+  // của em nào, ai thu". Cả 2 đều không phải cột của CashTransaction nên lọc qua quan hệ:
+  // học viên đi qua phiếu thu/hoàn tiền, người thu đi qua handledById.
+  const studentFilter = searchParams?.student?.trim() ?? "";
+  const handlerFilter = searchParams?.handler?.trim() ?? "";
   const currentPage = Number(searchParams?.page) || 1;
   const itemsPerPage = 20;
 
@@ -133,12 +141,37 @@ export default async function CashbookPage({
   if (typeFilter) where.type = typeFilter;
   if (categoryIdFilter) where.categoryId = categoryIdFilter;
   if (statusFilter) where.status = statusFilter;
+  // Mỗi bộ lọc dạng OR phải nằm trong 1 phần tử của AND — gán thẳng where.OR hai lần
+  // thì cái sau đè cái trước, lọc theo học viên sẽ xóa mất ô tìm nội dung.
+  const andFilters: Record<string, unknown>[] = [];
   if (searchQuery) {
-    where.OR = [
-      { description: { contains: searchQuery, mode: "insensitive" } },
-      { detail: { contains: searchQuery, mode: "insensitive" } },
-      { notes: { contains: searchQuery, mode: "insensitive" } },
-    ];
+    andFilters.push({
+      OR: [
+        { description: { contains: searchQuery, mode: "insensitive" } },
+        { detail: { contains: searchQuery, mode: "insensitive" } },
+        { notes: { contains: searchQuery, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (studentFilter) {
+    const studentWhere = {
+      OR: [{ fullName: { contains: studentFilter } }, { studentCode: { contains: studentFilter } }],
+    };
+    andFilters.push({
+      OR: [
+        { paymentPostings: { some: { payment: { student: studentWhere } } } },
+        { refundPostings: { some: { refund: { payment: { student: studentWhere } } } } },
+      ],
+    });
+  }
+  if (andFilters.length > 0) where.AND = andFilters;
+  if (handlerFilter) {
+    const matchedUsers = await prisma.user.findMany({
+      where: { fullName: { contains: handlerFilter } },
+      select: { id: true },
+    });
+    // Không ai khớp tên thì phải ra rỗng, chứ không phải bỏ qua bộ lọc.
+    where.handledById = { in: matchedUsers.map((item) => item.id) };
   }
   if (amountFromFilter || amountToFilter) {
     where.amount = {
@@ -177,13 +210,34 @@ export default async function CashbookPage({
         cashTransactionId: true,
         payment: {
           select: {
-            student: { select: { fullName: true } },
-            allocations: { select: { charge: { select: { class: { select: { classCode: true, className: true } } } } } },
+            paymentNo: true,
+            amount: true,
+            student: { select: { fullName: true, studentCode: true } },
+            allocations: {
+              select: {
+                amount: true,
+                charge: {
+                  select: {
+                    tuitionAmount: true,
+                    materialsAmount: true,
+                    billingPeriod: { select: { periodName: true } },
+                    class: { select: { classCode: true, className: true } },
+                    bookIssues: { select: { amount: true, quantity: true, book: { select: { name: true } } } },
+                  },
+                },
+              },
+            },
           },
         },
       },
     }),
-    prisma.refundCashPosting.findMany({ where: { cashTransactionId: { in: txnIds } }, select: { cashTransactionId: true } }),
+    prisma.refundCashPosting.findMany({
+      where: { cashTransactionId: { in: txnIds } },
+      select: {
+        cashTransactionId: true,
+        refund: { select: { payment: { select: { student: { select: { fullName: true, studentCode: true } } } } } },
+      },
+    }),
     prisma.stockCashPosting.findMany({ where: { cashTransactionId: { in: txnIds } }, select: { cashTransactionId: true } }),
     prisma.user.findMany({
       where: { id: { in: [...new Set(transactions.map((item) => item.handledById).filter((id): id is string => !!id))] } },
@@ -203,6 +257,18 @@ export default async function CashbookPage({
   // Một phiếu thu có thể phân bổ cho nhiều lớp (học viên học 2 lớp) — gom lại thành
   // danh sách, không ép về một lớp duy nhất cho gọn rồi hiển thị sai.
   const classNamesByTxn = new Map<string, string>();
+  const studentByTxn = new Map<string, { code: string | null; name: string }>();
+  // BÓC TÁCH SỐ TIỀN của phiếu thu (công thức ở lib/server/cash-breakdown.ts) kèm tên
+  // sách và kỳ học phí để người soát đọc được ngay "tiền này là của cái gì".
+  type CashBreakdown = {
+    tuition: number;
+    materials: number;
+    advance: number;
+    books: string[];
+    periods: string[];
+  };
+  const breakdownByTxn = new Map<string, CashBreakdown>();
+
   for (const posting of paymentPostings) {
     const names = [
       ...new Set(
@@ -212,6 +278,36 @@ export default async function CashbookPage({
       ),
     ];
     if (names.length > 0) classNamesByTxn.set(posting.cashTransactionId, names.join(", "));
+    if (posting.payment?.student) {
+      studentByTxn.set(posting.cashTransactionId, {
+        code: posting.payment.student.studentCode ?? null,
+        name: posting.payment.student.fullName,
+      });
+    }
+
+    const allocations = posting.payment?.allocations ?? [];
+    const split = splitPaymentAmount(allocations, posting.payment?.amount ?? 0);
+    const breakdown: CashBreakdown = { ...split, books: [], periods: [] };
+    for (const allocation of allocations) {
+      const charge = allocation.charge;
+      if (!charge) continue;
+      for (const issue of charge.bookIssues) {
+        const label = issue.quantity > 1 ? `${issue.book.name} ×${issue.quantity}` : issue.book.name;
+        if (!breakdown.books.includes(label)) breakdown.books.push(label);
+      }
+      const periodName = charge.billingPeriod?.periodName;
+      if (periodName && !breakdown.periods.includes(periodName)) breakdown.periods.push(periodName);
+    }
+    if (breakdown.tuition > 0 || breakdown.materials > 0 || breakdown.advance > 0) {
+      breakdownByTxn.set(posting.cashTransactionId, breakdown);
+    }
+  }
+
+  for (const posting of refundPostings) {
+    const student = posting.refund?.payment?.student;
+    if (student) {
+      studentByTxn.set(posting.cashTransactionId, { code: student.studentCode ?? null, name: student.fullName });
+    }
   }
 
   const totalThu = transactionsForTotals.filter((item) => item.type === "THU" && item.status !== "VOIDED").reduce((sum, item) => sum + item.amount, 0);
@@ -245,7 +341,10 @@ export default async function CashbookPage({
     categoryId: transaction.categoryId,
     categoryName: transaction.category?.name ?? null,
     className: classNamesByTxn.get(transaction.id) ?? null,
+    studentCode: studentByTxn.get(transaction.id)?.code ?? null,
+    studentName: studentByTxn.get(transaction.id)?.name ?? null,
     handledByName: transaction.handledById ? handlerNameById.get(transaction.handledById) ?? null : null,
+    breakdown: breakdownByTxn.get(transaction.id) ?? null,
     isDerived: derivedIds.has(transaction.id),
   }));
 

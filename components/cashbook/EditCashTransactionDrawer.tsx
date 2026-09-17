@@ -20,6 +20,12 @@ type CashTransaction = {
   attachmentUrl: string | null;
   status: string;
   categoryId: string | null;
+  studentCode?: string | null;
+  studentName?: string | null;
+  handledByName?: string | null;
+  className?: string | null;
+  /** Bóc tách số tiền: học phí / giáo trình / đóng trước (xem app/(app)/cashbook/page.tsx). */
+  breakdown?: { tuition: number; materials: number; advance: number; books: string[]; periods: string[] } | null;
   isDerived: boolean;
 };
 
@@ -232,6 +238,20 @@ export default function EditCashTransactionDrawer({ transaction, categories, can
                   <span className="text-xs text-amber-600">Diễn giải:</span>
                   <p className="font-medium">{transaction.description || "—"}</p>
                 </div>
+                {transaction.studentName ? (
+                  <div>
+                    <span className="text-xs text-amber-600">Học viên:</span>
+                    <p className="font-medium">
+                      {transaction.studentName}
+                      {transaction.studentCode ? <span className="font-mono font-bold"> · {transaction.studentCode}</span> : null}
+                      {transaction.className ? <span className="font-normal"> · lớp {transaction.className}</span> : null}
+                    </p>
+                  </div>
+                ) : null}
+                <div>
+                  <span className="text-xs text-amber-600">Người thu:</span>
+                  <p className="font-medium">{transaction.handledByName || "Chưa rõ"}</p>
+                </div>
                 {transaction.detail ? (
                   <div>
                     <span className="text-xs text-amber-600">Chi tiết:</span>
@@ -245,6 +265,45 @@ export default function EditCashTransactionDrawer({ transaction, categories, can
                   </div>
                 ) : null}
               </div>
+              {/* SỐ TIỀN NÀY GỒM NHỮNG GÌ — câu hỏi đầu tiên khi soát phiếu thu. Tiền vào
+                  phiếu học phí không chỉ đích danh dòng nào nên chia theo tỉ lệ cấu thành
+                  của phiếu (học phí / giáo trình); tổng luôn khớp đúng số đã thu. */}
+              {transaction.breakdown &&
+              (transaction.breakdown.tuition > 0 || transaction.breakdown.materials > 0 || transaction.breakdown.advance > 0) ? (
+                <div className="rounded-xl border border-[#e5eaf7] bg-white p-3">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748b]">
+                    {formatVnd(transaction.amount)} này gồm
+                  </p>
+                  <div className="mt-2 space-y-1.5">
+                    {transaction.breakdown.tuition > 0 ? (
+                      <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2">
+                        <span className="text-sm font-bold text-emerald-800">Học phí</span>
+                        <span className="text-sm font-black text-emerald-700">{formatVnd(transaction.breakdown.tuition)}</span>
+                      </div>
+                    ) : null}
+                    {transaction.breakdown.materials > 0 ? (
+                      <div className="rounded-lg bg-violet-50 px-3 py-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold text-violet-800">Sách / giáo trình</span>
+                          <span className="text-sm font-black text-violet-700">{formatVnd(transaction.breakdown.materials)}</span>
+                        </div>
+                        {transaction.breakdown.books.length > 0 ? (
+                          <p className="mt-0.5 text-[11px] text-violet-700">{transaction.breakdown.books.join(" · ")}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {transaction.breakdown.advance > 0 ? (
+                      <div className="flex items-center justify-between rounded-lg bg-sky-50 px-3 py-2">
+                        <span className="text-sm font-bold text-sky-800">Đóng trước (chưa vào phiếu nào)</span>
+                        <span className="text-sm font-black text-sky-700">{formatVnd(transaction.breakdown.advance)}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                  {transaction.breakdown.periods.length > 0 ? (
+                    <p className="mt-2 text-[11px] text-[#64748b]">Kỳ học phí: {transaction.breakdown.periods.join(", ")}</p>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="flex justify-end pt-3">
                 <button type="button" onClick={handleClose} className="btn-ghost">
                   Đóng

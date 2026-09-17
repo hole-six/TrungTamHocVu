@@ -44,6 +44,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
             unitPrice: requirement.unitPriceSnapshot,
             amount: requirement.totalAmount,
             issueDate: new Date(),
+            issuedById: user.id,
             notes: requirement.notes ?? "Xác nhận mua bộ sách chuẩn của khóa",
           },
         });

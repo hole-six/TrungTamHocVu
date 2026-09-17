@@ -29,6 +29,8 @@ export async function issueBooksToStudent(params: {
   issueDate?: Date;
   notes?: string | null;
   paidNow: boolean;
+  /** Tài khoản đang thao tác — lưu lại để truy ai đã phát cuốn sách này. */
+  issuedById?: string | null;
 }): Promise<{ error: string; status: number } | { items: BookIssueResultItem[]; warnings: string[] }> {
   const { studentId, paidNow } = params;
   if (!studentId) return { error: "Thiếu học viên", status: 400 };
@@ -86,6 +88,7 @@ export async function issueBooksToStudent(params: {
           unitPrice: book.unitPrice,
           amount: quantity * book.unitPrice,
           issueDate,
+          issuedById: params.issuedById ?? null,
           paymentStatus: paidNow ? "PAID" : "UNPAID",
           notes: params.notes || null,
         },

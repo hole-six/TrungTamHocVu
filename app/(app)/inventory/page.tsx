@@ -81,6 +81,7 @@ export default async function InventoryPage({
     paymentStatus?: string;
     issueClass?: string;
     issueStudent?: string;
+    issuedBy?: string;
     issueCategory?: string;
     issueDateFrom?: string;
     issueDateTo?: string;
@@ -118,6 +119,7 @@ export default async function InventoryPage({
   // Lọc theo từng cột (hàng cố định dưới header) của bảng "Sổ xuất giáo trình".
   const issueClassFilter = searchParams?.issueClass?.trim() ?? "";
   const issueStudentFilter = searchParams?.issueStudent?.trim() ?? "";
+  const issuedByFilter = searchParams?.issuedBy?.trim() ?? "";
   const issueCategoryFilter = searchParams?.issueCategory?.trim() ?? "";
   const issueDateFrom = searchParams?.issueDateFrom?.trim() ?? "";
   const issueDateTo = searchParams?.issueDateTo?.trim() ?? "";
@@ -214,6 +216,7 @@ export default async function InventoryPage({
     ...(issueClassFilter
       ? { class: { OR: [{ classCode: { contains: issueClassFilter } }, { className: { contains: issueClassFilter } }] } }
       : {}),
+    ...(issuedByFilter ? { issuedBy: { fullName: { contains: issuedByFilter } } } : {}),
     ...(issueStudentFilter
       ? { student: { OR: [{ fullName: { contains: issueStudentFilter } }, { studentCode: { contains: issueStudentFilter } }] } }
       : {}),
@@ -242,6 +245,7 @@ export default async function InventoryPage({
       book: true,
       class: true,
       student: true,
+      issuedBy: { select: { fullName: true } },
     },
     orderBy: [{ issueDate: "desc" }, { id: "desc" }],
   });
@@ -260,6 +264,8 @@ export default async function InventoryPage({
       unitPrice: issue.unitPrice,
       amount: issue.amount,
       paymentStatus: issue.paymentStatus,
+      // NGƯỜI THỰC HIỆN: phiếu cũ (trước khi có cột) không truy ngược được nên để trống.
+      issuedByName: issue.issuedBy?.fullName ?? "",
       notes: issue.notes ?? "",
     }));
 
