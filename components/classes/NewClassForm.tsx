@@ -162,13 +162,23 @@ export default function NewClassForm({
     startDate: "",
     notes: "",
     isRemedial: false,
+    // Không bắt buộc: chiết khấu áp cho CẢ LỚP, mọi học viên ghi danh lấy làm mặc định.
+    discountPercent: "",
   });
+  // Không bắt buộc: sách kèm theo của lớp. Có gắn thì học viên vào lớp tự có yêu cầu
+  // mua sách và tiền sách vào luôn phiếu học phí, khỏi phải nhập tay từng em.
+  const [bookOptions, setBookOptions] = useState<{ id: string; name: string; unitPrice: number }[]>([]);
+  const [classBooks, setClassBooks] = useState<{ bookId: string; quantity: number }[]>([]);
   const [classGroupOptions, setClassGroupOptions] = useState<string[]>([]);
   useEffect(() => {
     if (!open) return;
     fetch("/api/classes/class-groups")
       .then((res) => res.json())
       .then((data) => setClassGroupOptions(data.items ?? []))
+      .catch(() => {});
+    fetch("/api/books")
+      .then((res) => res.json())
+      .then((data) => setBookOptions(data.items ?? []))
       .catch(() => {});
   }, [open]);
   const [scheduleRules, setScheduleRules] = useState<ScheduleRuleDraft[]>([buildEmptyRule()]);
@@ -189,6 +199,14 @@ export default function NewClassForm({
     () => estimateEndDateFromRules(normalizedStartDate, totalSessions, scheduleRules, holidayDateSet),
     [normalizedStartDate, totalSessions, scheduleRules, holidayDateSet],
   );
+  const discountPercent = form.discountPercent === "" ? 0 : Math.min(100, Math.max(0, Number(form.discountPercent) || 0));
+  const tuitionAfterDiscount =
+    tuitionPerSession != null && tuitionPerSession >= 0 ? Math.round(tuitionPerSession * (1 - discountPercent / 100)) : null;
+  const classBooksTotal = classBooks.reduce((sum, item) => {
+    const book = bookOptions.find((option) => option.id === item.bookId);
+    return sum + (book ? book.unitPrice * item.quantity : 0);
+  }, 0);
+
   const estimatedCourseTuition =
     tuitionPerSession != null && totalSessions != null && tuitionPerSession >= 0 && totalSessions >= 0
       ? tuitionPerSession * totalSessions
@@ -253,7 +271,9 @@ export default function NewClassForm({
       startDate: "",
       notes: "",
       isRemedial: false,
+      discountPercent: "",
     });
+    setClassBooks([]);
     setScheduleRules([buildEmptyRule()]);
     setRoadmapItems([]);
     setShowRoadmap(false);
@@ -281,6 +301,8 @@ export default function NewClassForm({
         nextClassId: form.isRemedial ? null : form.nextClassId || null,
         startDate: form.startDate || null,
         tuitionPerSession: form.isRemedial ? null : Number(form.tuitionPerSession),
+        discountPercent: form.isRemedial ? 0 : discountPercent,
+        books: form.isRemedial ? [] : classBooks.filter((item) => item.bookId),
         sessionsPerWeek,
         notes: form.notes.trim() || null,
         scheduleRules: scheduleRules.map((rule) => ({
@@ -395,6 +417,26 @@ export default function NewClassForm({
               <input type="number" min={1} className="input" value={form.totalSessions} onChange={(event) => patchForm("totalSessions", event.target.value)} placeholder="50" />
             </label>
             {!form.isRemedial ? (
+              <label className="form-group">
+                <span className="label">Chiết khấu cả lớp % (không bắt buộc)</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.5"
+                  className="input"
+                  value={form.discountPercent}
+                  onChange={(event) => patchForm("discountPercent", event.target.value)}
+                  placeholder="0"
+                />
+                <span className="mt-1 text-[11px] text-ink-muted48">
+                  {discountPercent > 0 && tuitionAfterDiscount != null
+                    ? `Học phí thực thu: ${tuitionAfterDiscount.toLocaleString("vi-VN")}đ/buổi (gốc ${(tuitionPerSession ?? 0).toLocaleString("vi-VN")}đ). Mọi học viên ghi danh vào lớp lấy mức này làm mặc định, vẫn sửa riêng được.`
+                    : "Để trống nếu lớp không có chiết khấu."}
+                </span>
+              </label>
+            ) : null}
+            {!form.isRemedial ? (
               <label className="form-group sm:col-span-2">
                 <span className="label">Lớp tiếp theo (không bắt buộc)</span>
                 <select className="input" value={form.nextClassId} onChange={(event) => patchForm("nextClassId", event.target.value)}>
@@ -408,6 +450,69 @@ export default function NewClassForm({
               </label>
             ) : null}
           </div>
+
+          {!form.isRemedial ? (
+            <div className="rounded-xl border border-[#e5eaf7] bg-white p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <span className="text-sm font-semibold text-ink">Sách kèm theo (không bắt buộc)</span>
+                  <p className="mt-0.5 text-[11px] text-ink-muted48">
+                    Học viên ghi danh vào lớp sẽ tự có yêu cầu mua các cuốn này, tiền sách vào luôn phiếu học phí. Em nào chuyển lớp thì gỡ sách ra được ở hồ sơ học viên.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setClassBooks((prev) => [...prev, { bookId: "", quantity: 1 }])}
+                  className="btn-ghost-sm"
+                >
+                  + Thêm sách
+                </button>
+              </div>
+              {classBooks.length === 0 ? (
+                <p className="mt-3 text-xs text-ink-muted48">Lớp này chưa gắn sách nào.</p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {classBooks.map((item, index) => (
+                    <div key={index} className="flex flex-wrap items-center gap-2">
+                      <select
+                        className="input h-9 flex-1 min-w-[200px]"
+                        value={item.bookId}
+                        onChange={(event) =>
+                          setClassBooks((prev) => prev.map((row, i) => (i === index ? { ...row, bookId: event.target.value } : row)))
+                        }
+                      >
+                        <option value="">— chọn sách —</option>
+                        {bookOptions.map((book) => (
+                          <option key={book.id} value={book.id}>
+                            {book.name} · {book.unitPrice.toLocaleString("vi-VN")}đ
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min={1}
+                        className="input h-9 w-20"
+                        value={item.quantity}
+                        onChange={(event) =>
+                          setClassBooks((prev) =>
+                            prev.map((row, i) => (i === index ? { ...row, quantity: Math.max(1, Number(event.target.value) || 1) } : row)),
+                          )
+                        }
+                      />
+                      <button type="button" onClick={() => setClassBooks((prev) => prev.filter((_, i) => i !== index))} className="btn-ghost-sm">
+                        Bỏ
+                      </button>
+                    </div>
+                  ))}
+                  {classBooksTotal > 0 ? (
+                    <p className="text-xs font-semibold text-ink-muted80">
+                      Tiền sách mỗi học viên: {classBooksTotal.toLocaleString("vi-VN")}đ
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          ) : null}
 
           <div className="rounded-xl border border-[#e5eaf7] bg-white p-4">
             <div className="flex items-center justify-between gap-3">

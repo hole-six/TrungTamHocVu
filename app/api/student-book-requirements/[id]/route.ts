@@ -94,6 +94,42 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       });
     });
   } else {
+    // BỎ SÁCH KHỎI HỌC VIÊN (hay dùng khi em đó chuyển lớp, không học cuốn của lớp cũ
+    // nữa). Trước đây chỉ đổi trạng thái: phiếu phát sách và TIỀN SÁCH đã cộng vào phiếu
+    // học phí vẫn nằm nguyên, nên bỏ sách xong phụ huynh vẫn bị thu tiền cuốn đó.
+    // Nay gỡ luôn phần chưa thu; đã thu tiền rồi thì chặn và bắt đi đường hoàn tiền.
+    const issue = requirement.bookIssue;
+    if (nextStatus !== "CONFIRMED" && issue) {
+      if (issue.paymentStatus === "PAID") {
+        return NextResponse.json(
+          { error: "Sách này đã thu tiền — không bỏ trực tiếp được, phải hoàn tiền sách trước." },
+          { status: 409 },
+        );
+      }
+      const charge = issue.chargeId
+        ? await prisma.charge.findUnique({ where: { id: issue.chargeId }, include: { billingPeriod: true } })
+        : null;
+      if (charge && charge.billingPeriod && !canEditCharges(charge.billingPeriod.status)) {
+        return NextResponse.json(
+          { error: `Kỳ học phí ${charge.billingPeriod.periodName} đã chốt — không gỡ tiền sách khỏi phiếu được nữa.` },
+          { status: 409 },
+        );
+      }
+      await prisma.$transaction(async (tx) => {
+        if (charge) {
+          await tx.charge.update({
+            where: { id: charge.id },
+            data: {
+              materialsAmount: Math.max(0, charge.materialsAmount - issue.amount),
+              totalAmount: Math.max(0, charge.totalAmount - issue.amount),
+            },
+          });
+        }
+        await tx.studentBookRequirement.update({ where: { id: requirement.id }, data: { bookIssueId: null } });
+        await tx.bookIssue.delete({ where: { id: issue.id } });
+      });
+    }
+
     await prisma.studentBookRequirement.update({
       where: { id: requirement.id },
       data: {

@@ -499,6 +499,9 @@ model Class {
   // định. Buổi thuộc lớp này được ưu tiên hiện lên đầu khi học sinh chọn buổi để dùng
   // "buổi dư" (SessionCredit), xem app/(app)/students/[id]/page.tsx makeupSessionOptions.
   isRemedial        Boolean   @default(false) @map("is_remedial")
+  // CHIẾT KHẤU CẢ LỚP (%) — lớp khuyến mãi thì đặt sẵn ở đây, mọi học viên ghi danh vào
+  // lớp lấy mức này làm mặc định (vẫn sửa được cho từng em). 0 = không có chiết khấu.
+  discountPercent   Float     @default(0) @map("discount_percent")
   nextClassId       String?   @map("next_class_id")
   notes             String?
   createdAt         DateTime  @default(now()) @map("created_at")
@@ -512,6 +515,7 @@ model Class {
   leads              Lead[]
   bookIssues         BookIssue[]
   bookRequirements   StudentBookRequirement[]
+  classBooks         ClassBookRequirement[]
   charges            Charge[]
   feePolicies        FeePolicy[]
   classTasks         ClassTask[]
@@ -1313,6 +1317,7 @@ model Book {
   stockTransactions   StockTransaction[]
   bookIssues          BookIssue[]
   courseRequirements  CourseBookRequirement[]
+  classRequirements   ClassBookRequirement[]
   studentRequirements StudentBookRequirement[]
 
   @@map("books")
@@ -1374,6 +1379,28 @@ model BookIssue {
   @@index([chargeId])
   @@index([studentId])
   @@map("book_issues")
+}
+
+// SÁCH KÈM THEO CỦA LỚP — không bắt buộc. Khóa học có bộ sách chuẩn
+// (CourseBookRequirement), nhưng lớp mở ra thực tế mới là nơi biết chính xác năm nay
+// phát cuốn nào, nên cho gắn thẳng ở lớp. Học viên ghi danh vào lớp được gắn các cuốn
+// này thành StudentBookRequirement để thu tiền cùng học phí; chuyển lớp thì gỡ ra được.
+model ClassBookRequirement {
+  id         String   @id @default(uuid())
+  classId    String   @map("class_id")
+  bookId     String   @map("book_id")
+  quantity   Int      @default(1)
+  isRequired Boolean  @default(true) @map("is_required")
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  book  Book  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, bookId])
+  @@index([bookId])
+  @@map("class_book_requirements")
 }
 
 model CourseBookRequirement {

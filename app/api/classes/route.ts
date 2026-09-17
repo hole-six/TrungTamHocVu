@@ -143,6 +143,30 @@ export async function POST(req: NextRequest) {
         .filter((item: { role: string; employeeId: string }) => item.employeeId && isValidClassAssignmentRole(item.role))
     : [];
 
+  // Chiết khấu cả lớp — không bắt buộc. Có thì mọi học viên ghi danh vào lớp lấy mức
+  // này làm mặc định, và học phí thực thu của lớp được tính lại theo mức đó.
+  const discountPercent = Math.min(100, Math.max(0, Number(body.discountPercent ?? 0) || 0));
+
+  // Sách kèm theo của lớp — cũng không bắt buộc. Chỉ nhận sách có thật và cùng cơ sở.
+  const requestedBooks: { bookId: string; quantity: number }[] = Array.isArray(body.books)
+    ? body.books
+        .map((item: { bookId?: string; quantity?: number }) => ({
+          bookId: String(item.bookId ?? "").trim(),
+          quantity: Math.max(1, Number(item.quantity ?? 1) || 1),
+        }))
+        .filter((item: { bookId: string }) => item.bookId)
+    : [];
+  const uniqueBooks = [...new Map(requestedBooks.map((item) => [item.bookId, item])).values()];
+  if (uniqueBooks.length > 0) {
+    const found = await prisma.book.findMany({
+      where: { id: { in: uniqueBooks.map((item) => item.bookId) }, branchId },
+      select: { id: true },
+    });
+    if (found.length !== uniqueBooks.length) {
+      return NextResponse.json({ error: "Có sách không tồn tại hoặc không thuộc cơ sở này." }, { status: 400 });
+    }
+  }
+
   const created = await prisma.class.create({
     data: {
       branchId,
@@ -157,7 +181,11 @@ export async function POST(req: NextRequest) {
       expectedEndDate,
       sessionsPerWeek,
       tuitionPerSession,
+      discountPercent,
       notes: body.notes || null,
+      classBooks: uniqueBooks.length
+        ? { create: uniqueBooks.map((item, index) => ({ bookId: item.bookId, quantity: item.quantity, sortOrder: index })) }
+        : undefined,
       scheduleRules: scheduleRules.length
         ? {
             create: normalizedRules,

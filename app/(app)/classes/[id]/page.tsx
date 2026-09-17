@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { formatEnrollmentCode } from "@/lib/enrollment-code";
 import {
   estimateEndDate,
   estimateEndDateFromRules,
@@ -189,6 +190,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
       course: true,
       nextClass: { include: { course: true } },
       scheduleRules: { orderBy: { weekday: "asc" } },
+      classBooks: { include: { book: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
       roadmapItems: { orderBy: { sessionNumber: "asc" } },
       defaultAssignments: { where: { isActive: true }, include: { employee: true }, orderBy: { role: "asc" } },
       sessions: {
@@ -523,6 +525,22 @@ export default async function ClassDetailPage({ params }: { params: { id: string
             <span className="inline-flex items-center rounded-lg bg-[#f97316] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white">{cls.classCode}</span>
             {cls.course && <span className="inline-flex items-center rounded-lg bg-[#ea580c] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white truncate max-w-[120px] sm:max-w-none">{cls.course.name}</span>}
             {cls.isRemedial && <span className="inline-flex items-center rounded-lg bg-[#f97316] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap">Bổ trợ</span>}
+            {cls.discountPercent > 0 && (
+              <span
+                className="inline-flex items-center rounded-lg bg-[#0ea5e9] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap"
+                title={`Học viên ghi danh vào lớp mặc định được giảm ${cls.discountPercent}% học phí`}
+              >
+                Giảm {cls.discountPercent}%
+              </span>
+            )}
+            {cls.classBooks.length > 0 && (
+              <span
+                className="inline-flex items-center rounded-lg bg-[#7c3aed] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap"
+                title={cls.classBooks.map((item) => `${item.book.name} ×${item.quantity}`).join(" · ")}
+              >
+                {cls.classBooks.length} sách kèm theo
+              </span>
+            )}
             {totalOutstanding > 0 && <span className="inline-flex items-center rounded-lg bg-[#f59e0b] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap">Nợ {formatVnd(totalOutstanding)}</span>}
             {nextSession && (
               <span className="inline-flex items-center gap-1 sm:gap-1.5 rounded-lg bg-[#f97316] px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white whitespace-nowrap">
@@ -1137,7 +1155,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                 <div>
                                   <Link href={`/students/${enrollment.studentId}`} className="font-bold text-[#f97316] hover:text-[#ea580c]">{enrollment.student.fullName}</Link>
                                   <div className="mt-1 flex flex-wrap items-center gap-2">
-                                    <span className="rounded-lg bg-[#f97316] px-2 py-0.5 text-xs font-bold text-white">{enrollment.student.studentCode}</span>
+                                    <span className="rounded-lg bg-[#f97316] px-2 py-0.5 text-xs font-bold text-white" title={`Mã học sinh: ${enrollment.student.studentCode}`}>{formatEnrollmentCode(cls.classCode, enrollment.student.studentCode)}</span>
                                     <span className={`inline-flex rounded-lg px-2 py-0.5 text-xs font-bold ${badgeClass(enrollment.status)}`}>
                                       {ENROLLMENT_STATUS_LABEL[enrollment.status as keyof typeof ENROLLMENT_STATUS_LABEL] ?? enrollment.status}
                                     </span>
@@ -1301,8 +1319,8 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                               {enrollment.student.fullName}
                             </Link>
                             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                              <span className="rounded-lg bg-[#f97316] px-2 py-0.5 text-xs font-bold text-white">
-                                {enrollment.student.studentCode}
+                              <span className="rounded-lg bg-[#f97316] px-2 py-0.5 text-xs font-bold text-white" title={`Mã học sinh: ${enrollment.student.studentCode}`}>
+                                {formatEnrollmentCode(cls.classCode, enrollment.student.studentCode)}
                               </span>
                               <span className={`inline-flex rounded-lg px-2 py-0.5 text-xs font-bold ${badgeClass(enrollment.status)}`}>
                                 {ENROLLMENT_STATUS_LABEL[enrollment.status as keyof typeof ENROLLMENT_STATUS_LABEL] ?? enrollment.status}

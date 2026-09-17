@@ -86,6 +86,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   for (const field of ["startDate", "expectedEndDate"]) {
     if (field in body) data[field] = body[field] ? new Date(body[field]) : null;
   }
+  // Chiết khấu cả lớp: sửa được sau khi mở lớp, chỉ ảnh hưởng học viên ghi danh TỪ ĐÓ
+  // về sau (mức của người đã ghi danh nằm ở enrollment, không bị sửa ngược).
+  if ("discountPercent" in body) {
+    data.discountPercent = Math.min(100, Math.max(0, Number(body.discountPercent ?? 0) || 0));
+  }
 
   const nextCourse =
     "courseId" in body

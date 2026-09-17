@@ -1,5 +1,6 @@
 "use client";
 
+import { formatEnrollmentCode } from "@/lib/enrollment-code";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatVnd, formatDate } from "@/lib/export-utils";
@@ -362,7 +363,7 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <Link href={`/students/${e.student.id}`} onClick={onClose} className="text-sm font-bold hover:text-[#2563eb]">{e.student.fullName}</Link>
-                                <span className="text-xs font-semibold text-[#f97316]">{e.student.studentCode}</span>
+                                <span className="text-xs font-semibold text-[#f97316]" title={`Mã học sinh: ${e.student.studentCode}`}>{formatEnrollmentCode(data.classCode, e.student.studentCode)}</span>
                                 <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${badgeClass(e.status)}`}>{ENROLLMENT_STATUS_LABEL[e.status as keyof typeof ENROLLMENT_STATUS_LABEL] ?? e.status}</span>
                                 <span className="rounded bg-[#eef6ff] px-1.5 py-0.5 text-[10px] font-semibold text-[#2563eb]">{e.billingModel === "COURSE" ? "Khóa" : e.billingModel === "INSTALLMENT" ? "Góp" : "Tháng"}</span>
                                 {e.debt > 0 && <span className="rounded bg-[#f59e0b] px-1.5 py-0.5 text-[10px] font-bold text-white">Nợ {formatVnd(e.debt)}</span>}

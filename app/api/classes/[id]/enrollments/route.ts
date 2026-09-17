@@ -106,7 +106,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // viên (bảng Scholarship gắn theo ghi danh), chỉ là nhập được ngay từ đầu thay vì phải
   // ghi danh xong rồi mới vào thêm. Phải có TRƯỚC khi sinh phiếu, nếu không phiếu đầu
   // tiên ra theo giá gốc. Lớp bổ trợ không thu tiền nên bỏ qua.
-  const discountPercent = cls.isRemedial ? 0 : Number(body.discountPercent ?? 0);
+  // Lớp có chiết khấu cả lớp thì đó là mức MẶC ĐỊNH cho mọi học viên vào lớp; người xếp
+  // lớp vẫn gửi mức riêng để đè lên khi cần (vd em này được ưu đãi thêm).
+  const discountPercent = cls.isRemedial
+    ? 0
+    : body.discountPercent === undefined || body.discountPercent === null || body.discountPercent === ""
+      ? Number(cls.discountPercent ?? 0)
+      : Number(body.discountPercent);
   const discountReason = String(body.discountReason ?? "").trim() || null;
   if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) {
     return NextResponse.json({ error: "Chiết khấu phải từ 0 đến 100%." }, { status: 400 });
