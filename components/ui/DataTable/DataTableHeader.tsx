@@ -10,6 +10,12 @@ type DataTableHeaderProps = {
   showCountBadge?: boolean;
   actions?: React.ReactNode;
   filterChips?: React.ReactNode;
+  /**
+   * true = chip lọc xuống HÀNG RIÊNG chiếm hết chiều ngang, thay vì bị nhét cạnh ô tìm
+   * kiếm. Bảng nào có nhiều nhóm chip (vd Data tuyển sinh) mà để cạnh ô tìm kiếm thì bị
+   * bóp vào góc phải và gãy thành 3 hàng chữ chi chít, không đọc được.
+   */
+  chipsBlock?: boolean;
   defaultSearchValue?: string;
 };
 
@@ -23,6 +29,7 @@ export default function DataTableHeader({
   showCountBadge = true,
   actions,
   filterChips,
+  chipsBlock = false,
   defaultSearchValue = "",
 }: DataTableHeaderProps) {
   const [searchQuery, setSearchQuery] = useState(defaultSearchValue);
@@ -53,8 +60,13 @@ export default function DataTableHeader({
   return (
     <div
       data-dt="header"
-      className="flex flex-wrap items-center gap-3 rounded-lg border border-[#e5e7eb] bg-white px-4 py-3 shadow-sm"
+      className={
+        chipsBlock
+          ? "flex flex-col gap-3 rounded-lg border border-[#e5e7eb] bg-white px-4 py-3 shadow-sm"
+          : "flex flex-wrap items-center gap-3 rounded-lg border border-[#e5e7eb] bg-white px-4 py-3 shadow-sm"
+      }
     >
+      <div className={chipsBlock ? "flex w-full flex-wrap items-center gap-3" : "contents"}>
       {searchable ? (
         <div data-dt="search" className="relative min-w-[220px] flex-1">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -98,9 +110,19 @@ export default function DataTableHeader({
           </div>
         ) : null}
 
-        {filterChips ? <div data-dt="chips" className="flex flex-wrap items-center gap-1.5">{filterChips}</div> : null}
+        {filterChips && !chipsBlock ? (
+          <div data-dt="chips" className="flex flex-wrap items-center gap-1.5">
+            {filterChips}
+          </div>
+        ) : null}
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
+      </div>
+      {filterChips && chipsBlock ? (
+        <div data-dt="chips" className="w-full border-t border-[#f1f5f9] pt-3">
+          {filterChips}
+        </div>
+      ) : null}
     </div>
   );
 }

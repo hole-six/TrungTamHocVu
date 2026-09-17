@@ -9,6 +9,7 @@ import { canView, canUpdate, canDelete } from "@/lib/server/role-matrix";
 import {
   LEAD_STATUS_LABEL,
   LEAD_STATUS_FILTER_GROUPS,
+  LEAD_SUB_STATUS,
   LEAD_SUB_STATUS_LABEL,
   leadSubStatusesOf,
   leadStatusGroupKey,
@@ -76,7 +77,6 @@ type LeadsTableProps = {
   tomorrowCount?: number;
   subStatusOptions?: { value: string; label: string; group: string; count: number }[];
   subStatusFilter?: string;
-  periodFilter?: string;
   classOptions?: { id: string; className: string }[];
   enrolledCount?: number;
 };
@@ -141,7 +141,6 @@ export default function LeadsTable({
   tomorrowCount = 0,
   subStatusOptions = [],
   subStatusFilter = "",
-  periodFilter = "",
   classOptions = [],
   enrolledCount = 0,
 }: LeadsTableProps) {
@@ -273,11 +272,13 @@ export default function LeadsTable({
       sortable: true,
       filter: { type: "text", paramKey: "name", placeholder: "Tên lead..." },
       render: (value, row) => (
-        <div className="flex items-start gap-3">
+        // Không có min-width thì cột này bị bóp còn ~145px, tên bị bẻ thành 3-4 dòng
+        // ("Chưa / rõ"), dòng nào cũng cao gấp đôi và rất khó đọc.
+        <div className="flex min-w-[210px] items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-rose-600 text-sm font-bold text-white shadow-md">
             {value.charAt(0).toUpperCase()}
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
               <p className="text-sm font-semibold text-ink">{value}</p>
               {row.convertedStudentCode ? (
@@ -382,7 +383,9 @@ export default function LeadsTable({
       key: "status",
       label: "Trạng thái",
       align: "center",
-      width: "180px",
+      // Ô chọn trạng thái phải đủ rộng để đọc được nhãn ("Chưa test"/"Đã test"...) —
+      // để bảng tự co thì nó bị bóp còn mấy chục px, chỉ thấy cái chấm màu.
+      width: "150px",
       filter: {
         type: "select",
         paramKey: "status",
@@ -398,7 +401,7 @@ export default function LeadsTable({
         return (
           <div className="flex flex-col items-start gap-1.5" onClick={(e) => e.stopPropagation()}>
             {canUpdate("leads", userRole) && !isConverted ? (
-              <div className={`relative inline-flex items-center gap-1.5 rounded-lg border pr-5 ${cfg.color} ${statusSavingId === row.id ? "opacity-60" : ""} [&_select]:focus:outline-none [&_select]:focus:ring-0 [&_select]:focus:shadow-none`}>
+              <div className={`relative inline-flex min-w-[132px] items-center gap-1.5 rounded-lg border pr-5 ${cfg.color} ${statusSavingId === row.id ? "opacity-60" : ""} [&_select]:focus:outline-none [&_select]:focus:ring-0 [&_select]:focus:shadow-none`}>
                 <span className={`ml-2 h-1.5 w-1.5 shrink-0 rounded-full ${cfg.dot}`} />
                 <select
                   value={currentGroupKey}
@@ -429,34 +432,11 @@ export default function LeadsTable({
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="pointer-events-none absolute right-1.5 shrink-0 opacity-60"><path d="M6 9l6 6 6-6"/></svg>
               </div>
             ) : (
-              <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-bold ${cfg.color}`}>
+              <span className={`inline-flex min-w-[132px] items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-bold ${cfg.color}`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
                 {isConverted ? LEAD_STATUS_LABEL.ENROLLED : cfg.label}
               </span>
             )}
-
-            {!isConverted && leadSubStatusesOf(currentGroupKey).length > 0 ? (
-              canUpdate("leads", userRole) ? (
-                <select
-                  value={row.subStatus ?? ""}
-                  disabled={statusSavingId === row.id}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    void changeLeadSubStatus(row.id, e.target.value);
-                  }}
-                  className="h-7 w-full min-w-[150px] cursor-pointer rounded-lg border border-[#e5eaf7] bg-white px-2 text-[11px] font-semibold text-[#475569] outline-none"
-                >
-                  <option value="">Chọn chi tiết…</option>
-                  {leadSubStatusesOf(currentGroupKey).map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              ) : row.subStatus ? (
-                <span className="text-[11px] font-semibold text-[#64748b]">{LEAD_SUB_STATUS_LABEL[row.subStatus] ?? row.subStatus}</span>
-              ) : null
-            ) : null}
 
             {value === "QUALIFIED" && !isConverted && canUpdate("leads", userRole) && (
               <button
@@ -479,6 +459,50 @@ export default function LeadsTable({
               </button>
             )}
           </div>
+        );
+      },
+    },
+    {
+      // TRẠNG THÁI CHI TIẾT để CỘT RIÊNG — nhét chung ô trạng thái thì select bị bóp còn
+      // vài chục px, chữ cụt hết không ai đọc được.
+      key: "subStatus",
+      label: "Chi tiết",
+      width: "170px",
+      filter: {
+        type: "select",
+        paramKey: "sub",
+        placeholder: "Tất cả",
+        options: LEAD_SUB_STATUS.map((item) => ({ label: item.label, value: item.value })),
+      },
+      render: (value, row) => {
+        const isConverted = Boolean(row.hasStudent || row.convertedStudentCode || row.status === "ENROLLED");
+        const options = leadSubStatusesOf(leadStatusGroupKey(row.status));
+        if (isConverted || options.length === 0) return <span className="text-xs text-ink-muted48">—</span>;
+        if (!canUpdate("leads", userRole)) {
+          return value ? (
+            <span className="text-xs font-semibold text-[#475569]">{LEAD_SUB_STATUS_LABEL[value] ?? value}</span>
+          ) : (
+            <span className="text-xs text-ink-muted48">—</span>
+          );
+        }
+        return (
+          <select
+            value={value ?? ""}
+            disabled={statusSavingId === row.id}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              e.stopPropagation();
+              void changeLeadSubStatus(row.id, e.target.value);
+            }}
+            className="h-8 w-full min-w-[150px] cursor-pointer rounded-lg border border-[#e5eaf7] bg-white px-2 text-xs font-semibold text-[#475569] outline-none"
+          >
+            <option value="">Chưa chọn</option>
+            {options.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
         );
       },
     },
@@ -642,14 +666,6 @@ export default function LeadsTable({
   ];
   const testFilterActive = Boolean(testStatusFilter || urgentFilter);
 
-  // Kỳ dữ liệu tuyển sinh — tính theo NGÀY NHẬN DATA, để đọc "tuần này nhận bao nhiêu
-  // data, ra bao nhiêu ca test, bao nhiêu em nhập học".
-  const periodChips = [
-    { key: "", label: "Tất cả" },
-    { key: "week", label: "Tuần này" },
-    { key: "month", label: "Tháng này" },
-  ];
-
   // Trạng thái chi tiết: chỉ hiện của nhóm đang chọn; chưa chọn nhóm nào thì hiện hết.
   const visibleSubStatuses = subStatusOptions.filter((item) => !statusFilter || item.group === statusFilter);
 
@@ -788,29 +804,8 @@ export default function LeadsTable({
         </div>
       )}
 
-      {/* Row 3: kỳ dữ liệu + báo động lịch hẹn */}
+      {/* Row 3: báo động lịch hẹn (kỳ dữ liệu nằm cạnh nút "Thêm lead" ở đầu trang) */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#f1f5f9] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-[#64748b]">
-          Data nhận
-        </span>
-        {periodChips.map((chip) => {
-          const isActive = (periodFilter ?? "") === chip.key;
-          return (
-            <Link
-              key={chip.key || "all"}
-              href={`/leads?${buildQuery({ period: chip.key || null, urgent: null })}`}
-              className={`inline-flex items-center rounded-xl border px-3 py-1.5 text-xs font-bold transition-all duration-150 ${
-                isActive
-                  ? "border-[#1d4ed8] bg-[#1d4ed8] text-white shadow-md"
-                  : "border-[#e5eaf7] bg-white text-[#475569] hover:border-[#1d4ed8] hover:text-[#1d4ed8]"
-              }`}
-            >
-              {chip.label}
-            </Link>
-          );
-        })}
-
-        <div className="mx-1 h-5 w-px shrink-0 rounded-full bg-[#e5eaf7]" aria-hidden />
         <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#fff1f2] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-[#b91c1c]">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           Báo động hẹn test + nhập học
@@ -868,6 +863,7 @@ export default function LeadsTable({
       onSearch={handleSearch}
       defaultSearchValue={searchQuery}
       filterChips={filterChips}
+      chipsBlock
       filterValues={filterValues}
       onFilterChange={handleFilterChange}
       showCountBadge={false}

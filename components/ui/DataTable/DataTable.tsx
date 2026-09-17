@@ -85,6 +85,8 @@ type DataTableProps<T> = {
   className?: string;
   headerActions?: ReactNode;
   filterChips?: ReactNode;
+  /** Chip lọc xuống hàng riêng chiếm hết chiều ngang (xem DataTableHeader). */
+  chipsBlock?: boolean;
   defaultSearchValue?: string;
   /** Giá trị lọc theo cột hiện tại, keyed theo paramKey/paramKeyFrom/paramKeyTo của Column.filter. */
   filterValues?: Record<string, string>;
@@ -118,6 +120,7 @@ export default function DataTable<T extends Record<string, any>>({
   className = "",
   headerActions,
   filterChips,
+  chipsBlock = false,
   defaultSearchValue = "",
   filterValues = {},
   onFilterChange,
@@ -188,6 +191,7 @@ export default function DataTable<T extends Record<string, any>>({
           showCountBadge={showCountBadge}
           actions={headerActions}
           filterChips={filterChips}
+          chipsBlock={chipsBlock}
           defaultSearchValue={defaultSearchValue}
         />
       ) : null}

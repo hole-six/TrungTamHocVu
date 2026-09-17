@@ -37,6 +37,8 @@ type DataTableResponsiveProps<T> = {
   className?: string;
   headerActions?: ReactNode;
   filterChips?: ReactNode;
+  /** Chip lọc xuống hàng riêng chiếm hết chiều ngang (xem DataTableHeader). */
+  chipsBlock?: boolean;
   defaultSearchValue?: string;
   filterValues?: Record<string, string>;
   onFilterChange?: (paramKey: string, value: string | null, extra?: Record<string, string | null>) => void;

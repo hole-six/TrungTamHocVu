@@ -365,6 +365,35 @@ export default async function LeadsPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {/* KỲ DỮ LIỆU đứng ngay đầu trang cạnh nút thêm lead — đây là thứ chọn MỘT LẦN
+              khi mở trang ("xem data tuần này hay cả năm"), không phải bộ lọc vặt như
+              các chip trạng thái, nên không nhét chung vào hàng chip cho chật. */}
+          <div className="inline-flex items-center gap-1 rounded-xl border border-[#e5eaf7] bg-white p-1">
+            <span className="px-2 text-[10px] font-black uppercase tracking-[0.15em] text-[#94a3b8]">Data nhận</span>
+            {[
+              { key: "", label: "Tất cả" },
+              { key: "week", label: "Tuần này" },
+              { key: "month", label: "Tháng này" },
+            ].map((item) => {
+              const isActive = period === item.key;
+              const query = new URLSearchParams();
+              for (const [key, value] of Object.entries(searchParams)) {
+                if (value && key !== "period" && key !== "page" && key !== "urgent") query.set(key, String(value));
+              }
+              if (item.key) query.set("period", item.key);
+              return (
+                <Link
+                  key={item.key || "all"}
+                  href={`/leads?${query.toString()}`}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                    isActive ? "bg-[#1d4ed8] text-white shadow-sm" : "text-[#475569] hover:bg-[#f1f5f9]"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
           <SpotlightTour steps={LEADS_TOUR_STEPS} />
           {canCreate("leads", userRole) ? <NewLeadDrawer classOptions={classOptions} /> : null}
         </div>
@@ -387,7 +416,6 @@ export default async function LeadsPage({
         tomorrowCount={tomorrowCount}
         subStatusOptions={subStatusOptions}
         subStatusFilter={subStatus}
-        periodFilter={period}
         classOptions={classOptions}
         enrolledCount={statusCounts.ENROLLED ?? 0}
       />
