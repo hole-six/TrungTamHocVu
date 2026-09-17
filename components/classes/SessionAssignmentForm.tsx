@@ -327,7 +327,7 @@ function AssignmentRow({ assignment, isSelf, employees }: { assignment: Assignme
 
             <label className="flex items-center gap-2 text-sm text-ink-muted80">
               <input type="checkbox" checked={isSubstituteShift} onChange={(event) => setIsSubstituteShift(event.target.checked)} />
-              Đánh dấu là ca bổ trợ
+              Đánh dấu là ca dạy thay (dạy hộ người khác — không tính vào số ca xét thưởng, được cộng điểm dạy thay riêng)
             </label>
 
             <div className="flex justify-end">

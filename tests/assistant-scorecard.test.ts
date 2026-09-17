@@ -37,7 +37,7 @@ async function main() {
     expectEqual(card.suggestion.percent, 0.2, "không bị nhắc lần nào → +20% (trên 15 ca nên không bị trần)");
   });
 
-  await test("Ca bổ trợ và ca dạy thay không tính vào tổng số ca", async () => {
+  await test("Ca dạy lớp bổ trợ VẪN tính, chỉ ca dạy thay không tính", async () => {
     const branch = await fx.seedBranch(db);
     const normal = await fx.seedClass(db, branch.id);
     const remedial = await fx.seedClass(db, branch.id);
@@ -52,8 +52,8 @@ async function main() {
 
     const card = await computeAssistantScorecard(tg.id, month);
     expectEqual(card.totalShifts, 8, "8 ca có mặt");
-    expectEqual(card.countedShifts, 6, "chỉ 6 ca chính được tính");
-    expectEqual(card.coverShifts, 2, "1 ca bổ trợ + 1 ca dạy thay");
+    expectEqual(card.countedShifts, 7, "6 ca lớp thường + 1 ca lớp bổ trợ đều là ca dạy");
+    expectEqual(card.coverShifts, 1, "chỉ trừ 1 ca dạy thay");
   });
 
   await test("Số lần bị nhắc cộng ở mọi cơ sở và ra đúng mức theo quy chế", async () => {
@@ -111,6 +111,23 @@ async function main() {
     expectEqual(row.countedShifts, 16, "16 ca");
     expectEqual(row.suggestedPercent, 0.2, "đề xuất +20%");
     expectEqual(row.bonusPercent, 0.1, "mức đã chốt +10% được giữ nguyên");
+  });
+
+  await test("Dưới 5 ca: hệ thống để \"chưa xét\" nhưng admin vẫn chốt được mức", async () => {
+    const branch = await fx.seedBranch(db);
+    const cls = await fx.seedClass(db, branch.id);
+    const tg = await fx.seedEmployee(db, branch.id, { fullName: "TG ít ca" });
+    for (let d = 1; d <= 4; d += 1) await taughtShift(cls.id, tg.id, d);
+
+    const card = await computeAssistantScorecard(tg.id, month);
+    expectEqual(card.countedShifts, 4, "4 ca");
+    expectEqual(card.suggestion.percent, null, "quy chế chưa quy định → không đề xuất");
+    // Không chặn: người duyệt lương vẫn chốt tay được mức của tháng đó.
+    await db.employeeMonthlyRating.create({ data: { employeeId: tg.id, month, bonusPercent: 0.1 } });
+    const board = await computeMonthlyScoreboard({ branchId: branch.id, month });
+    const row = board.rows.find((item) => item.employeeId === tg.id)!;
+    expectEqual(row.suggestedPercent, null, "vẫn hiện chưa xét");
+    expectEqual(row.bonusPercent, 0.1, "mức admin chốt tay được giữ");
   });
 
   const failed = summary();

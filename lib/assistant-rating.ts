@@ -12,15 +12,16 @@
 //
 // Chốt cách hiểu (ghi rõ để sau này tra lại):
 //   - TỔNG SỐ CA gộp TOÀN BỘ CƠ SỞ của trung tâm, không xét riêng từng cơ sở (yêu cầu của
-//     chủ trung tâm). Không tính ca bổ trợ / ca dạy thay.
+//     chủ trung tâm). Ca dạy lớp bổ trợ VẪN TÍNH (chủ trung tâm chốt: bổ trợ cũng là dạy);
+//     chỉ ca dạy thay không tính, vì đã có điểm cộng riêng "dạy thay hộ +1/ca".
 //   - "Số lần bị nhắc tên" = SỐ LẦN bị nhắc (mỗi lần nhắc là 1), khác với SỐ ĐIỂM TRỪ ở bảng
 //     xét thưởng (mỗi lỗi −1 đến −3 điểm).
-//   - Dưới hoặc bằng 5 ca/tháng: quy chế không quy định, hệ thống để "chưa xét" và người
-//     phụ trách tự quyết.
+//   - Dưới hoặc bằng 5 ca/tháng: quy chế không quy định, hệ thống để "chưa xét" — không chặn,
+//     admin vẫn chốt tay được mức thưởng/phạt ở cột "% đã chốt".
 //   - Mức trần +5% khi 5 < số ca < 15 áp SAU khi ra mức theo A.
 
 export type RatingInput = {
-  /** Tổng số ca làm trong tháng, đã loại ca bổ trợ / dạy thay, gộp mọi cơ sở. */
+  /** Tổng số ca làm trong tháng, gồm cả ca bổ trợ, đã loại ca dạy thay, gộp mọi cơ sở. */
   countedShifts: number;
   /** Số lần bị nhắc tên ở các báo cáo ngày/tuần/tháng. */
   reminderCount: number;
@@ -71,7 +72,7 @@ export function suggestBonusPercent(input: RatingInput): RatingSuggestion {
   }
 
   if (countedShifts <= MIN_SHIFTS_FOR_RATING) {
-    reasons.push(`Chỉ ${countedShifts} ca (≤ ${MIN_SHIFTS_FOR_RATING}) — quy chế chưa quy định, cần người phụ trách tự quyết.`);
+    reasons.push(`Chỉ ${countedShifts} ca (≤ ${MIN_SHIFTS_FOR_RATING}) — quy chế chưa quy định, admin tự chốt mức.`);
     return { ratio, percent: null, reasons };
   }
 

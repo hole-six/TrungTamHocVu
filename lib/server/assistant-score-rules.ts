@@ -6,7 +6,8 @@
 // từng cơ sở). Bảng theo cơ sở vẫn giữ để xem người đó làm ở đâu, nhưng không dùng để tính.
 //
 // Cách tính (chi tiết ở lib/assistant-rating.ts):
-//   - Tổng số ca = ca ĐÃ DẠY trong tháng, KHÔNG tính ca bổ trợ (lớp bổ trợ) và ca dạy thay.
+//   - Tổng số ca = ca ĐÃ DẠY trong tháng, TÍNH CẢ ca dạy lớp bổ trợ (vẫn là đứng lớp dạy
+//     thật). Chỉ KHÔNG tính ca dạy thay, vì ca đó đã có điểm cộng riêng "dạy thay hộ +1/ca".
 //   - Số lần bị nhắc = số lần bị trừ điểm/nhắc tên trong các báo cáo (mỗi lần 1, không phải
 //     số điểm trừ).
 //   - A = số lần nhắc ÷ tổng số ca × 100 → mức đề xuất +20% / +10% / 0% / −5%, trần +5% nếu
@@ -40,12 +41,15 @@ type ShiftRow = {
   employeeId: string;
   isSubstituteShift: boolean;
   substituteForId: string | null;
-  session: { class: { branchId: string; isRemedial: boolean; branch: { name: string } } };
+  session: { class: { branchId: string; branch: { name: string } } };
 };
 
-/** Ca được tính vào quy chế: đã dạy thật, không phải ca bổ trợ, không phải ca dạy thay. */
+/**
+ * Ca được tính vào quy chế: đã dạy thật, không phải ca dạy thay.
+ * Ca ở lớp bổ trợ VẪN TÍNH — chủ trung tâm chốt: dạy bổ trợ cũng là đứng lớp dạy.
+ */
 function isCountedShift(shift: ShiftRow) {
-  return !shift.isSubstituteShift && shift.substituteForId === null && !shift.session.class.isRemedial;
+  return !shift.isSubstituteShift && shift.substituteForId === null;
 }
 
 export async function computeAssistantScorecard(employeeId: string, month: string) {
@@ -63,7 +67,7 @@ export async function computeAssistantScorecard(employeeId: string, month: strin
         employeeId: true,
         isSubstituteShift: true,
         substituteForId: true,
-        session: { select: { class: { select: { branchId: true, isRemedial: true, branch: { select: { name: true } } } } } },
+        session: { select: { class: { select: { branchId: true, branch: { select: { name: true } } } } } },
       },
     }),
     prisma.assistantScoreEvent.findMany({
@@ -183,7 +187,7 @@ export async function computeMonthlyScoreboard(params: { branchId: string | null
         employeeId: true,
         isSubstituteShift: true,
         substituteForId: true,
-        session: { select: { class: { select: { branchId: true, isRemedial: true, branch: { select: { name: true } } } } } },
+        session: { select: { class: { select: { branchId: true, branch: { select: { name: true } } } } } },
       },
     }),
     prisma.assistantScoreEvent.findMany({
