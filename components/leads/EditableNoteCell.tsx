@@ -53,7 +53,7 @@ export default function EditableNoteCell({ leadId, notes }: { leadId: string; no
             <p className="text-[11px] font-semibold text-primary">Xem đầy đủ</p>
           </div>
         ) : (
-          <span className="text-xs text-ink-muted48">+ Thêm ghi chú</span>
+          <span className="whitespace-nowrap text-xs text-ink-muted48">+ Thêm ghi chú</span>
         )}
       </button>
 

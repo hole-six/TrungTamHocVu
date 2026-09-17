@@ -678,7 +678,7 @@ export default function LeadsTable({
   function statusChipClass(key: string, isActive: boolean, count: number) {
     const cfg = LEAD_STATUS_CONFIG[key];
     if (!cfg) return "";
-    const base = "inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all duration-150 select-none";
+    const base = "inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-2.5 py-1.5 text-xs font-bold transition-all duration-150 select-none";
     if (isActive) return `${base} ${cfg.activeColor} shadow-md scale-[1.03]`;
     if (count === 0) return `${base} ${cfg.color} opacity-40 cursor-default`;
     return `${base} ${cfg.color} hover:shadow-sm hover:scale-[1.01]`;
@@ -687,10 +687,12 @@ export default function LeadsTable({
   const totalActive = statusOptions.reduce((s, o) => s + o.count, 0);
 
   const filterChips = (
-    <div className="flex w-full flex-col gap-3" data-tour="leads-filters">
-      {/* Row 1: Status filters */}
+    // 3 nhóm lọc rải ngang hết chiều rộng (trạng thái · chi tiết · báo động) thay vì
+    // xếp chồng 3 hàng dồn hết về bên trái, bỏ trống nửa màn hình bên phải.
+    <div className="flex w-full flex-wrap items-center justify-between gap-x-6 gap-y-2" data-tour="leads-filters">
+      {/* Nhóm 1: trạng thái */}
       {statusOptions.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex grow flex-wrap items-center justify-between gap-1.5">
           {/* All statuses pill */}
           <Link
             href={`/leads?${buildQuery({ status: null })}`}
@@ -766,9 +768,9 @@ export default function LeadsTable({
         </div>
       )}
 
-      {/* Row 2: trạng thái chi tiết trong nhóm */}
+      {/* Nhóm 2: trạng thái chi tiết */}
       {visibleSubStatuses.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex grow flex-wrap items-center justify-between gap-1.5">
           <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#f1f5f9] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-[#64748b]">
             Chi tiết
           </span>
@@ -804,8 +806,8 @@ export default function LeadsTable({
         </div>
       )}
 
-      {/* Row 3: báo động lịch hẹn (kỳ dữ liệu nằm cạnh nút "Thêm lead" ở đầu trang) */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Nhóm 3: báo động lịch hẹn (kỳ dữ liệu nằm cạnh nút "Thêm lead" ở đầu trang) */}
+      <div className="flex grow flex-wrap items-center justify-between gap-1.5">
         <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#fff1f2] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-[#b91c1c]">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           Báo động hẹn test + nhập học
