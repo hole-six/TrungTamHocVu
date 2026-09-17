@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canView, canUpdate, canDelete } from "@/lib/server/role-matrix";
-import { canManuallySetStatus, normalizePendingRemedialSessions, LEAD_STATUSES } from "@/lib/server/lead-rules";
+import { canManuallySetStatus, normalizePendingRemedialSessions, normalizeSubStatus, defaultSubStatusFor, LEAD_STATUSES } from "@/lib/server/lead-rules";
 import { canAccessBranch } from "@/lib/branch-filter";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -62,6 +62,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       );
     }
     data.status = body.status;
+    // Đổi nhóm thì trạng thái chi tiết cũ không còn hợp lệ (vd "đã xếp lớp" của nhóm
+    // Đã test không thể nằm ở nhóm Chưa test) — đặt lại mức mặc định của nhóm mới.
+    data.subStatus = defaultSubStatusFor(body.status, { hasClass: Boolean(existing.interestedClassId) });
+  }
+
+  // Trạng thái chi tiết trong nhóm: luôn kiểm theo nhóm đang/ sắp có, không nhận giá trị lạ.
+  if ("subStatus" in body) {
+    data.subStatus = normalizeSubStatus(String(data.status ?? existing.status), body.subStatus);
   }
 
   for (const field of ["fullName", "gender", "phone", "secondaryPhone", "zaloContact", "currentSchoolGrade", "schoolName", "address", "source", "facebookParentName", "facebookLink", "initialAssessment", "notes", "notes2", "guardianRelation", "secondaryGuardianName", "secondaryGuardianRelation"]) {

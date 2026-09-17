@@ -5,7 +5,7 @@ import { getUserRole } from "@/lib/permissions";
 import { canView } from "@/lib/server/role-matrix";
 import { getAppShellConfig, type AppQuickAction } from "@/lib/app-shell";
 import { getReportsDashboardData } from "@/lib/server/reporting";
-import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/server/lead-rules";
+import { LEAD_STATUSES, LEAD_STATUS_LABEL, dayBounds, startOfToday } from "@/lib/server/lead-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import QuickActions from "@/components/dashboard/QuickActions";
 import MonthPicker from "@/components/dashboard/MonthPicker";
@@ -100,16 +100,28 @@ async function getLeadPipeline(activeBranchId: string | null) {
   return LEAD_STATUSES.map((s) => ({ status: s, label: LEAD_STATUS_LABEL[s], count: m.get(s) ?? 0 }));
 }
 
+// Báo động tuyển sinh gộp CẢ ngày hẹn test và ngày dự kiến nhập học — giống hệt 3 chip
+// ở /leads để 2 chỗ không bao giờ nói 2 con số khác nhau (lib/server/lead-rules.ts).
 async function getTestOverview(activeBranchId: string | null) {
   const bw = activeBranchId ? { branchId: activeBranchId } : {};
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const soon = new Date(today); soon.setDate(soon.getDate() + 3); soon.setHours(23, 59, 59, 999);
-  const [missingTest, overdue, soonCount] = await Promise.all([
+  const today = startOfToday();
+  const todayRange = dayBounds(0);
+  const tomorrowRange = dayBounds(1);
+  const alertWhere = (range: { lt: Date } | { gte: Date; lte: Date }) => ({
+    ...bw,
+    status: { notIn: ["ENROLLED", "LOST"] },
+    OR: [
+      { placementTests: { some: { status: "SCHEDULED", scheduledDate: range } } },
+      { AND: [{ student: { is: null } }, { expectedStartDate: range }] },
+    ],
+  });
+  const [missingTest, overdue, todayCount, tomorrowCount] = await Promise.all([
     prisma.lead.count({ where: { ...bw, status: { notIn: ["ENROLLED", "LOST"] }, placementTests: { none: {} } } }),
-    prisma.placementTest.count({ where: { status: "SCHEDULED", scheduledDate: { lt: today }, lead: bw } }),
-    prisma.placementTest.count({ where: { status: "SCHEDULED", scheduledDate: { gte: today, lte: soon }, lead: bw } }),
+    prisma.lead.count({ where: alertWhere({ lt: today }) }),
+    prisma.lead.count({ where: alertWhere({ gte: todayRange.start, lte: todayRange.end }) }),
+    prisma.lead.count({ where: alertWhere({ gte: tomorrowRange.start, lte: tomorrowRange.end }) }),
   ]);
-  return { missingTest, overdue, soon: soonCount };
+  return { missingTest, overdue, today: todayCount, tomorrow: tomorrowCount };
 }
 
 // Sweep tự động (lib/server/scheduling.ts::runClassEndCreditSweep, chạy 2h sáng mỗi
@@ -439,8 +451,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
             </SectionHeading>
             <div className="grid grid-cols-3 gap-3 mb-4">
               <AlertBadge count={testOverview.overdue} label="Quá hạn" color="red" href="/leads?urgent=overdue" />
-              <AlertBadge count={testOverview.soon} label="Sắp tới" color="amber" href="/leads?urgent=soon" />
-              <AlertBadge count={testOverview.missingTest} label="Chưa hẹn" color="slate" href="/leads?testStatus=NONE" />
+              <AlertBadge count={testOverview.today} label="Hôm nay" color="amber" href="/leads?urgent=today" />
+              <AlertBadge count={testOverview.tomorrow} label="Ngày mai" color="slate" href="/leads?urgent=tomorrow" />
             </div>
             <div className="rounded-xl bg-[#ecfdf5] border border-[#a7f3d0] px-4 py-3 flex items-center justify-between">
               <span className="text-sm font-semibold text-[#065f46]">Đang có học bổng</span>

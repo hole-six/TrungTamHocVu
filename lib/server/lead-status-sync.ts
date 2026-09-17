@@ -1,18 +1,18 @@
 import type { Prisma } from "@prisma/client";
-import { LEAD_STATUS_LABEL, PLACEMENT_TEST_STATUS_LABEL, type LeadStatus } from "@/lib/server/lead-rules";
+import { LEAD_STATUS_LABEL, PLACEMENT_TEST_STATUS_LABEL, defaultSubStatusFor, type LeadStatus } from "@/lib/server/lead-rules";
 
 // ĐỒNG BỘ TRẠNG THÁI LEAD THEO KẾT QUẢ TEST.
 //
 // Trước đây hai chỗ này cố tình KHÔNG liên quan gì nhau: kết quả test lưu ở
 // PlacementTest.status, còn trạng thái lead thì "để nhân sự tự bấm". Hệ quả thực tế:
-// chọn kết quả "Đạt" ở ô test nhưng trạng thái ngoài danh sách lead vẫn là "Đã liên hệ",
+// chọn kết quả "Đạt" ở ô test nhưng trạng thái ngoài danh sách lead vẫn là "Chưa test",
 // nhân sự phải nhớ đi bấm thêm một lần nữa ở chỗ khác — và hầu như không ai nhớ, nên
 // danh sách lead không phản ánh đúng tình hình thật.
 //
 // Quy tắc đồng bộ (chỉ chạy khi kết quả test THỰC SỰ đổi trong chính lần lưu đó):
-//   Test "Đạt"              → lead "Đạt" (chờ xếp lớp)
+//   Test "Đạt"              → lead "Đã test" (chi tiết: đợi lớp mới / đã xếp lớp)
 //   Test "Không có nhu cầu" → lead "Không có nhu cầu"
-//   Rời khỏi 2 kết quả trên → trả lead về "Đã liên hệ"
+//   Rời khỏi 2 kết quả trên → trả lead về "Chưa test"
 //   "Không đạt"/"Đã hủy hẹn"/"Đã hẹn chưa test" → KHÔNG đụng vào trạng thái lead
 //
 // Vì sao "Không đạt" không tự đóng lead: không đạt bài test đầu vào không có nghĩa là
@@ -21,8 +21,8 @@ import { LEAD_STATUS_LABEL, PLACEMENT_TEST_STATUS_LABEL, type LeadStatus } from 
 //
 // Hai chốt chặn an toàn:
 //   - ENROLLED thì không bao giờ đụng tới: đã tạo Student thật, đổi ngược là mất dấu.
-//   - Chỉ TRẢ VỀ "Đã liên hệ" khi chính lần lưu này rời khỏi kết quả đã đồng bộ trước
-//     đó. Nhờ vậy lead được nhân sự chủ động đặt "Đạt" mà không cần test (miễn test)
+//   - Chỉ TRẢ VỀ "Chưa test" khi chính lần lưu này rời khỏi kết quả đã đồng bộ trước
+//     đó. Nhờ vậy lead được nhân sự chủ động đặt "Đã test" mà không cần test (miễn test)
 //     sẽ không bị kéo ngược.
 
 // Kết quả test nào kéo lead sang trạng thái nào.
@@ -48,7 +48,7 @@ export async function applyPlacementTestToLeadStatus(
 ): Promise<LeadStatusSyncResult> {
   const { leadId, previousTestStatus, nextTestStatus, employeeId } = params;
 
-  const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { status: true } });
+  const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { status: true, interestedClassId: true } });
   if (!lead) return { changed: false, leadStatus: "", message: null };
   // Đã ghi danh thì trạng thái do module Học viên quyết định, không kéo ngược được nữa.
   if (lead.status === "ENROLLED") return { changed: false, leadStatus: lead.status, message: null };
@@ -69,7 +69,18 @@ export async function applyPlacementTestToLeadStatus(
     return { changed: false, leadStatus: lead.status, message: null };
   }
 
-  await tx.lead.update({ where: { id: leadId }, data: { status: nextLeadStatus } });
+  await tx.lead.update({
+    where: { id: leadId },
+    data: {
+      status: nextLeadStatus,
+      // Đổi nhóm thì trạng thái chi tiết phải theo nhóm mới, nếu không bảng lọc "Đã
+      // test → đợi lớp mới / đã xếp lớp" sẽ trống trong khi lead đã test xong.
+      subStatus: defaultSubStatusFor(nextLeadStatus, {
+        hasScheduledTest: nextTestStatus === "SCHEDULED",
+        hasClass: Boolean(lead.interestedClassId),
+      }),
+    },
+  });
 
   const message =
     `Kết quả test chuyển thành "${PLACEMENT_TEST_STATUS_LABEL[nextTestStatus] ?? nextTestStatus}" — ` +

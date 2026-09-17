@@ -38,6 +38,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       },
     });
 
+    // Vừa đặt lịch hẹn test cho lead chưa test → trạng thái chi tiết là "Đã hẹn, chưa
+    // test" (trước đó là "Chưa liên hệ được"), để bảng tuyển sinh đếm đúng ngay.
+    if (created.status === "SCHEDULED" && lead.status === "CONTACTING") {
+      await tx.lead.update({ where: { id: lead.id }, data: { subStatus: "APPOINTED" } });
+    }
+
     // Lần ghi nhận đầu tiên đã có kết quả (vd test xong mới nhập liệu) thì trạng thái
     // lead phải đi theo luôn — xem lib/server/lead-status-sync.ts.
     const sync = await applyPlacementTestToLeadStatus(tx, {

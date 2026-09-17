@@ -9,6 +9,8 @@ import { canView, canUpdate, canDelete } from "@/lib/server/role-matrix";
 import {
   LEAD_STATUS_LABEL,
   LEAD_STATUS_FILTER_GROUPS,
+  LEAD_SUB_STATUS_LABEL,
+  leadSubStatusesOf,
   leadStatusGroupKey,
   PLACEMENT_TEST_STATUS_LABEL,
   PLACEMENT_TEST_BADGE_CLASS,
@@ -38,6 +40,7 @@ type Lead = {
   secondaryPhone?: string | null;
   zaloContact?: string | null;
   status: string;
+  subStatus?: string | null;
   dob?: string | Date | null;
   guardianName?: string | null;
   guardianPortalEmail?: string | null;
@@ -68,8 +71,12 @@ type LeadsTableProps = {
   testStatusFilter?: string;
   urgentFilter?: string;
   missingTestCount?: number;
-  soonCount?: number;
   overdueCount?: number;
+  todayCount?: number;
+  tomorrowCount?: number;
+  subStatusOptions?: { value: string; label: string; group: string; count: number }[];
+  subStatusFilter?: string;
+  periodFilter?: string;
   classOptions?: { id: string; className: string }[];
   enrolledCount?: number;
 };
@@ -129,8 +136,12 @@ export default function LeadsTable({
   testStatusFilter = "",
   urgentFilter = "",
   missingTestCount = 0,
-  soonCount = 0,
   overdueCount = 0,
+  todayCount = 0,
+  tomorrowCount = 0,
+  subStatusOptions = [],
+  subStatusFilter = "",
+  periodFilter = "",
   classOptions = [],
   enrolledCount = 0,
 }: LeadsTableProps) {
@@ -196,6 +207,25 @@ export default function LeadsTable({
       return;
     }
     setData((current) => current.map((item) => (item.id === leadId ? { ...item, status: nextStatus } : item)));
+    router.refresh();
+  };
+
+  // Trạng thái chi tiết (đã hẹn chưa test / trùng lịch / đợi lớp mới / đã xếp lớp...)
+  // đổi ngay trên bảng như trạng thái nhóm, không bắt mở chi tiết.
+  const changeLeadSubStatus = async (leadId: string, nextSubStatus: string) => {
+    setStatusSavingId(leadId);
+    const response = await fetch(`/api/leads/${leadId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subStatus: nextSubStatus || null }),
+    });
+    setStatusSavingId(null);
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      toast.blocked(result.error ?? "Không thể đổi trạng thái chi tiết.");
+      return;
+    }
+    setData((current) => current.map((item) => (item.id === leadId ? { ...item, subStatus: nextSubStatus || null } : item)));
     router.refresh();
   };
 
@@ -293,7 +323,9 @@ export default function LeadsTable({
       key: "meetDate",
       label: "Ngày gặp",
       filter: { type: "dateRange", paramKeyFrom: "meetFrom", paramKeyTo: "meetTo" },
-      render: (value) => <DateCell date={value} />,
+      // Ngày gặp KHÔNG bôi màu theo yêu cầu vận hành: chỉ ngày hẹn test và ngày nhập
+      // học mới là mốc phải gọi nhắc, tô màu cả ngày gặp làm bảng đỏ rực vô nghĩa.
+      render: (value) => <span className="text-ink-muted80">{formatDate(value)}</span>,
     },
     {
       key: "latestTest",
@@ -307,8 +339,9 @@ export default function LeadsTable({
         // (Đạt/Không đạt/...) vì đó không phải khái niệm "lịch" (thời điểm).
         options: [
           { label: "Chưa hẹn", value: "NONE" },
-          { label: "Sắp tới", value: "soon" },
           { label: "Quá hạn", value: "overdue" },
+          { label: "Hôm nay", value: "today" },
+          { label: "Ngày mai", value: "tomorrow" },
         ],
       },
       render: (_value, row) => {
@@ -322,7 +355,8 @@ export default function LeadsTable({
               <span className="text-ink-muted48">Hẹn:</span> <DateCell date={test?.scheduledDate} />
             </p>
             <p>
-              <span className="text-ink-muted48">Đến:</span> <DateCell date={test?.testDate} />
+              {/* Ngày ĐẾN test là việc đã xảy ra — không phải mốc phải nhắc nên không bôi màu. */}
+              <span className="text-ink-muted48">Đến:</span> <span className="text-ink-muted80">{formatDate(test?.testDate)}</span>
             </p>
           </div>
         );
@@ -338,7 +372,8 @@ export default function LeadsTable({
             <span className="text-ink-muted48">Dự kiến:</span> <DateCell date={row.expectedStartDate} />
           </p>
           <p>
-            <span className="text-ink-muted48">Thực tế:</span> <DateCell date={row.actualEnrollDate} />
+            {/* Đã nhập học thật rồi thì không còn gì để nhắc — để trơn như ngày gặp. */}
+            <span className="text-ink-muted48">Thực tế:</span> <span className="text-ink-muted80">{formatDate(row.actualEnrollDate)}</span>
           </p>
         </div>
       ),
@@ -347,6 +382,7 @@ export default function LeadsTable({
       key: "status",
       label: "Trạng thái",
       align: "center",
+      width: "180px",
       filter: {
         type: "select",
         paramKey: "status",
@@ -398,6 +434,29 @@ export default function LeadsTable({
                 {isConverted ? LEAD_STATUS_LABEL.ENROLLED : cfg.label}
               </span>
             )}
+
+            {!isConverted && leadSubStatusesOf(currentGroupKey).length > 0 ? (
+              canUpdate("leads", userRole) ? (
+                <select
+                  value={row.subStatus ?? ""}
+                  disabled={statusSavingId === row.id}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    void changeLeadSubStatus(row.id, e.target.value);
+                  }}
+                  className="h-7 w-full min-w-[150px] cursor-pointer rounded-lg border border-[#e5eaf7] bg-white px-2 text-[11px] font-semibold text-[#475569] outline-none"
+                >
+                  <option value="">Chọn chi tiết…</option>
+                  {leadSubStatusesOf(currentGroupKey).map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              ) : row.subStatus ? (
+                <span className="text-[11px] font-semibold text-[#64748b]">{LEAD_SUB_STATUS_LABEL[row.subStatus] ?? row.subStatus}</span>
+              ) : null
+            ) : null}
 
             {value === "QUALIFIED" && !isConverted && canUpdate("leads", userRole) && (
               <button
@@ -545,7 +604,7 @@ export default function LeadsTable({
     // Dropdown lọc cột "Lịch test" gộp chung 1 ô chọn nhưng thật ra đi 2 param khác
     // nhau ở URL — "Chưa hẹn" là testStatus=NONE, còn "Sắp tới"/"Quá hạn" là lát cắt
     // theo ngày (urgent=soon|overdue), không phải giá trị testStatus thật.
-    if (key === "testStatus" && (value === "soon" || value === "overdue")) {
+    if (key === "testStatus" && (value === "overdue" || value === "today" || value === "tomorrow")) {
       router.push(`/leads?${buildQuery({ urgent: value, testStatus: null, ...extra })}`);
       return;
     }
@@ -569,19 +628,30 @@ export default function LeadsTable({
     notes: searchParams.get("notes") ?? "",
     // Hiện đúng lựa chọn đang active trong dropdown dù trạng thái đó lưu ở param nào
     // (testStatus=NONE hay urgent=soon|overdue) — xem handleFilterChange ở trên.
-    testStatus: urgentFilter === "soon" || urgentFilter === "overdue" ? urgentFilter : testStatusFilter,
+    testStatus: ["overdue", "today", "tomorrow"].includes(urgentFilter) ? urgentFilter : testStatusFilter,
   };
 
-  // Chip "Lịch test" chỉ lọc theo THỜI ĐIỂM (chưa hẹn / sắp tới hạn / đã quá hạn) —
-  // khác với dropdown lọc cột "Lịch test" (lọc theo KẾT QUẢ: Đạt/Không đạt/...). Đây
-  // là 2 chiều lọc khác nhau có chủ đích, không phải cùng 1 bộ trạng thái nên không
-  // cần liệt kê đủ 6 trạng thái ở đây.
+  // BÁO ĐỘNG = việc phải gọi nhắc, gộp CẢ 2 mốc hẹn: ngày hẹn test và ngày dự kiến
+  // nhập học. Ba mức đúng như trung tâm đọc mỗi sáng: quá hạn / hôm nay / ngày mai.
+  // "Chưa hẹn test" giữ riêng vì là việc khác (chưa có mốc nào để nhắc).
   const testChips: { key: string; label: string; count: number; active: boolean; query: Record<string, string | null> }[] = [
-    { key: "NONE", label: "Chưa hẹn", count: missingTestCount, active: testStatusFilter === "NONE", query: { testStatus: "NONE", urgent: null } },
-    { key: "soon", label: "Sắp tới", count: soonCount, active: urgentFilter === "soon", query: { urgent: "soon", testStatus: null } },
-    { key: "overdue", label: "Quá hạn", count: overdueCount, active: urgentFilter === "overdue", query: { urgent: "overdue", testStatus: null } },
+    { key: "overdue", label: "Quá hạn", count: overdueCount, active: urgentFilter === "overdue", query: { urgent: "overdue", testStatus: null, period: null } },
+    { key: "today", label: "Hôm nay", count: todayCount, active: urgentFilter === "today", query: { urgent: "today", testStatus: null, period: null } },
+    { key: "tomorrow", label: "Ngày mai", count: tomorrowCount, active: urgentFilter === "tomorrow", query: { urgent: "tomorrow", testStatus: null, period: null } },
+    { key: "NONE", label: "Chưa hẹn test", count: missingTestCount, active: testStatusFilter === "NONE", query: { testStatus: "NONE", urgent: null } },
   ];
   const testFilterActive = Boolean(testStatusFilter || urgentFilter);
+
+  // Kỳ dữ liệu tuyển sinh — tính theo NGÀY NHẬN DATA, để đọc "tuần này nhận bao nhiêu
+  // data, ra bao nhiêu ca test, bao nhiêu em nhập học".
+  const periodChips = [
+    { key: "", label: "Tất cả" },
+    { key: "week", label: "Tuần này" },
+    { key: "month", label: "Tháng này" },
+  ];
+
+  // Trạng thái chi tiết: chỉ hiện của nhóm đang chọn; chưa chọn nhóm nào thì hiện hết.
+  const visibleSubStatuses = subStatusOptions.filter((item) => !statusFilter || item.group === statusFilter);
 
   // ENROLLED đã có học viên thật, việc theo dõi tiếp thuộc module Học viên — không
   // còn cần chip lọc riêng ở CRM này nữa (đã loại khỏi danh sách mặc định rồi).
@@ -680,11 +750,70 @@ export default function LeadsTable({
         </div>
       )}
 
-      {/* Row 2: Lịch test sub-filters */}
+      {/* Row 2: trạng thái chi tiết trong nhóm */}
+      {visibleSubStatuses.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#f1f5f9] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-[#64748b]">
+            Chi tiết
+          </span>
+          {subStatusFilter ? (
+            <Link
+              href={`/leads?${buildQuery({ sub: null })}`}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3 py-1.5 text-xs font-bold text-[#b91c1c] transition hover:bg-[#fee2e2]"
+            >
+              Bỏ lọc chi tiết
+            </Link>
+          ) : null}
+          {visibleSubStatuses.map((item) => {
+            const isActive = subStatusFilter === item.value;
+            return (
+              <Link
+                key={item.value}
+                href={`/leads?${buildQuery({ sub: item.value, status: item.group })}`}
+                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all duration-150 ${
+                  isActive
+                    ? "border-[#0f1729] bg-[#0f1729] text-white shadow-md scale-[1.03]"
+                    : item.count === 0
+                      ? "border-[#e5eaf7] bg-white text-[#94a3b8] opacity-50"
+                      : "border-[#e5eaf7] bg-white text-[#475569] hover:border-[#0f1729] hover:text-[#0f1729] hover:shadow-sm"
+                }`}
+              >
+                <span>{item.label}</span>
+                <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black ${isActive ? "bg-white/20 text-white" : "bg-[#f1f5f9] text-[#475569]"}`}>
+                  {item.count}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Row 3: kỳ dữ liệu + báo động lịch hẹn */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#f1f5f9] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-[#64748b]">
+          Data nhận
+        </span>
+        {periodChips.map((chip) => {
+          const isActive = (periodFilter ?? "") === chip.key;
+          return (
+            <Link
+              key={chip.key || "all"}
+              href={`/leads?${buildQuery({ period: chip.key || null, urgent: null })}`}
+              className={`inline-flex items-center rounded-xl border px-3 py-1.5 text-xs font-bold transition-all duration-150 ${
+                isActive
+                  ? "border-[#1d4ed8] bg-[#1d4ed8] text-white shadow-md"
+                  : "border-[#e5eaf7] bg-white text-[#475569] hover:border-[#1d4ed8] hover:text-[#1d4ed8]"
+              }`}
+            >
+              {chip.label}
+            </Link>
+          );
+        })}
+
+        <div className="mx-1 h-5 w-px shrink-0 rounded-full bg-[#e5eaf7]" aria-hidden />
+        <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#fff1f2] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-[#b91c1c]">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          Lịch test
+          Báo động hẹn test + nhập học
         </span>
 
         {testFilterActive && (
@@ -713,7 +842,8 @@ export default function LeadsTable({
               className={`h-1.5 w-1.5 rounded-full ${
                 chip.active ? "bg-white" :
                 chip.key === "overdue" ? "bg-[#ef4444]" :
-                chip.key === "soon" ? "bg-[#f59e0b]" :
+                chip.key === "today" ? "bg-[#f97316]" :
+                chip.key === "tomorrow" ? "bg-[#f59e0b]" :
                 "bg-[#94a3b8]"
               }`}
             />

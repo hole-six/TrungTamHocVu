@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate, canView } from "@/lib/server/role-matrix";
-import { LEAD_STATUSES, LEAD_STATUS_FILTER_GROUPS } from "@/lib/server/lead-rules";
+import { LEAD_STATUSES, LEAD_STATUS_FILTER_GROUPS, LEAD_SUB_STATUS, dayBounds, startOfToday } from "@/lib/server/lead-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import LeadsTable from "@/components/leads/LeadsTable";
 import PageGuide from "@/components/ui/PageGuide";
@@ -76,6 +76,8 @@ export default async function LeadsPage({
   searchParams: {
     q?: string;
     status?: string;
+    sub?: string;
+    period?: string;
     testStatus?: string;
     urgent?: string;
     page?: string;
@@ -98,6 +100,9 @@ export default async function LeadsPage({
 
   const q = searchParams.q?.trim() ?? "";
   const status = searchParams.status ?? "";
+  const subStatus = searchParams.sub?.trim() ?? "";
+  // Kỳ dữ liệu tuyển sinh: tính theo NGÀY NHẬN DATA (createdAt). "" = tất cả.
+  const period = searchParams.period === "week" || searchParams.period === "month" ? searchParams.period : "";
   const testStatus = searchParams.testStatus?.trim() ?? "";
   const urgent = searchParams.urgent?.trim() ?? "";
   const page = Math.max(1, Number(searchParams.page ?? 1));
@@ -113,11 +118,63 @@ export default async function LeadsPage({
   const startTo = searchParams.startTo?.trim() ?? "";
   const notesFilter = searchParams.notes?.trim() ?? "";
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const soonBoundary = new Date(today);
-  soonBoundary.setDate(soonBoundary.getDate() + 3);
-  soonBoundary.setHours(23, 59, 59, 999);
+  const today = startOfToday();
+  const todayBounds = dayBounds(0);
+  const tomorrowBounds = dayBounds(1);
+
+  // KỲ DỮ LIỆU: tuần này (thứ 2 → chủ nhật) hoặc tháng này, tính theo ngày nhận data.
+  function periodRange(kind: string): { gte: Date; lte: Date } | null {
+    if (kind === "week") {
+      const start = startOfToday();
+      const weekday = (start.getDay() + 6) % 7; // thứ 2 = 0
+      start.setDate(start.getDate() - weekday);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      return { gte: start, lte: end };
+    }
+    if (kind === "month") {
+      const start = startOfToday();
+      start.setDate(1);
+      const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
+      return { gte: start, lte: end };
+    }
+    return null;
+  }
+
+  // Kỳ dữ liệu áp cho cả danh sách lẫn số trên chip trạng thái. Chip báo động là việc
+  // "phải gọi hôm nay" nên nó tự bỏ kỳ (link của chip xóa param period) — nhờ vậy số
+  // trên chip và số dòng trong bảng luôn khớp, không có lọc ngầm nào bị bỏ qua.
+  const periodWindow = periodRange(period);
+  const periodWhere = periodWindow ? { createdAt: periodWindow } : {};
+
+  // BÁO ĐỘNG gộp CẢ 2 mốc hẹn: ngày hẹn test (chưa test) và ngày dự kiến nhập học
+  // (chưa thành học viên). Lead đã nhập học hoặc đã đóng thì không nhắc nữa.
+  function alertWhere(bucket: string) {
+    const range =
+      bucket === "overdue"
+        ? { lt: today }
+        : bucket === "today"
+          ? { gte: todayBounds.start, lte: todayBounds.end }
+          : bucket === "tomorrow"
+            ? { gte: tomorrowBounds.start, lte: tomorrowBounds.end }
+            : null;
+    if (!range) return null;
+    return {
+      status: { notIn: ["ENROLLED", "LOST"] },
+      OR: [
+        { placementTests: { some: { status: "SCHEDULED", scheduledDate: range } } },
+        { AND: [{ student: { is: null } }, { expectedStartDate: range }] },
+      ],
+    };
+  }
+
+  const urgentWhere = alertWhere(urgent);
+  // Dùng AND lồng 1 OR riêng (không phải OR trần) — tránh đè lên OR của ô tìm chung `q`.
+  const andFilters = [
+    ...(phoneFilter ? [{ OR: [{ phone: { contains: phoneFilter } }, { secondaryPhone: { contains: phoneFilter } }] }] : []),
+    ...(urgentWhere ? [urgentWhere] : []),
+  ];
 
   const where = {
     ...(activeBranchId ? { branchId: activeBranchId } : {}),
@@ -126,13 +183,13 @@ export default async function LeadsPage({
     // danh sách chính để ưu tiên các lead còn cần xử lý, vẫn xem được khi bấm rõ
     // ràng vào chip "Đã ghi danh" (status=ENROLLED).
     ...resolveLeadStatusFilter(status),
+    ...(subStatus ? { subStatus } : {}),
+    ...periodWhere,
     ...(leadCodeFilter ? { leadCode: { contains: leadCodeFilter } } : {}),
     ...(nameFilter ? { fullName: { contains: nameFilter } } : {}),
     ...(sourceFilter ? { source: { contains: sourceFilter } } : {}),
-    // Dùng AND lồng 1 OR riêng (không phải OR trần) — tránh đè lên OR của ô tìm chung
-    // `q` phía dưới nếu cả 2 cùng có giá trị (2 key "OR" trần trong cùng object sẽ bị
-    // ghi đè, chỉ còn cái sau).
-    ...(phoneFilter ? { AND: [{ OR: [{ phone: { contains: phoneFilter } }, { secondaryPhone: { contains: phoneFilter } }] }] } : {}),
+    // Mọi điều kiện dạng AND gom hết vào andFilters phía trên — 2 key "AND" trần trong
+    // cùng một object sẽ đè nhau, chỉ còn cái sau (bug từng gặp với ô lọc số điện thoại).
     ...(meetFrom || meetTo
       ? { meetDate: { ...(meetFrom ? { gte: new Date(meetFrom) } : {}), ...(meetTo ? { lte: new Date(meetTo) } : {}) } }
       : {}),
@@ -141,11 +198,7 @@ export default async function LeadsPage({
       : {}),
     ...(notesFilter ? { notes: { contains: notesFilter } } : {}),
     ...(testStatus === "NONE" ? { placementTests: { none: {} } } : testStatus ? { placementTests: { some: { status: testStatus } } } : {}),
-    ...(urgent === "overdue"
-      ? { placementTests: { some: { status: "SCHEDULED", scheduledDate: { lt: today } } } }
-      : urgent === "soon"
-        ? { placementTests: { some: { status: "SCHEDULED", scheduledDate: { gte: today, lte: soonBoundary } } } }
-        : {}),
+    ...(andFilters.length ? { AND: andFilters } : {}),
     ...(q
       ? {
           OR: [
@@ -180,7 +233,7 @@ export default async function LeadsPage({
     prisma.lead.count({ where }),
     prisma.lead.groupBy({
       by: ["status"],
-      where: activeBranchId ? { branchId: activeBranchId } : {},
+      where: { ...(activeBranchId ? { branchId: activeBranchId } : {}), ...periodWhere },
       _count: { _all: true },
     }),
   ]);
@@ -213,19 +266,25 @@ export default async function LeadsPage({
     }
   }
 
-  const [missingTestCount, overdueCount, soonCount, classOptions] = await Promise.all([
+  // Số của 3 chip báo động ĐẾM THEO LEAD (không đếm theo phiếu test) vì mỗi dòng trong
+  // bảng là 1 lead — trước đây đếm theo placement_test nên số trên chip lệch số dòng.
+  const alertCountWhere = (bucket: string) => ({ ...branchLeadFilter, AND: [alertWhere(bucket)!] });
+  const [missingTestCount, overdueCount, todayCount, tomorrowCount, bySubStatus, classOptions] = await Promise.all([
     prisma.lead.count({
       where: {
         ...branchLeadFilter,
+        ...periodWhere,
         status: { notIn: ["ENROLLED", "LOST"] },
         placementTests: { none: {} },
       },
     }),
-    prisma.placementTest.count({
-      where: { status: "SCHEDULED", scheduledDate: { lt: today }, lead: branchLeadFilter },
-    }),
-    prisma.placementTest.count({
-      where: { status: "SCHEDULED", scheduledDate: { gte: today, lte: soonBoundary }, lead: branchLeadFilter },
+    prisma.lead.count({ where: alertCountWhere("overdue") }),
+    prisma.lead.count({ where: alertCountWhere("today") }),
+    prisma.lead.count({ where: alertCountWhere("tomorrow") }),
+    prisma.lead.groupBy({
+      by: ["subStatus"],
+      where: { ...branchLeadFilter, ...periodWhere },
+      _count: { _all: true },
     }),
     prisma.class.findMany({
       where: { ...branchLeadFilter, status: "ACTIVE" },
@@ -233,6 +292,14 @@ export default async function LeadsPage({
       orderBy: { className: "asc" },
     }),
   ]);
+
+  const subStatusCounts = Object.fromEntries(bySubStatus.map((row) => [row.subStatus ?? "", row._count._all]));
+  const subStatusOptions = LEAD_SUB_STATUS.map((item) => ({
+    value: item.value,
+    label: item.label,
+    group: item.group as string,
+    count: subStatusCounts[item.value] ?? 0,
+  }));
 
   const studentIds = items.flatMap((item) => (item.student ? [item.student.id] : []));
   const charges = studentIds.length
@@ -315,8 +382,12 @@ export default async function LeadsPage({
         testStatusFilter={testStatus}
         urgentFilter={urgent}
         missingTestCount={missingTestCount}
-        soonCount={soonCount}
         overdueCount={overdueCount}
+        todayCount={todayCount}
+        tomorrowCount={tomorrowCount}
+        subStatusOptions={subStatusOptions}
+        subStatusFilter={subStatus}
+        periodFilter={period}
         classOptions={classOptions}
         enrolledCount={statusCounts.ENROLLED ?? 0}
       />

@@ -1,31 +1,66 @@
 // Quy tắc nghiệp vụ CRM tuyển sinh — đơn giản hóa chỉ theo dõi lead ĐANG xử lý.
 // Lead đã ghi danh (ENROLLED) tự động ẩn khỏi CRM, chuyển sang module Học viên.
 
+// 4 nhóm theo cách gọi của trung tâm (chốt 9/2026):
+//   Chưa test → Đã test → Đã nhập học, hoặc rẽ sang Không có nhu cầu.
+// Tên cột trong CSDL giữ nguyên (CONTACTING/QUALIFIED/...) để không phải chuyển đổi dữ
+// liệu cũ; chỉ NHÃN hiển thị đổi. Mỗi nhóm có thêm trạng thái chi tiết ở LEAD_SUB_STATUS.
 export const LEAD_STATUSES = [
-  "CONTACTING",      // Đã liên hệ (bao gồm cả đã hẹn test, đang test)
-  "QUALIFIED",       // Đạt test, chờ xếp lớp
-  "ENROLLED",        // Đã ghi danh → tự động ẩn khỏi CRM
+  "CONTACTING",      // Chưa test (đã hẹn chưa test / chưa liên hệ được)
+  "QUALIFIED",       // Đã test (trùng lịch / đợi lớp mới / đã xếp lớp)
+  "ENROLLED",        // Đã nhập học → tự động ẩn khỏi CRM
   "LOST",           // Không có nhu cầu
 ] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
 export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
-  CONTACTING: "Đã liên hệ",
-  QUALIFIED: "Đạt",
+  CONTACTING: "Chưa test",
+  QUALIFIED: "Đã test",
   ENROLLED: "Đã nhập học",
   LOST: "Không có nhu cầu",
 };
 
-// Gộp statuses thành nhóm filter đơn giản - chỉ 3 nhóm chính để dễ theo dõi:
-// 1. Đã liên hệ (đang xử lý) - bao gồm cả hẹn test, đang test
-// 2. Đạt (chờ xếp lớp)
-// 3. Không có nhu cầu (đã đóng)
 // ENROLLED không có trong filter groups vì tự động ẩn khỏi CRM (có chip riêng để xem lại nếu cần).
 export const LEAD_STATUS_FILTER_GROUPS = [
-  { key: "CONTACTING", label: "Đã liên hệ", statuses: ["CONTACTING"] },
-  { key: "QUALIFIED", label: "Đạt", statuses: ["QUALIFIED"] },
+  { key: "CONTACTING", label: "Chưa test", statuses: ["CONTACTING"] },
+  { key: "QUALIFIED", label: "Đã test", statuses: ["QUALIFIED"] },
   { key: "LOST", label: "Không có nhu cầu", statuses: ["LOST"] },
 ] as const satisfies { key: string; label: string; statuses: LeadStatus[] }[];
+
+// TRẠNG THÁI CHI TIẾT trong từng nhóm (cột leads.sub_status). Chỉ 2 nhóm đang xử lý mới
+// có chi tiết; đã nhập học / không có nhu cầu là điểm cuối nên để trống.
+export const LEAD_SUB_STATUS = [
+  { value: "APPOINTED", label: "Đã hẹn, chưa test", group: "CONTACTING" },
+  { value: "UNREACHABLE", label: "Chưa liên hệ được", group: "CONTACTING" },
+  { value: "SCHEDULE_CONFLICT", label: "Trùng lịch", group: "QUALIFIED" },
+  { value: "WAITING_CLASS", label: "Đợi lớp mới", group: "QUALIFIED" },
+  { value: "CLASS_ASSIGNED", label: "Đã xếp lớp", group: "QUALIFIED" },
+] as const satisfies { value: string; label: string; group: LeadStatus }[];
+
+export type LeadSubStatus = (typeof LEAD_SUB_STATUS)[number]["value"];
+
+export const LEAD_SUB_STATUS_LABEL: Record<string, string> = Object.fromEntries(
+  LEAD_SUB_STATUS.map((item) => [item.value, item.label]),
+);
+
+export function leadSubStatusesOf(status: string) {
+  return LEAD_SUB_STATUS.filter((item) => item.group === status);
+}
+
+/** Trạng thái chi tiết mặc định khi lead vừa rơi vào một nhóm mà chưa ai chọn tay. */
+export function defaultSubStatusFor(status: string, hint?: { hasScheduledTest?: boolean; hasClass?: boolean }): LeadSubStatus | null {
+  if (status === "CONTACTING") return hint?.hasScheduledTest ? "APPOINTED" : "UNREACHABLE";
+  if (status === "QUALIFIED") return hint?.hasClass ? "CLASS_ASSIGNED" : "WAITING_CLASS";
+  return null;
+}
+
+/** Chỉ giữ trạng thái chi tiết hợp lệ với nhóm — tránh lưu "đã xếp lớp" cho lead chưa test. */
+export function normalizeSubStatus(status: string, raw: unknown): LeadSubStatus | null {
+  const value = typeof raw === "string" ? raw.trim() : "";
+  if (!value) return null;
+  const found = LEAD_SUB_STATUS.find((item) => item.value === value && item.group === status);
+  return found ? found.value : null;
+}
 
 export function leadStatusGroupKey(status: string): string {
   return LEAD_STATUS_FILTER_GROUPS.find((group) => (group.statuses as readonly string[]).includes(status))?.key ?? status;
@@ -136,26 +171,47 @@ export const PLACEMENT_TEST_BADGE_CLASS: Record<string, string> = {
   NONE: "bg-red-100 text-red-700",
 };
 
-// Mức cảnh báo theo mốc ngày (hẹn test / dự kiến đi học...) — Đỏ = quá hạn hoặc hôm
-// nay, Vàng = trong 3 ngày tới, không màu = còn xa hoặc đã null. Dùng chung cho mọi
-// cột ngày cần "nhắc hẹn" ở Danh sách test, tránh mỗi nơi tự định nghĩa 1 kiểu.
-export type DateUrgency = "overdue" | "soon" | "none";
-const URGENCY_SOON_DAYS = 3;
+// BÁO ĐỘNG theo mốc ngày — dùng chung cho NGÀY HẸN TEST và NGÀY NHẬP HỌC DỰ KIẾN
+// (2 mốc trung tâm phải gọi điện nhắc). Ba mức đúng như vận hành cần đọc mỗi sáng:
+// quá hạn (đỏ), hôm nay (cam đậm), ngày mai (vàng). Ngày gặp KHÔNG dùng thang này —
+// gặp rồi thì không còn gì để nhắc.
+export type DateUrgency = "overdue" | "today" | "tomorrow" | "none";
+
+export const DATE_URGENCY_LABEL: Record<Exclude<DateUrgency, "none">, string> = {
+  overdue: "Quá hạn",
+  today: "Hôm nay",
+  tomorrow: "Ngày mai",
+};
+
+export function startOfToday(): Date {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+/** Mốc [đầu ngày, cuối ngày] của hôm nay / ngày mai — để dựng điều kiện lọc ở CSDL. */
+export function dayBounds(offsetDays: number): { start: Date; end: Date } {
+  const start = startOfToday();
+  start.setDate(start.getDate() + offsetDays);
+  const end = new Date(start);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
 
 export function dateUrgency(date: Date | string | null | undefined): DateUrgency {
   if (!date) return "none";
   const target = new Date(date);
   target.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diffDays = (target.getTime() - today.getTime()) / (24 * 60 * 60 * 1000);
-  if (diffDays <= 0) return "overdue";
-  if (diffDays <= URGENCY_SOON_DAYS) return "soon";
+  const diffDays = Math.round((target.getTime() - startOfToday().getTime()) / (24 * 60 * 60 * 1000));
+  if (diffDays < 0) return "overdue";
+  if (diffDays === 0) return "today";
+  if (diffDays === 1) return "tomorrow";
   return "none";
 }
 
 export const DATE_URGENCY_CLASS: Record<DateUrgency, string> = {
   overdue: "bg-red-100 text-red-700 border-red-200",
-  soon: "bg-amber-100 text-amber-700 border-amber-200",
+  today: "bg-orange-100 text-orange-700 border-orange-200",
+  tomorrow: "bg-amber-100 text-amber-700 border-amber-200",
   none: "",
 };

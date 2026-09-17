@@ -284,6 +284,9 @@ model Lead {
   // (Bản thiết kế cũ NEW/APPOINTED/TESTED/UNQUALIFIED đã bỏ — đừng dùng lại, UI
   // không hiểu và ô chọn trạng thái sẽ kẹt.)
   status                  String    @default("CONTACTING")
+  // Trạng thái CHI TIẾT bên trong nhóm status (danh sách ở LEAD_SUB_STATUS, lib/server/lead-rules.ts):
+  // Chưa test → APPOINTED | UNREACHABLE; Đã test → SCHEDULE_CONFLICT | WAITING_CLASS | CLASS_ASSIGNED.
+  subStatus               String?   @map("sub_status")
   expectedStartDate       DateTime? @map("expected_start_date") // Ngày dự kiến đi học
   actualEnrollDate        DateTime? @map("actual_enroll_date") // Ngày nhập học
   source                  String?
