@@ -7,6 +7,7 @@ import { canCreate, canView } from "@/lib/server/role-matrix";
 import { LEAD_STATUSES, LEAD_STATUS_FILTER_GROUPS, LEAD_SUB_STATUS, dayBounds, startOfToday } from "@/lib/server/lead-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import LeadsTable from "@/components/leads/LeadsTable";
+import TopDateRangeFilter from "@/components/ui/TopDateRangeFilter";
 import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import NewLeadDrawer from "@/components/leads/NewLeadDrawer";
@@ -77,7 +78,8 @@ export default async function LeadsPage({
     q?: string;
     status?: string;
     sub?: string;
-    period?: string;
+    from?: string;
+    to?: string;
     testStatus?: string;
     urgent?: string;
     page?: string;
@@ -101,8 +103,9 @@ export default async function LeadsPage({
   const q = searchParams.q?.trim() ?? "";
   const status = searchParams.status ?? "";
   const subStatus = searchParams.sub?.trim() ?? "";
-  // Kỳ dữ liệu tuyển sinh: tính theo NGÀY NHẬN DATA (createdAt). "" = tất cả.
-  const period = searchParams.period === "week" || searchParams.period === "month" ? searchParams.period : "";
+  // Khoảng NGÀY NHẬN DATA (createdAt) — trống = tất cả thời gian.
+  const dataFrom = searchParams.from?.trim() ?? "";
+  const dataTo = searchParams.to?.trim() ?? "";
   const testStatus = searchParams.testStatus?.trim() ?? "";
   const urgent = searchParams.urgent?.trim() ?? "";
   const page = Math.max(1, Number(searchParams.page ?? 1));
@@ -122,31 +125,18 @@ export default async function LeadsPage({
   const todayBounds = dayBounds(0);
   const tomorrowBounds = dayBounds(1);
 
-  // KỲ DỮ LIỆU: tuần này (thứ 2 → chủ nhật) hoặc tháng này, tính theo ngày nhận data.
-  function periodRange(kind: string): { gte: Date; lte: Date } | null {
-    if (kind === "week") {
-      const start = startOfToday();
-      const weekday = (start.getDay() + 6) % 7; // thứ 2 = 0
-      start.setDate(start.getDate() - weekday);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 6);
-      end.setHours(23, 59, 59, 999);
-      return { gte: start, lte: end };
-    }
-    if (kind === "month") {
-      const start = startOfToday();
-      start.setDate(1);
-      const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
-      return { gte: start, lte: end };
-    }
-    return null;
-  }
-
-  // Kỳ dữ liệu áp cho cả danh sách lẫn số trên chip trạng thái. Chip báo động là việc
-  // "phải gọi hôm nay" nên nó tự bỏ kỳ (link của chip xóa param period) — nhờ vậy số
-  // trên chip và số dòng trong bảng luôn khớp, không có lọc ngầm nào bị bỏ qua.
-  const periodWindow = periodRange(period);
-  const periodWhere = periodWindow ? { createdAt: periodWindow } : {};
+  // Khoảng ngày nhận data áp cho CẢ danh sách lẫn số trên mọi chip. Chip nhắc hẹn là
+  // việc "phải gọi hôm nay" nên link của nó tự bỏ khoảng ngày, nhờ vậy số trên chip và
+  // số dòng trong bảng luôn khớp, không có lọc ngầm nào bị bỏ qua.
+  const periodWhere =
+    dataFrom || dataTo
+      ? {
+          createdAt: {
+            ...(dataFrom ? { gte: new Date(`${dataFrom}T00:00:00`) } : {}),
+            ...(dataTo ? { lte: new Date(`${dataTo}T23:59:59.999`) } : {}),
+          },
+        }
+      : {};
 
   // BÁO ĐỘNG gộp CẢ 2 mốc hẹn: ngày hẹn test (chưa test) và ngày dự kiến nhập học
   // (chưa thành học viên). Lead đã nhập học hoặc đã đóng thì không nhắc nữa.
@@ -365,35 +355,9 @@ export default async function LeadsPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          {/* KỲ DỮ LIỆU đứng ngay đầu trang cạnh nút thêm lead — đây là thứ chọn MỘT LẦN
-              khi mở trang ("xem data tuần này hay cả năm"), không phải bộ lọc vặt như
-              các chip trạng thái, nên không nhét chung vào hàng chip cho chật. */}
-          <div className="inline-flex items-center gap-1 rounded-xl border border-[#e5eaf7] bg-white p-1">
-            <span className="px-2 text-[10px] font-black uppercase tracking-[0.15em] text-[#94a3b8]">Data nhận</span>
-            {[
-              { key: "", label: "Tất cả" },
-              { key: "week", label: "Tuần này" },
-              { key: "month", label: "Tháng này" },
-            ].map((item) => {
-              const isActive = period === item.key;
-              const query = new URLSearchParams();
-              for (const [key, value] of Object.entries(searchParams)) {
-                if (value && key !== "period" && key !== "page" && key !== "urgent") query.set(key, String(value));
-              }
-              if (item.key) query.set("period", item.key);
-              return (
-                <Link
-                  key={item.key || "all"}
-                  href={`/leads?${query.toString()}`}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                    isActive ? "bg-[#1d4ed8] text-white shadow-sm" : "text-[#475569] hover:bg-[#f1f5f9]"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
+          {/* Lọc theo NGÀY NHẬN DATA ngay đầu trang — lịch có sẵn hôm nay / tuần này /
+              tháng này / tháng trước, chọn khoảng bất kỳ cũng được. */}
+          <TopDateRangeFilter label="Data nhận" fromParam="from" toParam="to" resetParams={["urgent"]} />
           <SpotlightTour steps={LEADS_TOUR_STEPS} />
           {canCreate("leads", userRole) ? <NewLeadDrawer classOptions={classOptions} /> : null}
         </div>

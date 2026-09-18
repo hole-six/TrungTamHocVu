@@ -10,6 +10,7 @@ import CashbookExportButton from "@/components/cashbook/CashbookExportButton";
 import NewCashTransactionForm from "@/components/cashbook/NewCashTransactionForm";
 import CategoryManager from "@/components/cashbook/CategoryManager";
 import CashbookTable from "@/components/cashbook/CashbookTable";
+import TopDateRangeFilter from "@/components/ui/TopDateRangeFilter";
 import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { formatVnd } from "@/lib/export-utils";
@@ -376,6 +377,10 @@ export default async function CashbookPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Lọc theo NGÀY THU/CHI ngay đầu trang (mặc định đầu tháng → hôm nay). */}
+          {activeTab === "transactions" ? (
+            <TopDateRangeFilter label="Ngày thu chi" fromParam="fromDate" toParam="toDate" fallbackFrom={toYmd(rangeStart)} fallbackTo={toYmd(rangeEnd)} />
+          ) : null}
           <SpotlightTour steps={CASHBOOK_TOUR_STEPS} />
           {activeTab === "transactions" && canCreateCashbook ? <NewCashTransactionForm categories={categories} /> : null}
           {activeTab === "transactions" ? (

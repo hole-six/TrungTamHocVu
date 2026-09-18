@@ -8,6 +8,7 @@ import BooksTable from "@/components/inventory/BooksTable";
 import BookIssuesTable from "@/components/inventory/BookIssuesTable";
 import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+import TopDateRangeFilter from "@/components/ui/TopDateRangeFilter";
 import DetailTabs from "@/components/ui/DetailTabs";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate } from "@/lib/server/role-matrix";
@@ -296,6 +297,8 @@ export default async function InventoryPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {/* Lọc NGÀY XUẤT SÁCH ngay đầu trang, khỏi mò xuống hàng lọc của cột. */}
+          <TopDateRangeFilter label="Ngày xuất" fromParam="issueDateFrom" toParam="issueDateTo" resetParams={["issuePage"]} />
           <SpotlightTour steps={INVENTORY_TOUR_STEPS} />
           {/* Xuất cả bộ giáo trình mà không phải mở từng đầu sách một. */}
           {canCreate("inventory", role) ? <IssueBookForm triggerClassName="btn-ghost" /> : null}

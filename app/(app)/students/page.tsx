@@ -10,6 +10,7 @@ import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { getWalletBalance } from "@/lib/server/enrollment-wallet";
 import StudentsTable from "./StudentsTable";
+import TopDateRangeFilter from "@/components/ui/TopDateRangeFilter";
 import PageGuide from "@/components/ui/PageGuide";
 
 const PAGE_SIZE = 20;
@@ -170,6 +171,8 @@ export default async function StudentsPage({
     sessionCreditTo?: string;
     wallet?: string;
     fee?: string;
+    enrollFrom?: string;
+    enrollTo?: string;
   };
 }) {
   const user = await getCurrentUser();
@@ -195,6 +198,9 @@ export default async function StudentsPage({
   // Lọc theo TÌNH TRẠNG HỌC PHÍ: no = còn nợ, du = đã đóng dư (tiền đóng trước),
   // sap-het = sắp hết khóa, du-no = đóng đủ (không nợ, không dư).
   const feeFilter = searchParams.fee?.trim() ?? "";
+  // Khoảng NGÀY NHẬP HỌC — lọc ngay trên đầu trang bằng lịch dùng chung.
+  const enrollFrom = searchParams.enrollFrom?.trim() ?? "";
+  const enrollTo = searchParams.enrollTo?.trim() ?? "";
   // continuationStatus/outstanding không phải cột thật (tính SAU khi query, từ charge +
   // enrollment snapshot) — không lọc được bằng Prisma `where` trực tiếp. Áp dụng bằng
   // cách: tính đủ cho TOÀN BỘ danh sách khớp các filter còn lại (không phân trang ở
@@ -244,6 +250,14 @@ export default async function StudentsPage({
           : status
             ? { status }
             : {}),
+    ...(enrollFrom || enrollTo
+      ? {
+          enrollDate: {
+            ...(enrollFrom ? { gte: new Date(`${enrollFrom}T00:00:00`) } : {}),
+            ...(enrollTo ? { lte: new Date(`${enrollTo}T23:59:59.999`) } : {}),
+          },
+        }
+      : {}),
     ...(codeFilter ? { studentCode: { contains: codeFilter } } : {}),
     ...(nameFilter ? { fullName: { contains: nameFilter } } : {}),
     ...(classNameFilter
@@ -622,9 +636,13 @@ export default async function StudentsPage({
         sections={STUDENTS_PAGE_GUIDE_SECTIONS}
         buttonLabel="Guide học viên"
       />
-      <div>
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-[#0f1729]">Quản lý học viên</h1>
-        <p className="mt-1 text-xs sm:text-sm text-[#64748b]">Theo dõi hồ sơ, học phí và lớp học của {total} học viên</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-[#0f1729]">Quản lý học viên</h1>
+          <p className="mt-1 text-xs sm:text-sm text-[#64748b]">Theo dõi hồ sơ, học phí và lớp học của {total} học viên</p>
+        </div>
+        {/* Lọc theo NGÀY NHẬP HỌC ngay đầu trang (lịch có sẵn hôm nay/tuần/tháng). */}
+        <TopDateRangeFilter label="Ngày nhập học" fromParam="enrollFrom" toParam="enrollTo" />
       </div>
 
       <StudentsTable

@@ -655,201 +655,133 @@ export default function LeadsTable({
     testStatus: ["overdue", "today", "tomorrow"].includes(urgentFilter) ? urgentFilter : testStatusFilter,
   };
 
-  // BÁO ĐỘNG = việc phải gọi nhắc, gộp CẢ 2 mốc hẹn: ngày hẹn test và ngày dự kiến
-  // nhập học. Ba mức đúng như trung tâm đọc mỗi sáng: quá hạn / hôm nay / ngày mai.
-  // "Chưa hẹn test" giữ riêng vì là việc khác (chưa có mốc nào để nhắc).
-  const testChips: { key: string; label: string; count: number; active: boolean; query: Record<string, string | null> }[] = [
-    { key: "overdue", label: "Quá hạn", count: overdueCount, active: urgentFilter === "overdue", query: { urgent: "overdue", testStatus: null, period: null } },
-    { key: "today", label: "Hôm nay", count: todayCount, active: urgentFilter === "today", query: { urgent: "today", testStatus: null, period: null } },
-    { key: "tomorrow", label: "Ngày mai", count: tomorrowCount, active: urgentFilter === "tomorrow", query: { urgent: "tomorrow", testStatus: null, period: null } },
-    { key: "NONE", label: "Chưa hẹn test", count: missingTestCount, active: testStatusFilter === "NONE", query: { testStatus: "NONE", urgent: null } },
+  // MỘT THANH LỌC DUY NHẤT, không còn 3 cụm chồng chéo nhau:
+  //   [4 nhóm trạng thái] · [chi tiết của nhóm đang chọn] · [nhắc hẹn] · [bỏ lọc]
+  // Trước đây có cả chip "Chưa hẹn test" ở cụm báo động trong khi cụm chi tiết đã có
+  // "Chưa liên hệ được" — hai chip lọc gần như cùng một tập người, lại nằm 2 cụm khác
+  // nhau nên nhìn rất rối. Mỗi cụm còn có nút "bỏ lọc" riêng, bấm cái này không tắt cái
+  // kia. Nay chỉ còn MỘT nút "Bỏ lọc" tắt sạch, và mọi chip đều bấm lại là tắt.
+  const alertChips: { key: string; label: string; count: number; dot: string }[] = [
+    { key: "overdue", label: "Quá hạn", count: overdueCount, dot: "bg-[#ef4444]" },
+    { key: "today", label: "Hôm nay", count: todayCount, dot: "bg-[#f97316]" },
+    { key: "tomorrow", label: "Ngày mai", count: tomorrowCount, dot: "bg-[#f59e0b]" },
   ];
-  const testFilterActive = Boolean(testStatusFilter || urgentFilter);
 
-  // Trạng thái chi tiết: chỉ hiện của nhóm đang chọn; chưa chọn nhóm nào thì hiện hết.
-  const visibleSubStatuses = subStatusOptions.filter((item) => !statusFilter || item.group === statusFilter);
-
-  // ENROLLED đã có học viên thật, việc theo dõi tiếp thuộc module Học viên — không
-  // còn cần chip lọc riêng ở CRM này nữa (đã loại khỏi danh sách mặc định rồi).
-  // LOST vẫn giữ vì còn có thể quay lại liên hệ, chỉ tách/làm mờ khỏi pipeline chính.
-  const activeStatusOptions = statusOptions;
-  const closedStatusOptions: { key: string; label: string; count: number }[] = [];
+  // Chi tiết chỉ hiện khi đã chọn một nhóm CÓ chi tiết (Chưa test / Đã test) — chưa chọn
+  // nhóm nào mà bày hết 5 chip chi tiết thì người dùng không hiểu chúng thuộc về đâu.
+  const visibleSubStatuses = statusFilter ? subStatusOptions.filter((item) => item.group === statusFilter) : [];
+  const anyFilterActive = Boolean(statusFilter || subStatusFilter || urgentFilter || testStatusFilter);
 
   function statusChipClass(key: string, isActive: boolean, count: number) {
     const cfg = LEAD_STATUS_CONFIG[key];
     if (!cfg) return "";
     const base = "inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-2.5 py-1.5 text-xs font-bold transition-all duration-150 select-none";
-    if (isActive) return `${base} ${cfg.activeColor} shadow-md scale-[1.03]`;
-    if (count === 0) return `${base} ${cfg.color} opacity-40 cursor-default`;
-    return `${base} ${cfg.color} hover:shadow-sm hover:scale-[1.01]`;
+    if (isActive) return `${base} ${cfg.activeColor} shadow-md`;
+    if (count === 0) return `${base} ${cfg.color} opacity-40`;
+    return `${base} ${cfg.color} hover:shadow-sm`;
   }
+
+  const plainChipClass = (isActive: boolean, count: number) =>
+    `inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-2.5 py-1.5 text-xs font-bold transition-all duration-150 ${
+      isActive
+        ? "border-[#0f1729] bg-[#0f1729] text-white shadow-md"
+        : count === 0
+          ? "border-[#e5eaf7] bg-white text-[#94a3b8] opacity-50"
+          : "border-[#e5eaf7] bg-white text-[#475569] hover:border-[#0f1729] hover:text-[#0f1729]"
+    }`;
+
+  const countClass = (isActive: boolean) =>
+    `rounded-md px-1.5 py-0.5 text-[10px] font-black ${isActive ? "bg-white/20 text-white" : "bg-[#f1f5f9] text-[#475569]"}`;
 
   const totalActive = statusOptions.reduce((s, o) => s + o.count, 0);
 
   const filterChips = (
-    // 3 nhóm lọc rải ngang hết chiều rộng (trạng thái · chi tiết · báo động) thay vì
-    // xếp chồng 3 hàng dồn hết về bên trái, bỏ trống nửa màn hình bên phải.
-    <div className="flex w-full flex-wrap items-center justify-between gap-x-6 gap-y-2" data-tour="leads-filters">
-      {/* Nhóm 1: trạng thái */}
-      {statusOptions.length > 0 && (
-        <div className="flex grow flex-wrap items-center justify-between gap-1.5">
-          {/* All statuses pill */}
+    <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2" data-tour="leads-filters">
+      {/* 1. Trạng thái — trục chính của trang, luôn hiện đủ 5 lựa chọn. */}
+      <Link href={`/leads?${buildQuery({ status: null, sub: null })}`} className={statusChipClass("CONTACTING", false, 1)
+        .replace(LEAD_STATUS_CONFIG.CONTACTING.color, !statusFilter ? "border-[#0f1729] bg-[#0f1729] text-white shadow-md" : "border-[#e5eaf7] bg-white text-[#475569] hover:border-[#0f1729]")}
+      >
+        <span>Tất cả</span>
+        <span className={countClass(!statusFilter)}>{totalActive}</span>
+      </Link>
+
+      {statusOptions.map((option) => {
+        const isActive = statusFilter === option.key;
+        const cfg = LEAD_STATUS_CONFIG[option.key];
+        return (
           <Link
-            href={`/leads?${buildQuery({ status: null })}`}
-            className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all duration-150 ${
-              !statusFilter
-                ? "border-[#0f1729] bg-[#0f1729] text-white shadow-md scale-[1.03]"
-                : "border-[#e5eaf7] bg-white text-[#475569] hover:border-[#0f1729] hover:text-[#0f1729] hover:shadow-sm"
-            }`}
+            key={option.key}
+            href={`/leads?${buildQuery(isActive ? { status: null, sub: null } : { status: option.key, sub: null })}`}
+            className={statusChipClass(option.key, isActive, option.count)}
           >
-            <span>Tất cả trạng thái</span>
-            <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black ${!statusFilter ? "bg-white/20 text-white" : "bg-[#1d4ed8]/10 text-[#1d4ed8]"}`}>
-              {totalActive}
+            <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-white" : cfg?.dot ?? "bg-current"}`} />
+            <span>{option.label}</span>
+            <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black ${isActive ? "bg-white/20 text-white" : "bg-current/10"}`}>
+              {option.count}
             </span>
           </Link>
+        );
+      })}
 
-          {/* Active pipeline chips */}
-          {activeStatusOptions.map((option) => {
-            const isActive = statusFilter === option.key;
-            const cfg = LEAD_STATUS_CONFIG[option.key];
-            return (
-              <Link
-                key={option.key}
-                href={`/leads?${buildQuery({ status: option.key })}`}
-                className={statusChipClass(option.key, isActive, option.count)}
-              >
-                <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-white" : cfg?.dot ?? "bg-current"}`} />
-                <span>{option.label}</span>
-                <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black ${isActive ? "bg-white/20 text-white" : "bg-current/10"}`}>
-                  {option.count}
-                </span>
-              </Link>
-            );
-          })}
+      <Link
+        href={`/leads?${buildQuery(statusFilter === "ENROLLED" ? { status: null, sub: null } : { status: "ENROLLED", sub: null })}`}
+        className={statusChipClass("ENROLLED", statusFilter === "ENROLLED", enrolledCount)}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${statusFilter === "ENROLLED" ? "bg-white" : LEAD_STATUS_CONFIG.ENROLLED.dot}`} />
+        <span>Đã nhập học</span>
+        <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black ${statusFilter === "ENROLLED" ? "bg-white/20 text-white" : "bg-current/10"}`}>
+          {enrolledCount}
+        </span>
+      </Link>
 
-          {/* Đã ghi danh — chip riêng, tách khỏi nhóm pipeline đang xử lý ở trên vì
-              ENROLLED không nằm trong LEAD_STATUS_FILTER_GROUPS (đã có Student thật,
-              việc theo dõi tiếp thuộc module Học viên) — trước đây hoàn toàn không có
-              cách nào bấm 1 phát để xem lại các lead đã ghi danh từ chính trang này. */}
-          <div className="mx-1 h-5 w-px shrink-0 rounded-full bg-[#e5eaf7]" aria-hidden />
-          <Link
-            href={`/leads?${buildQuery({ status: "ENROLLED" })}`}
-            className={statusChipClass("ENROLLED", statusFilter === "ENROLLED", enrolledCount)}
-          >
-            <span className={`h-1.5 w-1.5 rounded-full ${statusFilter === "ENROLLED" ? "bg-white" : LEAD_STATUS_CONFIG.ENROLLED.dot}`} />
-            <span>Đã nhập học</span>
-            <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black ${statusFilter === "ENROLLED" ? "bg-white/20 text-white" : "bg-current/10"}`}>
-              {enrolledCount}
-            </span>
-          </Link>
-
-          {/* Divider + Closed/Lost */}
-          {closedStatusOptions.length > 0 && (
-            <>
-              <div className="mx-1 h-5 w-px shrink-0 rounded-full bg-[#e5eaf7]" aria-hidden />
-              {closedStatusOptions.map((option) => {
-                const isActive = statusFilter === option.key;
-                return (
-                  <Link
-                    key={option.key}
-                    href={`/leads?${buildQuery({ status: option.key })}`}
-                    className={statusChipClass(option.key, isActive, option.count)}
-                  >
-                    <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-white" : "bg-[#ef4444]"}`} />
-                    <span>{option.label}</span>
-                    <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black ${isActive ? "bg-white/20 text-white" : "bg-current/10"}`}>
-                      {option.count}
-                    </span>
-                  </Link>
-                );
-              })}
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Nhóm 2: trạng thái chi tiết */}
-      {visibleSubStatuses.length > 0 && (
-        <div className="flex grow flex-wrap items-center justify-between gap-1.5">
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#f1f5f9] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-[#64748b]">
-            Chi tiết
-          </span>
-          {subStatusFilter ? (
-            <Link
-              href={`/leads?${buildQuery({ sub: null })}`}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3 py-1.5 text-xs font-bold text-[#b91c1c] transition hover:bg-[#fee2e2]"
-            >
-              Bỏ lọc chi tiết
-            </Link>
-          ) : null}
+      {/* 2. Chi tiết của đúng nhóm vừa chọn — nằm ngay sau nhóm đó, ngăn bằng 1 vạch. */}
+      {visibleSubStatuses.length > 0 ? (
+        <>
+          <div className="h-5 w-px shrink-0 rounded-full bg-[#e5eaf7]" aria-hidden />
           {visibleSubStatuses.map((item) => {
             const isActive = subStatusFilter === item.value;
             return (
               <Link
                 key={item.value}
-                href={`/leads?${buildQuery({ sub: item.value, status: item.group })}`}
-                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all duration-150 ${
-                  isActive
-                    ? "border-[#0f1729] bg-[#0f1729] text-white shadow-md scale-[1.03]"
-                    : item.count === 0
-                      ? "border-[#e5eaf7] bg-white text-[#94a3b8] opacity-50"
-                      : "border-[#e5eaf7] bg-white text-[#475569] hover:border-[#0f1729] hover:text-[#0f1729] hover:shadow-sm"
-                }`}
+                href={`/leads?${buildQuery({ sub: isActive ? null : item.value, status: item.group })}`}
+                className={plainChipClass(isActive, item.count)}
               >
                 <span>{item.label}</span>
-                <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black ${isActive ? "bg-white/20 text-white" : "bg-[#f1f5f9] text-[#475569]"}`}>
-                  {item.count}
-                </span>
+                <span className={countClass(isActive)}>{item.count}</span>
               </Link>
             );
           })}
-        </div>
-      )}
+        </>
+      ) : null}
 
-      {/* Nhóm 3: báo động lịch hẹn (kỳ dữ liệu nằm cạnh nút "Thêm lead" ở đầu trang) */}
-      <div className="flex grow flex-wrap items-center justify-between gap-1.5">
-        <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#fff1f2] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-[#b91c1c]">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          Báo động hẹn test + nhập học
-        </span>
+      {/* 3. Nhắc hẹn (ngày hẹn test + ngày dự kiến nhập học) — đẩy sang phải. */}
+      <div className="ml-auto flex flex-wrap items-center gap-1.5">
+        <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#b91c1c]">Nhắc hẹn</span>
+        {alertChips.map((chip) => {
+          const isActive = urgentFilter === chip.key;
+          return (
+            <Link
+              key={chip.key}
+              href={`/leads?${buildQuery({ urgent: isActive ? null : chip.key, testStatus: null, from: null, to: null })}`}
+              className={plainChipClass(isActive, chip.count)}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-white" : chip.dot}`} />
+              <span>{chip.label}</span>
+              <span className={countClass(isActive)}>{chip.count}</span>
+            </Link>
+          );
+        })}
 
-        {testFilterActive && (
+        {/* MỘT nút bỏ lọc duy nhất, tắt sạch mọi bộ lọc đang bật. */}
+        {anyFilterActive ? (
           <Link
-            href={`/leads?${buildQuery({ testStatus: null, urgent: null })}`}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3 py-1.5 text-xs font-bold text-[#b91c1c] transition hover:bg-[#fee2e2]"
+            href={`/leads?${buildQuery({ status: null, sub: null, urgent: null, testStatus: null })}`}
+            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-xs font-bold text-[#b91c1c] transition hover:bg-[#fee2e2]"
           >
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             Bỏ lọc
           </Link>
-        )}
-
-        {testChips.map((chip) => (
-          <Link
-            key={chip.key}
-            href={`/leads?${buildQuery(chip.query)}`}
-            className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all duration-150 ${
-              chip.active
-                ? "border-[#0f1729] bg-[#0f1729] text-white shadow-md scale-[1.03]"
-                : chip.count === 0
-                  ? "border-[#e5eaf7] bg-white text-[#94a3b8] opacity-50 cursor-default"
-                  : "border-[#e5eaf7] bg-white text-[#475569] hover:border-[#0f1729] hover:text-[#0f1729] hover:shadow-sm"
-            }`}
-          >
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                chip.active ? "bg-white" :
-                chip.key === "overdue" ? "bg-[#ef4444]" :
-                chip.key === "today" ? "bg-[#f97316]" :
-                chip.key === "tomorrow" ? "bg-[#f59e0b]" :
-                "bg-[#94a3b8]"
-              }`}
-            />
-            <span>{chip.label}</span>
-            <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black ${chip.active ? "bg-white/20 text-white" : "bg-[#f1f5f9] text-[#475569]"}`}>
-              {chip.count}
-            </span>
-          </Link>
-        ))}
+        ) : null}
       </div>
     </div>
   );
