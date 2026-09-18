@@ -9,6 +9,7 @@ import { resolveSourceLessonDetails } from "@/lib/server/session-credit-lessons"
 import SessionCreditsBulkAssign from "@/components/session-credits/SessionCreditsBulkAssign";
 import CreditsTable from "./CreditsTable";
 import CreditFilterChips, { type CreditStats } from "./CreditFilterChips";
+import TopDateRangeFilter from "@/components/ui/TopDateRangeFilter";
 
 type SearchParams = {
   status?: string;
@@ -16,6 +17,8 @@ type SearchParams = {
   student?: string;
   availableFrom?: string;
   availableTo?: string;
+  createdFrom?: string;
+  createdTo?: string;
 };
 
 const CREDIT_ORIGINS = ["ABSENCE", "PAID_CATCHUP", "WEAK_STUDENT", "WITHDRAWAL_REMAINING"];
@@ -51,7 +54,15 @@ async function getCreditStats(activeBranchId: string | null): Promise<CreditStat
   };
 }
 
-async function getCreditRows(activeBranchId: string | null, statusFilter: string, typeFilter: string, studentFilter: string) {
+async function getCreditRows(
+  activeBranchId: string | null,
+  statusFilter: string,
+  typeFilter: string,
+  studentFilter: string,
+  // Khoảng NGÀY CẤP buổi bổ trợ — lọc ngay ở đầu trang bằng lịch dùng chung.
+  createdFrom = "",
+  createdTo = "",
+) {
   const credits = await prisma.sessionCredit.findMany({
     where: {
       // WITHDRAWAL_REMAINING (số dư chuyển từ lớp cũ khi rút/lớp tự kết thúc) PHẢI có
@@ -59,6 +70,14 @@ async function getCreditRows(activeBranchId: string | null, statusFilter: string
       // tìm ra khoản này qua trang danh sách, chỉ thấy nếu mở đúng hồ sơ học viên đó.
       origin: typeFilter ? typeFilter : { in: ["ABSENCE", "PAID_CATCHUP", "WEAK_STUDENT", "WITHDRAWAL_REMAINING"] },
       ...(statusFilter ? { status: statusFilter } : {}),
+      ...(createdFrom || createdTo
+        ? {
+            createdAt: {
+              ...(createdFrom ? { gte: new Date(`${createdFrom}T00:00:00`) } : {}),
+              ...(createdTo ? { lte: new Date(`${createdTo}T23:59:59.999`) } : {}),
+            },
+          }
+        : {}),
       student: {
         ...(activeBranchId ? { branchId: activeBranchId } : {}),
         ...(studentFilter ? { OR: [{ fullName: { contains: studentFilter } }, { studentCode: { contains: studentFilter } }] } : {}),
@@ -156,11 +175,13 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
   const status = statusParam === "ALL" ? "" : statusParam;
   const type = searchParams.type ?? "";
   const student = searchParams.student?.trim() ?? "";
+  const createdFrom = searchParams.createdFrom?.trim() ?? "";
+  const createdTo = searchParams.createdTo?.trim() ?? "";
   const availableFrom = searchParams.availableFrom?.trim() ?? "";
   const availableTo = searchParams.availableTo?.trim() ?? "";
   const [stats, initialRows] = await Promise.all([
     getCreditStats(activeBranchId),
-    getCreditRows(activeBranchId, status, type, student),
+    getCreditRows(activeBranchId, status, type, student, createdFrom, createdTo),
   ]);
   let rows = initialRows;
   // availableCount là số tính SAU khi gộp nhóm (không phải cột thô) — lọc bằng JS ở
@@ -193,7 +214,11 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-black tracking-tight text-[#0f1729] sm:text-2xl">Bảng xử lý bổ trợ</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-black tracking-tight text-[#0f1729] sm:text-2xl">Bảng xử lý bổ trợ</h1>
+        {/* Lọc theo NGÀY CẤP buổi bổ trợ ngay đầu trang. */}
+        <TopDateRangeFilter label="Ngày cấp" fromParam="createdFrom" toParam="createdTo" />
+      </div>
 
       <CreditsTable
         initialData={rows}

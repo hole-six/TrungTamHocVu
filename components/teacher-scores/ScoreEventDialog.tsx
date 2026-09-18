@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { computeLateness } from "@/lib/score-event-detail";
 
 export type ScoreEventDraft = {
   type: "DEDUCT" | "ADD";
@@ -10,6 +11,18 @@ export type ScoreEventDraft = {
   reason: string;
   /** Quy chế: 1 nội dung bị nhắc ở CẢ 3 báo cáo (ngày, tuần, tháng) → tháng đó mặc định −10% lương. */
   tripleReported: boolean;
+  // CHI TIẾT ĐỐI SOÁT — không bắt buộc, nhưng có thì trả lời được ngay khi nhân sự thắc mắc.
+  /** Ngày giờ lỗi thật sự xảy ra (<input type="datetime-local">). */
+  occurredAt: string;
+  /** Lớp liên quan. */
+  classId: string;
+  /** Hạn theo quy chế (vd nhật ký phải gửi trước 9h sáng hôm sau). */
+  dueAt: string;
+  /** Thực tế làm xong lúc nào → hệ thống tự tính chậm bao lâu. */
+  completedAt: string;
+  /** Đã khắc phục lúc nào + khắc phục thế nào. */
+  resolvedAt: string;
+  resolvedNote: string;
 };
 
 // Lý do hay dùng — bấm 1 phát thay vì gõ lại mỗi lần. Trước đây chấm điểm phải mở màn
@@ -40,6 +53,7 @@ export default function ScoreEventDialog({
   title,
   subtitle,
   branches,
+  classes = [],
   initial,
   loading,
   error,
@@ -51,6 +65,8 @@ export default function ScoreEventDialog({
   title: string;
   subtitle?: string;
   branches: { id: string; name: string }[];
+  /** Danh sách lớp để chỉ đúng lỗi xảy ra ở lớp nào. */
+  classes?: { id: string; label: string }[];
   initial: ScoreEventDraft;
   loading?: boolean;
   error?: string | null;
@@ -64,11 +80,12 @@ export default function ScoreEventDialog({
     if (!open) return;
     setDraft(initial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initial.type, initial.points, initial.eventDate, initial.branchId, initial.reason, initial.tripleReported]);
+  }, [open, initial.type, initial.points, initial.eventDate, initial.branchId, initial.reason, initial.tripleReported, initial.occurredAt, initial.classId, initial.dueAt, initial.completedAt, initial.resolvedAt, initial.resolvedNote]);
 
   if (!open) return null;
   const reasons = draft.type === "DEDUCT" ? DEDUCT_REASONS : ADD_REASONS;
   const points = Number(draft.points) || 0;
+  const lateness = computeLateness({ dueAt: draft.dueAt, completedAt: draft.completedAt });
 
   function set<K extends keyof ScoreEventDraft>(key: K, value: ScoreEventDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -169,6 +186,57 @@ export default function ScoreEventDialog({
               onChange={(event) => set("reason", event.target.value)}
               placeholder="Hoặc ghi lý do cụ thể..."
             />
+          </div>
+
+          {/* CHI TIẾT ĐỐI SOÁT — để khi nhân sự thắc mắc thì có đủ mốc thời gian trả lời,
+              không phải nhớ mồm. Tất cả đều không bắt buộc. */}
+          <div className="space-y-3 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-3">
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#64748b]">Chi tiết để đối soát (không bắt buộc)</p>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1">
+                <span className="label-sm">Xảy ra lúc (ngày giờ)</span>
+                <input type="datetime-local" className="input" value={draft.occurredAt} onChange={(event) => set("occurredAt", event.target.value)} />
+              </label>
+              <label className="space-y-1">
+                <span className="label-sm">Lớp liên quan</span>
+                <select className="input" value={draft.classId} onChange={(event) => set("classId", event.target.value)}>
+                  <option value="">— không gắn lớp —</option>
+                  {classes.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1">
+                <span className="label-sm">Hạn phải làm</span>
+                <input type="datetime-local" className="input" value={draft.dueAt} onChange={(event) => set("dueAt", event.target.value)} />
+              </label>
+              <label className="space-y-1">
+                <span className="label-sm">Thực tế làm lúc</span>
+                <input type="datetime-local" className="input" value={draft.completedAt} onChange={(event) => set("completedAt", event.target.value)} />
+              </label>
+            </div>
+            {lateness.label ? (
+              <p className={`rounded-lg px-2.5 py-1.5 text-xs font-bold ${lateness.minutes ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>
+                So với hạn: {lateness.label}
+              </p>
+            ) : null}
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1">
+                <span className="label-sm">Đã khắc phục lúc</span>
+                <input type="datetime-local" className="input" value={draft.resolvedAt} onChange={(event) => set("resolvedAt", event.target.value)} />
+              </label>
+              <label className="space-y-1">
+                <span className="label-sm">Khắc phục thế nào</span>
+                <input className="input" value={draft.resolvedNote} onChange={(event) => set("resolvedNote", event.target.value)} placeholder="VD: đã gửi lại nhật ký đủ" />
+              </label>
+            </div>
           </div>
 
           {/* Quy chế: cùng 1 nội dung mà bị nhắc ở cả 3 báo cáo thì tháng đó mặc định −10% lương,

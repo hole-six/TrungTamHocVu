@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
 import ScoreEventDialog, { type ScoreEventDraft } from "@/components/teacher-scores/ScoreEventDialog";
+import { computeLateness, formatDateTimeVn, toLocalDateTimeInput } from "@/lib/score-event-detail";
 
 export type ScoreboardRowData = {
   employeeId: string;
@@ -19,6 +20,8 @@ export type ScoreboardRowData = {
   net: number;
   reminderCount: number;
   tripleReported: boolean;
+  /** Số lỗi trừ điểm chưa ghi nhận khắc phục. */
+  unresolvedCount: number;
   ratio: number | null;
   autoPoints: { cover: number; shiftTier: number };
   suggestedPercent: number | null;
@@ -34,6 +37,14 @@ export type ScoreboardRowData = {
     branchName: string;
     tripleReported: boolean;
     fromRequirement: boolean;
+    // Chi tiết đối soát (xem lib/score-event-detail.ts) — điểm cũ không có nên nullable.
+    occurredAt: string | null;
+    classId: string | null;
+    className: string | null;
+    dueAt: string | null;
+    completedAt: string | null;
+    resolvedAt: string | null;
+    resolvedNote: string | null;
   }[];
 };
 
@@ -72,6 +83,7 @@ export default function TeacherScoreboard({
   totals,
   allEmployees,
   branches,
+  classes = [],
   defaultBranchId,
   pendingChecks,
   canDecide,
@@ -79,9 +91,11 @@ export default function TeacherScoreboard({
   month: string;
   today: string;
   rows: ScoreboardRowData[];
-  totals: { shifts: number; countedShifts: number; deducted: number; added: number; peopleDeducted: number };
+  totals: { shifts: number; countedShifts: number; deducted: number; added: number; peopleDeducted: number; unresolved: number };
   allEmployees: { id: string; fullName: string; employeeCode: string; position: string | null }[];
   branches: { id: string; name: string }[];
+  /** Lớp để gắn vào mỗi lần chấm điểm (lỗi xảy ra ở lớp nào). */
+  classes?: { id: string; label: string }[];
   defaultBranchId: string;
   pendingChecks: PendingCheck[];
   canDecide: boolean;
@@ -127,7 +141,33 @@ export default function TeacherScoreboard({
       branchId: defaultBranchId || branches[0]?.id || "",
       reason: "",
       tripleReported: false,
+      occurredAt: "",
+      classId: "",
+      dueAt: "",
+      completedAt: "",
+      resolvedAt: "",
+      resolvedNote: "",
     };
+  }
+
+  // Đánh dấu ĐÃ KHẮC PHỤC ngay trên bảng — nhân sự sửa xong lỗi thì bấm 1 nút, khỏi mở
+  // lại cả form chấm điểm. Mốc thời gian lưu lại để sau này đối soát.
+  async function markResolved(employeeId: string, eventId: string) {
+    setLoading(true);
+    setError(null);
+    const response = await fetch(`/api/employees/${employeeId}/score-events/${eventId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resolveOnly: true }),
+    });
+    const result = await response.json().catch(() => ({}));
+    setLoading(false);
+    if (!response.ok) {
+      setError(result.error ?? "Không ghi nhận được khắc phục.");
+      return;
+    }
+    setMessage("Đã ghi nhận thời điểm khắc phục.");
+    router.refresh();
   }
 
   async function saveEvent(draft: ScoreEventDraft) {
@@ -232,11 +272,14 @@ export default function TeacherScoreboard({
       </div>
 
       {/* Tổng quan tháng */}
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[#e2e8f0] bg-[#e2e8f0] md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[#e2e8f0] bg-[#e2e8f0] md:grid-cols-5">
         {[
           { label: "Ca làm tính điểm", value: String(totals.countedShifts), sub: `${totals.shifts} ca, trừ ca dạy thay` },
           { label: "Điểm trừ", value: totals.deducted.toFixed(1), sub: `${totals.peopleDeducted} người bị trừ` },
           { label: "Điểm cộng", value: totals.added.toFixed(1), sub: "thưởng cho việc làm tốt" },
+          // Lỗi đã trừ điểm nhưng CHƯA ghi nhận khắc phục — việc còn treo, cũng là thứ
+          // nhân sự hay thắc mắc nhất khi đối soát cuối tháng.
+          { label: "Chưa khắc phục", value: String(totals.unresolved ?? 0), sub: "lỗi trừ điểm chưa ghi nhận sửa" },
           { label: "Chờ xử lý", value: String(pendingChecks.length), sub: "buổi chưa nộp bài tập chờ quyết định" },
         ].map((item) => (
           <div key={item.label} className="bg-white px-3.5 py-3">
@@ -333,11 +376,11 @@ export default function TeacherScoreboard({
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
-                {["Nhân sự", "Tổng ca", "Lần bị nhắc", "Điểm trừ", "Điểm cộng tự động", "Chỉ số A", "Đề xuất", "% đã chốt", ""].map((label, index) => (
+                {["Nhân sự", "Tổng ca", "Lần bị nhắc", "Điểm trừ", "Chưa khắc phục", "Điểm cộng tự động", "Chỉ số A", "Đề xuất", "% đã chốt", ""].map((label, index) => (
                   <th
                     key={label + index}
                     className={`border-b border-[#cbd5e1] bg-[#f1f5f9] px-2.5 py-2 text-[11px] font-bold uppercase tracking-wide text-[#334155] ${
-                      index === 0 || index === 8 ? "text-left" : "text-right"
+                      index === 0 || index === 9 ? "text-left" : "text-right"
                     }`}
                   >
                     {label}
@@ -350,11 +393,26 @@ export default function TeacherScoreboard({
                 <Fragment key={row.employeeId}>
                   <tr className={expanded === row.employeeId ? "bg-[#f8fafc]" : undefined}>
                     <td className="border-b border-[#f1f5f9] px-2.5 py-2">
-                      <button type="button" onClick={() => setExpanded(expanded === row.employeeId ? null : row.employeeId)} className="text-left">
-                        <span className="block font-semibold text-[#0f1729]">{row.fullName}</span>
-                        <span className="block text-xs text-[#94a3b8]">
-                          {row.employeeCode}
-                          {row.position ? ` · ${row.position}` : ""} · {row.events.length} lần chấm
+                      {/* Bấm vào tên để xem TOÀN BỘ lỗi của người này kèm mốc đối soát. */}
+                      <button
+                        type="button"
+                        onClick={() => setExpanded(expanded === row.employeeId ? null : row.employeeId)}
+                        className="group flex items-start gap-1.5 text-left"
+                        title="Xem chi tiết từng lần chấm điểm (ngày giờ, lớp, chậm bao lâu, đã khắc phục chưa)"
+                      >
+                        <span
+                          className={`mt-1 text-[10px] text-[#94a3b8] transition-transform ${expanded === row.employeeId ? "rotate-90" : ""}`}
+                          aria-hidden
+                        >
+                          ▶
+                        </span>
+                        <span>
+                          <span className="block font-semibold text-[#0f1729] group-hover:underline">{row.fullName}</span>
+                          <span className="block text-xs text-[#94a3b8]">
+                            {row.employeeCode}
+                            {row.position ? ` · ${row.position}` : ""} · {row.events.length} lần chấm
+                            {row.unresolvedCount > 0 ? ` · ${row.unresolvedCount} chưa khắc phục` : ""}
+                          </span>
                         </span>
                       </button>
                     </td>
@@ -370,6 +428,13 @@ export default function TeacherScoreboard({
                     </td>
                     <td className="border-b border-[#f1f5f9] px-2.5 py-2 text-right tabular-nums font-bold text-[#b91c1c]">
                       {row.deducted > 0 ? `−${row.deducted}` : "0"}
+                    </td>
+                    <td className="border-b border-[#f1f5f9] px-2.5 py-2 text-right tabular-nums">
+                      {row.unresolvedCount > 0 ? (
+                        <span className="rounded-md bg-amber-50 px-1.5 py-0.5 font-bold text-amber-700">{row.unresolvedCount}</span>
+                      ) : (
+                        <span className="text-[#94a3b8]">0</span>
+                      )}
                     </td>
                     <td className="border-b border-[#f1f5f9] px-2.5 py-2 text-right tabular-nums text-[#0f1729]">
                       <span className="font-bold">
@@ -446,7 +511,7 @@ export default function TeacherScoreboard({
                   </tr>
                   {expanded === row.employeeId ? (
                     <tr>
-                      <td colSpan={9} className="border-b border-[#f1f5f9] bg-[#f8fafc] px-4 py-3">
+                      <td colSpan={10} className="border-b border-[#f1f5f9] bg-[#f8fafc] px-4 py-3">
                         {row.suggestionReasons.length > 0 ? (
                           <p className="mb-2 rounded-lg bg-white px-2.5 py-1.5 text-xs text-[#334155]">
                             <strong>Cách ra mức đề xuất:</strong> {row.suggestionReasons.join(" → ")}
@@ -457,21 +522,68 @@ export default function TeacherScoreboard({
                         ) : (
                           <ul className="space-y-1.5">
                             {row.events.map((event) => (
-                              <li key={event.id} className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
-                                <span className="min-w-0">
-                                  <span className="tabular-nums text-[#64748b]">{vnDate(event.eventDate)}</span>{" "}
-                                  <span className={`font-bold ${event.type === "DEDUCT" ? "text-[#b91c1c]" : "text-[#0f1729]"}`}>
-                                    {event.type === "DEDUCT" ? "−" : "+"}
-                                    {event.points}
-                                  </span>{" "}
-                                  <span className="text-[#0f1729]">{event.reason ?? "—"}</span>
-                                  <span className="ml-1 text-xs text-[#94a3b8]">
-                                    {event.branchName}
-                                    {event.fromRequirement ? " · từ bài tập buổi học" : ""}
+                              <li key={event.id} className="flex flex-wrap items-start justify-between gap-2 rounded-lg bg-white px-2.5 py-2 text-[13px]">
+                                <span className="min-w-0 space-y-1">
+                                  <span className="block">
+                                    <span className="tabular-nums text-[#64748b]">
+                                      {event.occurredAt ? formatDateTimeVn(event.occurredAt) : vnDate(event.eventDate)}
+                                    </span>{" "}
+                                    <span className={`font-bold ${event.type === "DEDUCT" ? "text-[#b91c1c]" : "text-[#0f1729]"}`}>
+                                      {event.type === "DEDUCT" ? "−" : "+"}
+                                      {event.points}
+                                    </span>{" "}
+                                    <span className="text-[#0f1729]">{event.reason ?? "—"}</span>
+                                    <span className="ml-1 text-xs text-[#94a3b8]">
+                                      {event.branchName}
+                                      {event.className ? ` · lớp ${event.className}` : ""}
+                                      {event.fromRequirement ? " · từ bài tập buổi học" : ""}
+                                    </span>
                                   </span>
+                                  {/* Mốc đối soát: hạn — thực tế — chậm bao lâu — đã khắc phục. */}
+                                  {(() => {
+                                    const late = computeLateness(event);
+                                    const bits: React.ReactNode[] = [];
+                                    if (event.dueAt) bits.push(<span key="due">Hạn: {formatDateTimeVn(event.dueAt)}</span>);
+                                    if (event.completedAt) bits.push(<span key="done">Thực tế: {formatDateTimeVn(event.completedAt)}</span>);
+                                    if (late.label) {
+                                      bits.push(
+                                        <span key="late" className={late.minutes ? "font-bold text-rose-700" : "font-bold text-emerald-700"}>
+                                          {late.label}
+                                        </span>,
+                                      );
+                                    }
+                                    if (event.resolvedAt) {
+                                      bits.push(
+                                        <span key="fix" className="font-bold text-emerald-700">
+                                          Đã khắc phục {formatDateTimeVn(event.resolvedAt)}
+                                          {event.resolvedNote ? ` — ${event.resolvedNote}` : ""}
+                                        </span>,
+                                      );
+                                    } else if (event.type === "DEDUCT") {
+                                      bits.push(
+                                        <span key="unfix" className="text-[#b45309]">
+                                          Chưa ghi nhận khắc phục
+                                        </span>,
+                                      );
+                                    }
+                                    return bits.length > 0 ? (
+                                      <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[#64748b]">{bits}</span>
+                                    ) : null;
+                                  })()}
                                 </span>
                                 {canDecide && !event.fromRequirement ? (
                                   <span className="flex shrink-0 items-center gap-1.5">
+                                    {event.type === "DEDUCT" && !event.resolvedAt ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => void markResolved(row.employeeId, event.id)}
+                                        disabled={loading}
+                                        className="status-action"
+                                        title="Ghi nhận nhân sự đã khắc phục lỗi này vào lúc bấm nút"
+                                      >
+                                        Đã khắc phục
+                                      </button>
+                                    ) : null}
                                     <button
                                       type="button"
                                       onClick={() =>
@@ -487,6 +599,12 @@ export default function TeacherScoreboard({
                                             branchId: event.branchId,
                                             reason: event.reason ?? "",
                                             tripleReported: event.tripleReported,
+                                            occurredAt: toLocalDateTimeInput(event.occurredAt),
+                                            classId: event.classId ?? "",
+                                            dueAt: toLocalDateTimeInput(event.dueAt),
+                                            completedAt: toLocalDateTimeInput(event.completedAt),
+                                            resolvedAt: toLocalDateTimeInput(event.resolvedAt),
+                                            resolvedNote: event.resolvedNote ?? "",
                                           },
                                         })
                                       }
@@ -560,6 +678,7 @@ export default function TeacherScoreboard({
         title={dialog ? `${dialog.mode === "edit" ? "Sửa điểm" : "Chấm điểm"} — ${dialog.employeeName}` : ""}
         subtitle={`Tháng ${month.split("-").reverse().join("/")}`}
         branches={branches}
+        classes={classes}
         initial={dialog?.draft ?? newDraft()}
         loading={loading}
         error={error}

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdateWithOverride } from "@/lib/server/role-matrix";
+import { parseLocalDateTime } from "@/lib/score-event-detail";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   const items = await prisma.assistantScoreEvent.findMany({
     where: { employeeId: params.id },
-    include: { branch: { select: { name: true } } },
+    include: { branch: { select: { name: true } }, class: { select: { className: true, classCode: true } } },
     orderBy: { eventDate: "desc" },
   });
 
@@ -46,6 +47,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!Number.isFinite(points) || points <= 0) return NextResponse.json({ error: "Số điểm phải lớn hơn 0" }, { status: 400 });
   if (!body.eventDate) return NextResponse.json({ error: "Thiếu ngày" }, { status: 400 });
 
+  // Chi tiết đối soát — tất cả không bắt buộc, nhưng có thì trả lời được ngay khi nhân sự
+  // thắc mắc (xem lib/score-event-detail.ts).
+  const classId = String(body.classId ?? "").trim() || null;
+  if (classId) {
+    const cls = await prisma.class.findUnique({ where: { id: classId }, select: { id: true } });
+    if (!cls) return NextResponse.json({ error: "Không tìm thấy lớp đã chọn" }, { status: 404 });
+  }
+
   const event = await prisma.assistantScoreEvent.create({
     data: {
       employeeId: params.id,
@@ -54,6 +63,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       type,
       points,
       reason: body.reason || null,
+      occurredAt: parseLocalDateTime(body.occurredAt),
+      classId,
+      dueAt: parseLocalDateTime(body.dueAt),
+      completedAt: parseLocalDateTime(body.completedAt),
+      resolvedAt: parseLocalDateTime(body.resolvedAt),
+      resolvedNote: String(body.resolvedNote ?? "").trim() || null,
       // Quy chế: 1 nội dung bị nhắc ở cả 3 báo cáo (ngày, tuần, tháng) → mặc định −10% lương.
       tripleReported: type === "DEDUCT" && Boolean(body.tripleReported),
       createdById: user.id,

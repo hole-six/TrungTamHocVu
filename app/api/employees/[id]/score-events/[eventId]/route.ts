@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canUpdateWithOverride } from "@/lib/server/role-matrix";
+import { parseLocalDateTime } from "@/lib/score-event-detail";
 
 // Sửa tại chỗ 1 điểm trừ/cộng đã ghi — trước đây chỉ có DELETE nên muốn sửa phải xóa
 // rồi tạo lại, mất createdById/thời điểm gốc. Validate y hệt POST ở route.ts cùng cấp.
@@ -20,6 +21,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const body = await req.json();
+
+  // Đánh dấu ĐÃ KHẮC PHỤC: chỉ gửi resolvedAt/resolvedNote, không phải sửa cả phiếu điểm
+  // — dùng cho nút bấm nhanh ở bảng điểm tháng.
+  if ("resolveOnly" in body && body.resolveOnly) {
+    const updated = await prisma.assistantScoreEvent.update({
+      where: { id: params.eventId },
+      data: {
+        resolvedAt: parseLocalDateTime(body.resolvedAt) ?? new Date(),
+        resolvedNote: String(body.resolvedNote ?? "").trim() || null,
+      },
+    });
+    return NextResponse.json({ item: updated });
+  }
+
   const branchId = String(body.branchId ?? "").trim();
   const type = String(body.type ?? "");
   const points = Number(body.points);
@@ -36,6 +51,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       type,
       points,
       reason: body.reason || null,
+      occurredAt: parseLocalDateTime(body.occurredAt),
+      classId: String(body.classId ?? "").trim() || null,
+      dueAt: parseLocalDateTime(body.dueAt),
+      completedAt: parseLocalDateTime(body.completedAt),
+      resolvedAt: parseLocalDateTime(body.resolvedAt),
+      resolvedNote: String(body.resolvedNote ?? "").trim() || null,
     },
   });
 

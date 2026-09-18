@@ -144,6 +144,8 @@ export type ScoreboardRow = {
   net: number;
   reminderCount: number;
   tripleReported: boolean;
+  /** Số lỗi trừ điểm CHƯA ghi nhận khắc phục — việc còn treo với nhân sự đó. */
+  unresolvedCount: number;
   ratio: number | null;
   autoPoints: { cover: number; shiftTier: number };
   suggestedPercent: number | null;
@@ -160,6 +162,15 @@ export type ScoreboardRow = {
     tripleReported: boolean;
     /** true = điểm sinh tự động từ việc không nộp bài tập buổi học (không sửa tay ở đây). */
     fromRequirement: boolean;
+    // Chi tiết để ĐỐI SOÁT với nhân sự: lỗi xảy ra lúc nào, lớp nào, hạn — thực tế —
+    // chậm bao lâu, đã khắc phục lúc nào (xem lib/score-event-detail.ts).
+    occurredAt: string | null;
+    classId: string | null;
+    className: string | null;
+    dueAt: string | null;
+    completedAt: string | null;
+    resolvedAt: string | null;
+    resolvedNote: string | null;
   }[];
 };
 
@@ -192,7 +203,11 @@ export async function computeMonthlyScoreboard(params: { branchId: string | null
     }),
     prisma.assistantScoreEvent.findMany({
       where: { eventDate: { gte: start, lte: end }, employeeId: { in: employeeIds } },
-      include: { branch: { select: { name: true } }, requirementCheck: { select: { id: true } } },
+      include: {
+        branch: { select: { name: true } },
+        requirementCheck: { select: { id: true } },
+        class: { select: { className: true, classCode: true } },
+      },
       orderBy: { eventDate: "desc" },
     }),
     prisma.employeeMonthlyRating.findMany({ where: { month, employeeId: { in: employeeIds } } }),
@@ -213,6 +228,7 @@ export async function computeMonthlyScoreboard(params: { branchId: string | null
       net: 0,
       reminderCount: 0,
       tripleReported: false,
+      unresolvedCount: 0,
       ratio: null,
       autoPoints: { cover: 0, shiftTier: 0 },
       suggestedPercent: null,
@@ -235,6 +251,7 @@ export async function computeMonthlyScoreboard(params: { branchId: string | null
     if (event.type === "DEDUCT") {
       row.deducted += event.points;
       row.reminderCount += 1;
+      if (!event.resolvedAt) row.unresolvedCount += 1;
       if (event.tripleReported) row.tripleReported = true;
     } else {
       row.added += event.points;
@@ -249,6 +266,13 @@ export async function computeMonthlyScoreboard(params: { branchId: string | null
       branchName: event.branch.name,
       tripleReported: event.tripleReported,
       fromRequirement: Boolean(event.requirementCheck),
+      occurredAt: event.occurredAt?.toISOString() ?? null,
+      classId: event.classId,
+      className: event.class ? `${event.class.className}` : null,
+      dueAt: event.dueAt?.toISOString() ?? null,
+      completedAt: event.completedAt?.toISOString() ?? null,
+      resolvedAt: event.resolvedAt?.toISOString() ?? null,
+      resolvedNote: event.resolvedNote,
     });
   }
   for (const rating of ratings) {
@@ -280,6 +304,7 @@ export async function computeMonthlyScoreboard(params: { branchId: string | null
     rows: list,
     allEmployees: employees.map((item) => ({ id: item.id, fullName: item.fullName, employeeCode: item.employeeCode, position: item.position })),
     totals: {
+      unresolved: list.reduce((sum, row) => sum + row.unresolvedCount, 0),
       shifts: list.reduce((sum, row) => sum + row.shifts, 0),
       countedShifts: list.reduce((sum, row) => sum + row.countedShifts, 0),
       deducted: Math.round(list.reduce((sum, row) => sum + row.deducted, 0) * 100) / 100,

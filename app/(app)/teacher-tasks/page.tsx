@@ -7,6 +7,7 @@ import { getCurrentBranchId } from "@/lib/branch-filter";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import DetailTabs from "@/components/ui/DetailTabs";
 import TeacherScoreboard from "@/components/teacher-scores/TeacherScoreboard";
+import TopDateRangeFilter from "@/components/ui/TopDateRangeFilter";
 import { computeMonthlyScoreboard } from "@/lib/server/assistant-score-rules";
 import { getVietnamToday } from "@/lib/server/class-rules";
 import { getAccessibleBranches } from "@/lib/branch-filter";
@@ -145,7 +146,7 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
   });
 
   // ---- Dữ liệu tab "Chấm điểm tích cực" ----
-  const [scoreboard, pendingRaw, accessibleBranches] = await Promise.all([
+  const [scoreboard, pendingRaw, accessibleBranches, scoreClassOptions] = await Promise.all([
     computeMonthlyScoreboard({ branchId: activeBranchId, month }),
     // Buổi khai CHƯA NỘP mà admin chưa quyết định — đây là việc cần làm hằng ngày.
     prisma.sessionRequirementCheck.findMany({
@@ -162,6 +163,12 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
       take: 50,
     }),
     getAccessibleBranches(),
+    // Danh sách lớp để chấm điểm chỉ rõ lỗi xảy ra Ở LỚP NÀO.
+    prisma.class.findMany({
+      where: { ...(activeBranchId ? { branchId: activeBranchId } : {}), status: "ACTIVE" },
+      select: { id: true, className: true, classCode: true },
+      orderBy: { className: "asc" },
+    }),
   ]);
   const pendingChecks = pendingRaw.map((item) => ({
     sessionId: item.sessionId,
@@ -188,7 +195,11 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
             Chấm điểm trừ / điểm cộng theo tháng, xử lý buổi chưa nộp bài tập, và xem lại toàn bộ lịch sử xác nhận theo từng buổi.
           </p>
         </div>
-        <SpotlightTour steps={TEACHER_TASKS_TOUR} />
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Lọc theo NGÀY BUỔI HỌC ngay đầu trang (lịch có sẵn hôm nay/tuần/tháng). */}
+          <TopDateRangeFilter label="Ngày buổi học" fromParam="sessionFrom" toParam="sessionTo" />
+          <SpotlightTour steps={TEACHER_TASKS_TOUR} />
+        </div>
       </div>
 
       <DetailTabs
@@ -205,6 +216,7 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
                 totals={scoreboard.totals}
                 allEmployees={scoreboard.allEmployees}
                 branches={accessibleBranches.map((branch) => ({ id: branch.id, name: branch.name }))}
+                classes={scoreClassOptions.map((item) => ({ id: item.id, label: `${item.className} · ${item.classCode}` }))}
                 defaultBranchId={activeBranchId ?? accessibleBranches[0]?.id ?? ""}
                 pendingChecks={pendingChecks}
                 canDecide={canUpdate("hr", role)}

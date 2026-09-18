@@ -521,6 +521,7 @@ model Class {
   feePolicies        FeePolicy[]
   classTasks         ClassTask[]
   roadmapItems       ClassRoadmapItem[]
+  scoreEvents        AssistantScoreEvent[]
   defaultAssignments ClassDefaultAssignment[]
   nextClass          Class?                   @relation("ClassContinuation", fields: [nextClassId], references: [id])
   previousClasses    Class[]                  @relation("ClassContinuation")
@@ -662,6 +663,7 @@ model ClassSession {
   makeupRequestsMissed    MakeupRequest[]          @relation("MakeupMissed")
   makeupRequestsScheduled MakeupRequest[]          @relation("MakeupScheduled")
   walletTxns              EnrollmentWalletTxn[]
+  scoreEvents             AssistantScoreEvent[]
 
   @@index([classId, sessionDate])
   @@index([cancelledByHolidayId])
@@ -1861,11 +1863,23 @@ model AssistantScoreEvent {
   // Quy chế: 1 nội dung bị nhắc ở CẢ 3 báo cáo (ngày, tuần, tháng) thì tháng đó mặc định
   // −10% lương, không phụ thuộc tỉ lệ A.
   tripleReported Boolean @default(false) @map("triple_reported")
+  // CHI TIẾT ĐỐI SOÁT — khi nhân sự có ý kiến thì phải trả lời được: lỗi xảy ra lúc nào,
+  // ở lớp/buổi nào, hạn phải làm là khi nào, thực tế làm lúc nào (chậm bao lâu), và đã
+  // khắc phục lúc nào. Tất cả để nullable vì điểm cũ và điểm sinh tự động không có.
+  occurredAt  DateTime? @map("occurred_at") // ngày GIỜ xảy ra
+  classId     String?   @map("class_id")
+  sessionId   String?   @map("session_id")
+  dueAt       DateTime? @map("due_at") // hạn theo quy chế (vd nhật ký trước 9h sáng hôm sau)
+  completedAt DateTime? @map("completed_at") // thực tế làm xong lúc nào → suy ra chậm bao lâu
+  resolvedAt  DateTime? @map("resolved_at") // đã khắc phục lúc nào
+  resolvedNote String?  @map("resolved_note")
   createdById String?  @map("created_by_id")
   createdAt   DateTime @default(now()) @map("created_at")
 
   employee         Employee                 @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   branch           Branch                   @relation(fields: [branchId], references: [id])
+  class            Class?                   @relation(fields: [classId], references: [id], onDelete: SetNull)
+  session          ClassSession?            @relation(fields: [sessionId], references: [id], onDelete: SetNull)
   requirementCheck SessionRequirementCheck?
 
   @@index([employeeId, eventDate])
