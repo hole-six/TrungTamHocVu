@@ -141,6 +141,9 @@ function SessionsTab({
   const chosenTeachers = teacherIds.filter(Boolean);
   const chosenAssistants = assistantIds.filter(Boolean);
   const [mode, setMode] = useState<"FILL_EMPTY" | "REPLACE">("FILL_EMPTY");
+  // Quy tắc trùng khung giờ: 1 người 1 lớp là chuẩn; muốn xếp lớp THỨ HAI cùng giờ thì
+  // phải tick ô này (lớp thứ 3 thì hệ thống chặn hẳn, tick cũng không xếp được).
+  const [allowOverlap, setAllowOverlap] = useState(false);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -178,7 +181,7 @@ function SessionsTab({
     const res = await fetch("/api/sessions/bulk-assignments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionIds: [...selected], teacherIds: chosenTeachers, assistantIds: chosenAssistants, mode, confirm }),
+      body: JSON.stringify({ sessionIds: [...selected], teacherIds: chosenTeachers, assistantIds: chosenAssistants, mode, confirm, allowOverlap }),
     });
     const data = await res.json().catch(() => ({}));
     setLoading(false);
@@ -364,6 +367,25 @@ function SessionsTab({
             </label>
           ))}
         </div>
+
+        <label className={`mt-3 flex cursor-pointer items-start gap-2 rounded-xl border px-3 py-2 ${allowOverlap ? "border-amber-300 bg-amber-50" : "border-hairline"}`}>
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={allowOverlap}
+            onChange={(event) => {
+              setAllowOverlap(event.target.checked);
+              setPlan(null);
+            }}
+          />
+          <span>
+            <span className="block text-sm font-bold text-ink">Cho phép xếp trùng giờ (tối đa 2 lớp/khung giờ)</span>
+            <span className="mt-0.5 block text-xs text-ink-muted48">
+              Mặc định 1 người chỉ đứng 1 lớp trong một khung giờ. Tick ô này khi thật sự muốn xếp người đó kèm lớp thứ 2 cùng
+              giờ — lớp thứ 3 thì hệ thống luôn chặn.
+            </span>
+          </span>
+        </label>
       </section>
 
       {error ? <div className="alert-danger">{error}</div> : null}
@@ -376,7 +398,7 @@ function SessionsTab({
         >
           {loading ? "Đang kiểm tra..." : `Xem trước (${selected.size} buổi)`}
         </button>
-        <p className="text-xs text-ink-muted48">Chưa ghi gì cho tới khi bấm xác nhận ở bước xem trước. Trùng lịch sẽ tự bị bỏ qua kèm lý do.</p>
+        <p className="text-xs text-ink-muted48">Chưa ghi gì cho tới khi bấm xác nhận ở bước xem trước. Buổi trùng giờ sẽ bị bỏ qua kèm lý do, trừ khi đã tick cho phép xếp trùng.</p>
       </div>
     </div>
   );

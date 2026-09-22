@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { hasPermission } from "@/lib/server/permissions";
 import { canAccessBranch } from "@/lib/branch-filter";
-import { computeOutstandingBalance } from "@/lib/server/balance";
+import { computeOutstandingBreakdown } from "@/lib/server/balance";
 import { computeAdvanceBalance } from "@/lib/server/advance-payment";
 
 // Tình hình tiền THẬT của học viên tại thời điểm hỏi: còn nợ bao nhiêu và đang có sẵn
@@ -30,10 +30,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Học viên không thuộc chi nhánh của bạn" }, { status: 403 });
   }
 
-  const [outstanding, advanceBalance] = await Promise.all([
-    computeOutstandingBalance(student.id),
+  const [breakdown, advanceBalance] = await Promise.all([
+    computeOutstandingBreakdown(student.id),
     computeAdvanceBalance(prisma, student.id),
   ]);
 
-  return NextResponse.json({ outstanding, advanceBalance });
+  return NextResponse.json({ ...breakdown, advanceBalance });
 }

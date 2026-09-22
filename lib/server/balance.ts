@@ -117,3 +117,62 @@ export async function computeOutstandingBalance(
     creditAmount
   );
 }
+
+export type OutstandingBreakdown = {
+  tuitionOutstanding: number;
+  materialsOutstanding: number;
+  discountableOutstanding: number;
+  outstanding: number;
+  creditAmount: number;
+};
+
+export async function computeOutstandingBreakdown(
+  studentId: string,
+  tx: Prisma.TransactionClient | typeof prisma = prisma,
+): Promise<OutstandingBreakdown> {
+  const [charges, unusedCredits] = await Promise.all([
+    tx.charge.findMany({
+      where: { studentId },
+      select: {
+        id: true,
+        tuitionAmount: true,
+        materialsAmount: true,
+        allocations: {
+          where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } },
+          select: { amount: true },
+        },
+      },
+    }),
+    tx.creditBalance.findMany({ where: { studentId, usedAt: null }, select: { amount: true } }),
+  ]);
+
+  let tuitionOutstanding = 0;
+  let materialsOutstanding = 0;
+
+  for (const charge of charges) {
+    const paid = charge.allocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+    const materialsDue = Math.max(0, charge.materialsAmount - Math.min(charge.materialsAmount, paid));
+    const paidAfterMaterials = Math.max(0, paid - charge.materialsAmount);
+    const tuitionDue = Math.max(0, charge.tuitionAmount - paidAfterMaterials);
+    tuitionOutstanding += tuitionDue;
+    materialsOutstanding += materialsDue;
+  }
+
+  const creditAmount = unusedCredits.reduce((sum, credit) => sum + credit.amount, 0);
+  let remainingCredit = creditAmount;
+  const creditForTuition = Math.min(tuitionOutstanding, remainingCredit);
+  tuitionOutstanding -= creditForTuition;
+  remainingCredit -= creditForTuition;
+  const creditForMaterials = Math.min(materialsOutstanding, remainingCredit);
+  materialsOutstanding -= creditForMaterials;
+
+  const outstanding = tuitionOutstanding + materialsOutstanding;
+
+  return {
+    tuitionOutstanding,
+    materialsOutstanding,
+    discountableOutstanding: tuitionOutstanding,
+    outstanding,
+    creditAmount,
+  };
+}

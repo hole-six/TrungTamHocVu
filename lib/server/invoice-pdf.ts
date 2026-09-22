@@ -73,6 +73,8 @@ type InvoicePdfPayload = {
 
 const PDF_PAGE_WIDTH = 595.28;
 const PDF_PAGE_HEIGHT = 841.89;
+const PDF_MEDIA_WIDTH = 419.53;
+const PDF_MEDIA_HEIGHT = 595.28;
 const PDF_MARGIN_X = 42;
 
 function stripForPdf(input: unknown) {
@@ -243,11 +245,15 @@ function buildPdf(charges: InvoicePdfCharge[], paymentProfile: PaymentProfileDat
   const pageRefs: number[] = [];
   const pageContents = charges.map((charge) => buildInvoicePageContent(charge, paymentProfile));
 
+  const scaleX = PDF_MEDIA_WIDTH / PDF_PAGE_WIDTH;
+  const scaleY = PDF_MEDIA_HEIGHT / PDF_PAGE_HEIGHT;
+
   for (const content of pageContents) {
-    const contentBuffer = Buffer.from(content, "latin1");
-    const contentId = addObject(`<< /Length ${contentBuffer.length} >>\nstream\n${content}\nendstream`);
+    const scaledContent = `q\n${scaleX.toFixed(6)} 0 0 ${scaleY.toFixed(6)} 0 0 cm\n${content}\nQ`;
+    const contentBuffer = Buffer.from(scaledContent, "latin1");
+    const contentId = addObject(`<< /Length ${contentBuffer.length} >>\nstream\n${scaledContent}\nendstream`);
     const pageId = addObject(
-      `<< /Type /Page /Parent 0 0 R /MediaBox [0 0 ${PDF_PAGE_WIDTH} ${PDF_PAGE_HEIGHT}] /Resources << /Font << /F1 ${fontRegularId} 0 R /F2 ${fontBoldId} 0 R >> >> /Contents ${contentId} 0 R >>`,
+      `<< /Type /Page /Parent 0 0 R /MediaBox [0 0 ${PDF_MEDIA_WIDTH} ${PDF_MEDIA_HEIGHT}] /Resources << /Font << /F1 ${fontRegularId} 0 R /F2 ${fontBoldId} 0 R >> >> /Contents ${contentId} 0 R >>`,
     );
     pageRefs.push(pageId);
   }

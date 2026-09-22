@@ -11,6 +11,7 @@ import {
 } from "@/lib/server/billing-generation";
 import { attachCourseBookRequirements } from "@/lib/server/enrollment-materials";
 import { computeEffectiveUnitPrice } from "@/lib/server/tuition-rules";
+import { issueBooksToStudent } from "@/lib/server/book-issue";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -65,6 +66,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // bao giờ lên hóa đơn) — chặn ngay ở đây thay vì mỗi UI phải tự nhớ ẩn field.
   const paidCatchupSessionCount = billingModel === "PERIOD" ? 0 : Math.max(0, Number(body.paidCatchupSessionCount ?? 0));
   const paidCatchupUnitPrice = Number(body.paidCatchupUnitPrice ?? unitPriceSnapshot);
+  const requestedBookItems = Array.isArray(body.bookItems)
+    ? body.bookItems
+        .map((item: { bookId?: unknown; quantity?: unknown }) => ({
+          bookId: String(item.bookId ?? "").trim(),
+          quantity: Number(item.quantity ?? 0),
+        }))
+        .filter((item: { bookId: string; quantity: number }) => item.bookId && item.quantity > 0)
+    : cls.course?.bookRequirements.map((item) => ({ bookId: item.bookId, quantity: item.quantity })) ?? [];
   if (!studentId) return NextResponse.json({ error: "Thiếu học viên" }, { status: 400 });
   if (billingModel !== "COURSE" && billingModel !== "PERIOD" && billingModel !== "INSTALLMENT") {
     return NextResponse.json({ error: "Hình thức đóng học phí không hợp lệ" }, { status: 400 });
@@ -289,6 +298,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const { warnings } = await generatePeriodChargesForNewEnrollment(enrollment.id);
     billingWarnings.push(...warnings);
   }
+  const bookWarnings: string[] = [];
+  if (!cls.isRemedial && requestedBookItems.length > 0) {
+    const issueResult = await issueBooksToStudent({
+      studentId,
+      classId: cls.id,
+      items: requestedBookItems,
+      issueDate: enrollDate,
+      paidNow: false,
+      issuedById: user.id,
+      notes: "Tự động gắn sách khi ghi danh lớp.",
+    });
+    if ("error" in issueResult) {
+      bookWarnings.push(issueResult.error);
+    } else {
+      bookWarnings.push(...issueResult.warnings);
+    }
+  }
 
   // Phiếu vừa sinh cho ghi danh này — form gán lớp dùng để hiện "Thu tiền ngay" và "In
   // phiếu" liền tại chỗ, không phải sang trang Học phí tìm lại học viên. Số còn lại đã trừ
@@ -316,7 +342,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       item: enrollment,
       student: syncedStudent,
       charges,
-      billingWarning: billingWarnings.length ? billingWarnings.join(" · ") : undefined,
+      billingWarning: [...billingWarnings, ...bookWarnings].length ? [...billingWarnings, ...bookWarnings].join(" · ") : undefined,
     },
     { status: 201 }
   );

@@ -163,7 +163,7 @@ const ROLE_CONFIGS: Record<string, AppShellConfig> = {
     ],
     quickActionsTitle: "Lối tắt tuyển sinh",
     quickActions: [
-      { id: "new-lead", label: "Thêm lead", description: "Ghi nhận phụ huynh/học viên tiềm năng", href: "/leads/new", icon: "plus", tone: "primary" },
+      { id: "new-lead", label: "Thêm Data", description: "Ghi nhận phụ huynh/học viên tiềm năng", href: "/leads/new", icon: "plus", tone: "primary" },
       { id: "leads", label: "DS test", description: "Mở pipeline tuyển sinh và lịch test", href: "/leads", icon: "users", tone: "success" },
       { id: "calendar", label: "Lịch hẹn", description: "Xem các lịch hẹn tuyển sinh", href: "/calendar", icon: "calendar", tone: "info" },
     ],

@@ -7,7 +7,7 @@ import FormGuide from "@/components/ui/FormGuide";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import { formatVnd } from "@/lib/export-utils";
-import { CASH_METHOD, MAX_CASH_DISCOUNT_PERCENT, computeCashDiscount } from "@/lib/cash-discount";
+import { CASH_METHOD, MAX_CASH_DISCOUNT_PERCENT, computeCashDiscountForTuitionOnly } from "@/lib/cash-discount";
 
 const GUIDE_SECTIONS = [
   {
@@ -70,7 +70,13 @@ export default function QuickPaymentButton({
   // Công nợ và tiền đóng trước lấy từ đúng nguồn với API thu tiền — suggestedAmount chỉ
   // dùng làm số gợi ý điền sẵn, vì tùy chỗ gọi mà nó là công nợ cả học viên hay chỉ là
   // phần còn thiếu của một phiếu học phí.
-  const [balance, setBalance] = useState<{ outstanding: number; advanceBalance: number } | null>(null);
+  const [balance, setBalance] = useState<{
+    outstanding: number;
+    tuitionOutstanding: number;
+    materialsOutstanding: number;
+    discountableOutstanding: number;
+    advanceBalance: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -79,7 +85,13 @@ export default function QuickPaymentButton({
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
-        setBalance({ outstanding: Number(data.outstanding) || 0, advanceBalance: Number(data.advanceBalance) || 0 });
+        setBalance({
+          outstanding: Number(data.outstanding) || 0,
+          tuitionOutstanding: Number(data.tuitionOutstanding) || 0,
+          materialsOutstanding: Number(data.materialsOutstanding) || 0,
+          discountableOutstanding: Number(data.discountableOutstanding) || 0,
+          advanceBalance: Number(data.advanceBalance) || 0,
+        });
       })
       .catch(() => undefined);
     return () => {
@@ -92,15 +104,18 @@ export default function QuickPaymentButton({
   // cho kỳ sau là chuyện hàng ngày, phần vượt được giữ lại thành tiền đóng trước và tự
   // trừ vào phiếu học phí kỳ sau — xem lib/server/advance-payment.ts.
   const outstanding = Math.max(0, balance ? balance.outstanding : suggestedAmount);
+  const tuitionOutstanding = Math.max(0, balance ? balance.tuitionOutstanding : suggestedAmount);
+  const materialsOutstanding = Math.max(0, balance ? balance.materialsOutstanding : 0);
   const numericDiscountPercent = Math.min(MAX_CASH_DISCOUNT_PERCENT, Math.max(0, Number(discountPercent) || 0));
   const cashDiscountActive = method === CASH_METHOD && enableCashDiscount && numericDiscountPercent > 0;
   // Dùng CHUNG một phép tính với API thu tiền (lib/cash-discount.ts) để màn hình và số thực
   // ghi nhận không bao giờ lệch nhau: giảm x% nghĩa là phụ huynh trả (100 − x)% khoản nợ
   // được xóa, không phải cộng thêm x% vào số tiền mặt.
-  const settlement = computeCashDiscount({
+  const settlement = computeCashDiscountForTuitionOnly({
     cash: numericAmount,
     percent: cashDiscountActive ? numericDiscountPercent : 0,
-    outstanding,
+    tuitionOutstanding,
+    materialsOutstanding,
   });
   const discountAmount = settlement.discountAmount;
   const advanceAmount = settlement.advanceAmount;
@@ -194,6 +209,10 @@ export default function QuickPaymentButton({
             <p className="mt-2 text-base font-semibold">
               Học viên còn nợ <strong>{formatVnd(outstanding)}</strong>.
             </p>
+            <div className="mt-2 grid grid-cols-1 gap-2 text-sm text-rose-700 sm:grid-cols-2">
+              <p>Tiá»n há»c: <strong>{formatVnd(tuitionOutstanding)}</strong></p>
+              <p>SÃ¡ch: <strong>{formatVnd(materialsOutstanding)}</strong></p>
+            </div>
             {cashDiscountActive ? (
               <p className="mt-1 text-sm text-rose-700">
                 Giảm {numericDiscountPercent}% tiền mặt: thu đủ <strong>{formatVnd(settlement.cashToClearAll)}</strong> là hết nợ.
@@ -330,6 +349,7 @@ export default function QuickPaymentButton({
         title="Xác nhận đã thu tiền?"
         description={[
           `Số tiền thu: ${formatVnd(numericAmount)} · ${method}`,
+          `Tiá»n há»c: ${formatVnd(tuitionOutstanding)} Â· SÃ¡ch: ${formatVnd(materialsOutstanding)}`,
           cashDiscountActive
             ? `Chiết khấu ${numericDiscountPercent}%: giảm ${formatVnd(discountAmount)} trên phiếu học phí — tổng công nợ được xóa ${formatVnd(totalDebtReduction)}`
             : "",

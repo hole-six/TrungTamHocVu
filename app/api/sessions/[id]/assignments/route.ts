@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { buildAssignmentPay } from "@/lib/server/class-default-assignments";
-import { findStaffConflicts, describeStaffConflicts } from "@/lib/server/staff-schedule";
+import {
+  findStaffConflicts,
+  describeStaffConflicts,
+  describeOverlapBlock,
+  describeOverlapConfirm,
+  overlapDecision,
+} from "@/lib/server/staff-schedule";
 import { isEmployeeWorkingOn } from "@/lib/assignment-roles";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
@@ -48,10 +54,27 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: `${employee.fullName} đã có vai trò khác trong buổi này rồi.` }, { status: 409 });
   }
 
-  // Chặn trùng lịch: người này đã đứng lớp khác chồng giờ trong cùng ngày.
+  // Trùng khung giờ: lớp thứ 2 thì HỎI LẠI, lớp thứ 3 thì chặn hẳn (xem
+  // lib/server/staff-schedule.ts). Màn hình gửi kèm allowOverlap sau khi người dùng đồng ý.
   const conflicts = await findStaffConflicts(prisma, employeeId, [session]);
-  if (conflicts.length) {
-    return NextResponse.json({ error: describeStaffConflicts(employee.fullName, conflicts) }, { status: 409 });
+  const decision = overlapDecision(conflicts);
+  if (decision === "block") {
+    return NextResponse.json({ error: describeOverlapBlock(employee.fullName, conflicts), code: "OVERLAP_BLOCKED" }, { status: 409 });
+  }
+  if (decision === "confirm" && !body.allowOverlap) {
+    return NextResponse.json(
+      {
+        error: describeOverlapConfirm(employee.fullName, conflicts),
+        code: "OVERLAP_CONFIRM",
+        conflicts: conflicts.map((item) => ({
+          classCode: item.classCode,
+          className: item.className,
+          startTime: item.startTime,
+          endTime: item.endTime,
+        })),
+      },
+      { status: 409 },
+    );
   }
 
   const { hours, hourlyRate, amount } = buildAssignmentPay(role, employee, session);

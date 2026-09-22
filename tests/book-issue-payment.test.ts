@@ -83,6 +83,25 @@ async function main() {
       }),
     );
 
+  const payWithDiscount = (
+    student: { id: string; branchId: string; fullName: string; studentCode: string },
+    amount: number,
+    discountPercent: number,
+  ) =>
+    db.$transaction((tx) =>
+      recordStudentPayment(tx, {
+        studentId: student.id,
+        amount,
+        method: "Tiền mặt",
+        discountPercent,
+        discountReason: "Test chiết khấu tiền mặt",
+        paidDate: new Date("2026-09-16T00:00:00.000Z"),
+        userId: "test-user",
+        paymentNo: `PM${Math.random().toString(36).slice(2, 10).toUpperCase()}`,
+        student: { branchId: student.branchId, fullName: student.fullName, studentCode: student.studentCode },
+      }),
+    );
+
   const statusOf = async (issueId: string) =>
     (await db.bookIssue.findUniqueOrThrow({ where: { id: issueId } })).paymentStatus;
 
@@ -127,6 +146,16 @@ async function main() {
     });
     await pay(student, 300_000);
     expectEqual(await statusOf(cashIssue.id), "PAID", "vẫn đã thu, không bị hạ về chưa thu");
+  });
+
+  // ---------------------------------------------------------------- 5
+  await test("Giảm tiền mặt chỉ giảm học phí: sách vẫn phải thu đủ mới PAID", async () => {
+    const { student, charge, issue } = await seedCase("Giảm chỉ học phí");
+    await payWithDiscount(student, BOOK + Math.round(TUITION * 0.97), 3);
+    const updated = await db.charge.findUniqueOrThrow({ where: { id: charge.id } });
+    expectEqual(updated.materialsAmount, BOOK, "tiền sách không bị giảm");
+    expectEqual(updated.tuitionAmount, TUITION - Math.round(TUITION * 0.03), "chỉ học phí bị giảm 3%");
+    expectEqual(await statusOf(issue.id), "PAID", "thu đủ sách + học phí sau giảm thì sách đã thanh toán");
   });
 
   const failed = summary();

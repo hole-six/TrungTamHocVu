@@ -88,6 +88,15 @@ export default function BookBasketPicker({
     onChange(next);
   }
 
+  function setGroupQuantity(items: BookOption[], quantity: number) {
+    const next = { ...basket };
+    for (const book of items) {
+      if (quantity <= 0) delete next[book.id];
+      else next[book.id] = Math.max(quantity, next[book.id] ?? 0);
+    }
+    onChange(next);
+  }
+
   const picked = basketItems(basket, books);
   const total = picked.reduce((sum, item) => sum + item.amount, 0);
 
@@ -138,6 +147,22 @@ export default function BookBasketPicker({
             <p className="sticky top-0 z-10 border-b border-[#e2e8f0] bg-[#f1f5f9] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-[#334155]">
               {name} · {items.length} đầu sách
             </p>
+            <div className="flex justify-end gap-1 border-b border-[#e2e8f0] bg-[#f8fafc] px-3 py-1">
+              <button
+                type="button"
+                onClick={() => setGroupQuantity(items, 1)}
+                className="rounded-md border border-[#cbd5e1] bg-white px-2 py-0.5 text-[11px] font-bold text-[#0f1729] hover:border-[#0f1729]"
+              >
+                Chá»n bá»™
+              </button>
+              <button
+                type="button"
+                onClick={() => setGroupQuantity(items, 0)}
+                className="rounded-md border border-[#cbd5e1] bg-white px-2 py-0.5 text-[11px] font-bold text-[#64748b] hover:border-[#0f1729] hover:text-[#0f1729]"
+              >
+                Bá» bá»™
+              </button>
+            </div>
             <ul className="divide-y divide-[#f1f5f9]">
               {items.map((book) => {
                 const quantity = basket[book.id] ?? 0;

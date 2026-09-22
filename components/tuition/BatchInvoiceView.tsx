@@ -539,7 +539,7 @@ export default function BatchInvoiceView({
                           </button>
                           <p className="text-sm text-ink-muted48">
                             {exportMode === "MERGED"
-                              ? "Mỗi phiếu sẽ nằm trên 1 trang A4 trong cùng file PDF."
+                              ? "Mỗi phiếu sẽ nằm trên 1 trang A5 trong cùng file PDF."
                               : "Mỗi phiếu sẽ là 1 file PDF riêng, tự tải về dưới dạng file ZIP."}
                           </p>
                           <p className="text-sm text-ink-muted48">

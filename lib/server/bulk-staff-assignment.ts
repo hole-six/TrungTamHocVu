@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { buildAssignmentPay } from "@/lib/server/class-default-assignments";
-import { findStaffConflicts, formatDayVn, timeRangesOverlap } from "@/lib/server/staff-schedule";
+import { findStaffConflicts, formatDayVn, timeRangesOverlap, MAX_CLASSES_PER_SLOT } from "@/lib/server/staff-schedule";
 import { canEditPayroll } from "@/lib/server/payroll-rules";
 import { assignmentRoleType, isEmployeeWorkingOn } from "@/lib/assignment-roles";
 
@@ -61,7 +61,14 @@ type InternalItem = BulkPlanItem & {
 
 export async function planBulkAssignment(
   db: Db,
-  input: { sessionIds: string[]; teacherIds?: string[]; assistantIds?: string[]; mode: BulkMode },
+  input: {
+    sessionIds: string[];
+    teacherIds?: string[];
+    assistantIds?: string[];
+    mode: BulkMode;
+    /** Người xếp lịch đã đồng ý cho đứng 2 lớp cùng khung giờ (quy tắc ở staff-schedule.ts). */
+    allowOverlap?: boolean;
+  },
 ): Promise<BulkPlan & { internal: InternalItem[] }> {
   const teacherIds = [...new Set(input.teacherIds ?? [])];
   const assistantIds = [...new Set(input.assistantIds ?? [])];
@@ -177,21 +184,41 @@ export async function planBulkAssignment(
           continue;
         }
         if (session.startTime && session.endTime) {
+          // Quy tắc trùng khung giờ (staff-schedule.ts): lớp thứ 2 phải được người xếp lịch
+          // đồng ý trước (tick "cho phép xếp trùng"), lớp thứ 3 thì chặn hẳn. Đếm cả lớp đã
+          // có sẵn trong hệ thống LẪN lớp khác cũng đang được chọn trong chính lần xếp này.
           const taken = takenInBatch.get(employeeId) ?? [];
-          const inBatch = taken.find(
+          const inBatchOverlaps = taken.filter(
             (t) =>
               t.sessionDate.getTime() === session.sessionDate.getTime() &&
               timeRangesOverlap(session.startTime!, session.endTime!, t.startTime, t.endTime),
           );
-          if (inBatch) {
-            skip(`trùng giờ với buổi lớp ${inBatch.classCode} cũng đang chọn (${inBatch.startTime}–${inBatch.endTime})`);
+          const conflicts = await findStaffConflicts(db, employeeId, [session]);
+          const existingCount = new Set(conflicts.map((item) => item.otherSessionId)).size;
+          const concurrent = existingCount + inBatchOverlaps.length;
+          const describeOther = () => {
+            if (conflicts.length > 0) {
+              const c = conflicts[0];
+              return `lớp ${c.classCode} ${formatDayVn(c.sessionDate)} ${c.startTime}–${c.endTime}`;
+            }
+            const t = inBatchOverlaps[0];
+            return `lớp ${t.classCode} (${t.startTime}–${t.endTime}) cũng đang chọn`;
+          };
+
+          if (concurrent + 1 > MAX_CLASSES_PER_SLOT) {
+            skip(`đã đứng ${concurrent} lớp cùng khung giờ (${describeOther()}) — không xếp thêm lớp thứ ${concurrent + 1}`);
             continue;
           }
-          const conflicts = await findStaffConflicts(db, employeeId, [session]);
-          if (conflicts.length) {
-            const c = conflicts[0];
-            skip(`trùng lịch lớp ${c.classCode} ${formatDayVn(c.sessionDate)} ${c.startTime}–${c.endTime}`);
+          if (concurrent > 0 && !input.allowOverlap) {
+            skip(`trùng giờ với ${describeOther()} — tick "Cho phép xếp trùng giờ" nếu vẫn muốn xếp`);
             continue;
+          }
+          if (concurrent > 0) {
+            // Vẫn gán theo ý người xếp lịch, nhưng ghi rõ ra để lúc xem trước còn biết.
+            item.skipped.push({
+              name: employee.fullName,
+              reason: `vẫn gán dù trùng giờ với ${describeOther()} (lớp thứ ${concurrent + 1}/${MAX_CLASSES_PER_SLOT})`,
+            });
           }
           taken.push({ sessionDate: session.sessionDate, startTime: session.startTime, endTime: session.endTime, classCode: session.class.classCode });
           takenInBatch.set(employeeId, taken);

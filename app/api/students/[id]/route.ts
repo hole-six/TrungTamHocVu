@@ -6,6 +6,7 @@ import { canViewFullWithOverride, canViewWithOverride, canUpdateWithOverride, ca
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { computeOutstandingBalance } from "@/lib/server/balance";
 import { canAccessBranch } from "@/lib/branch-filter";
+import { PHONE_ERROR, validateOptionalPhone } from "@/lib/phone";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -69,7 +70,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const body = await req.json();
   const data: Record<string, unknown> = {};
+  if ("phone" in body) {
+    const phone = validateOptionalPhone(body.phone);
+    if (!phone.ok) return NextResponse.json({ error: PHONE_ERROR }, { status: 400 });
+    data.phone = phone.value || null;
+  }
   for (const field of ["fullName", "gender", "phone", "address", "leaveReason", "evaluation", "referredBy", "notes"]) {
+    if (field === "phone") continue;
     if (field in body) data[field] = body[field] || null;
   }
   for (const field of ["dob", "enrollDate", "leaveDate"]) {

@@ -5,6 +5,7 @@ import { getUserRole } from "@/lib/permissions";
 import { canView, canCreate } from "@/lib/server/role-matrix";
 import { LEAD_STATUSES, normalizePendingRemedialSessions } from "@/lib/server/lead-rules";
 import { getBranchWhereClause, getValidBranchIdForCreation } from "@/lib/branch-filter";
+import { PHONE_ERROR, validateOptionalPhone } from "@/lib/phone";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -153,7 +154,11 @@ export async function POST(req: NextRequest) {
 
   let guardianId: string | null = null;
   const guardianName = String(body.guardianName ?? "").trim();
-  const phone = String(body.phone ?? "").trim();
+  const primaryPhone = validateOptionalPhone(body.phone);
+  if (!primaryPhone.ok) return NextResponse.json({ error: PHONE_ERROR }, { status: 400 });
+  const secondaryPhone = validateOptionalPhone(body.secondaryPhone);
+  if (!secondaryPhone.ok) return NextResponse.json({ error: PHONE_ERROR }, { status: 400 });
+  const phone = primaryPhone.value;
   if (guardianName || phone) {
     const existingGuardian = phone ? await prisma.guardian.findFirst({ where: { phone } }) : null;
     const guardian =
@@ -176,7 +181,7 @@ export async function POST(req: NextRequest) {
       guardianRelation: body.guardianRelation || null,
       // Phụ huynh thứ 2 (thường là bố): lưu ngay ở lead, chuyển thành học viên thì được
       // tạo thành Guardian riêng và gắn vào học viên (xem app/api/students POST).
-      secondaryPhone: body.secondaryPhone || null,
+      secondaryPhone: secondaryPhone.value || null,
       secondaryGuardianName: body.secondaryGuardianName || null,
       secondaryGuardianRelation: body.secondaryGuardianRelation || null,
       zaloContact: body.zaloContact || null,

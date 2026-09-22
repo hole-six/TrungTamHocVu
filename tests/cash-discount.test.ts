@@ -3,7 +3,7 @@
 // Quy tắc: "giảm x% cho phụ huynh đóng tiền mặt" = phụ huynh trả (100 − x)% của khoản nợ
 // được xóa. Bộ test này khóa lại đúng các ca đã tính SAI trước đây.
 import { test, expectEqual, summary } from "./harness";
-import { computeCashDiscount } from "@/lib/cash-discount";
+import { computeCashDiscount, computeCashDiscountForTuitionOnly } from "@/lib/cash-discount";
 
 async function main() {
   console.log("Test chiết khấu thu tiền mặt:\n");
@@ -44,6 +44,20 @@ async function main() {
     const over = computeCashDiscount({ cash: 4_000_000, percent: 0, outstanding: DEBT });
     expectEqual(over.settledAmount, DEBT, "thu vượt thì chỉ xóa hết nợ");
     expectEqual(over.advanceAmount, 225_000, "phần vượt là tiền đóng trước");
+  });
+
+  await test("Học phí 340k + sách 600k, giảm 3%: chỉ giảm tiền học, sách thu đủ", async () => {
+    const r = computeCashDiscountForTuitionOnly({
+      cash: 929_800,
+      percent: 3,
+      tuitionOutstanding: 340_000,
+      materialsOutstanding: 600_000,
+    });
+    expectEqual(r.materialsCash, 600_000, "sách thu đủ 600.000đ");
+    expectEqual(r.tuitionCash, 329_800, "tiền học thu 97% của 340.000đ");
+    expectEqual(r.discountAmount, 10_200, "giảm đúng 3% tiền học");
+    expectEqual(r.settledAmount, 940_000, "xóa đủ tổng nợ học + sách");
+    expectEqual(r.remainingDebt, 0, "hết nợ");
   });
 
   await test("Học viên không còn nợ: mọi khoản thu là đóng trước, không có chiết khấu", async () => {

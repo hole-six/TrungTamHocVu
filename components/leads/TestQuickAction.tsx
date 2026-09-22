@@ -120,6 +120,24 @@ export default function TestQuickAction({
       return;
     }
 
+    if (canSetStartDate && selectedClassId) {
+      const enrollRes = await fetch(`/api/leads/${leadId}/enroll-class`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          classId: selectedClassId,
+          enrollDate: actualEnrollDateInput || expectedStartDateInput || new Date().toISOString().slice(0, 10),
+        }),
+      });
+      if (!enrollRes.ok) {
+        setSaving(false);
+        const data = await enrollRes.json().catch(() => ({}));
+        setError(data.error ?? "Đã lưu kết quả đạt test nhưng chưa gán được lớp.");
+        return;
+      }
+      toast.success("Đã tự tạo học viên và gán lớp từ Data đạt test.", "Đã gán lớp");
+    }
+
     setSaving(false);
     setOpen(false);
     if (leadStatusMessage) toast.success(leadStatusMessage, "Đã đồng bộ trạng thái lead");
@@ -232,7 +250,7 @@ export default function TestQuickAction({
                     Hủy
                   </button>
                   <button type="button" onClick={save} disabled={saving} className="btn-primary text-xs">
-                    {saving ? "Đang lưu..." : "Lưu"}
+                    {saving ? "Đang lưu..." : canSetStartDate && selectedClassId ? "Lưu và gán lớp" : "Lưu"}
                   </button>
                 </div>
               </div>

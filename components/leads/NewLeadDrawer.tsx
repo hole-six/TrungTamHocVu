@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { suggestSchoolGrade } from "@/lib/school-grade";
+import { PHONE_ERROR, validateOptionalPhone } from "@/lib/phone";
 
 type Props = {
   classOptions: Array<{ id: string; className: string }>;
@@ -31,6 +32,13 @@ export default function NewLeadDrawer({ classOptions }: Props) {
     setSubmitError(null);
 
     const formData = new FormData(e.currentTarget);
+    const primaryPhone = validateOptionalPhone(formData.get("phone"));
+    const secondaryPhone = validateOptionalPhone(formData.get("secondaryPhone"));
+    if (!primaryPhone.ok || !secondaryPhone.ok) {
+      setSubmitError(PHONE_ERROR);
+      setLoading(false);
+      return;
+    }
 
     // Create lead
     const leadRes = await fetch("/api/leads", {
@@ -44,11 +52,11 @@ export default function NewLeadDrawer({ classOptions }: Props) {
         schoolName: formData.get("schoolName") || null,
         guardianName: formData.get("guardianName") || null,
         guardianRelation: formData.get("guardianRelation") || null,
-        phone: formData.get("phone") || null,
+        phone: primaryPhone.value || null,
         // Phụ huynh thứ 2 (bố/mẹ còn lại) — lưu cả tên, quan hệ và số riêng.
         secondaryGuardianName: formData.get("secondaryGuardianName") || null,
         secondaryGuardianRelation: formData.get("secondaryGuardianRelation") || null,
-        secondaryPhone: formData.get("secondaryPhone") || null,
+        secondaryPhone: secondaryPhone.value || null,
         address: formData.get("address") || null,
         facebookParentName: formData.get("facebookParentName") || null,
         facebookLink: formData.get("facebookLink") || null,
@@ -111,7 +119,7 @@ export default function NewLeadDrawer({ classOptions }: Props) {
           <line x1="12" y1="5" x2="12" y2="19" />
           <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
-        <span className="hidden sm:inline">Thêm lead</span>
+        <span className="hidden sm:inline">Thêm Data</span>
         <span className="sm:hidden">Thêm</span>
       </button>
 
@@ -129,7 +137,7 @@ export default function NewLeadDrawer({ classOptions }: Props) {
             {/* Header */}
             <div className="slideover-header">
               <div>
-                <h2 className="text-xl sm:text-2xl font-black tracking-tight text-[#0f172a]">Thêm lead mới</h2>
+                <h2 className="text-xl sm:text-2xl font-black tracking-tight text-[#0f172a]">Thêm Data mới</h2>
                 <p className="mt-1 text-xs sm:text-sm text-[#64748b]">Tạo hồ sơ học viên tiềm năng vào Data tuyển sinh</p>
               </div>
               <button
@@ -261,8 +269,7 @@ export default function NewLeadDrawer({ classOptions }: Props) {
                           required
                           className="input"
                           placeholder="0912345678"
-                          pattern="[0-9]{10,11}"
-                          title="Số điện thoại 10-11 chữ số"
+                          title="Số điện thoại phải đúng 10 chữ số"
                         />
                       </div>
                     </div>
@@ -290,8 +297,7 @@ export default function NewLeadDrawer({ classOptions }: Props) {
                           name="secondaryPhone"
                           className="input"
                           placeholder="0987654321"
-                          pattern="[0-9]{10,11}"
-                          title="Số điện thoại 10-11 chữ số"
+                          title="Số điện thoại phải đúng 10 chữ số"
                         />
                       </div>
                     </div>
@@ -467,7 +473,7 @@ export default function NewLeadDrawer({ classOptions }: Props) {
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
-                      Tạo lead
+                      Tạo Data
                     </>
                   )}
                 </button>

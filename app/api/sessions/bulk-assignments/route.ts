@@ -45,7 +45,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const input = { sessionIds, teacherIds, assistantIds, mode };
+  // allowOverlap: người xếp lịch đã tick "cho phép xếp trùng giờ" (tối đa 2 lớp/khung giờ).
+  const input = { sessionIds, teacherIds, assistantIds, mode, allowOverlap: Boolean(body.allowOverlap) };
   if (!body.confirm) {
     const plan = await planBulkAssignment(prisma, input);
     return NextResponse.json({ plan: { items: plan.items, counts: plan.counts } });

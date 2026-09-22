@@ -6,6 +6,7 @@ import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canViewFullWithOverride, canViewWithOverride, canCreateWithOverride } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { nextStudentCode, withStudentCodeRetry } from "@/lib/server/student-code";
+import { PHONE_ERROR, validateOptionalPhone } from "@/lib/phone";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -147,6 +148,8 @@ export async function POST(req: NextRequest) {
 
   const fullName = String(body.fullName ?? "").trim();
   if (!fullName) return NextResponse.json({ error: "Thiếu họ tên học viên" }, { status: 400 });
+  const studentPhone = validateOptionalPhone(body.phone);
+  if (!studentPhone.ok) return NextResponse.json({ error: PHONE_ERROR }, { status: 400 });
 
   // Để trống thì tự cấp mã HV-001, HV-002... — xem lib/server/student-code.ts.
   const manualStudentCode = String(body.studentCode ?? "").trim();
@@ -167,7 +170,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Lead nay da duoc chuyen thanh hoc vien" }, { status: 409 });
   }
 
-  const student = await withStudentCodeRetry(() => prisma.$transaction(async (tx) => {
+  let student;
+  try {
+    student = await withStudentCodeRetry(() => prisma.$transaction(async (tx) => {
     const studentCode = manualStudentCode || (await nextStudentCode(tx));
     const created = await tx.student.create({
       data: {
@@ -177,7 +182,7 @@ export async function POST(req: NextRequest) {
         leadId,
         gender: body.gender || null,
         dob: body.dob ? new Date(body.dob) : null,
-        phone: body.phone || null,
+        phone: studentPhone.value || null,
         address: body.address || null,
         enrollDate: body.enrollDate ? new Date(body.enrollDate) : null,
         referredBy: body.referredBy || null,
@@ -189,11 +194,15 @@ export async function POST(req: NextRequest) {
     // PHỤ HUYNH: nhận tối đa 2 người (bố + mẹ) ngay lúc thêm học viên. Trước đây form
     // chỉ có 1 số điện thoại của học viên và phụ huynh chỉ có khi chuyển từ lead sang.
     const guardianInputs = (Array.isArray(body.guardians) ? body.guardians : [])
-      .map((item: { fullName?: string; phone?: string; relation?: string }) => ({
-        fullName: String(item?.fullName ?? "").trim(),
-        phone: String(item?.phone ?? "").trim(),
-        relation: String(item?.relation ?? "").trim(),
-      }))
+      .map((item: { fullName?: string; phone?: string; relation?: string }) => {
+        const phone = validateOptionalPhone(item?.phone);
+        if (!phone.ok) throw new Error(PHONE_ERROR);
+        return {
+          fullName: String(item?.fullName ?? "").trim(),
+          phone: phone.value,
+          relation: String(item?.relation ?? "").trim(),
+        };
+      })
       .filter((item: { fullName: string; phone: string }) => item.fullName || item.phone)
       .slice(0, 2);
 
@@ -254,7 +263,13 @@ export async function POST(req: NextRequest) {
       });
     }
     return created;
-  }));
+    }));
+  } catch (error) {
+    if (error instanceof Error && error.message === PHONE_ERROR) {
+      return NextResponse.json({ error: PHONE_ERROR }, { status: 400 });
+    }
+    throw error;
+  }
 
   const synced = await syncStudentDerivedFields(student.id);
 

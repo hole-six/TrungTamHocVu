@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { useStudentDrawer } from "@/contexts/StudentDrawerContext";
+import { PHONE_ERROR, validateOptionalPhone } from "@/lib/phone";
 
 type StudentFormProps = {
   initialData?: any;
@@ -64,15 +65,17 @@ export default function StudentForm({ initialData, studentId, onCancel, onCreate
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (form.phone && !/^[0-9]{10,11}$/.test(form.phone)) {
-      setPhoneError("Số điện thoại không hợp lệ (10-11 chữ số)");
+    const studentPhone = validateOptionalPhone(form.phone);
+    if (!studentPhone.ok) {
+      setPhoneError(PHONE_ERROR);
       return;
     }
 
     const filledGuardians = guardians.filter((item) => item.fullName.trim() || item.phone.trim());
-    const badGuardianPhone = filledGuardians.find((item) => item.phone.trim() && !/^[0-9]{10,11}$/.test(item.phone.trim()));
+    const normalizedGuardians = filledGuardians.map((item) => ({ ...item, phone: validateOptionalPhone(item.phone) }));
+    const badGuardianPhone = normalizedGuardians.find((item) => !item.phone.ok);
     if (badGuardianPhone) {
-      setGuardianError("Số điện thoại phụ huynh không hợp lệ (10-11 chữ số)");
+      setGuardianError(PHONE_ERROR);
       return;
     }
 
@@ -84,9 +87,16 @@ export default function StudentForm({ initialData, studentId, onCancel, onCreate
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
+        phone: studentPhone.value,
         dob: form.dob || null,
         // Sửa hồ sơ thì phụ huynh đã có, quản lý riêng ở mục Phụ huynh của hồ sơ.
-        guardians: isEdit ? undefined : filledGuardians.map((item) => ({ ...item, fullName: item.fullName.trim(), phone: item.phone.trim() })),
+        guardians: isEdit
+          ? undefined
+          : normalizedGuardians.map((item) => ({
+              fullName: item.fullName.trim(),
+              relation: item.relation,
+              phone: item.phone.ok ? item.phone.value : "",
+            })),
       }),
     });
 

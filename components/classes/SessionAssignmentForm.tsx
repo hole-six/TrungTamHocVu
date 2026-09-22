@@ -396,13 +396,26 @@ export default function SessionAssignmentForm({
     setLoading(true);
     setError(null);
 
-    const response = await fetch(`/api/sessions/${sessionId}/assignments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId, role }),
-    });
+    // Trùng khung giờ: lớp thứ 2 thì server hỏi lại (OVERLAP_CONFIRM) — đồng ý thì gửi
+    // lại kèm allowOverlap; lớp thứ 3 thì server chặn hẳn, không hỏi.
+    async function post(allowOverlap: boolean) {
+      const res = await fetch(`/api/sessions/${sessionId}/assignments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId, role, allowOverlap }),
+      });
+      return { res, data: await res.json().catch(() => ({})) };
+    }
 
-    const data = await response.json();
+    let { res: response, data } = await post(false);
+    if (!response.ok && data?.code === "OVERLAP_CONFIRM") {
+      if (typeof window !== "undefined" && window.confirm(data.error)) {
+        ({ res: response, data } = await post(true));
+      } else {
+        setLoading(false);
+        return;
+      }
+    }
     setLoading(false);
 
     if (!response.ok) {

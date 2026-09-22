@@ -8,7 +8,7 @@ import textwrap
 import zipfile
 from datetime import datetime
 
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A5
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
@@ -16,7 +16,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
 
-PAGE_WIDTH, PAGE_HEIGHT = A4
+PAGE_WIDTH, PAGE_HEIGHT = A5
 MARGIN_X = 12 * mm
 MARGIN_Y = 10 * mm
 CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN_X
@@ -459,7 +459,7 @@ def draw_invoice_page(c, charge, payment_profile):
 
 def render_pdf_bytes(charges, payment_profile):
     buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
+    c = canvas.Canvas(buffer, pagesize=A5)
     for index, charge in enumerate(charges):
         if index > 0:
             c.showPage()

@@ -40,6 +40,22 @@ export type CashDiscountResult = {
   cashToClearAll: number;
 };
 
+export type TuitionOnlyCashDiscountInput = {
+  cash: number;
+  percent: number;
+  tuitionOutstanding: number;
+  materialsOutstanding: number;
+};
+
+export type TuitionOnlyCashDiscountResult = CashDiscountResult & {
+  tuitionCash: number;
+  materialsCash: number;
+  tuitionSettled: number;
+  materialsSettled: number;
+  totalSettledAmount: number;
+  totalRemainingDebt: number;
+};
+
 function clampPercent(percent: number): number {
   if (!Number.isFinite(percent) || percent <= 0) return 0;
   return Math.min(MAX_CASH_DISCOUNT_PERCENT, percent);
@@ -77,5 +93,38 @@ export function computeCashDiscount(input: CashDiscountInput): CashDiscountResul
     discountAmount: cappedSettled - cashForDebt,
     remainingDebt: outstanding - cappedSettled,
     cashToClearAll,
+  };
+}
+
+export function computeCashDiscountForTuitionOnly(input: TuitionOnlyCashDiscountInput): TuitionOnlyCashDiscountResult {
+  const cash = Math.max(0, Math.round(input.cash) || 0);
+  const tuitionOutstanding = Math.max(0, Math.round(input.tuitionOutstanding) || 0);
+  const materialsOutstanding = Math.max(0, Math.round(input.materialsOutstanding) || 0);
+  const materialsCash = Math.min(cash, materialsOutstanding);
+  const tuitionDiscount = computeCashDiscount({
+    cash: cash - materialsCash,
+    percent: input.percent,
+    outstanding: tuitionOutstanding,
+  });
+
+  const tuitionCash = tuitionDiscount.cashForDebt;
+  const materialsSettled = materialsCash;
+  const tuitionSettled = tuitionDiscount.settledAmount;
+  const totalSettledAmount = materialsSettled + tuitionSettled;
+  const totalOutstanding = materialsOutstanding + tuitionOutstanding;
+
+  return {
+    ...tuitionDiscount,
+    cashForDebt: materialsCash + tuitionCash,
+    advanceAmount: tuitionDiscount.advanceAmount,
+    settledAmount: totalSettledAmount,
+    remainingDebt: Math.max(0, totalOutstanding - totalSettledAmount),
+    cashToClearAll: materialsOutstanding + tuitionDiscount.cashToClearAll,
+    tuitionCash,
+    materialsCash,
+    tuitionSettled,
+    materialsSettled,
+    totalSettledAmount,
+    totalRemainingDebt: Math.max(0, totalOutstanding - totalSettledAmount),
   };
 }

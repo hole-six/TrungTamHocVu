@@ -266,16 +266,9 @@ export default function LeadDetailContent({
           </Link>
         </p>
       ) : lead.status === "QUALIFIED" && editable ? (
-        <ConfirmActionButton
-          title="Chuyển lead thành học viên?"
-          description="Hệ thống sẽ tạo hồ sơ học viên thật từ lead này."
-          confirmLabel="Chuyển thành học viên"
-          disabled={saving}
-          className="btn-primary"
-          onConfirm={convert}
-        >
-          Chuyển thành học viên
-        </ConfirmActionButton>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          Data đã đạt test. Bấm <strong>Cập nhật test</strong>, chọn lớp rồi lưu để tự tạo học viên và gán lớp trong cùng thao tác.
+        </div>
       ) : null}
 
       {error ? <div className="alert-danger text-sm">{error}</div> : null}

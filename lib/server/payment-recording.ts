@@ -1,10 +1,10 @@
 import type { Prisma } from "@prisma/client";
-import { computeOutstandingBalance } from "@/lib/server/balance";
-import { chargeOwnDueAmount, computeTotalAmount } from "@/lib/server/tuition-rules";
+import { computeOutstandingBreakdown } from "@/lib/server/balance";
+import { computeTotalAmount } from "@/lib/server/tuition-rules";
 import { syncBookIssuePaymentStatus } from "@/lib/server/book-issue-payment";
 import { topUpWalletFromPayment } from "@/lib/server/enrollment-wallet";
 import { computeAdvanceBalance } from "@/lib/server/advance-payment";
-import { computeCashDiscount } from "@/lib/cash-discount";
+import { computeCashDiscountForTuitionOnly } from "@/lib/cash-discount";
 
 // GHI NHẬN MỘT KHOẢN THU HỌC PHÍ — tách khỏi route để chạy được trong bộ test tự động
 // (tiền là chỗ không được phép "chắc là đúng"). Route /api/payments chỉ còn lo quyền,
@@ -28,10 +28,16 @@ export type RecordPaymentParams = {
 export async function recordStudentPayment(tx: Prisma.TransactionClient, params: RecordPaymentParams) {
   const student = params.student;
   const paymentNo = params.paymentNo;
-    const currentOutstanding = await computeOutstandingBalance(params.studentId, tx);
+    const currentBreakdown = await computeOutstandingBreakdown(params.studentId, tx);
+    const currentOutstanding = currentBreakdown.outstanding;
     // Chiết khấu tiền mặt: phụ huynh trả (100 − x)% của khoản nợ được xóa — xem
     // lib/cash-discount.ts (dùng chung với màn thu tiền để hai bên không lệch số).
-    const discount = computeCashDiscount({ cash: params.amount, percent: params.discountPercent, outstanding: currentOutstanding });
+    const discount = computeCashDiscountForTuitionOnly({
+      cash: params.amount,
+      percent: params.discountPercent,
+      tuitionOutstanding: currentBreakdown.discountableOutstanding,
+      materialsOutstanding: currentBreakdown.materialsOutstanding,
+    });
     const discountAmount = discount.discountAmount;
     const discountNote =
       discountAmount > 0
@@ -92,11 +98,16 @@ export async function recordStudentPayment(tx: Prisma.TransactionClient, params:
       // chargeOwnDueAmount (KHÔNG dùng totalAmount) — totalAmount cộng cả openingBalance
       // (bản chụp lại nợ charge kỳ TRƯỚC), nếu dùng trực tiếp sẽ đếm trùng đúng khoản nợ
       // đó 2 lần: 1 lần ở chính charge kỳ trước, 1 lần nữa ở đây.
-      const due = chargeOwnDueAmount(charge) - alreadyPaid;
+      const materialsDue = Math.max(0, charge.materialsAmount - Math.min(charge.materialsAmount, alreadyPaid));
+      const paidAfterMaterials = Math.max(0, alreadyPaid - charge.materialsAmount);
+      const tuitionDue = Math.max(0, charge.tuitionAmount - paidAfterMaterials);
+      const due = materialsDue + tuitionDue;
       if (due <= 0) continue;
 
-      const cashPart = Math.min(due, remainingCash);
-      const discountPart = Math.min(due - cashPart, remainingDiscount);
+      const materialsCashPart = Math.min(materialsDue, remainingCash);
+      const tuitionCashPart = Math.min(tuitionDue, Math.max(0, remainingCash - materialsCashPart));
+      const cashPart = materialsCashPart + tuitionCashPart;
+      const discountPart = Math.min(tuitionDue - tuitionCashPart, remainingDiscount);
 
       if (cashPart > 0) {
         await tx.paymentAllocation.create({
@@ -126,11 +137,12 @@ export async function recordStudentPayment(tx: Prisma.TransactionClient, params:
 
       // Ví buổi học: học viên được quyền học theo GIÁ TRỊ đã thanh toán — tiền mặt cộng phần
       // được giảm giá. Nạp ví chỉ theo tiền mặt thì người được giảm giá bị thiếu buổi.
-      if (charge.billingModel === "PERIOD" && charge.enrollmentId && cashPart + discountPart > 0) {
+      const walletTopUpAmount = tuitionCashPart + discountPart;
+      if (charge.billingModel === "PERIOD" && charge.enrollmentId && walletTopUpAmount > 0) {
         await topUpWalletFromPayment(tx, {
           enrollmentId: charge.enrollmentId,
           paymentId: payment.id,
-          amountVnd: cashPart + discountPart,
+          amountVnd: walletTopUpAmount,
           unitPrice: charge.unitPrice,
           note: discountPart > 0
             ? `Gồm phần chiết khấu tiền mặt ${params.discountPercent}% (đã giảm ${discountPart.toLocaleString("vi-VN")}đ)`

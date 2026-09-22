@@ -812,7 +812,7 @@ export default function LeadsTable({
       }}
       emptyState={{
         title: "Chưa có lead",
-        description: "Bắt đầu bằng cách bấm nút \"Thêm lead\" ở trên để thêm lead đầu tiên vào Data tuyển sinh.",
+        description: "Bắt đầu bằng cách bấm nút \"Thêm Data\" ở trên để thêm data đầu tiên vào Data tuyển sinh.",
       }}
       loading={loading}
       stickyHeader

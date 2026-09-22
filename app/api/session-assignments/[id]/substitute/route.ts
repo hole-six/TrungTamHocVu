@@ -5,7 +5,7 @@ import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { computeSessionBaseHours } from "@/lib/server/payroll-rules";
 import { buildAssignmentPay } from "@/lib/server/class-default-assignments";
-import { findStaffConflicts, describeStaffConflicts } from "@/lib/server/staff-schedule";
+import { findStaffConflicts, describeOverlapBlock, describeOverlapConfirm, overlapDecision } from "@/lib/server/staff-schedule";
 import { isEmployeeWorkingOn } from "@/lib/assignment-roles";
 
 // Nhờ người dạy thay đột xuất cho ĐÚNG 1 phân công gốc — không phải sửa/xóa phân công
@@ -50,8 +50,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // Người thay có thể đang ở CHÍNH buổi này (trợ giảng đứng lớp thay giáo viên) — hợp lệ,
   // findStaffConflicts chỉ so với buổi KHÁC.
   const scheduleConflicts = await findStaffConflicts(prisma, substituteEmployeeId, [original.session]);
-  if (scheduleConflicts.length) {
-    return NextResponse.json({ error: describeStaffConflicts(substituteEmployee.fullName, scheduleConflicts) }, { status: 409 });
+  const substituteDecision = overlapDecision(scheduleConflicts);
+  if (substituteDecision === "block") {
+    return NextResponse.json({ error: describeOverlapBlock(substituteEmployee.fullName, scheduleConflicts), code: "OVERLAP_BLOCKED" }, { status: 409 });
+  }
+  if (substituteDecision === "confirm" && !body.allowOverlap) {
+    return NextResponse.json(
+      { error: describeOverlapConfirm(substituteEmployee.fullName, scheduleConflicts), code: "OVERLAP_CONFIRM" },
+      { status: 409 },
+    );
   }
 
   const conflict = await prisma.sessionAssignment.findUnique({
