@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate, canView } from "@/lib/server/role-matrix";
-import { LEAD_STATUSES, LEAD_STATUS_FILTER_GROUPS, LEAD_SUB_STATUS, dayBounds, startOfToday } from "@/lib/server/lead-rules";
+import { LEAD_STATUSES, LEAD_STATUS_FILTER_GROUPS, dayBounds, startOfToday } from "@/lib/server/lead-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import LeadsTable from "@/components/leads/LeadsTable";
 import TopDateRangeFilter from "@/components/ui/TopDateRangeFilter";
@@ -102,7 +102,6 @@ export default async function LeadsPage({
 
   const q = searchParams.q?.trim() ?? "";
   const status = searchParams.status ?? "";
-  const subStatus = searchParams.sub?.trim() ?? "";
   // Khoảng NGÀY NHẬN DATA (createdAt) — trống = tất cả thời gian.
   const dataFrom = searchParams.from?.trim() ?? "";
   const dataTo = searchParams.to?.trim() ?? "";
@@ -173,7 +172,6 @@ export default async function LeadsPage({
     // danh sách chính để ưu tiên các lead còn cần xử lý, vẫn xem được khi bấm rõ
     // ràng vào chip "Đã ghi danh" (status=ENROLLED).
     ...resolveLeadStatusFilter(status),
-    ...(subStatus ? { subStatus } : {}),
     ...periodWhere,
     ...(leadCodeFilter ? { leadCode: { contains: leadCodeFilter } } : {}),
     ...(nameFilter ? { fullName: { contains: nameFilter } } : {}),
@@ -259,7 +257,7 @@ export default async function LeadsPage({
   // Số của 3 chip báo động ĐẾM THEO LEAD (không đếm theo phiếu test) vì mỗi dòng trong
   // bảng là 1 lead — trước đây đếm theo placement_test nên số trên chip lệch số dòng.
   const alertCountWhere = (bucket: string) => ({ ...branchLeadFilter, AND: [alertWhere(bucket)!] });
-  const [missingTestCount, overdueCount, todayCount, tomorrowCount, bySubStatus, classOptions] = await Promise.all([
+  const [missingTestCount, overdueCount, todayCount, tomorrowCount, classOptions] = await Promise.all([
     prisma.lead.count({
       where: {
         ...branchLeadFilter,
@@ -271,25 +269,12 @@ export default async function LeadsPage({
     prisma.lead.count({ where: alertCountWhere("overdue") }),
     prisma.lead.count({ where: alertCountWhere("today") }),
     prisma.lead.count({ where: alertCountWhere("tomorrow") }),
-    prisma.lead.groupBy({
-      by: ["subStatus"],
-      where: { ...branchLeadFilter, ...periodWhere },
-      _count: { _all: true },
-    }),
     prisma.class.findMany({
       where: { ...branchLeadFilter, status: "ACTIVE" },
       select: { id: true, className: true },
       orderBy: { className: "asc" },
     }),
   ]);
-
-  const subStatusCounts = Object.fromEntries(bySubStatus.map((row) => [row.subStatus ?? "", row._count._all]));
-  const subStatusOptions = LEAD_SUB_STATUS.map((item) => ({
-    value: item.value,
-    label: item.label,
-    group: item.group as string,
-    count: subStatusCounts[item.value] ?? 0,
-  }));
 
   const studentIds = items.flatMap((item) => (item.student ? [item.student.id] : []));
   const charges = studentIds.length
@@ -378,8 +363,6 @@ export default async function LeadsPage({
         overdueCount={overdueCount}
         todayCount={todayCount}
         tomorrowCount={tomorrowCount}
-        subStatusOptions={subStatusOptions}
-        subStatusFilter={subStatus}
         classOptions={classOptions}
         enrolledCount={statusCounts.ENROLLED ?? 0}
       />
