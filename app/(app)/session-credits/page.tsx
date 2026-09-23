@@ -10,6 +10,27 @@ import SessionCreditsBulkAssign from "@/components/session-credits/SessionCredit
 import CreditsTable from "./CreditsTable";
 import CreditFilterChips, { type CreditStats } from "./CreditFilterChips";
 import TopDateRangeFilter from "@/components/ui/TopDateRangeFilter";
+import PageGuide from "@/components/ui/PageGuide";
+
+const SESSION_CREDITS_GUIDE_SECTIONS = [
+  {
+    title: "Màn hình này để làm gì?",
+    items: [
+      "Xem học viên nào còn buổi bổ trợ chưa dùng để xếp lớp bổ trợ cho đủ.",
+      "Phân biệt nguồn buổi bổ trợ: nghỉ có phép, mua thêm có phí, học sinh yếu, số dư khi rút lớp.",
+      "Lọc theo ngày cấp ở đầu trang, và lọc theo từng cột ngay dưới tiêu đề bảng.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cần nhớ",
+    items: [
+      "Buổi bổ trợ chỉ trừ khi học viên THỰC SỰ đi học buổi bổ trợ đó.",
+      "Số dư khi rút lớp cũng nằm ở đây — đừng bỏ sót khi tất toán cho phụ huynh.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 type SearchParams = {
   status?: string;
@@ -214,6 +235,12 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
 
   return (
     <div className="space-y-4">
+      <PageGuide
+        title="Guide bổ trợ"
+        summary="Cách theo dõi buổi bổ trợ của học viên: còn bao nhiêu, đã xếp buổi nào."
+        sections={SESSION_CREDITS_GUIDE_SECTIONS}
+        buttonLabel="Hướng dẫn"
+      />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-black tracking-tight text-[#0f1729] sm:text-2xl">Bảng xử lý bổ trợ</h1>
         {/* Lọc theo NGÀY CẤP buổi bổ trợ ngay đầu trang. */}

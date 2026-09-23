@@ -9,6 +9,27 @@ import { getCurrentBranchId } from "@/lib/branch-filter";
 import EmployeesTable from "./EmployeesTable";
 import NewEmployeeForm from "@/components/payroll/NewEmployeeForm";
 import HrTabs from "@/components/hr/HrTabs";
+import PageGuide from "@/components/ui/PageGuide";
+
+const EMPLOYEES_GUIDE_SECTIONS = [
+  {
+    title: "Màn hình này để làm gì?",
+    items: [
+      "Giữ hồ sơ toàn bộ nhân sự: giáo viên, trợ giảng, giáo vụ, kế toán.",
+      "Khai ĐƠN GIÁ dạy và đơn giá trợ giảng của từng người — bảng lương lấy thẳng từ đây.",
+      "Đổi trạng thái làm việc khi có người nghỉ; người đã nghỉ sẽ không xếp được vào buổi học sau ngày nghỉ.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cần nhớ",
+    items: [
+      "Thiếu đơn giá thì buổi dạy vẫn gán được nhưng lương buổi đó ra 0đ — kiểm tra trước khi chốt lương.",
+      "Mỗi người một tài khoản riêng để truy được ai đã thao tác gì trong hệ thống.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 // Trang "NHÂN SỰ" — trước đây hoàn toàn chưa có (chỉ có form thêm/sửa nhân viên
 // nhúng trong /payroll, không có 1 danh sách riêng cho thông tin nhân sự cơ bản:
@@ -37,6 +58,12 @@ export default async function EmployeesPage() {
 
   return (
     <div className="space-y-4">
+      <PageGuide
+        title="Guide nhân sự"
+        summary="Cách quản lý hồ sơ nhân sự, đơn giá dạy/trợ giảng và trạng thái làm việc."
+        sections={EMPLOYEES_GUIDE_SECTIONS}
+        buttonLabel="Hướng dẫn"
+      />
       <HrTabs allowed={hrTabs} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-black tracking-tight text-[#0f1729] sm:text-2xl">Nhân sự</h1>

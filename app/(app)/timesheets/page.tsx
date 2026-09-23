@@ -9,6 +9,27 @@ import { getCurrentBranchId } from "@/lib/branch-filter";
 import { monthRange } from "@/lib/server/tuition-rules";
 import HrTabs from "@/components/hr/HrTabs";
 import { getVietnamToday } from "@/lib/server/class-rules";
+import PageGuide from "@/components/ui/PageGuide";
+
+const TIMESHEETS_GUIDE_SECTIONS = [
+  {
+    title: "Màn hình này để làm gì?",
+    items: [
+      "Xem số giờ DỰ KIẾN theo thời khóa biểu và số giờ THỰC TẾ đã dạy của từng người.",
+      "Ghi chú lý do chênh lệch để cuối tháng đối soát công không phải nhớ lại.",
+      "Chọn tuần hoặc tháng để xem đúng kỳ cần chốt.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cần nhớ",
+    items: [
+      "Giờ thực tế lấy từ buổi đã dạy — buổi bị hủy hoặc đã dời không tính vào công.",
+      "Chênh lệch lớn thường do đổi người dạy giữa chừng hoặc buổi bị hủy, kiểm tra trước khi chốt lương.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 // Tháng và "hôm nay" theo giờ Việt Nam — máy chủ chạy UTC thì new Date() lệch ngày
 // từ 0h–7h sáng, nút "Chấm hôm nay" sẽ chấm nhầm sang ngày hôm qua.
@@ -108,6 +129,12 @@ export default async function TimesheetsPage({ searchParams }: { searchParams?: 
 
   return (
     <div className="space-y-4">
+      <PageGuide
+        title="Guide chấm công"
+        summary="Cách đọc bảng công theo tuần/tháng và xử lý chênh lệch giờ."
+        sections={TIMESHEETS_GUIDE_SECTIONS}
+        buttonLabel="Hướng dẫn"
+      />
       <HrTabs allowed={hrTabs} />
       <TimesheetsWorkspace
       month={month}

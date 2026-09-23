@@ -8,6 +8,27 @@ import { buildPayrollEmployeeRows } from "@/lib/server/payroll-row-builder";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import PayrollWorkspace from "@/components/payroll/PayrollWorkspace";
 import HrTabs from "@/components/hr/HrTabs";
+import PageGuide from "@/components/ui/PageGuide";
+
+const PAYROLL_GUIDE_SECTIONS = [
+  {
+    title: "Trình tự làm lương",
+    items: [
+      "Sinh bảng lương cho tháng cần tính — hệ thống gom toàn bộ buổi đã dạy, phụ cấp, thưởng/phạt.",
+      "Soát từng nhân sự: số ca, số giờ, đơn giá, mức thưởng/phạt đã chốt ở màn Điểm tích cực.",
+      "Chốt (khóa) tháng lương khi số đã đúng — sau khi khóa, buổi học của tháng đó không bổ sung vào lương được nữa.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Cần nhớ",
+    items: [
+      "Mức thưởng/phạt trợ giảng lấy từ mức ĐÃ CHỐT của tháng đó, không phải mức hệ thống đề xuất.",
+      "Tháng đã khóa mà cần sửa thì phải mở khóa có chủ đích, đừng sửa vòng qua chỗ khác.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 function currentMonthString() {
   const now = new Date();
@@ -125,6 +146,12 @@ export default async function PayrollPage({
 
   return (
     <div className="space-y-4">
+      <PageGuide
+        title="Guide bảng lương"
+        summary="Cách sinh bảng lương theo tháng, soát từng dòng và chốt lương."
+        sections={PAYROLL_GUIDE_SECTIONS}
+        buttonLabel="Hướng dẫn"
+      />
       <HrTabs allowed={hrTabs} />
       <PayrollWorkspace
       rows={rows}
