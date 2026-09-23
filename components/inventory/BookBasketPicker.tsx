@@ -14,7 +14,8 @@ export type BookOption = {
 
 export type Basket = Record<string, number>;
 
-const COMBINING_MARKS = /[̀-ͯ]/g;
+const COMBINING_MARKS = /[\u0300-\u036f]/g;
+const UNCATEGORIZED = "Sách khác";
 
 function normalize(value: string) {
   return value.normalize("NFD").replace(COMBINING_MARKS, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase().trim();
@@ -37,9 +38,10 @@ export function basketQuantity(basket: Basket) {
   return Object.values(basket).reduce((sum, quantity) => sum + Math.max(0, quantity), 0);
 }
 
-// CHỌN NHIỀU ĐẦU S�CH C�NG L�C, nh�m theo danh mục v� hiện tất cả danh mục c�ng một chỗ.
-// Trước đ�y form xuất s�ch chỉ chọn được 1 cuốn mỗi lần v� phải mở th�m 1 lớp drawer nữa
-// để lọc danh mục � ph�t cả bộ gi�o tr�nh đầu kh�a phải l�m lại 3�4 lượt.
+function categoryName(book: BookOption) {
+  return book.category?.trim() || UNCATEGORIZED;
+}
+
 export default function BookBasketPicker({
   books,
   basket,
@@ -58,7 +60,7 @@ export default function BookBasketPicker({
   const categories = useMemo(() => {
     const map = new Map<string, number>();
     for (const book of books) {
-      const key = book.category?.trim() || "S�ch kh�c";
+      const key = categoryName(book);
       map.set(key, (map.get(key) ?? 0) + 1);
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], "vi"));
@@ -67,7 +69,7 @@ export default function BookBasketPicker({
   const groups = useMemo(() => {
     const keyword = normalize(q);
     const matched = books.filter((book) => {
-      const cat = book.category?.trim() || "S�ch kh�c";
+      const cat = categoryName(book);
       if (category && cat !== category) return false;
       if (onlyInStock && (book.quantityOnHand ?? 0) <= 0 && !basket[book.id]) return false;
       if (!keyword) return true;
@@ -75,7 +77,7 @@ export default function BookBasketPicker({
     });
     const map = new Map<string, BookOption[]>();
     for (const book of matched) {
-      const key = book.category?.trim() || "S�ch kh�c";
+      const key = categoryName(book);
       map.set(key, [...(map.get(key) ?? []), book]);
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], "vi"));
@@ -105,7 +107,7 @@ export default function BookBasketPicker({
       <div className="flex flex-wrap gap-2">
         <input
           className="input min-w-[200px] flex-1"
-          placeholder="T�m s�ch theo t�n, m� s�ch hoặc danh mục..."
+          placeholder="Tìm sách theo tên, mã sách hoặc danh mục..."
           value={q}
           onChange={(event) => setQ(event.target.value)}
         />
@@ -114,11 +116,10 @@ export default function BookBasketPicker({
           onClick={() => setOnlyInStock((current) => !current)}
           className={`rounded-lg border px-3 py-2 text-sm font-bold transition-colors ${onlyInStock ? "border-[#0f1729] bg-[#0f1729] text-white" : "border-[#e2e8f0] bg-white text-[#0f1729] hover:border-[#0f1729]"}`}
         >
-          C�n h�ng
+          Còn hàng
         </button>
       </div>
 
-      {/* Danh mục hiện c�ng l�c, bấm để lọc nhanh � kh�ng phải mở th�m drawer chọn danh mục. */}
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
@@ -140,86 +141,98 @@ export default function BookBasketPicker({
       </div>
 
       <div className="max-h-[46vh] overflow-y-auto rounded-xl border border-[#e2e8f0]">
-        {loading ? <p className="px-3 py-6 text-center text-sm text-[#64748b]">Đang tải danh mục s�ch...</p> : null}
-        {!loading && groups.length === 0 ? <p className="px-3 py-6 text-center text-sm text-[#64748b]">Kh�ng c� đầu s�ch ph� hợp.</p> : null}
-        {groups.map(([name, items]) => (
-          <div key={name}>
-            <p className="sticky top-0 z-10 border-b border-[#e2e8f0] bg-[#f1f5f9] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-[#334155]">
-              {name} � {items.length} đầu s�ch
-            </p>
-            <div className="flex justify-end gap-1 border-b border-[#e2e8f0] bg-[#f8fafc] px-3 py-1">
-              <button
-                type="button"
-                onClick={() => setGroupQuantity(items, 1)}
-                className="rounded-md border border-[#cbd5e1] bg-white px-2 py-0.5 text-[11px] font-bold text-[#0f1729] hover:border-[#0f1729]"
-              >
-                Chọn bộ
-              </button>
-              <button
-                type="button"
-                onClick={() => setGroupQuantity(items, 0)}
-                className="rounded-md border border-[#cbd5e1] bg-white px-2 py-0.5 text-[11px] font-bold text-[#64748b] hover:border-[#0f1729] hover:text-[#0f1729]"
-              >
-                Bỏ bộ
-              </button>
+        {loading ? <p className="px-3 py-6 text-center text-sm text-[#64748b]">Đang tải danh mục sách...</p> : null}
+        {!loading && groups.length === 0 ? <p className="px-3 py-6 text-center text-sm text-[#64748b]">Không có đầu sách phù hợp.</p> : null}
+        {groups.map(([name, items]) => {
+          const selectedCount = items.filter((book) => (basket[book.id] ?? 0) > 0).length;
+          const groupTotal = items.reduce((sum, book) => sum + (basket[book.id] ?? 0) * book.unitPrice, 0);
+          const allSelected = selectedCount === items.length && items.length > 0;
+          return (
+            <div key={name}>
+              <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-[#e2e8f0] bg-[#f1f5f9] px-3 py-2">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-[#334155]">{name}</p>
+                  <p className="text-xs text-[#64748b]">
+                    {items.length} đầu sách · đã chọn {selectedCount}
+                    {groupTotal > 0 ? ` · ${formatVnd(groupTotal)}` : ""}
+                  </p>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setGroupQuantity(items, 1)}
+                    className={`rounded-md border px-2 py-1 text-[11px] font-bold transition-colors ${allSelected ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#0f1729] bg-white text-[#0f1729] hover:bg-[#0f1729] hover:text-white"}`}
+                  >
+                    Chọn cả bộ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGroupQuantity(items, 0)}
+                    disabled={selectedCount === 0}
+                    className="rounded-md border border-[#cbd5e1] bg-white px-2 py-1 text-[11px] font-bold text-[#64748b] hover:border-[#0f1729] hover:text-[#0f1729] disabled:opacity-40"
+                  >
+                    Bỏ bộ
+                  </button>
+                </div>
+              </div>
+              <ul className="divide-y divide-[#f1f5f9]">
+                {items.map((book) => {
+                  const quantity = basket[book.id] ?? 0;
+                  const stock = book.quantityOnHand ?? 0;
+                  return (
+                    <li key={book.id} className={`flex items-center gap-3 px-3 py-2 ${quantity > 0 ? "bg-[#f8fafc]" : ""}`}>
+                      <button type="button" onClick={() => setQuantity(book.id, quantity + 1)} className="min-w-0 flex-1 text-left">
+                        <span className="block truncate text-sm font-semibold text-[#0f1729]">{book.name}</span>
+                        <span className="text-xs text-[#64748b]">
+                          {formatVnd(book.unitPrice)} ·{" "}
+                          <span className={stock <= 0 ? "text-[#b45309]" : undefined}>{stock > 0 ? `còn ${stock}` : "hết kho"}</span>
+                          {book.bookCode && book.bookCode.trim() !== "0" ? ` · ${book.bookCode}` : ""}
+                        </span>
+                      </button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setQuantity(book.id, quantity - 1)}
+                          disabled={quantity === 0}
+                          className="h-7 w-7 rounded-md border border-[#e2e8f0] text-sm font-bold text-[#0f1729] transition-colors hover:border-[#0f1729] disabled:opacity-40"
+                          aria-label={`Bớt ${book.name}`}
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          min={0}
+                          value={quantity || ""}
+                          onChange={(event) => setQuantity(book.id, Math.max(0, Math.floor(Number(event.target.value) || 0)))}
+                          className="h-7 w-12 rounded-md border border-[#e2e8f0] text-center text-sm tabular-nums text-[#0f1729]"
+                          aria-label={`Số lượng ${book.name}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setQuantity(book.id, quantity + 1)}
+                          className="h-7 w-7 rounded-md border border-[#0f1729] bg-[#0f1729] text-sm font-bold text-white"
+                          aria-label={`Thêm ${book.name}`}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-            <ul className="divide-y divide-[#f1f5f9]">
-              {items.map((book) => {
-                const quantity = basket[book.id] ?? 0;
-                const stock = book.quantityOnHand ?? 0;
-                return (
-                  <li key={book.id} className={`flex items-center gap-3 px-3 py-2 ${quantity > 0 ? "bg-[#f8fafc]" : ""}`}>
-                    <button type="button" onClick={() => setQuantity(book.id, quantity + 1)} className="min-w-0 flex-1 text-left">
-                      <span className="block truncate text-sm font-semibold text-[#0f1729]">{book.name}</span>
-                      <span className="text-xs text-[#64748b]">
-                        {formatVnd(book.unitPrice)} �{" "}
-                        <span className={stock <= 0 ? "text-[#b45309]" : undefined}>{stock > 0 ? `c�n ${stock}` : "hết kho"}</span>
-                        {book.bookCode && book.bookCode.trim() !== "0" ? ` � ${book.bookCode}` : ""}
-                      </span>
-                    </button>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setQuantity(book.id, quantity - 1)}
-                        disabled={quantity === 0}
-                        className="h-7 w-7 rounded-md border border-[#e2e8f0] text-sm font-bold text-[#0f1729] transition-colors hover:border-[#0f1729] disabled:opacity-40"
-                        aria-label={`Bớt ${book.name}`}
-                      >
-                        −
-                      </button>
-                      <input
-                        type="number"
-                        min={0}
-                        value={quantity || ""}
-                        onChange={(event) => setQuantity(book.id, Math.max(0, Math.floor(Number(event.target.value) || 0)))}
-                        className="h-7 w-12 rounded-md border border-[#e2e8f0] text-center text-sm tabular-nums text-[#0f1729]"
-                        aria-label={`Số lượng ${book.name}`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setQuantity(book.id, quantity + 1)}
-                        className="h-7 w-7 rounded-md border border-[#0f1729] bg-[#0f1729] text-sm font-bold text-white"
-                        aria-label={`Th�m ${book.name}`}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="rounded-xl border border-[#e2e8f0] px-3 py-2.5">
         {picked.length === 0 ? (
-          <p className="text-sm text-[#64748b]">Chưa chọn s�ch n�o � bấm v�o t�n s�ch hoặc dấu + để th�m.</p>
+          <p className="text-sm text-[#64748b]">Chưa chọn sách nào · bấm Chọn cả bộ trong từng danh mục hoặc chọn lẻ từng đầu sách.</p>
         ) : (
           <>
             <div className="flex items-baseline justify-between gap-2">
               <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">
-                Đ� chọn {picked.length} đầu s�ch � {basketQuantity(basket)} cuốn
+                Đã chọn {picked.length} đầu sách · {basketQuantity(basket)} cuốn
               </p>
               <p className="text-lg font-black tabular-nums text-[#0f1729]">{formatVnd(total)}</p>
             </div>
@@ -227,7 +240,7 @@ export default function BookBasketPicker({
               {picked.map((item) => (
                 <li key={item.bookId} className="flex items-center justify-between gap-2 text-[13px]">
                   <span className="min-w-0 truncate text-[#0f1729]">
-                    {item.book?.name ?? "S�ch"} <span className="text-[#64748b]">� {item.quantity}</span>
+                    {item.book?.name ?? "Sách"} <span className="text-[#64748b]">x {item.quantity}</span>
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
                     <span className="tabular-nums text-[#0f1729]">{formatVnd(item.amount)}</span>
