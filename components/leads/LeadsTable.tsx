@@ -99,11 +99,11 @@ function calculateAge(dob?: string | Date | null): number | null {
 }
 
 function formatDate(date: Date | string | null | undefined) {
-  return date ? new Date(date).toLocaleDateString("vi-VN") : "â€”";
+  return date ? new Date(date).toLocaleDateString("vi-VN") : "—";
 }
 
 function DateCell({ date }: { date: Date | string | null | undefined }) {
-  if (!date) return <span className="text-ink-muted48">â€”</span>;
+  if (!date) return <span className="text-ink-muted48">—</span>;
   const urgency = dateUrgency(date);
   const label = formatDate(date);
 
@@ -168,20 +168,20 @@ export default function LeadsTable({
         status: LEAD_STATUS_LABEL[row.status as keyof typeof LEAD_STATUS_LABEL] ?? row.status,
       })),
       [
-        { key: "leadCode", label: "MÃ£ lead" },
-        { key: "fullName", label: "Há» vÃ  tÃªn" },
-        { key: "guardianName", label: "Phá»¥ huynh" },
-        { key: "guardianPortal", label: "Portal phá»¥ huynh" },
-        { key: "phone", label: "Sá»‘ Ä‘iá»‡n thoáº¡i" },
-        { key: "age", label: "Tuá»•i" },
-        { key: "source", label: "Nguá»“n" },
-        { key: "convertedStudent", label: "MÃ£ há»c viÃªn" },
-        { key: "convertedClass", label: "Lá»›p Ä‘Ã£ vÃ o" },
-        { key: "outstanding", label: "CÃ´ng ná»£" },
-        { key: "status", label: "Tráº¡ng thÃ¡i" },
+        { key: "leadCode", label: "Mã lead" },
+        { key: "fullName", label: "Họ và tên" },
+        { key: "guardianName", label: "Phụ huynh" },
+        { key: "guardianPortal", label: "Portal phụ huynh" },
+        { key: "phone", label: "Số điện thoại" },
+        { key: "age", label: "Tuổi" },
+        { key: "source", label: "Nguồn" },
+        { key: "convertedStudent", label: "Mã học viên" },
+        { key: "convertedClass", label: "Lớp đã vào" },
+        { key: "outstanding", label: "Công nợ" },
+        { key: "status", label: "Trạng thái" },
       ],
       "data-tuyen-sinh",
-      "Data tuyá»ƒn sinh"
+      "Data tuyển sinh"
     );
   };
 
@@ -195,7 +195,7 @@ export default function LeadsTable({
     setStatusSavingId(null);
     if (!response.ok) {
       const result = await response.json().catch(() => ({}));
-      toast.blocked(result.error ?? "KhÃ´ng thá»ƒ Ä‘á»•i tráº¡ng thÃ¡i lead.");
+      toast.blocked(result.error ?? "Không thể đổi trạng thái lead.");
       return;
     }
     setData((current) => current.map((item) => (item.id === leadId ? { ...item, status: nextStatus } : item)));
@@ -209,18 +209,18 @@ export default function LeadsTable({
     const result = await response.json().catch(() => ({}));
     setConvertingId(null);
     if (!response.ok) {
-      toast.blocked(result.error ?? "KhÃ´ng thá»ƒ chuyá»ƒn Ä‘á»•i thÃ nh há»c viÃªn.");
+      toast.blocked(result.error ?? "Không thể chuyển đổi thành học viên.");
       return;
     }
     openDrawer(result.item.id);
     router.refresh();
   };
 
-  // Äá»c searchParams hiá»‡n táº¡i lÃ m ná»n rá»“i patch Ä‘Ãºng key Ä‘Æ°á»£c Ä‘á»•i â€” giá»¯ nguyÃªn Má»ŒI
-  // filter khÃ¡c Ä‘ang báº­t (leadCode/name/source/phone/meetDate/... ) thay vÃ¬ dá»±ng láº¡i
-  // URL tá»« 1 danh sÃ¡ch field cá»‘ Ä‘á»‹nh (bug cÅ©: Ä‘á»•i filter A sáº½ xÃ³a máº¥t filter B Ä‘Ã£ chá»n
-  // vÃ¬ buildQuery khÃ´ng biáº¿t B tá»“n táº¡i). Trá»« page: reset vá» 1 má»—i khi Ä‘á»•i filter, giá»¯
-  // nguyÃªn chá»‰ khi chÃ­nh overrides Ä‘ang set page (phÃ¢n trang).
+  // Đọc searchParams hiện tại làm nền rồi patch đúng key được đổi — giữ nguyên MỌI
+  // filter khác đang bật (leadCode/name/source/phone/meetDate/... ) thay vì dựng lại
+  // URL từ 1 danh sách field cố định (bug cũ: đổi filter A sẽ xóa mất filter B đã chọn
+  // vì buildQuery không biết B tồn tại). Trừ page: reset về 1 mỗi khi đổi filter, giữ
+  // nguyên chỉ khi chính overrides đang set page (phân trang).
   function buildQuery(overrides: Record<string, string | number | null>) {
     const params = new URLSearchParams(searchParams.toString());
     for (const [key, value] of Object.entries(overrides)) {
@@ -235,20 +235,20 @@ export default function LeadsTable({
   const columns: Column<Lead>[] = [
     {
       key: "leadCode",
-      label: "MÃ£ lead",
+      label: "Mã lead",
       sortable: true,
       width: "110px",
-      filter: { type: "text", paramKey: "leadCode", placeholder: "MÃ£ lead..." },
+      filter: { type: "text", paramKey: "leadCode", placeholder: "Mã lead..." },
       render: (value) => <span className="font-mono text-sm font-semibold text-primary">{value}</span>,
     },
     {
       key: "fullName",
-      label: "Lead / phá»¥ huynh",
+      label: "Lead / phụ huynh",
       sortable: true,
-      filter: { type: "text", paramKey: "name", placeholder: "TÃªn lead..." },
+      filter: { type: "text", paramKey: "name", placeholder: "Tên lead..." },
       render: (value, row) => (
-        // KhÃ´ng cÃ³ min-width thÃ¬ cá»™t nÃ y bá»‹ bÃ³p cÃ²n ~145px, tÃªn bá»‹ báº» thÃ nh 3-4 dÃ²ng
-        // ("ChÆ°a / rÃµ"), dÃ²ng nÃ o cÅ©ng cao gáº¥p Ä‘Ã´i vÃ  ráº¥t khÃ³ Ä‘á»c.
+        // Không có min-width thì cột này bị bóp còn ~145px, tên bị bẻ thành 3-4 dòng
+        // ("Chưa / rõ"), dòng nào cũng cao gấp đôi và rất khó đọc.
         <div className="flex min-w-[210px] items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-rose-600 text-sm font-bold text-white shadow-md">
             {value.charAt(0).toUpperCase()}
@@ -262,15 +262,15 @@ export default function LeadsTable({
               {row.duplicatePhoneNames && row.duplicatePhoneNames.length > 0 ? (
                 <span
                   className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700"
-                  title={`TrÃ¹ng SÄT vá»›i: ${row.duplicatePhoneNames.join(", ")}`}
+                  title={`Trùng SĐT với: ${row.duplicatePhoneNames.join(", ")}`}
                 >
-                  TrÃ¹ng SÄT
+                  Trùng SĐT
                 </span>
               ) : null}
             </div>
             {row.guardianName ? <p className="text-xs text-ink-muted48">PH: {row.guardianName}</p> : null}
             <p className={`text-xs ${row.guardianPortalEmail ? (row.guardianPortalActive ? "text-sky-700" : "text-ink-muted48") : "text-ink-muted48"}`}>
-              {row.guardianPortalEmail ?? "ChÆ°a cáº¥p portal"}
+              {row.guardianPortalEmail ?? "Chưa cấp portal"}
             </p>
           </div>
         </div>
@@ -278,11 +278,11 @@ export default function LeadsTable({
     },
     {
       key: "phone",
-      label: "LiÃªn há»‡",
-      filter: { type: "text", paramKey: "phone", placeholder: "SÄT..." },
+      label: "Liên hệ",
+      filter: { type: "text", paramKey: "phone", placeholder: "SĐT..." },
       render: (value, row) => (
         <div className="space-y-0.5 text-xs">
-          <p className="text-ink-muted80">{value ?? "ChÆ°a cÃ³ SÄT"}</p>
+          <p className="text-ink-muted80">{value ?? "Chưa có SĐT"}</p>
           {row.secondaryPhone ? <p className="text-ink-muted48">{row.secondaryPhone}</p> : null}
           {row.zaloContact ? <p className="text-sky-700">Zalo {row.zaloContact}</p> : null}
         </div>
@@ -290,34 +290,34 @@ export default function LeadsTable({
     },
     {
       key: "source",
-      label: "Nguá»“n",
+      label: "Nguồn",
       width: "110px",
-      filter: { type: "text", paramKey: "source", placeholder: "Nguá»“n..." },
-      render: (value) => <span className="text-xs text-ink-muted80">{value ?? "â€”"}</span>,
+      filter: { type: "text", paramKey: "source", placeholder: "Nguồn..." },
+      render: (value) => <span className="text-xs text-ink-muted80">{value ?? "—"}</span>,
     },
     {
       key: "meetDate",
-      label: "NgÃ y gáº·p",
+      label: "Ngày gặp",
       filter: { type: "dateRange", paramKeyFrom: "meetFrom", paramKeyTo: "meetTo" },
-      // NgÃ y gáº·p KHÃ”NG bÃ´i mÃ u theo yÃªu cáº§u váº­n hÃ nh: chá»‰ ngÃ y háº¹n test vÃ  ngÃ y nháº­p
-      // há»c má»›i lÃ  má»‘c pháº£i gá»i nháº¯c, tÃ´ mÃ u cáº£ ngÃ y gáº·p lÃ m báº£ng Ä‘á» rá»±c vÃ´ nghÄ©a.
+      // Ngày gặp KHÔNG bôi màu theo yêu cầu vận hành: chỉ ngày hẹn test và ngày nhập
+      // học mới là mốc phải gọi nhắc, tô màu cả ngày gặp làm bảng đỏ rực vô nghĩa.
       render: (value) => <span className="text-ink-muted80">{formatDate(value)}</span>,
     },
     {
       key: "latestTest",
-      label: "Lá»‹ch test",
+      label: "Lịch test",
       filter: {
         type: "select",
         paramKey: "testStatus",
-        placeholder: "Táº¥t cáº£",
-        // Chá»‰ lá»c theo THá»œI ÄIá»‚M (chÆ°a háº¹n / sáº¯p tá»›i háº¡n / Ä‘Ã£ quÃ¡ háº¡n) â€” khá»›p Ä‘Ãºng 3
-        // chip "Lá»‹ch test" phÃ­a trÃªn thanh tÃ¬m kiáº¿m, khÃ´ng liá»‡t kÃª káº¿t quáº£ test
-        // (Äáº¡t/KhÃ´ng Ä‘áº¡t/...) vÃ¬ Ä‘Ã³ khÃ´ng pháº£i khÃ¡i niá»‡m "lá»‹ch" (thá»i Ä‘iá»ƒm).
+        placeholder: "Tất cả",
+        // Chỉ lọc theo THỜI ĐIỂM (chưa hẹn / sắp tới hạn / đã quá hạn) — khớp đúng 3
+        // chip "Lịch test" phía trên thanh tìm kiếm, không liệt kê kết quả test
+        // (Đạt/Không đạt/...) vì đó không phải khái niệm "lịch" (thời điểm).
         options: [
-          { label: "ChÆ°a háº¹n", value: "NONE" },
-          { label: "QuÃ¡ háº¡n", value: "overdue" },
-          { label: "HÃ´m nay", value: "today" },
-          { label: "NgÃ y mai", value: "tomorrow" },
+          { label: "Chưa hẹn", value: "NONE" },
+          { label: "Quá hạn", value: "overdue" },
+          { label: "Hôm nay", value: "today" },
+          { label: "Ngày mai", value: "tomorrow" },
         ],
       },
       render: (_value, row) => {
@@ -325,14 +325,14 @@ export default function LeadsTable({
         return (
           <div className="min-w-[150px] space-y-1 text-xs">
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${PLACEMENT_TEST_BADGE_CLASS[test?.status ?? "NONE"]}`}>
-              {test ? PLACEMENT_TEST_STATUS_LABEL[test.status] ?? test.status : "ChÆ°a háº¹n"}
+              {test ? PLACEMENT_TEST_STATUS_LABEL[test.status] ?? test.status : "Chưa hẹn"}
             </span>
             <p>
-              <span className="text-ink-muted48">Háº¹n:</span> <DateCell date={test?.scheduledDate} />
+              <span className="text-ink-muted48">Hẹn:</span> <DateCell date={test?.scheduledDate} />
             </p>
             <p>
-              {/* NgÃ y Äáº¾N test lÃ  viá»‡c Ä‘Ã£ xáº£y ra â€” khÃ´ng pháº£i má»‘c pháº£i nháº¯c nÃªn khÃ´ng bÃ´i mÃ u. */}
-              <span className="text-ink-muted48">Äáº¿n:</span> <span className="text-ink-muted80">{formatDate(test?.testDate)}</span>
+              {/* Ngày ĐẾN test là việc đã xảy ra — không phải mốc phải nhắc nên không bôi màu. */}
+              <span className="text-ink-muted48">Đến:</span> <span className="text-ink-muted80">{formatDate(test?.testDate)}</span>
             </p>
           </div>
         );
@@ -340,37 +340,37 @@ export default function LeadsTable({
     },
     {
       key: "expectedStartDate",
-      label: "Nháº­p há»c",
+      label: "Nhập học",
       filter: { type: "dateRange", paramKeyFrom: "startFrom", paramKeyTo: "startTo" },
       render: (_value, row) => (
         <div className="min-w-[130px] space-y-1 text-xs">
           <p>
-            <span className="text-ink-muted48">Dá»± kiáº¿n:</span> <DateCell date={row.expectedStartDate} />
+            <span className="text-ink-muted48">Dự kiến:</span> <DateCell date={row.expectedStartDate} />
           </p>
           <p>
-            {/* ÄÃ£ nháº­p há»c tháº­t rá»“i thÃ¬ khÃ´ng cÃ²n gÃ¬ Ä‘á»ƒ nháº¯c â€” Ä‘á»ƒ trÆ¡n nhÆ° ngÃ y gáº·p. */}
-            <span className="text-ink-muted48">Thá»±c táº¿:</span> <span className="text-ink-muted80">{formatDate(row.actualEnrollDate)}</span>
+            {/* Đã nhập học thật rồi thì không còn gì để nhắc — để trơn như ngày gặp. */}
+            <span className="text-ink-muted48">Thực tế:</span> <span className="text-ink-muted80">{formatDate(row.actualEnrollDate)}</span>
           </p>
         </div>
       ),
     },
     {
       key: "status",
-      label: "Tráº¡ng thÃ¡i",
+      label: "Trạng thái",
       align: "center",
-      // Ã” chá»n tráº¡ng thÃ¡i pháº£i Ä‘á»§ rá»™ng Ä‘á»ƒ Ä‘á»c Ä‘Æ°á»£c nhÃ£n ("ChÆ°a test"/"ÄÃ£ test"...) â€”
-      // Ä‘á»ƒ báº£ng tá»± co thÃ¬ nÃ³ bá»‹ bÃ³p cÃ²n máº¥y chá»¥c px, chá»‰ tháº¥y cÃ¡i cháº¥m mÃ u.
+      // Ô chọn trạng thái phải đủ rộng để đọc được nhãn ("Chưa test"/"Đã test"...) —
+      // để bảng tự co thì nó bị bóp còn mấy chục px, chỉ thấy cái chấm màu.
       width: "150px",
       filter: {
         type: "select",
         paramKey: "status",
-        placeholder: "Táº¥t cáº£",
+        placeholder: "Tất cả",
         options: LEAD_STATUS_FILTER_GROUPS.map((group) => ({ label: group.label, value: group.key })),
       },
       render: (value, row) => {
         const isConverted = Boolean(row.hasStudent || row.convertedStudentCode || value === "ENROLLED");
-        // Chá»‰ cho chá»n cÃ¡c nhÃ³m trong LEAD_STATUS_FILTER_GROUPS (lib/server/lead-rules.ts) â€”
-        // ENROLLED khÃ´ng náº±m trong Ä‘Ã³ vÃ¬ chá»‰ Ä‘áº¡t Ä‘Æ°á»£c qua luá»“ng chuyá»ƒn thÃ nh há»c viÃªn tháº­t.
+        // Chỉ cho chọn các nhóm trong LEAD_STATUS_FILTER_GROUPS (lib/server/lead-rules.ts) —
+        // ENROLLED không nằm trong đó vì chỉ đạt được qua luồng chuyển thành học viên thật.
         const currentGroupKey = leadStatusGroupKey(value);
         const cfg = LEAD_STATUS_CONFIG[currentGroupKey] || LEAD_STATUS_CONFIG[value] || LEAD_STATUS_CONFIG.CONTACTING;
         return (
@@ -390,13 +390,13 @@ export default function LeadsTable({
                   className="h-7 w-full appearance-none bg-transparent py-0 pl-0 pr-0 text-xs font-bold outline-none border-none ring-0 shadow-none focus:outline-none focus:ring-0 focus:border-none focus:shadow-none cursor-pointer"
                   style={{ WebkitAppearance: "none", MozAppearance: "none", outline: "none", boxShadow: "none" }}
                 >
-                  {/* Tráº¡ng thÃ¡i láº¡ (dá»¯ liá»‡u cÅ©/import sai) khÃ´ng náº±m trong nhÃ³m nÃ o â€”
-                      pháº£i thÃªm nÃ³ thÃ nh 1 option tháº­t, náº¿u khÃ´ng <select> cÃ³ value
-                      khÃ´ng khá»›p option nÃ o sáº½ hiá»ƒn thá»‹ option Ä‘áº§u tiÃªn, vÃ  nhÃ¢n viÃªn
-                      báº¥m Ä‘Ãºng option Ä‘ang hiá»‡n thÃ¬ trÃ¬nh duyá»‡t KHÃ”NG báº¯n onChange
-                      (tÆ°á»Ÿng há»‡ thá»‘ng há»ng). Hiá»‡n kÃ¨m nhÃ£n "cáº§n sá»­a" Ä‘á»ƒ biáº¿t mÃ  Ä‘á»•i. */}
+                  {/* Trạng thái lạ (dữ liệu cũ/import sai) không nằm trong nhóm nào —
+                      phải thêm nó thành 1 option thật, nếu không <select> có value
+                      không khớp option nào sẽ hiển thị option đầu tiên, và nhân viên
+                      bấm đúng option đang hiện thì trình duyệt KHÔNG bắn onChange
+                      (tưởng hệ thống hỏng). Hiện kèm nhãn "cần sửa" để biết mà đổi. */}
                   {!LEAD_STATUS_FILTER_GROUPS.some((group) => group.key === currentGroupKey) ? (
-                    <option value={currentGroupKey}>{`${value} (khÃ´ng há»£p lá»‡ â€” chá»n láº¡i)`}</option>
+                    <option value={currentGroupKey}>{`${value} (không hợp lệ — chọn lại)`}</option>
                   ) : null}
                   {LEAD_STATUS_FILTER_GROUPS.map((group) => (
                     <option key={group.key} value={group.key}>
@@ -419,8 +419,8 @@ export default function LeadsTable({
     },
     {
       key: "notes",
-      label: "Ghi chÃº",
-      filter: { type: "text", paramKey: "notes", placeholder: "TÃ¬m ghi chÃº..." },
+      label: "Ghi chú",
+      filter: { type: "text", paramKey: "notes", placeholder: "Tìm ghi chú..." },
       render: (value, row) => (
         <div onClick={(event) => event.stopPropagation()} className="max-w-[220px]">
           <EditableNoteCell leadId={row.id} notes={value ?? null} />
@@ -429,15 +429,15 @@ export default function LeadsTable({
     },
     {
       key: "id",
-      label: "TÃ¡c vá»¥",
+      label: "Tác vụ",
       render: (_value, row) => (
         <div onClick={(event) => event.stopPropagation()} className="flex flex-wrap items-center gap-1.5">
-          {/* NÃºt "Cáº­p nháº­t test" Ä‘Ã£ bá» khá»i báº£ng â€” háº¹n/cáº­p nháº­t test lÃ m trong drawer chi tiáº¿t
-              lead (báº¥m vÃ o dÃ²ng), nÆ¡i nhÃ¬n tháº¥y Ä‘á»§ lá»‹ch sá»­ test trÆ°á»›c khi sá»­a. */}
-          {/* KhÃ´ng cÃ²n nÃºt "Xem" riÃªng â€” trÆ°á»›c Ä‘Ã¢y "Xem" vÃ  "Sá»­a" má»Ÿ CÃ™NG 1 drawer, chá»‰
-              khÃ¡c icon. Giá» Ä‘Ãºng 3 tÃ¡c vá»¥: sá»­a lá»‹ch háº¹n, sá»­a (má»Ÿ drawer, sá»­a táº¡i chá»—), xÃ³a. */}
+          {/* Nút "Cập nhật test" đã bỏ khỏi bảng — hẹn/cập nhật test làm trong drawer chi tiết
+              lead (bấm vào dòng), nơi nhìn thấy đủ lịch sử test trước khi sửa. */}
+          {/* Không còn nút "Xem" riêng — trước đây "Xem" và "Sửa" mở CÙNG 1 drawer, chỉ
+              khác icon. Giờ đúng 3 tác vụ: sửa lịch hẹn, sửa (mở drawer, sửa tại chỗ), xóa. */}
           {canUpdate("leads", userRole) ? (
-            <button type="button" onClick={() => setSelectedLeadId(row.id)} className="btn-icon" title="Sá»­a" aria-label="Sá»­a">
+            <button type="button" onClick={() => setSelectedLeadId(row.id)} className="btn-icon" title="Sửa" aria-label="Sửa">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
@@ -446,9 +446,9 @@ export default function LeadsTable({
           ) : null}
           {canDelete("leads", userRole) ? (
             <ConfirmActionButton
-              title="XÃ¡c nháº­n xÃ³a lead?"
-              description={`Lead ${row.fullName} sáº½ bá»‹ xÃ³a khá»i Data tuyá»ƒn sinh.`}
-              confirmLabel="XÃ³a lead"
+              title="Xác nhận xóa lead?"
+              description={`Lead ${row.fullName} sẽ bị xóa khỏi Data tuyển sinh.`}
+              confirmLabel="Xóa lead"
               tone="danger"
               className="btn-icon text-rose-600"
               onConfirm={async () => {
@@ -471,7 +471,7 @@ export default function LeadsTable({
 
   if (canView("leads", userRole)) {
     bulkActions.push({
-      label: "Xuáº¥t Excel",
+      label: "Xuất Excel",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -486,7 +486,7 @@ export default function LeadsTable({
 
   if (canUpdate("leads", userRole)) {
     bulkActions.push({
-      label: "ÄÃ¡nh dáº¥u Ä‘ang liÃªn há»‡",
+      label: "Đánh dấu đang liên hệ",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
@@ -505,13 +505,13 @@ export default function LeadsTable({
         router.refresh();
       },
       variant: "secondary",
-      confirmMessage: "Báº¡n cÃ³ cháº¯c muá»‘n chuyá»ƒn cÃ¡c lead Ä‘Ã£ chá»n sang tráº¡ng thÃ¡i Ä‘ang liÃªn há»‡?",
+      confirmMessage: "Bạn có chắc muốn chuyển các lead đã chọn sang trạng thái đang liên hệ?",
     });
   }
 
   if (canDelete("leads", userRole)) {
     bulkActions.push({
-      label: "XÃ³a",
+      label: "Xóa",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="3 6 5 6 21 6" />
@@ -523,7 +523,7 @@ export default function LeadsTable({
         router.refresh();
       },
       variant: "danger",
-      confirmMessage: "Báº¡n cÃ³ cháº¯c muá»‘n xÃ³a lead? Thao tÃ¡c nÃ y khÃ´ng thá»ƒ hoÃ n tÃ¡c.",
+      confirmMessage: "Bạn có chắc muốn xóa lead? Thao tác này không thể hoàn tác.",
     });
   }
 
@@ -532,13 +532,13 @@ export default function LeadsTable({
     router.push(`/leads?${buildQuery({ q: query || null })}`);
   };
 
-  // Lá»c theo tá»«ng cá»™t (hÃ ng cá»‘ Ä‘á»‹nh dÆ°á»›i header) â€” patch 1 paramKey qua buildQuery(),
-  // tÃ¡i dÃ¹ng Ä‘Ãºng cÆ¡ cháº¿ Ä‘iá»u hÆ°á»›ng URL sáºµn cÃ³ (khÃ´ng phÃ¡t minh luá»“ng fetch thá»© 2).
+  // Lọc theo từng cột (hàng cố định dưới header) — patch 1 paramKey qua buildQuery(),
+  // tái dùng đúng cơ chế điều hướng URL sẵn có (không phát minh luồng fetch thứ 2).
   const handleFilterChange = (key: string, value: string | null, extra?: Record<string, string | null>) => {
     setLoading(true);
-    // Dropdown lá»c cá»™t "Lá»‹ch test" gá»™p chung 1 Ã´ chá»n nhÆ°ng tháº­t ra Ä‘i 2 param khÃ¡c
-    // nhau á»Ÿ URL â€” "ChÆ°a háº¹n" lÃ  testStatus=NONE, cÃ²n "Sáº¯p tá»›i"/"QuÃ¡ háº¡n" lÃ  lÃ¡t cáº¯t
-    // theo ngÃ y (urgent=soon|overdue), khÃ´ng pháº£i giÃ¡ trá»‹ testStatus tháº­t.
+    // Dropdown lọc cột "Lịch test" gộp chung 1 ô chọn nhưng thật ra đi 2 param khác
+    // nhau ở URL — "Chưa hẹn" là testStatus=NONE, còn "Sắp tới"/"Quá hạn" là lát cắt
+    // theo ngày (urgent=soon|overdue), không phải giá trị testStatus thật.
     if (key === "testStatus" && (value === "overdue" || value === "today" || value === "tomorrow")) {
       router.push(`/leads?${buildQuery({ urgent: value, testStatus: null, ...extra })}`);
       return;
@@ -561,21 +561,21 @@ export default function LeadsTable({
     startFrom: searchParams.get("startFrom") ?? "",
     startTo: searchParams.get("startTo") ?? "",
     notes: searchParams.get("notes") ?? "",
-    // Hiá»‡n Ä‘Ãºng lá»±a chá»n Ä‘ang active trong dropdown dÃ¹ tráº¡ng thÃ¡i Ä‘Ã³ lÆ°u á»Ÿ param nÃ o
-    // (testStatus=NONE hay urgent=soon|overdue) â€” xem handleFilterChange á»Ÿ trÃªn.
+    // Hiện đúng lựa chọn đang active trong dropdown dù trạng thái đó lưu ở param nào
+    // (testStatus=NONE hay urgent=soon|overdue) — xem handleFilterChange ở trên.
     testStatus: ["overdue", "today", "tomorrow"].includes(urgentFilter) ? urgentFilter : testStatusFilter,
   };
 
-  // Má»˜T THANH Lá»ŒC DUY NHáº¤T, khÃ´ng cÃ²n 3 cá»¥m chá»“ng chÃ©o nhau:
-  //   [4 nhÃ³m tráº¡ng thÃ¡i] Â· [chi tiáº¿t cá»§a nhÃ³m Ä‘ang chá»n] Â· [nháº¯c háº¹n] Â· [bá» lá»c]
-  // TrÆ°á»›c Ä‘Ã¢y cÃ³ cáº£ chip "ChÆ°a háº¹n test" á»Ÿ cá»¥m bÃ¡o Ä‘á»™ng trong khi cá»¥m chi tiáº¿t Ä‘Ã£ cÃ³
-  // "ChÆ°a liÃªn há»‡ Ä‘Æ°á»£c" â€” hai chip lá»c gáº§n nhÆ° cÃ¹ng má»™t táº­p ngÆ°á»i, láº¡i náº±m 2 cá»¥m khÃ¡c
-  // nhau nÃªn nhÃ¬n ráº¥t rá»‘i. Má»—i cá»¥m cÃ²n cÃ³ nÃºt "bá» lá»c" riÃªng, báº¥m cÃ¡i nÃ y khÃ´ng táº¯t cÃ¡i
-  // kia. Nay chá»‰ cÃ²n Má»˜T nÃºt "Bá» lá»c" táº¯t sáº¡ch, vÃ  má»i chip Ä‘á»u báº¥m láº¡i lÃ  táº¯t.
+  // MỘT THANH LỌC DUY NHẤT, không còn 3 cụm chồng chéo nhau:
+  //   [4 nhóm trạng thái] · [chi tiết của nhóm đang chọn] · [nhắc hẹn] · [bỏ lọc]
+  // Trước đây có cả chip "Chưa hẹn test" ở cụm báo động trong khi cụm chi tiết đã có
+  // "Chưa liên hệ được" — hai chip lọc gần như cùng một tập người, lại nằm 2 cụm khác
+  // nhau nên nhìn rất rối. Mỗi cụm còn có nút "bỏ lọc" riêng, bấm cái này không tắt cái
+  // kia. Nay chỉ còn MỘT nút "Bỏ lọc" tắt sạch, và mọi chip đều bấm lại là tắt.
   const alertChips: { key: string; label: string; count: number; dot: string }[] = [
-    { key: "overdue", label: "QuÃ¡ háº¡n", count: overdueCount, dot: "bg-[#ef4444]" },
-    { key: "today", label: "HÃ´m nay", count: todayCount, dot: "bg-[#f97316]" },
-    { key: "tomorrow", label: "NgÃ y mai", count: tomorrowCount, dot: "bg-[#f59e0b]" },
+    { key: "overdue", label: "Quá hạn", count: overdueCount, dot: "bg-[#ef4444]" },
+    { key: "today", label: "Hôm nay", count: todayCount, dot: "bg-[#f97316]" },
+    { key: "tomorrow", label: "Ngày mai", count: tomorrowCount, dot: "bg-[#f59e0b]" },
   ];
 
   const anyFilterActive = Boolean(statusFilter || urgentFilter || testStatusFilter);
@@ -597,11 +597,11 @@ export default function LeadsTable({
 
   const filterChips = (
     <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2" data-tour="leads-filters">
-      {/* 1. Tráº¡ng thÃ¡i â€” trá»¥c chÃ­nh cá»§a trang, luÃ´n hiá»‡n Ä‘á»§ 5 lá»±a chá»n. */}
+      {/* 1. Trạng thái — trục chính của trang, luôn hiện đủ 5 lựa chọn. */}
       <Link href={`/leads?${buildQuery({ status: null, sub: null })}`} className={statusChipClass("CONTACTING", false, 1)
         .replace(LEAD_STATUS_CONFIG.CONTACTING.color, !statusFilter ? "border-[#0f1729] bg-[#0f1729] text-white shadow-md" : "border-[#e5eaf7] bg-white text-[#475569] hover:border-[#0f1729]")}
       >
-        <span>Táº¥t cáº£</span>
+        <span>Tất cả</span>
         <span className={countClass(!statusFilter)}>{totalActive}</span>
       </Link>
 
@@ -628,16 +628,16 @@ export default function LeadsTable({
         className={statusChipClass("ENROLLED", statusFilter === "ENROLLED", enrolledCount)}
       >
         <span className={`h-1.5 w-1.5 rounded-full ${statusFilter === "ENROLLED" ? "bg-white" : LEAD_STATUS_CONFIG.ENROLLED.dot}`} />
-        <span>ÄÃ£ nháº­p há»c</span>
+        <span>Đã nhập học</span>
         <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black ${statusFilter === "ENROLLED" ? "bg-white/20 text-white" : "bg-current/10"}`}>
           {enrolledCount}
         </span>
       </Link>
 
 
-      {/* 3. Nháº¯c háº¹n (ngÃ y háº¹n test + ngÃ y dá»± kiáº¿n nháº­p há»c) â€” Ä‘áº©y sang pháº£i. */}
+      {/* 3. Nhắc hẹn (ngày hẹn test + ngày dự kiến nhập học) — đẩy sang phải. */}
       <div className="ml-auto flex flex-wrap items-center gap-1.5">
-        <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#b91c1c]">Nháº¯c háº¹n</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#b91c1c]">Nhắc hẹn</span>
         {alertChips.map((chip) => {
           const isActive = urgentFilter === chip.key;
           return (
@@ -659,14 +659,14 @@ export default function LeadsTable({
           );
         })}
 
-        {/* Má»˜T nÃºt bá» lá»c duy nháº¥t, táº¯t sáº¡ch má»i bá»™ lá»c Ä‘ang báº­t. */}
+        {/* MỘT nút bỏ lọc duy nhất, tắt sạch mọi bộ lọc đang bật. */}
         {anyFilterActive ? (
           <Link
             href={`/leads?${buildQuery({ status: null, sub: null, urgent: null, testStatus: null })}`}
             className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-xs font-bold text-[#b91c1c] transition hover:bg-[#fee2e2]"
           >
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            Bá» lá»c
+            Bỏ lọc
           </Link>
         ) : null}
       </div>
@@ -680,7 +680,7 @@ export default function LeadsTable({
       columns={columns}
       bulkActions={bulkActions}
       searchable
-      searchPlaceholder="TÃ¬m tÃªn, mÃ£ lead, SÄT, phá»¥ huynh..."
+      searchPlaceholder="Tìm tên, mã lead, SĐT, phụ huynh..."
       onSearch={handleSearch}
       defaultSearchValue={searchQuery}
       filterChips={filterChips}
@@ -698,8 +698,8 @@ export default function LeadsTable({
         onPageSizeChange: (newSize) => router.push(`/leads?${buildQuery({ page: 1, pageSize: newSize })}`),
       }}
       emptyState={{
-        title: "ChÆ°a cÃ³ lead",
-        description: "Báº¯t Ä‘áº§u báº±ng cÃ¡ch báº¥m nÃºt \"ThÃªm Data\" á»Ÿ trÃªn Ä‘á»ƒ thÃªm data Ä‘áº§u tiÃªn vÃ o Data tuyá»ƒn sinh.",
+        title: "Chưa có lead",
+        description: "Bắt đầu bằng cách bấm nút \"Thêm Data\" ở trên để thêm data đầu tiên vào Data tuyển sinh.",
       }}
       loading={loading}
       stickyHeader
