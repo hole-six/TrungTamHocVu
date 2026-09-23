@@ -40,6 +40,10 @@ type SearchParams = {
   availableTo?: string;
   createdFrom?: string;
   createdTo?: string;
+  creditClass?: string;
+  lesson?: string;
+  consumedFrom?: string;
+  consumedTo?: string;
 };
 
 const CREDIT_ORIGINS = ["ABSENCE", "PAID_CATCHUP", "WEAK_STUDENT", "WITHDRAWAL_REMAINING"];
@@ -83,6 +87,11 @@ async function getCreditRows(
   // Khoảng NGÀY CẤP buổi bổ trợ — lọc ngay ở đầu trang bằng lịch dùng chung.
   createdFrom = "",
   createdTo = "",
+  // Lọc theo từng cột của bảng: lớp, bài/ngày cần bù, ngày đã đi học bổ trợ.
+  classFilter = "",
+  lessonFilter = "",
+  consumedFrom = "",
+  consumedTo = "",
 ) {
   const credits = await prisma.sessionCredit.findMany({
     where: {
@@ -103,6 +112,44 @@ async function getCreditRows(
         ...(activeBranchId ? { branchId: activeBranchId } : {}),
         ...(studentFilter ? { OR: [{ fullName: { contains: studentFilter } }, { studentCode: { contains: studentFilter } }] } : {}),
       },
+      ...(classFilter
+        ? {
+            enrollment: {
+              OR: [
+                { class: { className: { contains: classFilter } } },
+                { class: { classCode: { contains: classFilter } } },
+                { packageLabel: { contains: classFilter } },
+              ],
+            },
+          }
+        : {}),
+      // "Bài/ngày cần bù" hiện ra từ buổi gốc — tìm theo tên bài trong nhật ký buổi đó
+      // hoặc theo tên lớp của buổi gốc.
+      ...(lessonFilter
+        ? {
+            sourceSession: {
+              is: {
+                OR: [
+                { journal: { is: { unitLesson: { contains: lessonFilter } } } },
+                  { class: { className: { contains: lessonFilter } } },
+                  { class: { classCode: { contains: lessonFilter } } },
+                ],
+              },
+            },
+          }
+        : {}),
+      ...(consumedFrom || consumedTo
+        ? {
+            consumedSession: {
+              is: {
+                sessionDate: {
+                  ...(consumedFrom ? { gte: new Date(`${consumedFrom}T00:00:00`) } : {}),
+                  ...(consumedTo ? { lte: new Date(`${consumedTo}T23:59:59.999`) } : {}),
+                },
+              },
+            },
+          }
+        : {}),
     },
     include: {
       student: true,
@@ -197,12 +244,16 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
   const type = searchParams.type ?? "";
   const student = searchParams.student?.trim() ?? "";
   const createdFrom = searchParams.createdFrom?.trim() ?? "";
+  const creditClass = searchParams.creditClass?.trim() ?? "";
+  const lesson = searchParams.lesson?.trim() ?? "";
+  const consumedFrom = searchParams.consumedFrom?.trim() ?? "";
+  const consumedTo = searchParams.consumedTo?.trim() ?? "";
   const createdTo = searchParams.createdTo?.trim() ?? "";
   const availableFrom = searchParams.availableFrom?.trim() ?? "";
   const availableTo = searchParams.availableTo?.trim() ?? "";
   const [stats, initialRows] = await Promise.all([
     getCreditStats(activeBranchId),
-    getCreditRows(activeBranchId, status, type, student, createdFrom, createdTo),
+    getCreditRows(activeBranchId, status, type, student, createdFrom, createdTo, creditClass, lesson, consumedFrom, consumedTo),
   ]);
   let rows = initialRows;
   // availableCount là số tính SAU khi gộp nhóm (không phải cột thô) — lọc bằng JS ở

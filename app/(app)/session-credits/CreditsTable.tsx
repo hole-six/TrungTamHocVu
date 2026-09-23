@@ -184,6 +184,7 @@ export default function CreditsTable({
     {
       key: "enrollment",
       label: "Lớp",
+      filter: { type: "text", paramKey: "creditClass", placeholder: "Tên/mã lớp..." },
       width: showConsumedColumn ? "11%" : "13%",
       render: (_value, row) =>
         row.enrollment.classId ? (
@@ -255,6 +256,7 @@ export default function CreditsTable({
     {
       key: "sourceItems",
       label: "Bài/ngày cần bù",
+      filter: { type: "text", paramKey: "lesson", placeholder: "Tên bài, lớp..." },
       width: showConsumedColumn ? "22%" : "26%",
       render: (_value, row) => <LessonList row={row} />,
     },
@@ -263,6 +265,7 @@ export default function CreditsTable({
           {
             key: "consumedItems",
             label: "Các ngày đã bổ trợ",
+            filter: { type: "dateRange", paramKeyFrom: "consumedFrom", paramKeyTo: "consumedTo" },
             width: "16%",
             render: (_value, row) => <ConsumedList row={row} />,
           } as Column<CreditRow>,
