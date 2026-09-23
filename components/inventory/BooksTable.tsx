@@ -284,9 +284,75 @@ export default function BooksTable({
       sortable: true,
       align: "center",
       filter: { type: "numberRange", paramKeyFrom: "stockFrom", paramKeyTo: "stockTo" },
-      render: (value) => <span className={value <= 5 ? "badge-amber" : "badge-green"}>{value}</span>,
+      // CHỈNH TỒN NHANH ngay trên bảng: bấm − / + là ghi một phiếu điều chỉnh kho, khỏi
+      // phải mở form nhập kho chỉ để sửa 1 cuốn. Mọi thay đổi vẫn có phiếu để đối soát.
+      render: (value, row) => (
+        <div className="flex items-center justify-center gap-1" onClick={(event) => event.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => void adjustStock(row.id, -1)}
+            disabled={adjustingId === row.id}
+            className="h-6 w-6 rounded-md border border-[#e5eaf7] text-sm font-black leading-none text-[#b91c1c] transition hover:bg-[#fef2f2] disabled:opacity-40"
+            title="Giảm 1 cuốn"
+          >
+            −
+          </button>
+          <span className={`min-w-[38px] ${value <= 5 ? "badge-amber" : "badge-green"}`}>{value}</span>
+          <button
+            type="button"
+            onClick={() => void adjustStock(row.id, 1)}
+            disabled={adjustingId === row.id}
+            className="h-6 w-6 rounded-md border border-[#e5eaf7] text-sm font-black leading-none text-[#15803d] transition hover:bg-[#f0fdf4] disabled:opacity-40"
+            title="Tăng 1 cuốn"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            onClick={() => void adjustStock(row.id)}
+            disabled={adjustingId === row.id}
+            className="rounded-md border border-[#e5eaf7] px-1.5 text-[11px] font-bold text-[#475569] transition hover:bg-[#f1f5f9] disabled:opacity-40"
+            title="Nhập số lượng cần cộng/trừ"
+          >
+            …
+          </button>
+        </div>
+      ),
     },
   ];
+
+  // Điều chỉnh tồn kho nhanh. delta > 0 là nhập thêm, < 0 là bớt đi; không truyền delta
+  // thì hỏi số lượng. Luôn đi qua API phiếu kho (type ADJUSTMENT) để còn dấu vết, không
+  // sửa thẳng số tồn.
+  const [adjustingId, setAdjustingId] = useState<string | null>(null);
+
+  async function adjustStock(bookId: string, delta?: number) {
+    let amount = delta;
+    if (amount === undefined) {
+      const answer = window.prompt("Cộng/trừ bao nhiêu cuốn? (số âm là bớt đi)", "10");
+      if (answer === null) return;
+      amount = Number(answer);
+      if (!Number.isFinite(amount) || amount === 0) return;
+    }
+    setAdjustingId(bookId);
+    const response = await fetch(`/api/books/${bookId}/stock-transactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "ADJUSTMENT",
+        quantity: amount,
+        postToCash: false,
+        notes: `Điều chỉnh nhanh ${amount > 0 ? "+" : ""}${amount} từ danh mục sách`,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    setAdjustingId(null);
+    if (!response.ok) {
+      window.alert(data.error ?? "Không điều chỉnh được tồn kho.");
+      return;
+    }
+    router.refresh();
+  }
 
   const actions: Action<BookRow>[] = [
     {
