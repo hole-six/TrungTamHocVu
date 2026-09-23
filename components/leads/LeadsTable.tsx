@@ -8,8 +8,6 @@ import type { Column, BulkAction } from "@/components/ui/DataTable";
 import { canView, canUpdate, canDelete } from "@/lib/server/role-matrix";
 import {
   LEAD_STATUS_LABEL,
-  LEAD_STATUS_FILTER_GROUPS,
-  leadStatusGroupKey,
   PLACEMENT_TEST_STATUS_LABEL,
   PLACEMENT_TEST_BADGE_CLASS,
   DATE_URGENCY_CLASS,
@@ -83,11 +81,6 @@ const LEAD_STATUS_CONFIG: Record<string, { label: string; color: string; activeC
   LOST:        { label: LEAD_STATUS_LABEL.LOST,        color: "border-[#fecaca] bg-[#fef2f2] text-[#b91c1c]",   activeColor: "border-[#b91c1c] bg-[#b91c1c] text-white",   dot: "bg-[#ef4444]" },
 };
 
-function statusSelectClass(status: string) {
-  const config = LEAD_STATUS_CONFIG[status] || LEAD_STATUS_CONFIG.CONTACTING;
-  return `h-9 min-w-[150px] cursor-pointer rounded-xl border px-3 py-1 text-xs font-bold outline-none transition ${config.color}`;
-}
-
 function calculateAge(dob?: string | Date | null): number | null {
   if (!dob) return null;
   const birthDate = new Date(dob);
@@ -144,8 +137,8 @@ export default function LeadsTable({
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
-  const [statusSavingId, setStatusSavingId] = useState<string | null>(null);
-  const [convertingId, setConvertingId] = useState<string | null>(null);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
+  const [quickClassByLead, setQuickClassByLead] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setData(initialData);
@@ -185,36 +178,32 @@ export default function LeadsTable({
     );
   };
 
-  const changeLeadStatus = async (leadId: string, nextStatus: string) => {
-    setStatusSavingId(leadId);
-    const response = await fetch(`/api/leads/${leadId}`, {
-      method: "PATCH",
+  const assignPassedLeadToClass = async (row: Lead) => {
+    const classId = quickClassByLead[row.id] ?? row.interestedClassId ?? "";
+    if (!classId) {
+      toast.blocked("Chọn lớp trước khi gán.", "Chưa chọn lớp");
+      return;
+    }
+    setAssigningId(row.id);
+    const response = await fetch(`/api/leads/${row.id}/enroll-class`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: nextStatus }),
+      body: JSON.stringify({
+        classId,
+        enrollDate: row.actualEnrollDate ?? row.expectedStartDate ?? new Date().toISOString().slice(0, 10),
+      }),
     });
-    setStatusSavingId(null);
-    if (!response.ok) {
-      const result = await response.json().catch(() => ({}));
-      toast.blocked(result.error ?? "Không thể đổi trạng thái lead.");
-      return;
-    }
-    setData((current) => current.map((item) => (item.id === leadId ? { ...item, status: nextStatus } : item)));
-    router.refresh();
-  };
-
-
-  const convertToStudent = async (leadId: string) => {
-    setConvertingId(leadId);
-    const response = await fetch(`/api/leads/${leadId}/convert`, { method: "POST" });
     const result = await response.json().catch(() => ({}));
-    setConvertingId(null);
+    setAssigningId(null);
     if (!response.ok) {
-      toast.blocked(result.error ?? "Không thể chuyển đổi thành học viên.");
+      toast.blocked(result.error ?? "Không thể gán lớp từ Data tuyển sinh.");
       return;
     }
-    openDrawer(result.item.id);
+    toast.success("Đã tạo học viên và gán lớp.", "Đã gán lớp");
+    openDrawer(result.studentId ?? result.item?.id);
     router.refresh();
   };
+  const canAssignFromLead = canUpdate("leads", userRole) && canUpdate("schedule", userRole);
 
   // Đọc searchParams hiện tại làm nền rồi patch đúng key được đổi — giữ nguyên MỌI
   // filter khác đang bật (leadCode/name/source/phone/meetDate/... ) thay vì dựng lại
@@ -355,69 +344,6 @@ export default function LeadsTable({
       ),
     },
     {
-      key: "status",
-      label: "Trạng thái",
-      align: "center",
-      // Ô chọn trạng thái phải đủ rộng để đọc được nhãn ("Chưa test"/"Đã test"...) —
-      // để bảng tự co thì nó bị bóp còn mấy chục px, chỉ thấy cái chấm màu.
-      width: "150px",
-      filter: {
-        type: "select",
-        paramKey: "status",
-        placeholder: "Tất cả",
-        options: LEAD_STATUS_FILTER_GROUPS.map((group) => ({ label: group.label, value: group.key })),
-      },
-      render: (value, row) => {
-        const isConverted = Boolean(row.hasStudent || row.convertedStudentCode || value === "ENROLLED");
-        // Chỉ cho chọn các nhóm trong LEAD_STATUS_FILTER_GROUPS (lib/server/lead-rules.ts) —
-        // ENROLLED không nằm trong đó vì chỉ đạt được qua luồng chuyển thành học viên thật.
-        const currentGroupKey = leadStatusGroupKey(value);
-        const cfg = LEAD_STATUS_CONFIG[currentGroupKey] || LEAD_STATUS_CONFIG[value] || LEAD_STATUS_CONFIG.CONTACTING;
-        return (
-          <div className="flex flex-col items-start gap-1.5" onClick={(e) => e.stopPropagation()}>
-            {canUpdate("leads", userRole) && !isConverted ? (
-              <div className={`relative inline-flex min-w-[132px] items-center gap-1.5 rounded-lg border pr-5 ${cfg.color} ${statusSavingId === row.id ? "opacity-60" : ""} [&_select]:focus:outline-none [&_select]:focus:ring-0 [&_select]:focus:shadow-none`}>
-                <span className={`ml-2 h-1.5 w-1.5 shrink-0 rounded-full ${cfg.dot}`} />
-                <select
-                  value={currentGroupKey}
-                  disabled={statusSavingId === row.id}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    const group = LEAD_STATUS_FILTER_GROUPS.find((item) => item.key === e.target.value);
-                    const nextStatus = group?.statuses[0] ?? e.target.value;
-                    if (nextStatus !== value) void changeLeadStatus(row.id, nextStatus);
-                  }}
-                  className="h-7 w-full appearance-none bg-transparent py-0 pl-0 pr-0 text-xs font-bold outline-none border-none ring-0 shadow-none focus:outline-none focus:ring-0 focus:border-none focus:shadow-none cursor-pointer"
-                  style={{ WebkitAppearance: "none", MozAppearance: "none", outline: "none", boxShadow: "none" }}
-                >
-                  {/* Trạng thái lạ (dữ liệu cũ/import sai) không nằm trong nhóm nào —
-                      phải thêm nó thành 1 option thật, nếu không <select> có value
-                      không khớp option nào sẽ hiển thị option đầu tiên, và nhân viên
-                      bấm đúng option đang hiện thì trình duyệt KHÔNG bắn onChange
-                      (tưởng hệ thống hỏng). Hiện kèm nhãn "cần sửa" để biết mà đổi. */}
-                  {!LEAD_STATUS_FILTER_GROUPS.some((group) => group.key === currentGroupKey) ? (
-                    <option value={currentGroupKey}>{`${value} (không hợp lệ — chọn lại)`}</option>
-                  ) : null}
-                  {LEAD_STATUS_FILTER_GROUPS.map((group) => (
-                    <option key={group.key} value={group.key}>
-                      {group.label}
-                    </option>
-                  ))}
-                </select>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="pointer-events-none absolute right-1.5 shrink-0 opacity-60"><path d="M6 9l6 6 6-6"/></svg>
-              </div>
-            ) : (
-              <span className={`inline-flex min-w-[132px] items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-bold ${cfg.color}`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
-                {isConverted ? LEAD_STATUS_LABEL.ENROLLED : cfg.label}
-              </span>
-            )}
-
-          </div>
-        );
-      },
-    },
-    {
       key: "notes",
       label: "Ghi chú",
       filter: { type: "text", paramKey: "notes", placeholder: "Tìm ghi chú..." },
@@ -436,6 +362,31 @@ export default function LeadsTable({
               lead (bấm vào dòng), nơi nhìn thấy đủ lịch sử test trước khi sửa. */}
           {/* Không còn nút "Xem" riêng — trước đây "Xem" và "Sửa" mở CÙNG 1 drawer, chỉ
               khác icon. Giờ đúng 3 tác vụ: sửa lịch hẹn, sửa (mở drawer, sửa tại chỗ), xóa. */}
+          {canAssignFromLead && row.latestTest?.status === "PASSED" && !row.hasStudent && !row.convertedStudentCode && row.status !== "ENROLLED" ? (
+            <div className="flex items-center gap-1">
+              <select
+                value={quickClassByLead[row.id] ?? row.interestedClassId ?? ""}
+                onChange={(event) => setQuickClassByLead((current) => ({ ...current, [row.id]: event.target.value }))}
+                className="h-8 max-w-[150px] rounded-lg border border-[#e5eaf7] bg-white px-2 text-xs font-semibold text-[#0f1729] outline-none focus:border-[#2563eb]"
+                title="Chọn lớp để gán"
+              >
+                <option value="">Chọn lớp</option>
+                {classOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.className}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => void assignPassedLeadToClass(row)}
+                disabled={assigningId === row.id}
+                className="h-8 rounded-lg bg-emerald-600 px-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60"
+              >
+                {assigningId === row.id ? "Đang gán..." : "Gán lớp"}
+              </button>
+            </div>
+          ) : null}
           {canUpdate("leads", userRole) ? (
             <button type="button" onClick={() => setSelectedLeadId(row.id)} className="btn-icon" title="Sửa" aria-label="Sửa">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -706,7 +657,7 @@ export default function LeadsTable({
       rowKey="id"
       onRowClick={(row) => setSelectedLeadId(row.id)}
       primaryColumn="fullName"
-      secondaryColumns={["leadCode", "status", "latestTest"]}
+      secondaryColumns={["leadCode", "latestTest"]}
     />
     <LeadDetailDrawer leadId={selectedLeadId} onClose={() => setSelectedLeadId(null)} classOptions={classOptions} />
     </div>

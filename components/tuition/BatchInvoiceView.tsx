@@ -19,8 +19,8 @@ type BatchCharge = InvoiceChargeData & {
 };
 
 const BILLING_MODEL_LABEL: Record<string, string> = {
-  PERIOD: "Theo thÃ¡ng",
-  COURSE: "Trá»n khÃ³a",
+  PERIOD: "Theo tháng",
+  COURSE: "Trọn khóa",
 };
 
 function getEffectiveBillingModel(charge: BatchCharge) {
@@ -39,9 +39,9 @@ function hasBillingMismatch(charge: BatchCharge) {
   return Boolean(charge.currentEnrollmentBillingModel) && charge.currentEnrollmentBillingModel !== charge.billingModel;
 }
 
-// TÃ­nh toÃ n bá»™ giÃ¡ trá»‹ dáº«n xuáº¥t cá»§a 1 charge (Ä‘Ã£ thu, cÃ²n ná»£, kiá»ƒu thu hiá»‡u lá»±c,
-// lá»‡ch kiá»ƒu thu) Má»˜T Láº¦N duy nháº¥t â€” dÃ¹ng chung cho cáº£ báº£n desktop vÃ  báº£n mobile
-// bÃªn dÆ°á»›i, Ä‘á»ƒ 2 layout khÃ´ng bao giá» tÃ­nh lá»‡ch nhau do sá»­a 1 nÆ¡i quÃªn sá»­a nÆ¡i kia.
+// Tính toàn bộ giá trị dẫn xuất của 1 charge (đã thu, còn nợ, kiểu thu hiệu lực,
+// lệch kiểu thu) MỘT LẦN duy nhất — dùng chung cho cả bản desktop và bản mobile
+// bên dưới, để 2 layout không bao giờ tính lệch nhau do sửa 1 nơi quên sửa nơi kia.
 function deriveChargeView(charge: BatchCharge) {
   const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
   const meta = getChargeCollectionMeta(chargeOwnDueAmount(charge), paid);
@@ -56,11 +56,11 @@ function getChargeCollectionMeta(totalAmount: number, paidAmount: number) {
   if (paidAmount <= 0) {
     return {
       remainingAmount,
-      paymentLabel: "ChÆ°a thu",
+      paymentLabel: "Chưa thu",
       paymentClassName: "bg-[#f0f3f7] text-[#5f6f84]",
-      regenLabel: "ÄÆ°á»£c sinh láº¡i",
+      regenLabel: "Được sinh lại",
       regenClassName: "bg-[#e8f8f1] text-[#149b66]",
-      regenHint: "ChÆ°a cÃ³ tiá»n thu thá»±c táº¿ nÃªn cÃ³ thá»ƒ Ä‘á»•i kiá»ƒu thu hoáº·c sinh láº¡i phiáº¿u.",
+      regenHint: "Chưa có tiền thu thực tế nên có thể đổi kiểu thu hoặc sinh lại phiếu.",
       rowClassName: "bg-[#f1fbf7] hover:bg-[#ecfaf4]",
     };
   }
@@ -68,29 +68,29 @@ function getChargeCollectionMeta(totalAmount: number, paidAmount: number) {
   if (paidAmount < totalAmount) {
     return {
       remainingAmount,
-      paymentLabel: "ÄÃ£ thu má»™t pháº§n",
+      paymentLabel: "Đã thu một phần",
       paymentClassName: "bg-[#fff8e8] text-[#c76700]",
-      regenLabel: "KhÃ³a sinh láº¡i",
+      regenLabel: "Khóa sinh lại",
       regenClassName: "bg-red-100 text-red-700",
-      regenHint: `ÄÃ£ thu ${formatVnd(paidAmount)} nÃªn khÃ´ng Ä‘Æ°á»£c sinh Ä‘Ã¨ Ä‘á»ƒ trÃ¡nh lá»‡ch cÃ´ng ná»£.`,
+      regenHint: `Đã thu ${formatVnd(paidAmount)} nên không được sinh đè để tránh lệch công nợ.`,
       rowClassName: "bg-[#fff8e8] hover:bg-[#fff4d6]",
     };
   }
 
   return {
     remainingAmount,
-    paymentLabel: "ÄÃ£ thu háº¿t",
+    paymentLabel: "Đã thu hết",
     paymentClassName: "bg-[#e8f8f1] text-[#149b66]",
-    regenLabel: "KhÃ³a sinh láº¡i",
+    regenLabel: "Khóa sinh lại",
     regenClassName: "bg-red-100 text-red-700",
-    regenHint: "Phiáº¿u nÃ y Ä‘Ã£ thu xong nÃªn khÃ´ng Ä‘Æ°á»£c sinh láº¡i.",
+    regenHint: "Phiếu này đã thu xong nên không được sinh lại.",
     rowClassName: "bg-[#e8f8f1] hover:bg-[#ecfaf4]",
   };
 }
 
-// Khá»‘i nÃºt thao tÃ¡c cá»§a 1 dÃ²ng charge â€” dÃ¹ng chung cho cáº£ báº£n báº£ng desktop vÃ  báº£n
-// card mobile bÃªn dÆ°á»›i, trÃ¡nh copy tay 2 láº§n cÃ¹ng 1 logic quan trá»ng (Ä‘á»•i kiá»ƒu thu,
-// táº£i phiáº¿u, thu nhanh).
+// Khối nút thao tác của 1 dòng charge — dùng chung cho cả bản bảng desktop và bản
+// card mobile bên dưới, tránh copy tay 2 lần cùng 1 logic quan trọng (đổi kiểu thu,
+// tải phiếu, thu nhanh).
 function ChargeActions({
   charge,
   meta,
@@ -117,21 +117,21 @@ function ChargeActions({
           studentId={charge.student.id ?? ""}
           className="inline-flex h-10 items-center justify-center rounded-full border border-[#b7dff8] bg-[#f6fcff] px-4 text-sm font-semibold text-[#077dc8] transition hover:border-[#8fcdf3] hover:bg-[#eaf7ff]"
         >
-          Há»c phÃ­ HV
+          Học phí HV
         </StudentLink>
         {remaining > 0 ? (
           <a
             href={`/api/invoices/${charge.id}/pdf`}
             className="inline-flex h-10 items-center justify-center rounded-full border border-[#dfe8f2] bg-white px-4 text-sm font-semibold text-[#6f7f94] transition hover:border-[#cad8e8] hover:text-primary"
           >
-            Táº£i phiáº¿u
+            Tải phiếu
           </a>
         ) : null}
         {canManageTuition && remaining > 0 ? <QuickPaymentButton studentId={charge.student.id ?? ""} suggestedAmount={remaining} /> : null}
       </div>
       {billingMismatch && paid <= 0 ? (
         <p className="mt-2 max-w-[240px] text-xs leading-5 text-amber-800">
-          Phiáº¿u hiá»‡n táº¡i Ä‘ang lÃ  {BILLING_MODEL_LABEL[charge.billingModel] ?? charge.billingModel}, cáº§n lÃ m má»›i trÆ°á»›c khi in.
+          Phiếu hiện tại đang là {BILLING_MODEL_LABEL[charge.billingModel] ?? charge.billingModel}, cần làm mới trước khi in.
         </p>
       ) : null}
       {canManageTuition && paid <= 0 && charge.enrollmentId ? (
@@ -143,7 +143,7 @@ function ChargeActions({
               disabled={switchingKey === `${charge.id}:PERIOD`}
               className="rounded-full border border-[#b7dff8] bg-[#f6fcff] px-3 py-1 text-xs font-semibold text-[#077dc8] transition hover:border-[#8fcdf3] hover:bg-[#eaf7ff] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {switchingKey === `${charge.id}:PERIOD` ? "Äang chuyá»ƒn..." : "Chuyá»ƒn thu thÃ¡ng"}
+              {switchingKey === `${charge.id}:PERIOD` ? "Đang chuyển..." : "Chuyển thu tháng"}
             </button>
           ) : null}
           {charge.currentEnrollmentBillingModel !== "COURSE" ? (
@@ -153,7 +153,7 @@ function ChargeActions({
               disabled={switchingKey === `${charge.id}:COURSE`}
               className="rounded-full border border-[#d8ccff] bg-[#f3efff] px-3 py-1 text-xs font-semibold text-[#7b4df5] transition hover:border-[#c3aeff] hover:bg-[#ebe3ff] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {switchingKey === `${charge.id}:COURSE` ? "Äang chuyá»ƒn..." : "Chuyá»ƒn thu khÃ³a"}
+              {switchingKey === `${charge.id}:COURSE` ? "Đang chuyển..." : "Chuyển thu khóa"}
             </button>
           ) : null}
         </div>
@@ -162,7 +162,7 @@ function ChargeActions({
   );
 }
 
-// Badge kiá»ƒu thu + tráº¡ng thÃ¡i thu â€” dÃ¹ng chung cho cáº£ báº£ng desktop vÃ  card mobile.
+// Badge kiểu thu + trạng thái thu — dùng chung cho cả bảng desktop và card mobile.
 function ChargeStatusBadges({ effectiveBillingModel, meta, billingMismatch }: { effectiveBillingModel: string; meta: ReturnType<typeof getChargeCollectionMeta>; billingMismatch: boolean }) {
   return (
     <div className="space-y-2">
@@ -170,7 +170,7 @@ function ChargeStatusBadges({ effectiveBillingModel, meta, billingMismatch }: { 
         {BILLING_MODEL_LABEL[effectiveBillingModel] ?? effectiveBillingModel}
       </span>
       <span className={`badge ${meta.paymentClassName}`}>{meta.paymentLabel}</span>
-      {billingMismatch ? <span className="badge bg-[#fff8e8] text-[#c76700]">Phiáº¿u lá»‡ch kiá»ƒu thu</span> : null}
+      {billingMismatch ? <span className="badge bg-[#fff8e8] text-[#c76700]">Phiếu lệch kiểu thu</span> : null}
     </div>
   );
 }
@@ -321,7 +321,7 @@ export default function BatchInvoiceView({
   async function uploadQr(file: File | undefined) {
     if (!file) return;
     if (!file.type.match(/^image\/(png|jpeg|webp)$/) || file.size > 2_000_000) {
-      setProfileMessage("áº¢nh QR cáº§n lÃ  PNG/JPG/WEBP vÃ  khÃ´ng quÃ¡ 2MB.");
+      setProfileMessage("Ảnh QR cần là PNG/JPG/WEBP và không quá 2MB.");
       return;
     }
     const reader = new FileReader();
@@ -341,12 +341,12 @@ export default function BatchInvoiceView({
 
     const data = await response.json().catch(() => ({}));
     setSavingProfile(false);
-    setProfileMessage(response.ok ? "ÄÃ£ lÆ°u cáº¥u hÃ¬nh thanh toÃ¡n cho toÃ n bá»™ phiáº¿u." : data.error ?? "KhÃ´ng thá»ƒ lÆ°u cáº¥u hÃ¬nh thanh toÃ¡n.");
+    setProfileMessage(response.ok ? "Đã lưu cấu hình thanh toán cho toàn bộ phiếu." : data.error ?? "Không thể lưu cấu hình thanh toán.");
   }
 
   function requestSwitchBillingModel(charge: BatchCharge, nextBillingModel: "PERIOD" | "COURSE") {
     if (!charge.enrollmentId) {
-      setActionMessage("KhÃ´ng tÃ¬m tháº¥y ghi danh Ä‘ang hoáº¡t Ä‘á»™ng Ä‘á»ƒ Ä‘á»•i kiá»ƒu thu.");
+      setActionMessage("Không tìm thấy ghi danh đang hoạt động để đổi kiểu thu.");
       return;
     }
     setPendingSwitch({ charge, nextBillingModel });
@@ -366,12 +366,12 @@ export default function BatchInvoiceView({
     setSwitchingKey(null);
 
     if (!response.ok) {
-      setActionMessage(data.error ?? "KhÃ´ng thá»ƒ Ä‘á»•i kiá»ƒu thu.");
+      setActionMessage(data.error ?? "Không thể đổi kiểu thu.");
       setPendingSwitch(null);
       return;
     }
 
-    setActionMessage(nextBillingModel === "COURSE" ? "ÄÃ£ chuyá»ƒn sang thu trá»n khÃ³a vÃ  sinh láº¡i phiáº¿u phÃ¹ há»£p." : "ÄÃ£ chuyá»ƒn sang thu theo thÃ¡ng vÃ  lÃ m má»›i charge cá»§a ká»³ nÃ y.");
+    setActionMessage(nextBillingModel === "COURSE" ? "Đã chuyển sang thu trọn khóa và sinh lại phiếu phù hợp." : "Đã chuyển sang thu theo tháng và làm mới charge của kỳ này.");
     setPendingSwitch(null);
     router.refresh();
   }
@@ -395,7 +395,7 @@ export default function BatchInvoiceView({
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error ?? "KhÃ´ng táº£i Ä‘Æ°á»£c file phiáº¿u há»c phÃ­.");
+        throw new Error(data.error ?? "Không tải được file phiếu học phí.");
       }
 
       const blob = await response.blob();
@@ -415,11 +415,11 @@ export default function BatchInvoiceView({
 
       setActionMessage(
         exportMode === "MERGED"
-          ? `ÄÃ£ táº£i file PDF gá»™p ${selectedCharges.length} phiáº¿u.`
-          : `ÄÃ£ táº£i file ZIP chá»©a ${selectedCharges.length} phiáº¿u riÃªng.`,
+          ? `Đã tải file PDF gộp ${selectedCharges.length} phiếu.`
+          : `Đã tải file ZIP chứa ${selectedCharges.length} phiếu riêng.`,
       );
     } catch (exportError) {
-      setActionMessage(exportError instanceof Error ? exportError.message : "KhÃ´ng táº£i Ä‘Æ°á»£c file phiáº¿u há»c phÃ­.");
+      setActionMessage(exportError instanceof Error ? exportError.message : "Không tải được file phiếu học phí.");
     } finally {
       setExporting(false);
     }
@@ -431,35 +431,35 @@ export default function BatchInvoiceView({
         <aside className="space-y-4">
           <div className="rounded-[28px] border border-hairline bg-white p-6 shadow-[0_12px_34px_rgba(31,68,111,0.08)]">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">{embedded ? "Váº­n hÃ nh chÃ­nh" : "Khu xuáº¥t phiáº¿u"}</p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink">{embedded ? `Danh sÃ¡ch thu ká»³ ${periodName}` : "Phiáº¿u há»c phÃ­ hÃ ng loáº¡t"}</h1>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">{embedded ? "Vận hành chính" : "Khu xuất phiếu"}</p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink">{embedded ? `Danh sách thu kỳ ${periodName}` : "Phiếu học phí hàng loạt"}</h1>
               <p className="mt-2 max-w-[34rem] text-sm leading-6 text-ink-muted80">
                 {embedded
-                  ? "Lá»c Ä‘Ãºng nhÃ³m há»c viÃªn cáº§n xá»­ lÃ½, thu tiá»n ngay trÃªn tá»«ng dÃ²ng hoáº·c in phiáº¿u hÃ ng loáº¡t khi cáº§n."
-                  : "Chá»‘t cáº¥u hÃ¬nh má»™t láº§n, chá»n Ä‘Ãºng danh sÃ¡ch cáº§n gá»­i, rá»“i in hoáº·c lÆ°u PDF hÃ ng loáº¡t cho phá»¥ huynh."}
+                  ? "Lọc đúng nhóm học viên cần xử lý, thu tiền ngay trên từng dòng hoặc in phiếu hàng loạt khi cần."
+                  : "Chốt cấu hình một lần, chọn đúng danh sách cần gửi, rồi in hoặc lưu PDF hàng loạt cho phụ huynh."}
               </p>
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2" data-tour="tuition-summary">
               <div className="rounded-2xl border border-[#dfe8f2] bg-[#f8fbff] p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Ká»³ Ä‘ang xuáº¥t</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Kỳ đang xuất</p>
                 <p className="mt-2 text-lg font-semibold text-ink">{periodName}</p>
               </div>
               <div className="rounded-2xl border border-[#dfe8f2] bg-[#f8fbff] p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">ÄÃ£ chá»n</p>
-                <p className="mt-2 text-lg font-semibold text-ink">{stats.selectedCount}/{stats.visibleCount} phiáº¿u</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Đã chọn</p>
+                <p className="mt-2 text-lg font-semibold text-ink">{stats.selectedCount}/{stats.visibleCount} phiếu</p>
               </div>
               <div className="rounded-2xl border border-[#dfe8f2] bg-[#f8fbff] p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Tá»•ng tiá»n chá»n</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Tổng tiền chọn</p>
                 <p className="mt-2 text-lg font-semibold text-ink">{formatVnd(stats.totalSelectedAmount)}</p>
               </div>
               <div className="rounded-2xl border border-[#dfe8f2] bg-[#f8fbff] p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">CÃ²n ná»£</p>
-                <p className="mt-2 text-lg font-semibold text-red-600">{stats.unpaidCount} há»c viÃªn</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Còn nợ</p>
+                <p className="mt-2 text-lg font-semibold text-red-600">{stats.unpaidCount} học viên</p>
               </div>
               <div className="rounded-2xl border border-[#f6d67b] bg-[#fff8e8] p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#c76700]">Lá»‡ch kiá»ƒu thu</p>
-                <p className="mt-2 text-lg font-semibold text-[#c76700]">{stats.mismatchCount} phiáº¿u</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#c76700]">Lệch kiểu thu</p>
+                <p className="mt-2 text-lg font-semibold text-[#c76700]">{stats.mismatchCount} phiếu</p>
               </div>
             </div>
 
@@ -468,7 +468,7 @@ export default function BatchInvoiceView({
                 tabs={[
                   {
                     key: "filter",
-                    label: "Lá»c danh sÃ¡ch",
+                    label: "Lọc danh sách",
                     content: (
                       <div className="rounded-2xl border border-[#bfe3fb] bg-gradient-to-b from-[#f7fcff] to-[#f3f9ff] p-4">
                         <div className="grid gap-3 sm:grid-cols-2">
@@ -484,55 +484,55 @@ export default function BatchInvoiceView({
                             </select>
                           </label>
                           <label className="block">
-                            <span className="text-xs font-medium text-ink-muted48">Tìm học viên</span>
-                            <input className="input mt-1" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tên học viên, mã học viên..." />
+                            <span className="text-xs font-medium text-ink-muted48">T�m học vi�n</span>
+                            <input className="input mt-1" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="T�n học vi�n, m� học vi�n..." />
                           </label>
                         </div>
 
                         <div className="mt-3 grid gap-3 sm:grid-cols-2">
                           <label className="block">
-                            <span className="text-xs font-medium text-ink-muted48">Kiá»ƒu thu hiá»‡n táº¡i</span>
+                            <span className="text-xs font-medium text-ink-muted48">Kiểu thu hiện tại</span>
                             <select className="input mt-1" value={billingModelFilter} onChange={(event) => setBillingModelFilter(event.target.value as "ALL" | "PERIOD" | "COURSE")}>
-                              <option value="ALL">Táº¥t cáº£</option>
-                              <option value="PERIOD">Äang thu theo thÃ¡ng</option>
-                              <option value="COURSE">Äang thu theo khÃ³a</option>
+                              <option value="ALL">Tất cả</option>
+                              <option value="PERIOD">Đang thu theo tháng</option>
+                              <option value="COURSE">Đang thu theo khóa</option>
                             </select>
                           </label>
                           <label className="block">
-                            <span className="text-xs font-medium text-ink-muted48">Danh sÃ¡ch hiá»ƒn thá»‹</span>
+                            <span className="text-xs font-medium text-ink-muted48">Danh sách hiển thị</span>
                             <select className="input mt-1" value={visibilityFilter} onChange={(event) => setVisibilityFilter(event.target.value as "ALL" | "UNPAID" | "SELECTED")}>
-                              <option value="ALL">Táº¥t cáº£</option>
-                              <option value="UNPAID">Chá»‰ cÃ²n ná»£</option>
-                              <option value="SELECTED">Chá»‰ má»¥c Ä‘Ã£ chá»n</option>
+                              <option value="ALL">Tất cả</option>
+                              <option value="UNPAID">Chỉ còn nợ</option>
+                              <option value="SELECTED">Chỉ mục đã chọn</option>
                             </select>
                           </label>
                         </div>
 
                         <div className="mt-3 grid gap-3 sm:grid-cols-2">
                           <label className="block">
-                            <span className="text-xs font-medium text-ink-muted48">Sá»‘ tiá»n tá»«</span>
+                            <span className="text-xs font-medium text-ink-muted48">Số tiền từ</span>
                             <input type="number" min={0} className="input mt-1" value={amountFrom} onChange={(event) => setAmountFrom(event.target.value)} placeholder="0" />
                           </label>
                           <label className="block">
-                            <span className="text-xs font-medium text-ink-muted48">Sá»‘ tiá»n Ä‘áº¿n</span>
-                            <input type="number" min={0} className="input mt-1" value={amountTo} onChange={(event) => setAmountTo(event.target.value)} placeholder="KhÃ´ng giá»›i háº¡n" />
+                            <span className="text-xs font-medium text-ink-muted48">Số tiền đến</span>
+                            <input type="number" min={0} className="input mt-1" value={amountTo} onChange={(event) => setAmountTo(event.target.value)} placeholder="Không giới hạn" />
                           </label>
                         </div>
 
                         <label className="mt-3 flex items-start gap-3 text-sm text-ink-muted80">
                           <input type="checkbox" checked={onlyEndedCourses} onChange={(event) => setOnlyEndedCourses(event.target.checked)} className="mt-1" />
-                          <span>Chá»‰ láº¥y khÃ³a thu trá»n gÃ³i Ä‘Ã£ káº¿t thÃºc trong ká»³ nÃ y.</span>
+                          <span>Chỉ lấy khóa thu trọn gói đã kết thúc trong kỳ này.</span>
                         </label>
 
                         <div className="mt-3 flex flex-wrap gap-2">
                           <button type="button" onClick={selectOnlyUnpaid} className="btn-primary-sm">
-                            Chá»n ngÆ°á»i cÃ²n ná»£
+                            Chọn người còn nợ
                           </button>
                           <button type="button" onClick={() => toggleAll(true)} className="btn-secondary">
-                            Chá»n táº¥t cáº£ Ä‘ang tháº¥y
+                            Chọn tất cả đang thấy
                           </button>
                           <button type="button" onClick={clearVisibleSelection} className="btn-ghost">
-                            Bá» chá»n
+                            Bỏ chọn
                           </button>
                         </div>
 
@@ -542,31 +542,31 @@ export default function BatchInvoiceView({
                   },
                   {
                     key: "export",
-                    label: "Xuáº¥t phiáº¿u",
+                    label: "Xuất phiếu",
                     content: (
                       <div className="rounded-2xl border border-hairline bg-white p-4">
                         <div className="space-y-3">
                           <label className="block">
-                            <span className="text-xs font-medium text-ink-muted48">Cháº¿ Ä‘á»™ xuáº¥t</span>
+                            <span className="text-xs font-medium text-ink-muted48">Chế độ xuất</span>
                             <select className="input mt-1 w-full" value={exportMode} onChange={(event) => setExportMode(event.target.value as "MERGED" | "SEPARATE")}>
-                              <option value="MERGED">1 file PDF gá»™p nhiá»u phiáº¿u</option>
-                              <option value="SEPARATE">Nhiá»u file PDF riÃªng (gÃ³i ZIP)</option>
+                              <option value="MERGED">1 file PDF gộp nhiều phiếu</option>
+                              <option value="SEPARATE">Nhiều file PDF riêng (gói ZIP)</option>
                             </select>
                           </label>
                           <button onClick={handleExport} disabled={selectedCharges.length === 0 || exporting} className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60">
                             {exporting
-                              ? "Äang táº¡o file..."
+                              ? "Đang tạo file..."
                               : exportMode === "MERGED"
-                                ? `Táº£i PDF gá»™p ${selectedCharges.length} phiáº¿u`
-                                : `Táº£i ZIP ${selectedCharges.length} phiáº¿u riÃªng`}
+                                ? `Tải PDF gộp ${selectedCharges.length} phiếu`
+                                : `Tải ZIP ${selectedCharges.length} phiếu riêng`}
                           </button>
                           <p className="text-sm text-ink-muted48">
                             {exportMode === "MERGED"
-                              ? "Má»—i phiáº¿u sáº½ náº±m trÃªn 1 trang A5 trong cÃ¹ng file PDF."
-                              : "Má»—i phiáº¿u sáº½ lÃ  1 file PDF riÃªng, tá»± táº£i vá» dÆ°á»›i dáº¡ng file ZIP."}
+                              ? "Mỗi phiếu sẽ nằm trên 1 trang A5 trong cùng file PDF."
+                              : "Mỗi phiếu sẽ là 1 file PDF riêng, tự tải về dưới dạng file ZIP."}
                           </p>
                           <p className="text-sm text-ink-muted48">
-                            Äang chá»n {stats.selectedCount}/{stats.visibleCount} phiáº¿u Â· tá»•ng {formatVnd(stats.totalSelectedAmount)}
+                            Đang chọn {stats.selectedCount}/{stats.visibleCount} phiếu · tổng {formatVnd(stats.totalSelectedAmount)}
                           </p>
                         </div>
                       </div>
@@ -574,30 +574,30 @@ export default function BatchInvoiceView({
                   },
                   {
                     key: "payment-profile",
-                    label: "Chuyá»ƒn khoáº£n / QR",
+                    label: "Chuyển khoản / QR",
                     content: (
                       <div className="rounded-2xl border border-hairline bg-white p-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">DÃ¹ng chung cho toÃ n bá»™ phiáº¿u</p>
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Dùng chung cho toàn bộ phiếu</p>
                           </div>
                           <button type="button" onClick={savePaymentProfile} disabled={savingProfile} className="btn-primary">
-                            {savingProfile ? "Äang lÆ°u..." : "LÆ°u cáº¥u hÃ¬nh"}
+                            {savingProfile ? "Đang lưu..." : "Lưu cấu hình"}
                           </button>
                         </div>
 
                         <div className="mt-4 grid gap-3 sm:grid-cols-2 2xl:grid-cols-1">
                           <label className="form-group">
-                            <span className="label-sm">NgÃ¢n hÃ ng</span>
+                            <span className="label-sm">Ngân hàng</span>
                             <input
                               className="input-sm"
                               value={paymentProfile.bankName ?? ""}
                               onChange={(event) => setPaymentProfile((current) => ({ ...current, bankName: event.target.value }))}
-                              placeholder="VÃ­ dá»¥: Vietcombank"
+                              placeholder="Ví dụ: Vietcombank"
                             />
                           </label>
                           <label className="form-group">
-                            <span className="label-sm">Sá»‘ tÃ i khoáº£n</span>
+                            <span className="label-sm">Số tài khoản</span>
                             <input
                               className="input-sm"
                               value={paymentProfile.accountNumber ?? ""}
@@ -605,7 +605,7 @@ export default function BatchInvoiceView({
                             />
                           </label>
                           <label className="form-group">
-                            <span className="label-sm">Chá»§ tÃ i khoáº£n</span>
+                            <span className="label-sm">Chủ tài khoản</span>
                             <input
                               className="input-sm"
                               value={paymentProfile.accountHolder ?? ""}
@@ -613,22 +613,22 @@ export default function BatchInvoiceView({
                             />
                           </label>
                           <label className="form-group">
-                            <span className="label-sm">áº¢nh QR</span>
+                            <span className="label-sm">Ảnh QR</span>
                             <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => uploadQr(event.target.files?.[0])} className="block w-full text-xs" />
                           </label>
                         </div>
 
                         <label className="form-group mt-3">
-                          <span className="label-sm">Ghi chÃº / hÆ°á»›ng dáº«n gá»­i phá»¥ huynh</span>
+                          <span className="label-sm">Ghi chú / hướng dẫn gửi phụ huynh</span>
                           <textarea
                             className="input-sm min-h-[88px]"
                             value={paymentProfile.paymentInstruction ?? ""}
                             onChange={(event) => setPaymentProfile((current) => ({ ...current, paymentInstruction: event.target.value }))}
-                            placeholder="VÃ­ dá»¥: Sau khi chuyá»ƒn khoáº£n, phá»¥ huynh gá»­i xÃ¡c nháº­n cho giÃ¡o vá»¥."
+                            placeholder="Ví dụ: Sau khi chuyển khoản, phụ huynh gửi xác nhận cho giáo vụ."
                           />
                         </label>
 
-                        {profileMessage ? <p className={`mt-3 text-sm ${profileMessage.startsWith("ÄÃ£ lÆ°u") ? "text-emerald-700" : "text-red-600"}`}>{profileMessage}</p> : null}
+                        {profileMessage ? <p className={`mt-3 text-sm ${profileMessage.startsWith("Đã lưu") ? "text-emerald-700" : "text-red-600"}`}>{profileMessage}</p> : null}
                       </div>
                     ),
                   },
@@ -641,13 +641,13 @@ export default function BatchInvoiceView({
         <section className="rounded-[28px] border border-hairline bg-white p-6 shadow-[0_12px_34px_rgba(31,68,111,0.08)]">
           <div className="flex flex-col gap-4 border-b border-hairline pb-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Danh sÃ¡ch xuáº¥t</p>
-              <h2 className="mt-1 text-lg font-semibold text-ink">Chá»n Ä‘Ãºng há»c viÃªn trÆ°á»›c khi in</h2>
-              <p className="mt-1 text-sm text-ink-muted80">{stats.visibleCount} phiáº¿u Ä‘ang hiá»ƒn thá»‹ Â· tá»•ng {formatVnd(stats.totalAmount)}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Danh sách xuất</p>
+              <h2 className="mt-1 text-lg font-semibold text-ink">Chọn đúng học viên trước khi in</h2>
+              <p className="mt-1 text-sm text-ink-muted80">{stats.visibleCount} phiếu đang hiển thị · tổng {formatVnd(stats.totalAmount)}</p>
             </div>
             {!embedded ? (
               <BackButton href="/tuition" className="text-sm font-medium text-primary hover:underline">
-                â† Quay láº¡i workspace há»c phÃ­
+                ← Quay lại workspace học phí
               </BackButton>
             ) : null}
           </div>
@@ -660,11 +660,11 @@ export default function BatchInvoiceView({
                     <th className="px-4 py-3">
                       <input type="checkbox" checked={allVisibleSelected} onChange={(event) => toggleAll(event.target.checked)} />
                     </th>
-                    <th className="px-4 py-3 font-medium">Há»c viÃªn</th>
-                    <th className="px-4 py-3 font-medium">Lá»›p / ká»³</th>
-                    <th className="px-4 py-3 font-medium" data-tour="tuition-billing-col">Kiá»ƒu thu</th>
-                    <th className="px-4 py-3 font-medium">Sá»‘ tiá»n</th>
-                    <th className="px-4 py-3 font-medium" data-tour="tuition-actions-col">Thao tÃ¡c</th>
+                    <th className="px-4 py-3 font-medium">Học viên</th>
+                    <th className="px-4 py-3 font-medium">Lớp / kỳ</th>
+                    <th className="px-4 py-3 font-medium" data-tour="tuition-billing-col">Kiểu thu</th>
+                    <th className="px-4 py-3 font-medium">Số tiền</th>
+                    <th className="px-4 py-3 font-medium" data-tour="tuition-actions-col">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -683,9 +683,9 @@ export default function BatchInvoiceView({
                         <td className="px-4 py-3">
                           <p className="font-medium text-ink">{charge.class.className}</p>
                           <div className="mt-1 flex flex-wrap gap-2 text-xs text-ink-muted48">
-                            <span>Ká»³ {charge.billingPeriod.periodName}</span>
-                            <span>â€¢</span>
-                            <span>{charge.invoice?.invoiceNo ?? "ChÆ°a cÃ³ sá»‘"}</span>
+                            <span>Kỳ {charge.billingPeriod.periodName}</span>
+                            <span>•</span>
+                            <span>{charge.invoice?.invoiceNo ?? "Chưa có số"}</span>
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -694,8 +694,8 @@ export default function BatchInvoiceView({
                         <td className="px-4 py-3">
                           <div className="space-y-1 text-sm">
                             <div className="font-semibold text-ink">{formatVnd(charge.totalAmount)}</div>
-                            <div className="text-red-600">CÃ²n {formatVnd(remaining)}</div>
-                            {paid > 0 ? <div className="text-emerald-600">ÄÃ£ thu {formatVnd(paid)}</div> : null}
+                            <div className="text-red-600">Còn {formatVnd(remaining)}</div>
+                            {paid > 0 ? <div className="text-emerald-600">Đã thu {formatVnd(paid)}</div> : null}
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -717,7 +717,7 @@ export default function BatchInvoiceView({
                   {visibleCharges.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-12 text-center text-ink-muted48">
-                        KhÃ´ng cÃ³ há»c viÃªn nÃ o khá»›p bá»™ lá»c hiá»‡n táº¡i.
+                        Không có học viên nào khớp bộ lọc hiện tại.
                       </td>
                     </tr>
                   ) : null}
@@ -726,12 +726,12 @@ export default function BatchInvoiceView({
             </div>
           </div>
 
-          {/* Mobile: card list â€” dÃ¹ng chung deriveChargeView/ChargeStatusBadges/ChargeActions
-              vá»›i báº£n báº£ng desktop á»Ÿ trÃªn, chá»‰ khÃ¡c cÃ¡ch xáº¿p layout. */}
+          {/* Mobile: card list — dùng chung deriveChargeView/ChargeStatusBadges/ChargeActions
+              với bản bảng desktop ở trên, chỉ khác cách xếp layout. */}
           <div className="mt-4 space-y-3 lg:hidden">
             <label className="flex items-center gap-2 rounded-xl border border-hairline bg-white px-4 py-3 text-sm font-medium text-ink-muted80">
               <input type="checkbox" checked={allVisibleSelected} onChange={(event) => toggleAll(event.target.checked)} />
-              Chá»n táº¥t cáº£ Ä‘ang hiá»ƒn thá»‹
+              Chọn tất cả đang hiển thị
             </label>
             {visibleCharges.map((charge) => {
               const { paid, meta, remaining, billingMismatch, effectiveBillingModel } = deriveChargeView(charge);
@@ -744,9 +744,9 @@ export default function BatchInvoiceView({
                       <p className="text-xs text-ink-muted48">{charge.student.studentCode}</p>
                       <p className="mt-1 text-sm text-ink-muted80">{charge.class.className}</p>
                       <div className="mt-1 flex flex-wrap gap-2 text-xs text-ink-muted48">
-                        <span>Ká»³ {charge.billingPeriod.periodName}</span>
-                        <span>â€¢</span>
-                        <span>{charge.invoice?.invoiceNo ?? "ChÆ°a cÃ³ sá»‘"}</span>
+                        <span>Kỳ {charge.billingPeriod.periodName}</span>
+                        <span>•</span>
+                        <span>{charge.invoice?.invoiceNo ?? "Chưa có số"}</span>
                       </div>
                     </div>
                   </div>
@@ -755,8 +755,8 @@ export default function BatchInvoiceView({
                     <ChargeStatusBadges effectiveBillingModel={effectiveBillingModel} meta={meta} billingMismatch={billingMismatch} />
                     <div className="text-right text-sm">
                       <div className="font-semibold text-ink">{formatVnd(charge.totalAmount)}</div>
-                      <div className="text-red-600">CÃ²n {formatVnd(remaining)}</div>
-                      {paid > 0 ? <div className="text-emerald-600">ÄÃ£ thu {formatVnd(paid)}</div> : null}
+                      <div className="text-red-600">Còn {formatVnd(remaining)}</div>
+                      {paid > 0 ? <div className="text-emerald-600">Đã thu {formatVnd(paid)}</div> : null}
                     </div>
                   </div>
 
@@ -777,7 +777,7 @@ export default function BatchInvoiceView({
             })}
             {visibleCharges.length === 0 ? (
               <div className="rounded-xl border border-dashed border-hairline bg-white p-8 text-center text-sm text-ink-muted48">
-                KhÃ´ng cÃ³ há»c viÃªn nÃ o khá»›p bá»™ lá»c hiá»‡n táº¡i.
+                Không có học viên nào khớp bộ lọc hiện tại.
               </div>
             ) : null}
           </div>
@@ -794,13 +794,13 @@ export default function BatchInvoiceView({
 
       <ConfirmDialog
         open={!!pendingSwitch}
-        title="XÃ¡c nháº­n Ä‘á»•i kiá»ƒu thu há»c phÃ­?"
+        title="Xác nhận đổi kiểu thu học phí?"
         description={
           pendingSwitch
-            ? `Chuyá»ƒn há»c viÃªn ${pendingSwitch.charge.student.fullName} sang ${pendingSwitch.nextBillingModel === "COURSE" ? "thu trá»n khÃ³a" : "thu theo thÃ¡ng"}. Phiáº¿u hiá»‡n táº¡i chá»‰ Ä‘Æ°á»£c thay tháº¿ khi chÆ°a thu tiá»n â€” náº¿u Ä‘Ã£ phÃ¡t sinh thu thá»±c táº¿, há»‡ thá»‘ng sáº½ tá»± cháº·n Ä‘á»ƒ trÃ¡nh lá»‡ch cÃ´ng ná»£.`
+            ? `Chuyển học viên ${pendingSwitch.charge.student.fullName} sang ${pendingSwitch.nextBillingModel === "COURSE" ? "thu trọn khóa" : "thu theo tháng"}. Phiếu hiện tại chỉ được thay thế khi chưa thu tiền — nếu đã phát sinh thu thực tế, hệ thống sẽ tự chặn để tránh lệch công nợ.`
             : undefined
         }
-        confirmLabel="XÃ¡c nháº­n Ä‘á»•i"
+        confirmLabel="Xác nhận đổi"
         loading={!!pendingSwitch && switchingKey === `${pendingSwitch.charge.id}:${pendingSwitch.nextBillingModel}`}
         onConfirm={() => {
           if (pendingSwitch) void switchBillingModel(pendingSwitch.charge, pendingSwitch.nextBillingModel);

@@ -9,11 +9,15 @@ export async function ensureStudentFromLead(
 ) {
   const lead = await tx.lead.findUnique({
     where: { id: leadId },
-    include: { student: true },
+    include: {
+      student: true,
+      placementTests: { orderBy: [{ testDate: "desc" }, { scheduledDate: "desc" }, { createdAt: "desc" }], take: 1 },
+    },
   });
   if (!lead) throw new Error("Không tìm thấy data tuyển sinh.");
   if (lead.student) return { lead, student: lead.student, created: false };
-  if (lead.status !== "QUALIFIED") {
+  const hasPassedTest = lead.status === "QUALIFIED" || lead.placementTests[0]?.status === "PASSED";
+  if (!hasPassedTest) {
     throw new Error("Chỉ data đã đạt test mới được gán lớp và chuyển thành học viên.");
   }
 

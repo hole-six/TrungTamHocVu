@@ -37,9 +37,9 @@ export function basketQuantity(basket: Basket) {
   return Object.values(basket).reduce((sum, quantity) => sum + Math.max(0, quantity), 0);
 }
 
-// CHỌN NHIỀU ĐẦU SÁCH CÙNG LÚC, nhóm theo danh mục và hiện tất cả danh mục cùng một chỗ.
-// Trước đây form xuất sách chỉ chọn được 1 cuốn mỗi lần và phải mở thêm 1 lớp drawer nữa
-// để lọc danh mục — phát cả bộ giáo trình đầu khóa phải làm lại 3–4 lượt.
+// CHỌN NHIỀU ĐẦU S�CH C�NG L�C, nh�m theo danh mục v� hiện tất cả danh mục c�ng một chỗ.
+// Trước đ�y form xuất s�ch chỉ chọn được 1 cuốn mỗi lần v� phải mở th�m 1 lớp drawer nữa
+// để lọc danh mục � ph�t cả bộ gi�o tr�nh đầu kh�a phải l�m lại 3�4 lượt.
 export default function BookBasketPicker({
   books,
   basket,
@@ -58,7 +58,7 @@ export default function BookBasketPicker({
   const categories = useMemo(() => {
     const map = new Map<string, number>();
     for (const book of books) {
-      const key = book.category?.trim() || "Sách khác";
+      const key = book.category?.trim() || "S�ch kh�c";
       map.set(key, (map.get(key) ?? 0) + 1);
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], "vi"));
@@ -67,7 +67,7 @@ export default function BookBasketPicker({
   const groups = useMemo(() => {
     const keyword = normalize(q);
     const matched = books.filter((book) => {
-      const cat = book.category?.trim() || "Sách khác";
+      const cat = book.category?.trim() || "S�ch kh�c";
       if (category && cat !== category) return false;
       if (onlyInStock && (book.quantityOnHand ?? 0) <= 0 && !basket[book.id]) return false;
       if (!keyword) return true;
@@ -75,7 +75,7 @@ export default function BookBasketPicker({
     });
     const map = new Map<string, BookOption[]>();
     for (const book of matched) {
-      const key = book.category?.trim() || "Sách khác";
+      const key = book.category?.trim() || "S�ch kh�c";
       map.set(key, [...(map.get(key) ?? []), book]);
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], "vi"));
@@ -105,7 +105,7 @@ export default function BookBasketPicker({
       <div className="flex flex-wrap gap-2">
         <input
           className="input min-w-[200px] flex-1"
-          placeholder="Tìm sách theo tên, mã sách hoặc danh mục..."
+          placeholder="T�m s�ch theo t�n, m� s�ch hoặc danh mục..."
           value={q}
           onChange={(event) => setQ(event.target.value)}
         />
@@ -114,11 +114,11 @@ export default function BookBasketPicker({
           onClick={() => setOnlyInStock((current) => !current)}
           className={`rounded-lg border px-3 py-2 text-sm font-bold transition-colors ${onlyInStock ? "border-[#0f1729] bg-[#0f1729] text-white" : "border-[#e2e8f0] bg-white text-[#0f1729] hover:border-[#0f1729]"}`}
         >
-          Còn hàng
+          C�n h�ng
         </button>
       </div>
 
-      {/* Danh mục hiện cùng lúc, bấm để lọc nhanh — không phải mở thêm drawer chọn danh mục. */}
+      {/* Danh mục hiện c�ng l�c, bấm để lọc nhanh � kh�ng phải mở th�m drawer chọn danh mục. */}
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
@@ -140,12 +140,12 @@ export default function BookBasketPicker({
       </div>
 
       <div className="max-h-[46vh] overflow-y-auto rounded-xl border border-[#e2e8f0]">
-        {loading ? <p className="px-3 py-6 text-center text-sm text-[#64748b]">Đang tải danh mục sách...</p> : null}
-        {!loading && groups.length === 0 ? <p className="px-3 py-6 text-center text-sm text-[#64748b]">Không có đầu sách phù hợp.</p> : null}
+        {loading ? <p className="px-3 py-6 text-center text-sm text-[#64748b]">Đang tải danh mục s�ch...</p> : null}
+        {!loading && groups.length === 0 ? <p className="px-3 py-6 text-center text-sm text-[#64748b]">Kh�ng c� đầu s�ch ph� hợp.</p> : null}
         {groups.map(([name, items]) => (
           <div key={name}>
             <p className="sticky top-0 z-10 border-b border-[#e2e8f0] bg-[#f1f5f9] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-[#334155]">
-              {name} · {items.length} đầu sách
+              {name} � {items.length} đầu s�ch
             </p>
             <div className="flex justify-end gap-1 border-b border-[#e2e8f0] bg-[#f8fafc] px-3 py-1">
               <button
@@ -153,14 +153,14 @@ export default function BookBasketPicker({
                 onClick={() => setGroupQuantity(items, 1)}
                 className="rounded-md border border-[#cbd5e1] bg-white px-2 py-0.5 text-[11px] font-bold text-[#0f1729] hover:border-[#0f1729]"
               >
-                Chá»n bá»™
+                Chọn bộ
               </button>
               <button
                 type="button"
                 onClick={() => setGroupQuantity(items, 0)}
                 className="rounded-md border border-[#cbd5e1] bg-white px-2 py-0.5 text-[11px] font-bold text-[#64748b] hover:border-[#0f1729] hover:text-[#0f1729]"
               >
-                Bá» bá»™
+                Bỏ bộ
               </button>
             </div>
             <ul className="divide-y divide-[#f1f5f9]">
@@ -172,9 +172,9 @@ export default function BookBasketPicker({
                     <button type="button" onClick={() => setQuantity(book.id, quantity + 1)} className="min-w-0 flex-1 text-left">
                       <span className="block truncate text-sm font-semibold text-[#0f1729]">{book.name}</span>
                       <span className="text-xs text-[#64748b]">
-                        {formatVnd(book.unitPrice)} ·{" "}
-                        <span className={stock <= 0 ? "text-[#b45309]" : undefined}>{stock > 0 ? `còn ${stock}` : "hết kho"}</span>
-                        {book.bookCode && book.bookCode.trim() !== "0" ? ` · ${book.bookCode}` : ""}
+                        {formatVnd(book.unitPrice)} �{" "}
+                        <span className={stock <= 0 ? "text-[#b45309]" : undefined}>{stock > 0 ? `c�n ${stock}` : "hết kho"}</span>
+                        {book.bookCode && book.bookCode.trim() !== "0" ? ` � ${book.bookCode}` : ""}
                       </span>
                     </button>
                     <div className="flex shrink-0 items-center gap-1">
@@ -199,7 +199,7 @@ export default function BookBasketPicker({
                         type="button"
                         onClick={() => setQuantity(book.id, quantity + 1)}
                         className="h-7 w-7 rounded-md border border-[#0f1729] bg-[#0f1729] text-sm font-bold text-white"
-                        aria-label={`Thêm ${book.name}`}
+                        aria-label={`Th�m ${book.name}`}
                       >
                         +
                       </button>
@@ -214,12 +214,12 @@ export default function BookBasketPicker({
 
       <div className="rounded-xl border border-[#e2e8f0] px-3 py-2.5">
         {picked.length === 0 ? (
-          <p className="text-sm text-[#64748b]">Chưa chọn sách nào — bấm vào tên sách hoặc dấu + để thêm.</p>
+          <p className="text-sm text-[#64748b]">Chưa chọn s�ch n�o � bấm v�o t�n s�ch hoặc dấu + để th�m.</p>
         ) : (
           <>
             <div className="flex items-baseline justify-between gap-2">
               <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">
-                Đã chọn {picked.length} đầu sách · {basketQuantity(basket)} cuốn
+                Đ� chọn {picked.length} đầu s�ch � {basketQuantity(basket)} cuốn
               </p>
               <p className="text-lg font-black tabular-nums text-[#0f1729]">{formatVnd(total)}</p>
             </div>
@@ -227,7 +227,7 @@ export default function BookBasketPicker({
               {picked.map((item) => (
                 <li key={item.bookId} className="flex items-center justify-between gap-2 text-[13px]">
                   <span className="min-w-0 truncate text-[#0f1729]">
-                    {item.book?.name ?? "Sách"} <span className="text-[#64748b]">× {item.quantity}</span>
+                    {item.book?.name ?? "S�ch"} <span className="text-[#64748b]">� {item.quantity}</span>
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
                     <span className="tabular-nums text-[#0f1729]">{formatVnd(item.amount)}</span>

@@ -11,31 +11,31 @@ import { CASH_METHOD, MAX_CASH_DISCOUNT_PERCENT, computeCashDiscountForTuitionOn
 
 const GUIDE_SECTIONS = [
   {
-    title: "Form này dùng để làm gì?",
+    title: "Form n�y d�ng để l�m g�?",
     items: [
-      "Dùng khi trung tâm đã nhận tiền thật từ phụ huynh và cần xác nhận khoản đó vào hệ thống.",
-      "Mục tiêu của form là chốt chính xác: đã thu bao nhiêu, thu ngày nào, thu bằng cách nào và có giảm riêng hay không.",
-      "Chỉ nên bấm thu tiền khi tiền đã vào tay hoặc đã nhận được xác nhận chuyển khoản rõ ràng.",
+      "D�ng khi trung t�m đ� nhận tiền thật từ phụ huynh v� cần x�c nhận khoản đ� v�o hệ thống.",
+      "Mục ti�u của form l� chốt ch�nh x�c: đ� thu bao nhi�u, thu ng�y n�o, thu bằng c�ch n�o v� c� giảm ri�ng hay kh�ng.",
+      "Chỉ n�n bấm thu tiền khi tiền đ� v�o tay hoặc đ� nhận được x�c nhận chuyển khoản r� r�ng.",
     ],
     tone: "info" as const,
   },
   {
-    title: "Cách nhập an toàn",
+    title: "C�ch nhập an to�n",
     items: [
-      "Số tiền thực thu là số tiền trung tâm nhận thực tế, không phải số công nợ đang treo.",
-      "Phụ huynh đóng chẵn hoặc đóng trước cho kỳ sau thì cứ nhập đúng số đã cầm — phần vượt công nợ sẽ được giữ lại và tự trừ vào học phí kỳ sau.",
-      "Nếu có chiết khấu tiền mặt thì hệ thống sẽ tự giảm công nợ thêm phần chiết khấu, nên phải nhập đúng lý do.",
-      "Diễn giải và ghi chú nên đủ rõ để người sau tra lại biết đây là khoản thu nào, từ ai, của kỳ nào.",
+      "Số tiền thực thu l� số tiền trung t�m nhận thực tế, kh�ng phải số c�ng nợ đang treo.",
+      "Phụ huynh đ�ng chẵn hoặc đ�ng trước cho kỳ sau th� cứ nhập đ�ng số đ� cầm � phần vượt c�ng nợ sẽ được giữ lại v� tự trừ v�o học ph� kỳ sau.",
+      "Nếu c� chiết khấu tiền mặt th� hệ thống sẽ tự giảm c�ng nợ th�m phần chiết khấu, n�n phải nhập đ�ng l� do.",
+      "Diễn giải v� ghi ch� n�n đủ r� để người sau tra lại biết đ�y l� khoản thu n�o, từ ai, của kỳ n�o.",
     ],
     tone: "success" as const,
   },
   {
-    title: "Các lỗi phải tránh",
+    title: "C�c lỗi phải tr�nh",
     items: [
-      "Không nhập số tiền khác với số tiền thật đã nhận, kể cả khi phụ huynh đóng thừa.",
-      "Không dùng chiết khấu cho phần tiền đóng trước — chiết khấu chỉ giảm được phần đang thực nợ.",
-      "Không dùng chiết khấu tiền mặt cho các hình thức khác như chuyển khoản nếu quy trình nội bộ không cho phép.",
-      "Không xác nhận đã thu khi phụ huynh mới hứa chuyển khoản nhưng chưa có bằng chứng đã nhận tiền.",
+      "Kh�ng nhập số tiền kh�c với số tiền thật đ� nhận, kể cả khi phụ huynh đ�ng thừa.",
+      "Kh�ng d�ng chiết khấu cho phần tiền đ�ng trước � chiết khấu chỉ giảm được phần đang thực nợ.",
+      "Kh�ng d�ng chiết khấu tiền mặt cho c�c h�nh thức kh�c như chuyển khoản nếu quy tr�nh nội bộ kh�ng cho ph�p.",
+      "Kh�ng x�c nhận đ� thu khi phụ huynh mới hứa chuyển khoản nhưng chưa c� bằng chứng đ� nhận tiền.",
     ],
     tone: "warning" as const,
   },
@@ -50,8 +50,8 @@ export default function QuickPaymentButton({
   studentId: string;
   suggestedAmount: number;
   autoOpen?: boolean;
-  /** Nơi hiển thị tự giữ dữ liệu trong state (drawer học viên) phải được báo để nạp
-   *  lại — router.refresh() chỉ làm mới server component, không đụng tới state đó. */
+  /** Nơi hiển thị tự giữ dữ liệu trong state (drawer học vi�n) phải được b�o để nạp
+   *  lại � router.refresh() chỉ l�m mới server component, kh�ng đụng tới state đ�. */
   onChanged?: () => void;
 }) {
   const router = useRouter();
@@ -67,9 +67,9 @@ export default function QuickPaymentButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  // Công nợ và tiền đóng trước lấy từ đúng nguồn với API thu tiền — suggestedAmount chỉ
-  // dùng làm số gợi ý điền sẵn, vì tùy chỗ gọi mà nó là công nợ cả học viên hay chỉ là
-  // phần còn thiếu của một phiếu học phí.
+  // C�ng nợ v� tiền đ�ng trước lấy từ đ�ng nguồn với API thu tiền � suggestedAmount chỉ
+  // d�ng l�m số gợi � điền sẵn, v� t�y chỗ gọi m� n� l� c�ng nợ cả học vi�n hay chỉ l�
+  // phần c�n thiếu của một phiếu học ph�.
   const [balance, setBalance] = useState<{
     outstanding: number;
     tuitionOutstanding: number;
@@ -100,17 +100,17 @@ export default function QuickPaymentButton({
   }, [open, studentId]);
 
   const numericAmount = Number(amount) || 0;
-  // Công nợ đang treo. KHÔNG còn là trần thu tiền: phụ huynh đóng chẵn hoặc đóng trước
-  // cho kỳ sau là chuyện hàng ngày, phần vượt được giữ lại thành tiền đóng trước và tự
-  // trừ vào phiếu học phí kỳ sau — xem lib/server/advance-payment.ts.
+  // C�ng nợ đang treo. KH�NG c�n l� trần thu tiền: phụ huynh đ�ng chẵn hoặc đ�ng trước
+  // cho kỳ sau l� chuyện h�ng ng�y, phần vượt được giữ lại th�nh tiền đ�ng trước v� tự
+  // trừ v�o phiếu học ph� kỳ sau � xem lib/server/advance-payment.ts.
   const outstanding = Math.max(0, balance ? balance.outstanding : suggestedAmount);
   const tuitionOutstanding = Math.max(0, balance ? balance.tuitionOutstanding : suggestedAmount);
   const materialsOutstanding = Math.max(0, balance ? balance.materialsOutstanding : 0);
   const numericDiscountPercent = Math.min(MAX_CASH_DISCOUNT_PERCENT, Math.max(0, Number(discountPercent) || 0));
   const cashDiscountActive = method === CASH_METHOD && enableCashDiscount && numericDiscountPercent > 0;
-  // Dùng CHUNG một phép tính với API thu tiền (lib/cash-discount.ts) để màn hình và số thực
-  // ghi nhận không bao giờ lệch nhau: giảm x% nghĩa là phụ huynh trả (100 − x)% khoản nợ
-  // được xóa, không phải cộng thêm x% vào số tiền mặt.
+  // D�ng CHUNG một ph�p t�nh với API thu tiền (lib/cash-discount.ts) để m�n h�nh v� số thực
+  // ghi nhận kh�ng bao giờ lệch nhau: giảm x% nghĩa l� phụ huynh trả (100 − x)% khoản nợ
+  // được x�a, kh�ng phải cộng th�m x% v�o số tiền mặt.
   const settlement = computeCashDiscountForTuitionOnly({
     cash: numericAmount,
     percent: cashDiscountActive ? numericDiscountPercent : 0,
@@ -124,9 +124,9 @@ export default function QuickPaymentButton({
   const discountSummary = useMemo(() => {
     if (!cashDiscountActive) return null;
     return (
-      `Thu tiền mặt ${formatVnd(settlement.cashForDebt)} · Giảm ${numericDiscountPercent}% = ${formatVnd(discountAmount)}` +
-      ` · Xóa nợ ${formatVnd(totalDebtReduction)} · Còn nợ ${formatVnd(settlement.remainingDebt)}` +
-      (settlement.advanceAmount > 0 ? ` · Đóng trước ${formatVnd(settlement.advanceAmount)}` : "")
+      `Thu tiền mặt ${formatVnd(settlement.cashForDebt)} � Giảm ${numericDiscountPercent}% = ${formatVnd(discountAmount)}` +
+      ` � X�a nợ ${formatVnd(totalDebtReduction)} � C�n nợ ${formatVnd(settlement.remainingDebt)}` +
+      (settlement.advanceAmount > 0 ? ` � Đ�ng trước ${formatVnd(settlement.advanceAmount)}` : "")
     );
   }, [cashDiscountActive, discountAmount, numericDiscountPercent, settlement.advanceAmount, settlement.cashForDebt, settlement.remainingDebt, totalDebtReduction]);
 
@@ -138,11 +138,11 @@ export default function QuickPaymentButton({
       return false;
     }
     if (cashDiscountActive && outstanding <= 0) {
-      setError("Học viên không còn công nợ nên không có gì để chiết khấu. Bỏ chiết khấu rồi thu lại.");
+      setError("Học vi�n kh�ng c�n c�ng nợ n�n kh�ng c� g� để chiết khấu. Bỏ chiết khấu rồi thu lại.");
       return false;
     }
     if (cashDiscountActive && !discountReason.trim()) {
-      setError("Cần nhập lý do chiết khấu tiền mặt.");
+      setError("Cần nhập l� do chiết khấu tiền mặt.");
       return false;
     }
     return true;
@@ -175,7 +175,7 @@ export default function QuickPaymentButton({
     setLoading(false);
 
     if (!response.ok) {
-      setError(data.error ?? "Không thể ghi nhận thanh toán.");
+      setError(data.error ?? "Kh�ng thể ghi nhận thanh to�n.");
       return;
     }
 
@@ -199,33 +199,33 @@ export default function QuickPaymentButton({
       <ResponsiveDrawer 
         open={open}
         onClose={() => setOpen(false)}
-        title="Ghi nhận đã thu tiền"
-        description="Lưu rõ số tiền đã nhận, ngày thu, hình thức thanh toán và phần giảm riêng cho tiền mặt nếu có."
-        guide={<FormGuide title="Hướng dẫn xác nhận đã thu tiền" summary="Đây là bước chốt tiền đã nhận vào hệ thống. Người vận hành chỉ cần hiểu 3 thứ: số tiền thật nhận, hình thức thu và tác động giảm công nợ sau khi lưu." sections={GUIDE_SECTIONS} position="inline" />}
+        title="Ghi nhận đ� thu tiền"
+        description="Lưu r� số tiền đ� nhận, ng�y thu, h�nh thức thanh to�n v� phần giảm ri�ng cho tiền mặt nếu c�."
+        guide={<FormGuide title="Hướng dẫn x�c nhận đ� thu tiền" summary="Đ�y l� bước chốt tiền đ� nhận v�o hệ thống. Người vận h�nh chỉ cần hiểu 3 thứ: số tiền thật nhận, h�nh thức thu v� t�c động giảm c�ng nợ sau khi lưu." sections={GUIDE_SECTIONS} position="inline" />}
       >
         <form onSubmit={handleFormSubmit} className="space-y-5">
           <div className="rounded-3xl border-2 border-rose-200 bg-gradient-to-r from-rose-50 via-amber-50 to-orange-50 px-5 py-4 text-sm text-rose-800 shadow-[0_16px_34px_rgba(244,63,94,0.08)]">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-rose-700">Công nợ đang treo</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-rose-700">C�ng nợ đang treo</p>
             <p className="mt-2 text-base font-semibold">
-              Học viên còn nợ <strong>{formatVnd(outstanding)}</strong>.
+              Học vi�n c�n nợ <strong>{formatVnd(outstanding)}</strong>.
             </p>
             <div className="mt-2 grid grid-cols-1 gap-2 text-sm text-rose-700 sm:grid-cols-2">
-              <p>Tiá»n há»c: <strong>{formatVnd(tuitionOutstanding)}</strong></p>
-              <p>SÃ¡ch: <strong>{formatVnd(materialsOutstanding)}</strong></p>
+              <p>Tiền học: <strong>{formatVnd(tuitionOutstanding)}</strong></p>
+              <p>Sách: <strong>{formatVnd(materialsOutstanding)}</strong></p>
             </div>
             {cashDiscountActive ? (
               <p className="mt-1 text-sm text-rose-700">
-                Giảm {numericDiscountPercent}% tiền mặt: thu đủ <strong>{formatVnd(settlement.cashToClearAll)}</strong> là hết nợ.
+                Giảm {numericDiscountPercent}% tiền mặt: thu đủ <strong>{formatVnd(settlement.cashToClearAll)}</strong> l� hết nợ.
               </p>
             ) : null}
             {balance && balance.advanceBalance > 0 ? (
               <p className="mt-2 text-sm text-rose-700">
-                Đang có sẵn <strong>{formatVnd(balance.advanceBalance)}</strong> tiền đóng trước chưa dùng tới.
+                Đang c� sẵn <strong>{formatVnd(balance.advanceBalance)}</strong> tiền đ�ng trước chưa d�ng tới.
               </p>
             ) : null}
             {advanceAmount > 0 ? (
               <p className="mt-2 rounded-2xl bg-white/80 px-3 py-2 text-sm font-semibold text-[#8a5a00]">
-                Thu dư {formatVnd(advanceAmount)} — hệ thống giữ lại làm tiền đóng trước và tự trừ vào học phí kỳ sau.
+                Thu dư {formatVnd(advanceAmount)} � hệ thống giữ lại l�m tiền đ�ng trước v� tự trừ v�o học ph� kỳ sau.
               </p>
             ) : null}
           </div>
@@ -235,18 +235,18 @@ export default function QuickPaymentButton({
               <span className="label-sm">Số tiền thực thu</span>
               <CurrencyInput required min={1} value={amount} onChange={(next) => setAmount(String(next))} />
               <p className="text-xs text-ink-muted48">
-                {amount ? `Sẽ ghi nhận đã thu ${formatVnd(Number(amount) || 0)}. ` : ""}
-                Nhập đúng số tiền thật đã nhận, kể cả khi nhiều hơn công nợ {formatVnd(outstanding)}.
+                {amount ? `Sẽ ghi nhận đ� thu ${formatVnd(Number(amount) || 0)}. ` : ""}
+                Nhập đ�ng số tiền thật đ� nhận, kể cả khi nhiều hơn c�ng nợ {formatVnd(outstanding)}.
               </p>
             </label>
 
             <label className="space-y-2">
-              <span className="label-sm">Ngày thu</span>
+              <span className="label-sm">Ng�y thu</span>
               <input type="date" required className="input" value={paidDate} onChange={(event) => setPaidDate(event.target.value)} />
             </label>
 
             <label className="space-y-2">
-              <span className="label-sm">Hình thức</span>
+              <span className="label-sm">H�nh thức</span>
               <select
                 className="input"
                 value={method}
@@ -263,13 +263,13 @@ export default function QuickPaymentButton({
                 <option>{CASH_METHOD}</option>
                 <option>Chuyển khoản</option>
                 <option>Quẹt thẻ</option>
-                <option>Ví điện tử</option>
+                <option>V� điện tử</option>
               </select>
             </label>
 
             <label className="space-y-2">
               <span className="label-sm">Diễn giải phiếu thu</span>
-              <input className="input" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ví dụ: Thu học phí kỳ 8/2026, thu tiền giáo trình bổ sung..." />
+              <input className="input" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="V� dụ: Thu học ph� kỳ 8/2026, thu tiền gi�o tr�nh bổ sung..." />
             </label>
           </div>
 
@@ -290,8 +290,8 @@ export default function QuickPaymentButton({
                   }}
                 />
                 <div className="space-y-1">
-                  <p className="text-sm font-semibold text-[#8a5a00]">Áp dụng chiết khấu tiền mặt</p>
-                  <p className="text-xs text-[#c76700]">Chỉ dùng cho thu tiền mặt. Mức giảm bị chặn tối đa {MAX_CASH_DISCOUNT_PERCENT}% và bắt buộc ghi lý do.</p>
+                  <p className="text-sm font-semibold text-[#8a5a00]">�p dụng chiết khấu tiền mặt</p>
+                  <p className="text-xs text-[#c76700]">Chỉ d�ng cho thu tiền mặt. Mức giảm bị chặn tối đa {MAX_CASH_DISCOUNT_PERCENT}% v� bắt buộc ghi l� do.</p>
                 </div>
               </label>
 
@@ -304,20 +304,20 @@ export default function QuickPaymentButton({
                   </label>
 
                   <label className="space-y-2">
-                    <span className="label-sm">Lý do chiết khấu tiền mặt</span>
-                    <input className="input" required={cashDiscountActive} value={discountReason} onChange={(event) => setDiscountReason(event.target.value)} placeholder="Ví dụ: ưu đãi thu tiền mặt tại quầy, chốt đủ học phí trong ngày..." />
+                    <span className="label-sm">L� do chiết khấu tiền mặt</span>
+                    <input className="input" required={cashDiscountActive} value={discountReason} onChange={(event) => setDiscountReason(event.target.value)} placeholder="V� dụ: ưu đ�i thu tiền mặt tại quầy, chốt đủ học ph� trong ng�y..." />
                   </label>
 
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 md:col-span-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#c76700]">Tác động sau khi thu</p>
-                    <p className="mt-2 text-sm font-semibold text-ink">{discountSummary ?? "Chưa có chiết khấu hợp lệ."}</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#c76700]">T�c động sau khi thu</p>
+                    <p className="mt-2 text-sm font-semibold text-ink">{discountSummary ?? "Chưa c� chiết khấu hợp lệ."}</p>
                     {cashDiscountActive && outstanding > 0 && numericAmount !== settlement.cashToClearAll ? (
                       <button
                         type="button"
                         className="btn-ghost-sm mt-2"
                         onClick={() => setAmount(String(settlement.cashToClearAll))}
                       >
-                        Điền {formatVnd(settlement.cashToClearAll)} — thu đủ để hết nợ sau giảm {numericDiscountPercent}%
+                        Điền {formatVnd(settlement.cashToClearAll)} � thu đủ để hết nợ sau giảm {numericDiscountPercent}%
                       </button>
                     ) : null}
                   </div>
@@ -327,18 +327,18 @@ export default function QuickPaymentButton({
           ) : null}
 
           <label className="space-y-2">
-            <span className="label-sm">Ghi chú đối soát</span>
-            <textarea className="input min-h-[110px]" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Ví dụ: phụ huynh chuyển khoản từ ngân hàng A, đã chụp bill; hoặc thu tiền mặt tại quầy lúc 19:30..." />
+            <span className="label-sm">Ghi ch� đối so�t</span>
+            <textarea className="input min-h-[110px]" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="V� dụ: phụ huynh chuyển khoản từ ng�n h�ng A, đ� chụp bill; hoặc thu tiền mặt tại quầy l�c 19:30..." />
           </label>
 
           {error ? <div className="alert-danger">{error}</div> : null}
 
           <div className="flex gap-3 border-t border-hairline pt-4">
             <button type="submit" disabled={loading} className="btn-primary">
-              {loading ? "Đang lưu..." : "Xác nhận đã thu"}
+              {loading ? "Đang lưu..." : "X�c nhận đ� thu"}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
-              Đóng
+              Đ�ng
             </button>
           </div>
         </form>
@@ -346,24 +346,24 @@ export default function QuickPaymentButton({
 
       <ConfirmDialog
         open={confirmOpen}
-        title="Xác nhận đã thu tiền?"
+        title="X�c nhận đ� thu tiền?"
         description={[
-          `Số tiền thu: ${formatVnd(numericAmount)} · ${method}`,
-          `Tiá»n há»c: ${formatVnd(tuitionOutstanding)} Â· SÃ¡ch: ${formatVnd(materialsOutstanding)}`,
+          `Số tiền thu: ${formatVnd(numericAmount)} � ${method}`,
+          `Tiền học: ${formatVnd(tuitionOutstanding)} · Sách: ${formatVnd(materialsOutstanding)}`,
           cashDiscountActive
-            ? `Chiết khấu ${numericDiscountPercent}%: giảm ${formatVnd(discountAmount)} trên phiếu học phí — tổng công nợ được xóa ${formatVnd(totalDebtReduction)}`
+            ? `Chiết khấu ${numericDiscountPercent}%: giảm ${formatVnd(discountAmount)} tr�n phiếu học ph� � tổng c�ng nợ được x�a ${formatVnd(totalDebtReduction)}`
             : "",
-          // Nói thẳng công nợ trước và sau khi thu — nhân viên đối chiếu ngay với số tiền
-          // đang cầm trên tay, không phải tự trừ nhẩm.
-          `Công nợ hiện tại: ${formatVnd(outstanding)} → sau khi thu: ${formatVnd(Math.max(0, outstanding - totalDebtReduction))}`,
-          advanceAmount > 0 ? `Trong đó ${formatVnd(advanceAmount)} là tiền đóng trước, tự trừ vào học phí kỳ sau.` : "",
-          "Tiền vào phiếu đóng theo tháng sẽ tự nạp ví buổi học theo đơn giá của chính phiếu đó.",
+          // N�i thẳng c�ng nợ trước v� sau khi thu � nh�n vi�n đối chiếu ngay với số tiền
+          // đang cầm tr�n tay, kh�ng phải tự trừ nhẩm.
+          `C�ng nợ hiện tại: ${formatVnd(outstanding)} → sau khi thu: ${formatVnd(Math.max(0, outstanding - totalDebtReduction))}`,
+          advanceAmount > 0 ? `Trong đ� ${formatVnd(advanceAmount)} l� tiền đ�ng trước, tự trừ v�o học ph� kỳ sau.` : "",
+          "Tiền v�o phiếu đ�ng theo th�ng sẽ tự nạp v� buổi học theo đơn gi� của ch�nh phiếu đ�.",
           "",
-          "Chỉ xác nhận khi tiền đã thực sự vào tay hoặc đã có bằng chứng chuyển khoản rõ ràng.",
+          "Chỉ x�c nhận khi tiền đ� thực sự v�o tay hoặc đ� c� bằng chứng chuyển khoản r� r�ng.",
         ]
           .filter(Boolean)
           .join("\n")}
-        confirmLabel="Xác nhận đã thu"
+        confirmLabel="X�c nhận đ� thu"
         loading={loading}
         onConfirm={submit}
         onClose={() => {
