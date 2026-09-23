@@ -16,6 +16,10 @@ import { BOOK_CATALOG, ALL_BOOKS } from "./books_catalog";
 
 const prisma = new PrismaClient();
 const APPLY = process.argv.includes("--apply");
+// An toàn cho dữ liệu thật: sách ĐANG CÓ mà giá khác bảng giấy thì KHÔNG tự sửa giá —
+// cuốn đó có thể đang được phát và thu tiền theo giá cũ. Chỉ liệt kê ra để người phụ
+// trách quyết. Muốn ép sửa giá thì chạy kèm --overwrite-prices.
+const OVERWRITE_PRICES = process.argv.includes("--overwrite-prices");
 const branchArgIndex = process.argv.indexOf("--branch");
 const BRANCH_ARG = branchArgIndex >= 0 ? process.argv[branchArgIndex + 1] : null;
 
@@ -56,6 +60,7 @@ async function main() {
   const toCreate: { category: string; name: string; unitPrice: number }[] = [];
   const toUpdate: { id: string; name: string; from: string; to: string }[] = [];
   const unchanged: string[] = [];
+  const priceConflicts: string[] = [];
 
   for (const row of ALL_BOOKS) {
     // Khớp theo tên mới, không thấy thì thử các tên CŨ (aliases) để cập nhật đúng cuốn
@@ -69,7 +74,15 @@ async function main() {
     const changes: string[] = [];
     if (norm(found.name) !== norm(row.name)) changes.push(`tên "${found.name}" → "${row.name}"`);
     if (found.category !== row.category) changes.push(`danh mục "${found.category ?? "—"}" → "${row.category}"`);
-    if (found.unitPrice !== row.unitPrice) changes.push(`giá ${vnd(found.unitPrice)} → ${vnd(row.unitPrice)}`);
+    if (found.unitPrice !== row.unitPrice) {
+      if (OVERWRITE_PRICES) {
+        changes.push(`giá ${vnd(found.unitPrice)} → ${vnd(row.unitPrice)}`);
+      } else {
+        priceConflicts.push(
+          `${found.name}: hệ thống đang để ${vnd(found.unitPrice)} (tồn ${found.quantityOnHand}), bảng giấy ghi ${vnd(row.unitPrice)} — GIỮ NGUYÊN giá cũ`,
+        );
+      }
+    }
     if (changes.length === 0) {
       unchanged.push(row.name);
       continue;
@@ -93,6 +106,12 @@ async function main() {
 
   console.log(`\nCÓ TRONG HỆ THỐNG NHƯNG KHÔNG CÓ TRONG BẢNG: ${leftovers.length} đầu sách`);
   for (const book of leftovers) console.log(`   ? [${book.category ?? "—"}] ${book.name} — ${vnd(book.unitPrice)} · tồn ${book.quantityOnHand}`);
+
+  if (priceConflicts.length > 0) {
+    console.log(`
+⚠ GIÁ LỆCH so với bảng giấy (${priceConflicts.length} cuốn) — giữ nguyên giá đang chạy, cần người phụ trách chốt:`);
+    for (const line of priceConflicts) console.log(`   ! ${line}`);
+  }
 
   if (mismatches.length > 0) {
     console.log(`\n⚠ LỆCH GIỮA ĐƠN GIÁ VÀ CỘT TỔNG TRONG BẢNG GIẤY (${mismatches.length} nhóm) — cần xác nhận lại:`);
@@ -124,7 +143,11 @@ async function main() {
     const source = ALL_BOOKS.find((item) => norm(item.name) === norm(row.name))!;
     await prisma.book.update({
       where: { id: row.id },
-      data: { name: source.name, category: source.category, unitPrice: source.unitPrice },
+      data: {
+        name: source.name,
+        category: source.category,
+        ...(OVERWRITE_PRICES ? { unitPrice: source.unitPrice } : {}),
+      },
     });
     updated += 1;
   }
