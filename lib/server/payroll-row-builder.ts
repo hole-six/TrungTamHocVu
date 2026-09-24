@@ -73,24 +73,43 @@ export async function buildPayrollEmployeeRows(params: {
   const { start, end } = monthRange(period);
   const branchWhere = branchId ? { branchId } : {};
 
-  const [employeesRaw, teachingAssignments, assistantAssignments, timesheetEntries, lines, monthlyBonuses] = await Promise.all([
+  // LƯƠNG THEO TỪNG CƠ SỞ: màn lương của một cơ sở phải hiện đúng những gì cơ sở đó trả
+  // — buổi dạy/trợ giảng TẠI cơ sở này (lọc theo cơ sở của LỚP, không phải theo cơ sở
+  // ghi trong hồ sơ nhân sự), và gồm cả người cơ sở khác sang dạy. Phải khớp đúng cách
+  // tính ở lib/server/payroll-generation.ts, nếu không màn hình và dòng lương đã tính ra
+  // hai con số khác nhau.
+  const sessionScope = {
+    sessionDate: { gte: start, lte: end },
+    status: "COMPLETED",
+    ...(branchId ? { class: { branchId } } : {}),
+  };
+
+  const [homeEmployees, visitingEmployees, teachingAssignments, assistantAssignments, timesheetEntries, lines, monthlyBonuses] =
+    await Promise.all([
     prisma.employee.findMany({
       where: branchWhere,
       orderBy: { fullName: "asc" },
       include: { contracts: { orderBy: { signDate: "desc" }, take: 1 } },
     }),
+    prisma.employee.findMany({
+      // Không lọc cơ sở (xem tất cả) thì homeEmployees đã gồm mọi người rồi — điều kiện
+      // dưới đây tự trả về rỗng, khỏi phải rẽ nhánh kiểu dữ liệu.
+      where: branchId
+        ? { branchId: { not: branchId }, sessionAssignments: { some: { session: sessionScope } } }
+        : { id: "__KHONG_CO_AI__" },
+      orderBy: { fullName: "asc" },
+      include: { contracts: { orderBy: { signDate: "desc" }, take: 1 } },
+    }),
     prisma.sessionAssignment.findMany({
       where: {
-        ...(branchId ? { employee: { branchId } } : {}),
         role: "TEACHER",
-        session: { sessionDate: { gte: start, lte: end }, status: "COMPLETED" },
+        session: sessionScope,
       },
     }),
     prisma.sessionAssignment.findMany({
       where: {
-        ...(branchId ? { employee: { branchId } } : {}),
         role: { in: ["ASSISTANT", "ASSISTANT2"] },
-        session: { sessionDate: { gte: start, lte: end }, status: "COMPLETED" },
+        session: sessionScope,
       },
     }),
     prisma.timesheetEntry.findMany({
@@ -128,6 +147,9 @@ export async function buildPayrollEmployeeRows(params: {
     current.entries += 1;
     timesheetByEmployee.set(item.employeeId, current);
   }
+
+  // Gộp người của cơ sở + người cơ sở khác sang dạy, không để trùng ai.
+  const employeesRaw = [...homeEmployees, ...visitingEmployees.filter((item) => !homeEmployees.some((home) => home.id === item.id))];
 
   const lineByEmployee = new Map(lines.map((line) => [line.employeeId, line]));
   // Mức thưởng/phạt gộp toàn hệ thống: mỗi người mỗi tháng đúng 1 mức.

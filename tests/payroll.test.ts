@@ -250,6 +250,91 @@ async function main() {
     expectEqual(lines[0]?.employeeId, ourTeacher.id, "đúng người của cơ sở A");
   });
 
+  // ---------------------------------------------------------------- LƯƠNG THEO TỪNG CƠ SỞ
+  // Chủ trung tâm chốt: một người có thể dạy nhiều cơ sở, nhưng lương phải tính RIÊNG cho
+  // người đó Ở TỪNG CƠ SỞ — bảng lương cơ sở nào chỉ trả cho buổi dạy tại cơ sở đó.
+  await test("Dạy 2 cơ sở: mỗi bảng lương chỉ trả buổi của chính cơ sở đó", async () => {
+    const co1 = await fixtures.seedBranch(db);
+    const co2 = await fixtures.seedBranch(db);
+    const lop1 = await fixtures.seedClass(db, co1.id);
+    const lop2 = await fixtures.seedClass(db, co2.id);
+    // Hồ sơ nhân sự thuộc CƠ SỞ 1, nhưng dạy cả 2 nơi.
+    const gv = await fixtures.seedEmployee(db, co1.id, { fullName: "GV chạy 2 cơ sở", teachingHourlyRate: 200_000 });
+
+    for (const d of ["2026-06-02", "2026-06-04"]) {
+      const session = await fixtures.seedSession(db, lop1.id, day(d), "COMPLETED");
+      await fixtures.seedSessionAssignment(db, { sessionId: session.id, employeeId: gv.id, role: "TEACHER", hours: 1.5, hourlyRate: 200_000 });
+    }
+    for (const d of ["2026-06-03", "2026-06-05", "2026-06-06"]) {
+      const session = await fixtures.seedSession(db, lop2.id, day(d), "COMPLETED");
+      await fixtures.seedSessionAssignment(db, { sessionId: session.id, employeeId: gv.id, role: "TEACHER", hours: 1.5, hourlyRate: 200_000 });
+    }
+
+    const run1 = await fixtures.seedPayrollRun(db, co1.id, "2026-06");
+    const run2 = await fixtures.seedPayrollRun(db, co2.id, "2026-06");
+    await generatePayrollForRun(run1.id);
+    await generatePayrollForRun(run2.id);
+
+    const line1 = await db.payrollLine.findFirst({ where: { payrollRunId: run1.id, employeeId: gv.id } });
+    const line2 = await db.payrollLine.findFirst({ where: { payrollRunId: run2.id, employeeId: gv.id } });
+
+    expectEqual(line1?.teachingHours, 3, "cơ sở 1: 2 buổi × 1,5h");
+    expectEqual(line1?.teachingAmount, 600_000, "cơ sở 1: " + vnd(600_000));
+    expectTrue(Boolean(line2), "cơ sở 2 PHẢI có dòng lương cho người này dù hồ sơ thuộc cơ sở 1");
+    expectEqual(line2?.teachingHours, 4.5, "cơ sở 2: 3 buổi × 1,5h");
+    expectEqual(line2?.teachingAmount, 900_000, "cơ sở 2: " + vnd(900_000));
+  });
+
+  await test("Công hành chính chỉ tính ở cơ sở chủ quản, không nhân đôi sang cơ sở kia", async () => {
+    const co1 = await fixtures.seedBranch(db);
+    const co2 = await fixtures.seedBranch(db);
+    const lop2 = await fixtures.seedClass(db, co2.id);
+    const gv = await fixtures.seedEmployee(db, co1.id, {
+      fullName: "GV kiêm hành chính",
+      teachingHourlyRate: 200_000,
+      staffDailyRate: 300_000,
+    });
+    await fixtures.seedTimesheetEntry(db, { employeeId: gv.id, workDate: day("2026-06-02"), days: 1 });
+    await fixtures.seedTimesheetEntry(db, { employeeId: gv.id, workDate: day("2026-06-03"), days: 1 });
+    const session = await fixtures.seedSession(db, lop2.id, day("2026-06-04"), "COMPLETED");
+    await fixtures.seedSessionAssignment(db, { sessionId: session.id, employeeId: gv.id, role: "TEACHER", hours: 1.5, hourlyRate: 200_000 });
+
+    const run1 = await fixtures.seedPayrollRun(db, co1.id, "2026-06");
+    const run2 = await fixtures.seedPayrollRun(db, co2.id, "2026-06");
+    await generatePayrollForRun(run1.id);
+    await generatePayrollForRun(run2.id);
+
+    const line1 = await db.payrollLine.findFirst({ where: { payrollRunId: run1.id, employeeId: gv.id } });
+    const line2 = await db.payrollLine.findFirst({ where: { payrollRunId: run2.id, employeeId: gv.id } });
+    expectEqual(line1?.staffDays, 2, "ngày công nằm ở cơ sở chủ quản");
+    expectEqual(line1?.baseSalaryAmount, 600_000, "lương hành chính " + vnd(600_000));
+    expectEqual(line2?.staffDays ?? 0, 0, "cơ sở kia KHÔNG được tính lại ngày công");
+    expectEqual(line2?.teachingAmount, 300_000, "cơ sở kia chỉ trả tiền buổi dạy tại đó");
+  });
+
+  await test("Thưởng/phạt tháng áp cho từng cơ sở theo đúng thu nhập tại cơ sở đó", async () => {
+    const co1 = await fixtures.seedBranch(db);
+    const co2 = await fixtures.seedBranch(db);
+    const lop1 = await fixtures.seedClass(db, co1.id);
+    const lop2 = await fixtures.seedClass(db, co2.id);
+    const tg = await fixtures.seedEmployee(db, co1.id, { fullName: "TG 2 cơ sở", assistantHourlyRate: 100_000 });
+    const s1 = await fixtures.seedSession(db, lop1.id, day("2026-06-02"), "COMPLETED");
+    await fixtures.seedSessionAssignment(db, { sessionId: s1.id, employeeId: tg.id, role: "ASSISTANT", hours: 2, hourlyRate: 100_000 });
+    const s2 = await fixtures.seedSession(db, lop2.id, day("2026-06-03"), "COMPLETED");
+    await fixtures.seedSessionAssignment(db, { sessionId: s2.id, employeeId: tg.id, role: "ASSISTANT", hours: 2, hourlyRate: 100_000 });
+    await db.employeeMonthlyRating.create({ data: { employeeId: tg.id, month: "2026-06", bonusPercent: 0.2 } });
+
+    const run1 = await fixtures.seedPayrollRun(db, co1.id, "2026-06");
+    const run2 = await fixtures.seedPayrollRun(db, co2.id, "2026-06");
+    await generatePayrollForRun(run1.id);
+    await generatePayrollForRun(run2.id);
+
+    const line1 = await db.payrollLine.findFirst({ where: { payrollRunId: run1.id, employeeId: tg.id } });
+    const line2 = await db.payrollLine.findFirst({ where: { payrollRunId: run2.id, employeeId: tg.id } });
+    expectEqual(line1?.assistantRatingBonus, 40_000, "20% của 200.000đ ở cơ sở 1");
+    expectEqual(line2?.assistantRatingBonus, 40_000, "20% của 200.000đ ở cơ sở 2");
+  });
+
   const failed = summary();
   await db.$disconnect();
   await sharedClient.$disconnect();

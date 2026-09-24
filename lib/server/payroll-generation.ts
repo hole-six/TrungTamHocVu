@@ -34,7 +34,27 @@ export async function generatePayrollForRun(runId: string) {
   }
 
   const { start, end } = monthRange(run.periodName);
-  const employees = await prisma.employee.findMany({ where: { branchId: run.branchId } });
+  // LƯƠNG TÍNH RIÊNG THEO TỪNG CƠ SỞ (chốt với chủ trung tâm 9/2026): một người có thể
+  // dạy nhiều cơ sở, cơ sở nào trả tiền cho buổi dạy tại cơ sở đó. Vì vậy bảng lương của
+  // một cơ sở gồm:
+  //   - nhân sự thuộc biên chế cơ sở đó (có cả ngày công hành chính), VÀ
+  //   - người ở cơ sở khác nhưng THỰC SỰ có buổi dạy/trợ giảng tại cơ sở này trong tháng.
+  // Trước đây chỉ lấy theo biên chế, nên giáo viên cơ sở A chạy sang dạy cơ sở B thì
+  // những buổi ở B KHÔNG NẰM TRONG BẢNG LƯƠNG NÀO CẢ — dạy xong không được trả.
+  const [homeEmployees, visitingEmployees] = await Promise.all([
+    prisma.employee.findMany({ where: { branchId: run.branchId } }),
+    prisma.employee.findMany({
+      where: {
+        branchId: { not: run.branchId },
+        sessionAssignments: {
+          some: {
+            session: { sessionDate: { gte: start, lte: end }, status: "COMPLETED", class: { branchId: run.branchId } },
+          },
+        },
+      },
+    }),
+  ]);
+  const employees = [...homeEmployees, ...visitingEmployees];
 
   let created = 0;
   let updated = 0;
@@ -69,7 +89,11 @@ export async function generatePayrollForRun(runId: string) {
           },
         },
       }),
-      prisma.timesheetEntry.findMany({ where: { employeeId: employee.id, workDate: { gte: start, lte: end } } }),
+      // Ngày công hành chính thuộc về CƠ SỞ CHỦ QUẢN của người đó — nếu cộng cả ở cơ sở
+      // họ sang dạy nhờ thì một ngày công bị trả lương hai lần.
+      employee.branchId === run.branchId
+        ? prisma.timesheetEntry.findMany({ where: { employeeId: employee.id, workDate: { gte: start, lte: end } } })
+        : Promise.resolve([] as Awaited<ReturnType<typeof prisma.timesheetEntry.findMany>>),
       // % thưởng/phạt tháng theo QUY CHẾ, gộp toàn bộ cơ sở (1 mức cho mỗi người mỗi
       // tháng — xem lib/server/assistant-score-rules.ts). Nhân với đúng thu nhập theo ca
       // kỳ này để tự ra số tiền, thay vì bắt nhân sự tự quy đổi % ra VNĐ rồi gõ tay.
@@ -192,21 +216,34 @@ export async function generatePayrollForRun(runId: string) {
  * chấm công, còn PayrollRun/PayrollLine chỉ còn đóng vai trò chỗ lưu các khoản nhập
  * tay — tạo ngầm ngay lúc người dùng bấm lưu điều chỉnh.
  */
-export async function ensurePayrollLineForEmployee(employeeId: string, periodName: string) {
+export async function ensurePayrollLineForEmployee(employeeId: string, periodName: string, branchId?: string) {
   const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
   if (!employee) return { error: "Không tìm thấy nhân sự" as const, code: "NOT_FOUND" as const };
 
-  const run = await ensurePayrollRun(employee.branchId, periodName);
+  // Lương tính RIÊNG theo từng cơ sở: dòng lương này thuộc về cơ sở nào thì chỉ gom buổi
+  // dạy/trợ giảng tại chính cơ sở đó. Không truyền branchId thì hiểu là cơ sở chủ quản.
+  // Trước đây hàm này gom buổi của MỌI cơ sở rồi nhét hết vào dòng lương của cơ sở chủ
+  // quản — vừa lệch với cách tính của cả bảng lương, vừa trả nhầm cơ sở.
+  const targetBranchId = branchId ?? employee.branchId;
+  const run = await ensurePayrollRun(targetBranchId, periodName);
   const { start, end } = monthRange(periodName);
+  const sessionScope = {
+    sessionDate: { gte: start, lte: end },
+    status: "COMPLETED",
+    class: { branchId: targetBranchId },
+  };
 
   const [teachingAssignments, assistantAssignments, timesheetEntries, monthlyBonus, existingLine] = await Promise.all([
     prisma.sessionAssignment.findMany({
-      where: { employeeId, role: "TEACHER", session: { sessionDate: { gte: start, lte: end }, status: "COMPLETED" } },
+      where: { employeeId, role: "TEACHER", session: sessionScope },
     }),
     prisma.sessionAssignment.findMany({
-      where: { employeeId, role: { in: ["ASSISTANT", "ASSISTANT2"] }, session: { sessionDate: { gte: start, lte: end }, status: "COMPLETED" } },
+      where: { employeeId, role: { in: ["ASSISTANT", "ASSISTANT2"] }, session: sessionScope },
     }),
-    prisma.timesheetEntry.findMany({ where: { employeeId, workDate: { gte: start, lte: end } } }),
+    // Ngày công hành chính chỉ thuộc cơ sở chủ quản (xem generatePayrollForRun).
+    employee.branchId === targetBranchId
+      ? prisma.timesheetEntry.findMany({ where: { employeeId, workDate: { gte: start, lte: end } } })
+      : Promise.resolve([] as Awaited<ReturnType<typeof prisma.timesheetEntry.findMany>>),
     prisma.employeeMonthlyRating.findUnique({
       where: { employeeId_month: { employeeId, month: periodName } },
     }),

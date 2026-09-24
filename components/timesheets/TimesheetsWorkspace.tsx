@@ -117,14 +117,49 @@ export default function TimesheetsWorkspace({
     router.refresh();
   }
 
-  // Lọc ngay ở client: toàn bộ nhân sự của tháng đã nằm sẵn trong props (vài chục người).
+  // LỌC THEO TỪNG CỘT như các bảng khác trong hệ thống (Data tuyển sinh, Sổ quỹ, Kho...):
+  // hàng ô lọc nằm ngay dưới tiêu đề cột. Toàn bộ nhân sự của tháng đã nằm sẵn trong
+  // props (vài chục người) nên lọc thẳng ở client, không cần gọi lại server.
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const filterValues = {
+    staff: columnFilters.staff ?? "",
+    daysFrom: columnFilters.daysFrom ?? "",
+    daysTo: columnFilters.daysTo ?? "",
+    sessionsFrom: columnFilters.sessionsFrom ?? "",
+    sessionsTo: columnFilters.sessionsTo ?? "",
+    todayStatus: columnFilters.todayStatus ?? "",
+  };
+
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return employees;
-    return employees.filter((item) =>
-      [item.fullName, item.employeeCode, item.position ?? ""].some((field) => field.toLowerCase().includes(query)),
-    );
-  }, [employees, search]);
+    const staff = (columnFilters.staff ?? "").trim().toLowerCase();
+    const daysFrom = columnFilters.daysFrom ? Number(columnFilters.daysFrom) : null;
+    const daysTo = columnFilters.daysTo ? Number(columnFilters.daysTo) : null;
+    const sessionsFrom = columnFilters.sessionsFrom ? Number(columnFilters.sessionsFrom) : null;
+    const sessionsTo = columnFilters.sessionsTo ? Number(columnFilters.sessionsTo) : null;
+    const todayStatus = columnFilters.todayStatus ?? "";
+
+    return employees.filter((item) => {
+      const haystack = [item.fullName, item.employeeCode, item.position ?? ""].map((field) => field.toLowerCase());
+      if (query && !haystack.some((field) => field.includes(query))) return false;
+      if (staff && !haystack.some((field) => field.includes(staff))) return false;
+
+      const days = round2(item.timesheetEntries.reduce((sum, entry) => sum + (entry.days ?? 0), 0));
+      if (daysFrom !== null && days < daysFrom) return false;
+      if (daysTo !== null && days > daysTo) return false;
+
+      const sessions = item.sessionAssignments.length;
+      if (sessionsFrom !== null && sessions < sessionsFrom) return false;
+      if (sessionsTo !== null && sessions > sessionsTo) return false;
+
+      if (todayStatus) {
+        const checkedToday = item.timesheetEntries.some((entry) => entry.workDate.slice(0, 10) === today);
+        if (todayStatus === "DONE" && !checkedToday) return false;
+        if (todayStatus === "PENDING" && checkedToday) return false;
+      }
+      return true;
+    });
+  }, [employees, search, columnFilters, today]);
 
   const selected = employees.find((item) => item.id === openId) ?? null;
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -135,6 +170,7 @@ export default function TimesheetsWorkspace({
     {
       key: "fullName",
       label: "Nhân viên",
+      filter: { type: "text", paramKey: "staff", placeholder: "Tên, mã NV, vị trí..." },
       render: (value, row) => (
         <div>
           <p className="font-semibold text-[#0f1729]">{value}</p>
@@ -149,6 +185,7 @@ export default function TimesheetsWorkspace({
     {
       key: "timesheetEntries",
       label: "Công hành chính",
+      filter: { type: "numberRange", paramKeyFrom: "daysFrom", paramKeyTo: "daysTo", placeholder: "công" },
       render: (_value, row) => {
         const days = round2(row.timesheetEntries.reduce((sum, entry) => sum + (entry.days ?? 0), 0));
         const hours = round2(row.timesheetEntries.reduce((sum, entry) => sum + (entry.hours ?? 0), 0));
@@ -168,6 +205,7 @@ export default function TimesheetsWorkspace({
     {
       key: "sessionAssignments",
       label: "Buổi dạy / TG",
+      filter: { type: "numberRange", paramKeyFrom: "sessionsFrom", paramKeyTo: "sessionsTo", placeholder: "buổi" },
       render: (_value, row) => {
         const hours = round2(row.sessionAssignments.reduce((sum, item) => sum + (item.hours ?? 0), 0));
         return row.sessionAssignments.length === 0 ? (
@@ -185,6 +223,15 @@ export default function TimesheetsWorkspace({
           {
             key: "id" as const,
             label: `Hôm nay ${vnDate(today)}`,
+            filter: {
+              type: "select" as const,
+              paramKey: "todayStatus",
+              placeholder: "Tất cả",
+              options: [
+                { label: "Đã chấm", value: "DONE" },
+                { label: "Chưa chấm", value: "PENDING" },
+              ],
+            },
             render: (_value: unknown, row: TimesheetEmployee) => {
               const entry = row.timesheetEntries.find((item) => item.workDate.slice(0, 10) === today);
               // Đã chấm: hiện RÕ làm từ mấy giờ tới mấy giờ, không chỉ số giờ.
@@ -318,6 +365,11 @@ export default function TimesheetsWorkspace({
         }}
         selectable={false}
         showCountBadge={false}
+        filterValues={filterValues}
+        onFilterChange={(key, value) => {
+          setColumnFilters((current) => ({ ...current, [key]: value ?? "" }));
+          setPage(1);
+        }}
         onRowClick={(row) => setOpenId(row.id)}
         primaryColumn="fullName"
         secondaryColumns={["timesheetEntries", "sessionAssignments"]}

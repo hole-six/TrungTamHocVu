@@ -70,16 +70,18 @@ export default function CalendarListView({
   return (
     <div className="overflow-hidden rounded-[17px] border border-[#dce7f3] bg-white shadow-[0_6px_18px_rgba(45,73,112,0.035)]">
       <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-        <table className="w-full min-w-[960px] text-left text-sm">
-          <thead className="bg-[#f7f9fc] text-[11px] uppercase tracking-[0.12em] text-ink-muted48">
+        <table className="w-full min-w-[1040px] text-left text-[15px]">
+          {/* Tiêu đề dính lại khi cuộn — danh sách cả tuần dài, cuộn xuống giữa bảng mà
+              mất tiêu đề thì không biết cột nào là cột nào. */}
+          <thead className="sticky top-0 z-10 bg-[#f7f9fc] text-[11px] uppercase tracking-[0.12em] text-ink-muted48 shadow-[0_1px_0_0_#e3ecf6]">
             <tr>
-              <th className="px-4 py-3">Ngày</th>
-              <th className="px-4 py-3">Giờ</th>
-              <th className="px-4 py-3">Lớp</th>
-              <th className="px-4 py-3">Phòng</th>
-              <th className="px-4 py-3">GV / TG</th>
-              <th className="px-4 py-3 text-center">Sĩ số</th>
-              <th className="px-4 py-3 text-right">Trạng thái</th>
+              <th className="px-5 py-3.5">Ngày</th>
+              <th className="px-5 py-3.5">Giờ</th>
+              <th className="px-5 py-3.5">Lớp</th>
+              <th className="px-5 py-3.5">Phòng</th>
+              <th className="px-5 py-3.5">GV / TG</th>
+              <th className="px-5 py-3.5 text-center">Sĩ số</th>
+              <th className="px-5 py-3.5 text-right">Trạng thái</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#eef3f9]">
@@ -100,36 +102,36 @@ export default function CalendarListView({
                   key={row.id}
                   className={`align-top transition ${isToday ? "bg-red-50 shadow-[inset_4px_0_0_0_#dc2626] hover:bg-red-100/70" : weekdayRowClass(row.sessionDate)}`}
                 >
-                  <td className={`whitespace-nowrap px-4 py-3 ${isToday ? "font-black text-red-700" : "font-semibold text-ink"}`}>
-                    <div className="flex items-center gap-2">
+                  <td className={`whitespace-nowrap px-5 py-4 ${isToday ? "font-black text-red-700" : "font-semibold text-ink"}`}>
+                    <div className="flex items-center gap-2 text-base">
                       <span>{formatRowDate(row.sessionDate)}</span>
                       {isToday ? (
                         <span className="inline-flex rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-black text-white">Hôm nay</span>
                       ) : null}
                     </div>
                   </td>
-                  <td className={`whitespace-nowrap px-4 py-3 ${isToday ? "font-bold text-red-700" : "text-ink-muted80"}`}>
-                    {row.startTime ?? "?"}-{row.endTime ?? "?"}
+                  <td className={`whitespace-nowrap px-5 py-4 text-base font-bold tabular-nums ${isToday ? "text-red-700" : "text-ink"}`}>
+                    {row.startTime ?? "?"}<span className="mx-0.5 font-normal text-ink-muted48">–</span>{row.endTime ?? "?"}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-4">
                     <Link
                       href={`/classes/${row.classId}/sessions/${row.id}`}
-                      className={`cursor-pointer hover:underline ${isToday ? "font-black text-red-700" : "font-bold text-[#0f1729] hover:text-[#1d4ed8]"}`}
+                      className={`cursor-pointer text-base hover:underline ${isToday ? "font-black text-red-700" : "font-bold text-[#0f1729] hover:text-[#1d4ed8]"}`}
                     >
                       {row.class.className}
                     </Link>
-                    <p className="mt-0.5 text-xs text-ink-muted48">
+                    <p className="mt-1 text-[13px] text-ink-muted48">
                       {row.class.classCode}
                       {row.class.course?.name ? ` · ${row.class.course.name}` : ""}
                     </p>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-4">
                     <span className={row.room ? "text-ink" : "font-semibold text-amber-600"}>{row.room || "Chưa gán phòng"}</span>
                   </td>
                   {/* Thiếu người thì bôi CAM y như "Chưa gán phòng" — 3 thứ thiếu của một
                       buổi (phòng, GV, TG) phải nhìn ra ngay trên cùng một dòng.
                       Lớp có 2 trợ giảng thì mỗi người một dòng, không dồn 1 dòng dài. */}
-                  <td className="px-4 py-3 text-xs leading-5 text-ink-muted80">
+                  <td className="px-5 py-4 text-[13px] leading-6 text-ink-muted80">
                     <p>
                       <span className="font-semibold text-ink">GV:</span>{" "}
                       {teacherNames.length > 0 ? (
@@ -151,9 +153,9 @@ export default function CalendarListView({
                       </p>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-center font-semibold text-ink">{enrollmentCount}</td>
-                  <td className="px-4 py-3 text-right">
-                    <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-bold ${statusBadgeClass(row.status)}`}>
+                  <td className="px-5 py-4 text-center text-base font-bold tabular-nums text-ink">{enrollmentCount}</td>
+                  <td className="px-5 py-4 text-right">
+                    <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-bold ${statusBadgeClass(row.status)}`}>
                       {SESSION_STATUS_LABEL[row.status] ?? row.status}
                     </span>
                   </td>
