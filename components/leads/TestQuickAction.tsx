@@ -35,9 +35,7 @@ export default function TestQuickAction({
   actualEnrollDate?: Date | string | null;
   interestedClassId?: string | null;
   classOptions: { id: string; className: string }[];
-  /** Nơi gọi tự giữ dữ liệu trong state (drawer chi tiết lead fetch qua
-   *  /api/leads/[id]/detail) phải nạp lại — router.refresh() chỉ dựng lại server
-   *  component, KHÔNG chạy lại fetch phía client nên drawer sẽ vẫn hiện ngày hẹn cũ. */
+  /** Nơi gọi tự giữ dữ liệu trong state phải nạp lại sau khi lưu. */
   onSaved?: () => void;
 }) {
   const router = useRouter();
@@ -59,10 +57,6 @@ export default function TestQuickAction({
 
   useEffect(() => setMounted(true), []);
 
-  // Đồng bộ lại form mỗi lần MỞ panel theo dữ liệu mới nhất từ props. useState ở trên
-  // chỉ chạy đúng 1 lần lúc mount, mà dòng lead ở bảng/drawer không bị unmount sau khi
-  // lưu — nên nếu không có chỗ này, mở lại panel sẽ thấy đúng giá trị của lần mount đầu
-  // tiên chứ không phải ngày vừa lưu.
   useEffect(() => {
     if (!open) return;
     setForm({
@@ -75,13 +69,18 @@ export default function TestQuickAction({
     });
     setSelectedClassId(interestedClassId ?? "");
     setError(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, latestTest?.id, latestTest?.scheduledDate, latestTest?.testDate, latestTest?.status, expectedStartDate, actualEnrollDate, interestedClassId]);
 
   async function save() {
     setSaving(true);
     setError(null);
-    const { expectedStartDate: expectedStartDateInput, actualEnrollDate: actualEnrollDateInput, ...testForm } = form;
+    const expectedStartDateInput = form.expectedStartDate;
+    const testForm = {
+      scheduledDate: form.scheduledDate,
+      testDate: form.testDate,
+      status: form.status,
+      result: form.result,
+    };
     const url = latestTest ? `/api/placement-tests/${latestTest.id}` : `/api/leads/${leadId}/placement-test`;
     const res = await fetch(url, {
       method: latestTest ? "PATCH" : "POST",
@@ -91,23 +90,21 @@ export default function TestQuickAction({
     if (!res.ok) {
       setSaving(false);
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Không thể lưu.");
+      setError(data.error ?? "Không thể lưu lịch/kết quả test.");
       return;
     }
-    // Kết quả test kéo theo trạng thái lead — phải nói rõ ra, nếu không nhân sự tưởng
-    // hệ thống không làm gì và đi bấm lại trạng thái ở chỗ khác.
+
     const testData = await res.json().catch(() => ({}));
     const leadStatusMessage: string | null = testData?.leadStatusMessage ?? null;
 
-    // Lớp dự kiến giờ chọn từ danh mục lớp có sẵn (Lead.interestedClassId, đã là FK
-    // thật) thay vì gõ tay tự do (PlacementTest.suggestedClass) — luôn ghi lại cùng
-    // lúc với ngày dự kiến đi học / ngày nhập học TT (nếu có) trong 1 lần PATCH lead
-    // duy nhất, để panel này là chỗ đầy đủ duy nhất chỉnh cả 4 ngày của dòng lead.
     const leadPatch: Record<string, unknown> = {
       interestedClassId: selectedClassId || null,
-      actualEnrollDate: actualEnrollDateInput || null,
     };
-    if (canSetStartDate) leadPatch.expectedStartDate = expectedStartDateInput || null;
+    if (canSetStartDate) {
+      leadPatch.expectedStartDate = expectedStartDateInput || null;
+      leadPatch.subStatus = selectedClassId ? "CLASS_ASSIGNED" : "WAITING_CLASS";
+    }
+
     const leadRes = await fetch(`/api/leads/${leadId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -116,31 +113,19 @@ export default function TestQuickAction({
     if (!leadRes.ok) {
       setSaving(false);
       const data = await leadRes.json().catch(() => ({}));
-      setError(data.error ?? "Đã lưu kết quả test nhưng không lưu được lớp dự kiến / ngày dự kiến đi học.");
+      setError(data.error ?? "Đã lưu test nhưng chưa lưu được lớp/ngày dự kiến.");
       return;
-    }
-
-    if (canSetStartDate && selectedClassId) {
-      const enrollRes = await fetch(`/api/leads/${leadId}/enroll-class`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          classId: selectedClassId,
-          enrollDate: actualEnrollDateInput || expectedStartDateInput || new Date().toISOString().slice(0, 10),
-        }),
-      });
-      if (!enrollRes.ok) {
-        setSaving(false);
-        const data = await enrollRes.json().catch(() => ({}));
-        setError(data.error ?? "Đã lưu kết quả đạt test nhưng chưa gán được lớp.");
-        return;
-      }
-      toast.success("Đã tự tạo học viên và gán lớp từ Data đạt test.", "Đã gán lớp");
     }
 
     setSaving(false);
     setOpen(false);
     if (leadStatusMessage) toast.success(leadStatusMessage, "Đã đồng bộ trạng thái lead");
+    toast.success(
+      form.status === "PASSED"
+        ? "Đã lưu kết quả Đạt. Muốn chuyển thành học viên thì bấm Gán lớp ở danh sách."
+        : "Đã lưu lịch/kết quả test.",
+      "Đã lưu",
+    );
     onSaved?.();
     router.refresh();
   }
@@ -161,15 +146,11 @@ export default function TestQuickAction({
 
       {mounted && open
         ? createPortal(
-            // Portal thẳng ra document.body — KHÔNG render lồng trong ô bảng nữa.
-            // .card trong bảng có :hover{transform:...}, mà transform trên tổ tiên
-            // biến nó thành containing block cho position:fixed bên trong, khiến
-            // panel bị "giật" theo lúc hover/rời chuột khỏi bảng nếu còn nằm lồng.
             <div className="fixed inset-0 z-[9999] flex justify-end">
               <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
               <div className="relative flex h-full w-full max-w-md flex-col bg-white shadow-2xl animate-[slideInRight_0.2s_ease-out]">
                 <div className="flex items-center justify-between border-b border-hairline px-5 py-4">
-                  <h3 className="font-display text-base font-bold text-ink">{latestTest ? "Cập nhật test & nhập học" : "Hẹn lịch test mới"}</h3>
+                  <h3 className="font-display text-base font-bold text-ink">{latestTest ? "Cập nhật test" : "Hẹn lịch test mới"}</h3>
                   <button type="button" onClick={() => setOpen(false)} className="rounded-lg p-1.5 text-ink-muted48 hover:bg-ink/5 hover:text-ink">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="18" y1="6" x2="6" y2="18" />
@@ -179,6 +160,10 @@ export default function TestQuickAction({
                 </div>
 
                 <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium leading-5 text-amber-800">
+                    Lưu ở đây chỉ cập nhật lịch/kết quả test và lớp dự kiến. Khi học viên đạt test, phải bấm riêng nút Gán lớp ở danh sách để tạo học viên.
+                  </div>
+
                   <div className="grid grid-cols-2 gap-3">
                     <div className="form-group">
                       <label className="label">Ngày hẹn test</label>
@@ -202,7 +187,7 @@ export default function TestQuickAction({
                   <div className="form-group">
                     <label className="label">Lớp dự kiến</label>
                     <select className="input" value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)}>
-                      <option value="">— Chưa xác định —</option>
+                      <option value="">-- Chưa xác định --</option>
                       {classOptions.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.className}
@@ -225,13 +210,9 @@ export default function TestQuickAction({
                           </svg>
                           {form.expectedStartDate ? new Date(form.expectedStartDate).toLocaleDateString("vi-VN") : "Chưa xác định"}
                         </div>
-                        <p className="form-hint">Chỉ chỉnh được sau khi chọn tình trạng test là "Đạt" ở trên.</p>
+                        <p className="form-hint">Chỉ chỉnh được sau khi chọn tình trạng test là "Đạt".</p>
                       </>
                     )}
-                  </div>
-                  <div className="form-group">
-                    <label className="label">Ngày nhập học TT</label>
-                    <DatePicker value={form.actualEnrollDate} onChange={(v) => setForm((f) => ({ ...f, actualEnrollDate: v }))} />
                   </div>
                   <div className="form-group">
                     <label className="label">Kết quả / nhận xét</label>
@@ -250,12 +231,12 @@ export default function TestQuickAction({
                     Hủy
                   </button>
                   <button type="button" onClick={save} disabled={saving} className="btn-primary text-xs">
-                    {saving ? "Đang lưu..." : canSetStartDate && selectedClassId ? "Lưu và gán lớp" : "Lưu"}
+                    {saving ? "Đang lưu..." : "Lưu test"}
                   </button>
                 </div>
               </div>
             </div>,
-            document.body
+            document.body,
           )
         : null}
     </>

@@ -21,6 +21,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!lead) return NextResponse.json({ error: "Không tìm thấy lead" }, { status: 404 });
 
   const body = await req.json();
+  const nextStatus = body.status || "SCHEDULED";
+  if (lead.status === "LOST" && nextStatus !== "NO_NEED") {
+    return NextResponse.json(
+      { error: "Data đang ở trạng thái Không có nhu cầu. Hãy mở lại Data trước khi hẹn test hoặc ghi nhận kết quả test mới." },
+      { status: 409 },
+    );
+  }
 
   const suggestedClass = body.suggestedClass || suggestGradeLevel(calculateAge(lead.dob));
   const testDate = body.testDate ? new Date(body.testDate) : null;
@@ -31,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         leadId: lead.id,
         scheduledDate: body.scheduledDate ? new Date(body.scheduledDate) : null,
         testDate,
-        status: body.status || "SCHEDULED",
+        status: nextStatus,
         suggestedClass,
         result: body.result || null,
         notes: body.notes || null,

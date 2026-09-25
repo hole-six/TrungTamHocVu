@@ -30,6 +30,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (!PLACEMENT_TEST_STATUSES.includes(body.status)) {
       return NextResponse.json({ error: "Trạng thái test không hợp lệ" }, { status: 400 });
     }
+    if (existing.lead.status === "LOST" && body.status !== existing.status && body.status !== "NO_NEED") {
+      return NextResponse.json(
+        { error: "Data đang ở trạng thái Không có nhu cầu. Hãy mở lại Data trước khi hẹn test hoặc ghi nhận kết quả test mới." },
+        { status: 409 },
+      );
+    }
     data.status = body.status;
   }
 
