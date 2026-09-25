@@ -115,6 +115,7 @@ export default async function CalendarPage({
   // mặc định; lưới tuần vẫn mở được bằng nút "Lưới".
   const view = searchParams.view === "grid" ? "grid" : "list";
   const anchor = searchParams.week ? new Date(searchParams.week) : new Date();
+  const staffHoursHref = `/timesheets/hours?month=${anchor.toISOString().slice(0, 7)}`;
   const weekStart = startOfWeek(anchor);
   const weekEnd = new Date(weekStart);
   weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
@@ -323,6 +324,19 @@ export default async function CalendarPage({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={staffHoursHref}
+            className="inline-flex h-9 items-center gap-2 rounded-full border border-[#dce7f3] bg-white px-3 text-xs font-bold text-[#0f1729] shadow-sm transition hover:border-primary/30 hover:text-primary"
+            title="Mở tab giờ dự kiến của nhân sự"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            Giờ dự kiến nhân sự
+          </a>
           {canBulkAssign && holidayBranches.length > 0 ? (
             <HolidayClosureDrawer branches={holidayBranches} defaultBranchId={activeBranchId ?? holidayBranches[0].id} />
           ) : null}
