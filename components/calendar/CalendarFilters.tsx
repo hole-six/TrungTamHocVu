@@ -50,7 +50,7 @@ export default function CalendarFilters({
   const [week, setWeek] = useState(initialWeek);
   const [query, setQuery] = useState(initialQuery);
   const [timePreset, setTimePreset] = useState(initialTimePreset || "all");
-  const [view, setView] = useState(initialView || "grid");
+  const [view, setView] = useState(initialView || "list");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const quickPresets = useMemo(
@@ -73,7 +73,7 @@ export default function CalendarFilters({
     if (resolvedWeek) params.set("week", startOfWeek(resolvedWeek));
     if (resolvedQuery.trim()) params.set("q", resolvedQuery.trim());
     if (resolvedTimePreset && resolvedTimePreset !== "all") params.set("timePreset", resolvedTimePreset);
-    if (resolvedView && resolvedView !== "grid") params.set("view", resolvedView);
+    if (resolvedView && resolvedView !== "list") params.set("view", resolvedView);
 
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
@@ -189,19 +189,6 @@ export default function CalendarFilters({
             <button
               type="button"
               onClick={() => {
-                setView("grid");
-                pushFilters({ view: "grid" });
-              }}
-              className={`rounded-[8px] px-3 py-1.5 text-xs font-semibold transition ${
-                view === "grid" ? "bg-[#eaf4ff] text-[#1389e8]" : "text-[#5d7290] hover:text-primary"
-              }`}
-              title="Xem dạng lưới theo tuần"
-            >
-              Lưới
-            </button>
-            <button
-              type="button"
-              onClick={() => {
                 setView("list");
                 pushFilters({ view: "list" });
               }}
@@ -211,6 +198,19 @@ export default function CalendarFilters({
               title="Xem dạng danh sách, mỗi buổi 1 dòng"
             >
               Danh sách
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setView("grid");
+                pushFilters({ view: "grid" });
+              }}
+              className={`rounded-[8px] px-3 py-1.5 text-xs font-semibold transition ${
+                view === "grid" ? "bg-[#eaf4ff] text-[#1389e8]" : "text-[#5d7290] hover:text-primary"
+              }`}
+              title="Xem dạng lưới theo tuần"
+            >
+              Lưới
             </button>
           </div>
           {quickPresets.map((preset) => (

@@ -252,6 +252,23 @@ export default function PayrollWorkspace({
     { key: "missing-rate", label: "Thiếu đơn giá", count: totals.missingRateCount },
     { key: "missing-bank", label: "Thiếu chuyển khoản", count: totals.missingBankCount },
   ];
+  const filterChipNodes = (
+    <>
+      {filterChips.map((chip) => (
+        <Link
+          key={chip.key}
+          href={pageHref({ filter: chip.key })}
+          className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+            initialFilter === chip.key
+              ? "bg-[#0f1729] text-white"
+              : "border border-[#e2e8f0] bg-white text-[#475569] hover:border-[#94a3b8]"
+          }`}
+        >
+          {chip.label} ({formatNumber(chip.count)})
+        </Link>
+      ))}
+    </>
+  );
 
   return (
     <div className="space-y-4">
@@ -314,22 +331,6 @@ export default function PayrollWorkspace({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {filterChips.map((chip) => (
-          <Link
-            key={chip.key}
-            href={pageHref({ filter: chip.key })}
-            className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
-              initialFilter === chip.key
-                ? "bg-[#0f1729] text-white"
-                : "border border-[#e2e8f0] bg-white text-[#475569] hover:border-[#94a3b8]"
-            }`}
-          >
-            {chip.label} ({formatNumber(chip.count)})
-          </Link>
-        ))}
-      </div>
-
       <DataTableResponsive
         data={pagedRows}
         columns={columns}
@@ -339,6 +340,8 @@ export default function PayrollWorkspace({
         searchPlaceholder="Tìm theo mã, tên..."
         onSearch={handleSearch}
         defaultSearchValue={search}
+        filterChips={filterChipNodes}
+        className="[&_[data-dt=header]]:justify-between [&_[data-dt=search]]:max-w-[360px] [&_[data-dt=search]]:flex-[0_1_360px] [&_[data-dt=toolbar]]:ml-auto"
         filterValues={{
           position,
           bonusFrom: searchParams.get("bonusFrom") ?? "",

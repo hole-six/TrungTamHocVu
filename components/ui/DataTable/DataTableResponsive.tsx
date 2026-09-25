@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import DataTable, { Column, Action, BulkAction } from "./DataTable";
 import DataTableMobile from "./DataTableMobile";
 
@@ -58,21 +58,23 @@ export default function DataTableResponsive<T extends Record<string, any>>({
   secondaryColumns = [],
   ...props
 }: DataTableResponsiveProps<T>) {
-  return (
-    <>
-      {/* Desktop Table - Hidden on mobile */}
-      <div className="hidden md:block">
-        <DataTable {...props} />
-      </div>
+  const [isDesktop, setIsDesktop] = useState(true);
 
-      {/* Mobile Card View - Hidden on desktop */}
-      <div className="block md:hidden">
-        <DataTableMobile
-          {...props}
-          primaryColumn={primaryColumn}
-          secondaryColumns={secondaryColumns}
-        />
-      </div>
-    </>
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 768px)");
+    const update = () => setIsDesktop(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  if (isDesktop) return <DataTable {...props} />;
+
+  return (
+    <DataTableMobile
+      {...props}
+      primaryColumn={primaryColumn}
+      secondaryColumns={secondaryColumns}
+    />
   );
 }

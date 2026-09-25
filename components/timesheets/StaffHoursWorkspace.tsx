@@ -205,17 +205,18 @@ export default function StaffHoursWorkspace({
         </div>
       </div>
 
-      <div className="card overflow-x-auto p-0">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-hairline bg-[#f8fbff] text-xs uppercase tracking-wide text-[#7b8ea5]">
+      <div className="overflow-hidden rounded-lg border border-[#e5e7eb] bg-white shadow-sm">
+        <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <table className="w-full bg-white text-left text-sm">
+          <thead className="border-b border-[#e5e7eb] bg-white text-xs uppercase tracking-normal text-[#111827]">
             <tr>
-              <th className="px-4 py-3 font-bold">Nhân viên</th>
-              <th className="px-4 py-3 font-bold">Định mức/tháng</th>
-              <th className="px-4 py-3 font-bold">Giờ dự kiến</th>
-              <th className="px-4 py-3 font-bold">Giờ thực tế</th>
-              <th className="px-4 py-3 font-bold">Chênh lệch</th>
-              <th className="px-4 py-3 font-bold">Vì sao lệch</th>
-              <th className="px-4 py-3 font-bold">Ghi chú</th>
+              <th className="px-6 py-3 font-bold">Nhân viên</th>
+              <th className="px-6 py-3 font-bold">Định mức/tháng</th>
+              <th className="px-6 py-3 font-bold">Giờ dự kiến</th>
+              <th className="px-6 py-3 font-bold">Giờ thực tế</th>
+              <th className="px-6 py-3 font-bold">Chênh lệch</th>
+              <th className="px-6 py-3 font-bold">Vì sao lệch</th>
+              <th className="px-6 py-3 font-bold">Ghi chú</th>
             </tr>
           </thead>
           <tbody>
@@ -225,8 +226,8 @@ export default function StaffHoursWorkspace({
               const shortOfQuota =
                 scope === "MONTH" && row.contractHoursPerMonth != null && bucket!.plannedHours < row.contractHoursPerMonth;
               return (
-                <tr key={row.employeeId} className="border-b border-hairline align-top last:border-0">
-                  <td className="px-4 py-3">
+                <tr key={row.employeeId} className="border-b border-[#f1f5f9] align-top transition-colors last:border-0 hover:bg-[#f8fafc]">
+                  <td className="px-6 py-4">
                     <p className="font-semibold text-[#0f1729]">{row.fullName}</p>
                     <p className="mt-0.5 text-xs text-[#94a3b8]">
                       {row.employeeCode}
@@ -234,7 +235,7 @@ export default function StaffHoursWorkspace({
                       {row.payMode === "MONTHLY" ? " · lương tháng" : ""}
                     </p>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-4">
                     {quotaDraft?.employeeId === row.employeeId ? (
                       <div className="flex items-center gap-1">
                         <input
@@ -274,18 +275,18 @@ export default function StaffHoursWorkspace({
                       </p>
                     ) : null}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-4">
                     <p className="font-semibold text-[#0f1729]">{h(bucket!.plannedHours)}</p>
                     <p className="text-xs text-[#94a3b8]">{bucket!.plannedSessions} ca theo lịch</p>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-4">
                     <p className="font-semibold text-[#0f1729]">{h(actual)}</p>
                     <p className="text-xs text-[#94a3b8]">
                       dạy {h(bucket!.actualHours)} ({bucket!.actualSessions} ca)
                       {bucket!.adminHours > 0 ? ` · hành chính ${h(bucket!.adminHours)}` : ""}
                     </p>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-4">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-bold ${
                         gap === 0 ? "bg-[#ecfdf3] text-[#15803d]" : gap > 0 ? "bg-[#eff6ff] text-[#2563eb]" : "bg-amber-50 text-amber-800"
@@ -294,8 +295,8 @@ export default function StaffHoursWorkspace({
                       {gap > 0 ? `+${h(gap)}` : h(gap)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-[#64748b]">{gapText(bucket!) || "Đúng kế hoạch"}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-4 text-xs text-[#64748b]">{gapText(bucket!) || "Đúng kế hoạch"}</td>
+                  <td className="px-6 py-4">
                     {noteDraft?.employeeId === row.employeeId ? (
                       <div className="flex items-start gap-1">
                         <textarea
@@ -331,13 +332,14 @@ export default function StaffHoursWorkspace({
             })}
             {view.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-sm text-[#94a3b8]">
+                <td colSpan={7} className="px-6 py-10 text-center text-sm text-[#94a3b8]">
                   Không có nhân sự nào khớp.
                 </td>
               </tr>
             ) : null}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

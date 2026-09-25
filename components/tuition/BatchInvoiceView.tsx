@@ -484,8 +484,8 @@ export default function BatchInvoiceView({
                             </select>
                           </label>
                           <label className="block">
-                            <span className="text-xs font-medium text-ink-muted48">T�m học vi�n</span>
-                            <input className="input mt-1" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="T�n học vi�n, m� học vi�n..." />
+                            <span className="text-xs font-medium text-ink-muted48">Tìm học viên</span>
+                            <input className="input mt-1" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tên học viên, mã học viên..." />
                           </label>
                         </div>
 

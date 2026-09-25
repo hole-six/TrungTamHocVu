@@ -31,10 +31,10 @@ function statusBadgeClass(status: string) {
 }
 
 // Nền chìm xen kẽ theo THỨ để mắt tách được các ngày trong danh sách dài:
-// thứ 2/4/6 nền nhạt, thứ 3/5/7 nền trắng (chủ nhật theo nhóm nền nhạt).
+// thứ 2/4/6 nền nhạt, thứ 3/5/7 nền trắng; hôm nay được tô đỏ riêng.
 function weekdayRowClass(value: string | Date) {
   const weekday = new Date(value).getUTCDay();
-  const tinted = weekday === 1 || weekday === 3 || weekday === 5 || weekday === 0;
+  const tinted = weekday === 1 || weekday === 3 || weekday === 5;
   return tinted ? "bg-[#f6f9fd] hover:bg-[#eef4fb]" : "bg-white hover:bg-[#fafdff]";
 }
 

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
+import { repairMojibakeText } from "@/lib/text-encoding";
 
 export async function getBatchInvoiceViewData(periodId: string) {
   const period = await prisma.billingPeriod.findUnique({
@@ -93,7 +94,7 @@ export async function getBatchInvoiceViewData(periodId: string) {
       totalAmount: c.totalAmount,
       billingModel: c.billingModel,
       currentEnrollmentBillingModel: enrollment?.billingModel ?? c.billingModel,
-      student: { id: c.student.id, fullName: c.student.fullName, studentCode: c.student.studentCode },
+      student: { id: c.student.id, fullName: repairMojibakeText(c.student.fullName), studentCode: c.student.studentCode },
       class: { className: c.class.className, branch: { name: c.class.branch.name } },
       billingPeriod: { periodName: c.billingPeriod.periodName },
       allocations: c.allocations.map((a) => ({ amount: a.amount })),

@@ -13,6 +13,7 @@ import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/Spotlig
 import { formatVnd } from "@/lib/export-utils";
 import StudentLink from "@/components/students/StudentLink";
 import BackButton from "@/components/ui/BackButton";
+import { repairMojibakeText } from "@/lib/text-encoding";
 
 const TUITION_TOUR_STEPS: TourStep[] = [
   {
@@ -149,7 +150,7 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <StudentLink studentId={c.studentId} className="text-base font-semibold text-primary">
-                    {c.student.fullName}
+                    {repairMojibakeText(c.student.fullName)}
                   </StudentLink>
                   <p className="text-xs text-ink-muted48 mt-1">
                     {c.student.studentCode}
@@ -167,7 +168,7 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-canvas-parchment p-3">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted48">Phụ huynh</p>
-                  <p className="text-sm font-medium text-ink mt-1">{primaryGuardian?.fullName ?? "Chưa gắn"}</p>
+                  <p className="text-sm font-medium text-ink mt-1">{primaryGuardian ? repairMojibakeText(primaryGuardian.fullName) : "Chưa gắn"}</p>
                   <p className="text-xs text-ink-muted48">{primaryGuardian?.phone ?? "—"}</p>
                 </div>
                 <div>
@@ -269,12 +270,12 @@ export default async function BillingPeriodDetailPage({ params }: { params: { id
               <tr key={c.id} className="border-b border-hairline last:border-0 hover:bg-canvas-parchment/40">
                 <td className="px-4 py-3">
                   <StudentLink studentId={c.studentId} className="font-medium text-primary">
-                    {c.student.fullName} <span className="text-ink-muted48">({c.student.studentCode})</span>
+                    {repairMojibakeText(c.student.fullName)} <span className="text-ink-muted48">({c.student.studentCode})</span>
                   </StudentLink>
                   {c.student.lead?.leadCode ? <p className="mt-1 text-xs text-ink-muted48">Lead: {c.student.lead.leadCode}</p> : null}
                 </td>
                 <td className="px-4 py-3 text-ink-muted80">
-                  <div>{primaryGuardian?.fullName ?? "Chưa gắn phụ huynh"}</div>
+                  <div>{primaryGuardian ? repairMojibakeText(primaryGuardian.fullName) : "Chưa gắn phụ huynh"}</div>
                   <div className="text-xs text-ink-muted48">
                     {primaryGuardian?.phone ?? "Chưa có SĐT"}
                     {primaryGuardian?.user?.email ? ` · ${primaryGuardian.user.email}` : ""}

@@ -68,7 +68,7 @@ const CALENDAR_PAGE_GUIDE_SECTIONS = [
   {
     title: "Trang này để làm gì",
     items: [
-      "Xem toàn bộ lịch học trong tuần theo từng ngày.",
+      "Xem toàn bộ lịch học trong tuần theo dạng danh sách là chính.",
       "Kiểm tra nhanh giờ học, phòng, giáo viên, trợ giảng và trạng thái buổi.",
       "Mở thẳng vào buổi học khi cần điểm danh, đổi lịch hoặc viết nhật ký.",
       "Gán giáo viên/trợ giảng cho nhiều buổi cùng lúc bằng nút Phân công hàng loạt (có xem trước, tự bỏ qua buổi trùng lịch).",
@@ -80,7 +80,7 @@ const CALENDAR_PAGE_GUIDE_SECTIONS = [
     items: [
       "Chọn đúng tuần trước, rồi mới tìm theo lớp, phòng hoặc giáo viên.",
       "Dùng lọc sáng, chiều, tối khi một ngày có quá nhiều buổi.",
-      "Bấm trực tiếp vào thẻ buổi học để mở đúng buổi cần xử lý.",
+      "Bấm trực tiếp vào dòng buổi học để mở đúng buổi cần xử lý.",
     ],
     tone: "success" as const,
   },
@@ -498,3 +498,4 @@ export default async function CalendarPage({
     </div>
   );
 }
+
