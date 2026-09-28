@@ -56,6 +56,8 @@ model Branch {
   importJobs              ImportJob[]
   assets                  Asset[]
   assistantScoreEvents    AssistantScoreEvent[]
+  employeeLinks           EmployeeBranch[]
+  timesheetEntries        TimesheetEntry[]
 
   @@map("branches")
 }
@@ -190,6 +192,11 @@ model Employee {
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
   branch                  Branch                    @relation(fields: [branchId], references: [id])
+  // Một người có thể làm ở NHIỀU cơ sở (chốt 9/2026). `branchId` ở trên là CƠ SỞ CHÍNH
+  // (nơi giữ hồ sơ, mặc định cho ngày công), còn danh sách đầy đủ nằm ở đây — kể cả
+  // "gắn full cơ sở". Mọi chỉ số vẫn thống kê RIÊNG từng cơ sở, bảng này chỉ nói người
+  // đó được phép xuất hiện ở cơ sở nào.
+  branchLinks             EmployeeBranch[]
   user                    User?
   contracts               EmploymentContract[]
   payPolicies             PayPolicy[]
@@ -1000,6 +1007,23 @@ model JournalScore {
 // Tách khỏi ClassSession vì đây là chấm công văn phòng theo ngày, không theo buổi dạy.
 // =============================================================================
 
+// Nhân sự làm việc tại những cơ sở nào. Một người gắn được nhiều cơ sở (tới mức "full
+// cơ sở"), nhưng LƯƠNG VÀ CHỈ SỐ VẪN TÍNH RIÊNG TỪNG CƠ SỞ — bảng này chỉ quyết định
+// người đó hiện ra ở danh sách/màn lương của cơ sở nào, không gộp số liệu.
+model EmployeeBranch {
+  id         String   @id @default(uuid())
+  employeeId String   @map("employee_id")
+  branchId   String   @map("branch_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  branch   Branch   @relation(fields: [branchId], references: [id])
+
+  @@unique([employeeId, branchId])
+  @@index([branchId])
+  @@map("employee_branches")
+}
+
 model TimesheetPeriod {
   id         String    @id @default(uuid())
   branchId   String    @map("branch_id")
@@ -1021,6 +1045,10 @@ model TimesheetEntry {
   id            String   @id @default(uuid())
   periodId      String?  @map("period_id")
   employeeId    String   @map("employee_id")
+  // Ngày công này làm Ở CƠ SỞ NÀO. Bắt buộc từ khi 1 người gắn được nhiều cơ sở: nếu
+  // không ghi, bảng lương của mọi cơ sở người đó thuộc về đều cộng cùng một ngày công
+  // → trả lương hai lần. Null = dữ liệu cũ, hiểu là cơ sở chính của người đó.
+  branchId      String?  @map("branch_id")
   workDate      DateTime @map("work_date")
   checkInAm     String?  @map("check_in_am") // Đến S
   checkOutAm    String?  @map("check_out_am") // Về S
@@ -1034,8 +1062,10 @@ model TimesheetEntry {
 
   period   TimesheetPeriod? @relation(fields: [periodId], references: [id])
   employee Employee         @relation(fields: [employeeId], references: [id])
+  branch   Branch?          @relation(fields: [branchId], references: [id])
 
   @@unique([employeeId, workDate])
+  @@index([branchId])
   @@map("timesheet_entries")
 }
 

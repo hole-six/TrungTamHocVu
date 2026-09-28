@@ -474,11 +474,15 @@ export default function SessionAssignmentForm({
 
           <label className="form-group">
             <span className="label-sm">Vai trò trong buổi này</span>
+            {/* Số GV/TG một buổi KHÔNG cố định: cần 2 giáo viên thì phân công 2 lần với
+                2 người, cùng vai trò "Giáo viên". Bỏ mục "Trợ giảng 2" vì nó khiến người
+                dùng tưởng mỗi buổi chỉ được tối đa 2 trợ giảng (dữ liệu cũ vẫn đọc bình
+                thường — xem lib/assignment-roles.ts). */}
             <select className="input" value={role} onChange={(event) => setRole(event.target.value)}>
-              <option value="TEACHER">Giáo viên chính</option>
+              <option value="TEACHER">Giáo viên</option>
               <option value="ASSISTANT">Trợ giảng</option>
-              <option value="ASSISTANT2">Trợ giảng 2</option>
             </select>
+            <p className="form-hint">Buổi cần nhiều giáo viên hoặc nhiều trợ giảng thì phân công thêm lần nữa với người khác.</p>
           </label>
         </div>
 

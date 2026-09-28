@@ -5,6 +5,8 @@ import { computeHoursFromTimeRange } from "@/lib/server/payroll-rules";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate } from "@/lib/server/role-matrix";
 import { ensureTimesheetPeriodForEntry } from "@/lib/server/database-sync";
+import { resolveTimesheetBranchId } from "@/lib/server/employee-branches";
+import { getCurrentBranchId } from "@/lib/branch-filter";
 
 // Lý do bị từ chối khác nhau theo vai trò: Giáo viên/Trợ giảng không chấm công ngày vì
 // công dạy tính từ buổi học đã phân công — nhưng lý do đó vô nghĩa với các vai trò quản
@@ -54,11 +56,16 @@ export async function POST(req: NextRequest) {
 
   const totals = computeTimesheetTotals(body);
 
+  // Ngày công phải biết mình thuộc cơ sở nào: một người gắn nhiều cơ sở mà không ghi
+  // thì bảng lương cơ sở nào cũng cộng ngày này (trả trùng) — xem employee-branches.ts.
+  const entryBranchId = await resolveTimesheetBranchId(employeeId, await getCurrentBranchId(body.branchId ?? null));
+
   const entry = await prisma.$transaction(async (tx) => {
     const periodId = await ensureTimesheetPeriodForEntry(employeeId, workDate, tx);
     return tx.timesheetEntry.create({
       data: {
         employeeId,
+        branchId: entryBranchId,
         periodId,
         workDate,
         checkInAm: totals.checkInAm || null,
@@ -91,12 +98,14 @@ export async function PUT(req: NextRequest) {
 
   const workDate = new Date(body.workDate);
   const totals = computeTimesheetTotals(body);
+  const entryBranchId = await resolveTimesheetBranchId(employeeId, await getCurrentBranchId(body.branchId ?? null));
 
   const entry = await prisma.$transaction(async (tx) => {
     const periodId = await ensureTimesheetPeriodForEntry(employeeId, workDate, tx);
     return tx.timesheetEntry.upsert({
       where: { employeeId_workDate: { employeeId, workDate } },
       update: {
+        branchId: entryBranchId,
         periodId,
         checkInAm: totals.checkInAm || null,
         checkOutAm: totals.checkOutAm || null,
@@ -108,6 +117,7 @@ export async function PUT(req: NextRequest) {
       },
       create: {
         employeeId,
+        branchId: entryBranchId,
         periodId,
         workDate,
         checkInAm: totals.checkInAm || null,

@@ -197,15 +197,27 @@ export async function seedSessionAssignment(
 
 export async function seedTimesheetEntry(
   db: PrismaClient,
-  params: { employeeId: string; workDate: Date; days: number; hours?: number },
+  // branchId = ngày công này làm ở cơ sở nào. Bỏ trống để mô phỏng dữ liệu cũ
+  // (chưa có cột này) — hệ thống phải quy về cơ sở chính của người đó.
+  params: { employeeId: string; workDate: Date; days: number; hours?: number; branchId?: string | null },
 ) {
   return db.timesheetEntry.create({
     data: {
       employeeId: params.employeeId,
+      branchId: params.branchId ?? null,
       workDate: params.workDate,
       days: params.days,
       hours: params.hours ?? params.days * 8,
     },
+  });
+}
+
+/** Gắn thêm cơ sở phụ cho nhân sự (ngoài cơ sở chính đã có sẵn). */
+export async function seedEmployeeBranch(db: PrismaClient, employeeId: string, branchId: string) {
+  return db.employeeBranch.upsert({
+    where: { employeeId_branchId: { employeeId, branchId } },
+    create: { employeeId, branchId },
+    update: {},
   });
 }
 

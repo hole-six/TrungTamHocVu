@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { employeeBranchFilter } from "@/lib/server/employee-branches";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canView, canUpdate } from "@/lib/server/role-matrix";
@@ -362,7 +363,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   
   const employees = canManageClass
     ? await prisma.employee.findMany({ 
-        where: { branchId: cls.branchId, workStatus: "ACTIVE" }, 
+        where: { ...employeeBranchFilter(cls.branchId), workStatus: "ACTIVE" }, 
         orderBy: { fullName: "asc" } 
       })
     : [];

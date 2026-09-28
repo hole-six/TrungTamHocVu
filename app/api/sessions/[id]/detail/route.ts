@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { employeeBranchFilter } from "@/lib/server/employee-branches";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
@@ -63,7 +64,7 @@ export async function GET(
     // Get employees for assignment
     const employees = await prisma.employee.findMany({
       // Người đã nghỉ việc không hiện trong danh sách chọn phân công / dạy thay.
-      where: { branchId: session.class.branchId, workStatus: "ACTIVE" },
+      where: { ...employeeBranchFilter(session.class.branchId), workStatus: "ACTIVE" },
       orderBy: { fullName: "asc" },
       select: { id: true, fullName: true, shortName: true },
     });

@@ -32,6 +32,10 @@ type EmployeeRow = {
   bankAccountHolder: string | null;
   latestContract: { contractNo: string | null; signDate: Date | null; expiryDate: Date | null; contractType: string | null; baseSalary: number | null } | null;
   contractStatus: string;
+  // Cơ sở làm việc: một người có thể gắn nhiều cơ sở, cơ sở chính đứng đầu.
+  primaryBranchId: string;
+  branches: { id: string; name: string }[];
+  allBranches: boolean;
 };
 
 function formatDate(value: Date | string | null) {
@@ -46,10 +50,12 @@ function contractStatusClass(status: string) {
 
 export default function EmployeesTable({
   initialData,
+  branchOptions,
   canEdit,
   canAddTimesheet,
 }: {
   initialData: EmployeeRow[];
+  branchOptions: { id: string; name: string }[];
   canEdit: boolean;
   canAddTimesheet: boolean;
 }) {
@@ -63,6 +69,32 @@ export default function EmployeesTable({
     if (requested) setOpenId(requested);
   }, [searchParams]);
   const selected = initialData.find((item) => item.id === openId) ?? null;
+
+  // Lọc theo từng cột ngay tại chỗ. Trước đây hàng lọc vẫn hiện nhưng KHÔNG nối vào
+  // đâu cả (thiếu filterValues/onFilterChange) nên gõ gì bảng cũng không đổi.
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  function handleFilterChange(paramKey: string, value: string | null, extra?: Record<string, string | null>) {
+    setColumnFilters((current) => {
+      const next = { ...current };
+      const apply = (key: string, raw: string | null) => {
+        if (raw == null || raw === "") delete next[key];
+        else next[key] = raw;
+      };
+      apply(paramKey, value);
+      for (const [key, raw] of Object.entries(extra ?? {})) apply(key, raw);
+      return next;
+    });
+  }
+
+  const has = (value: string | null | undefined, needle: string) =>
+    (value ?? "").toLowerCase().includes(needle.toLowerCase());
+  const rows = initialData.filter((row) => {
+    if (columnFilters.code && !has(row.employeeCode, columnFilters.code)) return false;
+    if (columnFilters.name && !has(row.fullName, columnFilters.name)) return false;
+    if (columnFilters.position && !has(row.position, columnFilters.position)) return false;
+    if (columnFilters.branch && !row.branches.some((branch) => branch.id === columnFilters.branch)) return false;
+    return true;
+  });
 
   const columns: Column<EmployeeRow>[] = [
     {
@@ -104,6 +136,45 @@ export default function EmployeesTable({
       render: (value) => <span className="text-sm text-ink">{value ?? "—"}</span>,
     },
     {
+      key: "branches",
+      label: "Cơ sở",
+      width: "190px",
+      // Chỉ hiện cột này khi trung tâm có từ 2 cơ sở trở lên — 1 cơ sở thì nó chỉ là
+      // một cột lặp lại cùng một chữ.
+      filter:
+        branchOptions.length > 1
+          ? {
+              type: "select",
+              paramKey: "branch",
+              options: branchOptions.map((branch) => ({ value: branch.id, label: branch.name })),
+            }
+          : undefined,
+      render: (_value, row) => {
+        if (row.allBranches) {
+          return (
+            <span className="inline-flex rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-bold text-indigo-700">
+              Tất cả cơ sở ({row.branches.length})
+            </span>
+          );
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {row.branches.map((branch) => (
+              <span
+                key={branch.id}
+                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                  branch.id === row.primaryBranchId ? "bg-[#eef2ff] text-[#4338ca]" : "bg-[#f1f5f9] text-[#475569]"
+                }`}
+                title={branch.id === row.primaryBranchId ? "Cơ sở chính — nơi giữ hồ sơ" : "Cơ sở làm thêm"}
+              >
+                {branch.name}
+              </span>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
       key: "payMode",
       label: "Lương",
       width: "180px",
@@ -139,8 +210,10 @@ export default function EmployeesTable({
   return (
     <>
       <DataTableResponsive
-        data={initialData}
+        data={rows}
         columns={columns}
+        filterValues={columnFilters}
+        onFilterChange={handleFilterChange}
         searchable
         searchPlaceholder="Tìm theo tên, mã NV, SĐT..."
         showCountBadge={false}

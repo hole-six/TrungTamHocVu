@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Stat, ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
 import { formatVnd } from "@/lib/export-utils";
@@ -51,6 +51,13 @@ export default function EmployeeProfileEditor({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  // CƠ SỞ LÀM VIỆC — một người có thể gắn nhiều cơ sở, kể cả tất cả. Gắn nhiều KHÔNG
+  // gộp số liệu: lương/chỉ số vẫn tính riêng từng cơ sở, đây chỉ là nơi người đó được
+  // phép làm việc. Lấy riêng qua /api/employees/[id]/branches để không phải sửa kiểu
+  // dữ liệu ở toàn bộ nơi đang dựng hồ sơ nhân sự.
+  const [branchOptions, setBranchOptions] = useState<{ id: string; code: string; name: string }[]>([]);
+  const [primaryBranchId, setPrimaryBranchId] = useState<string | null>(null);
+  const [branchIds, setBranchIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -82,6 +89,28 @@ export default function EmployeeProfileEditor({
     bankAccountHolder: employee.bankAccountHolder ?? "",
   });
 
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/employees/${employee.id}/branches`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!alive || !data) return;
+        setBranchOptions(data.branches ?? []);
+        setPrimaryBranchId(data.primaryBranchId ?? null);
+        setBranchIds(data.branchIds ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [employee.id]);
+
+  function toggleBranch(id: string) {
+    // Cơ sở chính không bỏ được: bỏ ra thì hồ sơ mất khỏi chính nơi đang giữ nó.
+    if (id === primaryBranchId) return;
+    setBranchIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -92,11 +121,25 @@ export default function EmployeeProfileEditor({
       body: JSON.stringify(form),
     });
     const data = await res.json().catch(() => ({}));
-    setLoading(false);
     if (!res.ok) {
+      setLoading(false);
       setError(data.error ?? "Không lưu được thông tin nhân sự.");
       return;
     }
+    if (branchOptions.length > 1) {
+      const branchRes = await fetch(`/api/employees/${employee.id}/branches`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branchIds }),
+      });
+      if (!branchRes.ok) {
+        const branchData = await branchRes.json().catch(() => ({}));
+        setLoading(false);
+        setError(branchData.error ?? "Đã lưu hồ sơ nhưng chưa đổi được cơ sở làm việc.");
+        return;
+      }
+    }
+    setLoading(false);
     // Đổi đơn giá thì các buổi chưa dạy tính lại theo giá mới; đặt ngày nghỉ mà còn buổi
     // được xếp sau ngày đó thì nhắc đổi người (xem PATCH /api/employees/[id]).
     const notes: string[] = [];
@@ -107,8 +150,18 @@ export default function EmployeeProfileEditor({
     router.refresh();
   }
 
+  const branchLabel = branchOptions.length
+    ? branchIds.length === branchOptions.length
+      ? `Tất cả cơ sở (${branchOptions.length})`
+      : branchOptions
+          .filter((branch) => branchIds.includes(branch.id))
+          .map((branch) => (branch.id === primaryBranchId ? `${branch.name} (chính)` : branch.name))
+          .join(" · ")
+    : "—";
+
   const rows: Array<[string, string]> = [
     ["Mã NV", employee.employeeCode],
+    ["Cơ sở làm việc", branchLabel || "—"],
     ["Họ và tên", employee.fullName],
     ["Vị trí", employee.position ?? "—"],
     ["Ngày sinh", formatDate(employee.dob)],
@@ -275,6 +328,50 @@ export default function EmployeeProfileEditor({
             <span className="text-xs font-medium text-ink-muted48">Chủ tài khoản</span>
             <input className="input" value={form.bankAccountHolder} onChange={(e) => setForm((f) => ({ ...f, bankAccountHolder: e.target.value }))} />
           </label>
+          {branchOptions.length > 1 ? (
+            <div className="col-span-full space-y-1">
+              <span className="text-xs font-medium text-ink-muted48">Cơ sở làm việc</span>
+              <div className="flex flex-wrap items-center gap-2">
+                {branchOptions.map((branch) => {
+                  const checked = branchIds.includes(branch.id);
+                  const isPrimary = branch.id === primaryBranchId;
+                  return (
+                    <button
+                      type="button"
+                      key={branch.id}
+                      onClick={() => toggleBranch(branch.id)}
+                      disabled={isPrimary}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                        checked
+                          ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                          : "border-[#e2e8f0] bg-white text-[#64748b] hover:border-indigo-200"
+                      } ${isPrimary ? "cursor-default opacity-90" : ""}`}
+                    >
+                      {branch.name}
+                      {isPrimary ? " · chính" : ""}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setBranchIds(
+                      branchIds.length === branchOptions.length
+                        ? branchOptions.filter((branch) => branch.id === primaryBranchId).map((branch) => branch.id)
+                        : branchOptions.map((branch) => branch.id),
+                    )
+                  }
+                  className="rounded-full border border-dashed border-[#cbd5e1] px-3 py-1.5 text-xs font-semibold text-[#475569] hover:border-indigo-300 hover:text-indigo-700"
+                >
+                  {branchIds.length === branchOptions.length ? "Bỏ chọn hết" : "Gắn tất cả cơ sở"}
+                </button>
+              </div>
+              <p className="form-hint">
+                Gắn nhiều cơ sở không gộp số liệu — lương, ngày công, buổi dạy vẫn tính riêng từng cơ sở. Cơ sở chính giữ
+                hồ sơ nên không bỏ được.
+              </p>
+            </div>
+          ) : null}
           {error && <p className="col-span-full text-sm text-red-600">{error}</p>}
           <div className="col-span-full flex gap-2">
             <button type="submit" disabled={loading} className={ACTION_CLASS}>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { employeeBranchFilter } from "@/lib/server/employee-branches";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole, getAllowedHrTabs } from "@/lib/permissions";
 import { canView } from "@/lib/server/role-matrix";
@@ -55,7 +56,7 @@ export default async function TimesheetDayPage({ searchParams }: { searchParams?
       orderBy: { employee: { fullName: "asc" } },
     }),
     prisma.employee.findMany({
-      where: { workStatus: "ACTIVE", payMode: "MONTHLY", ...(branchId ? { branchId } : {}) },
+      where: { workStatus: "ACTIVE", payMode: "MONTHLY", ...employeeBranchFilter(branchId) },
       select: { id: true, fullName: true, employeeCode: true, position: true },
       orderBy: { fullName: "asc" },
     }),

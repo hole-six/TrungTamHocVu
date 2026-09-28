@@ -6,6 +6,7 @@ import { getUserRole , getAllowedHrTabs } from "@/lib/permissions";
 import { canCreate, canUpdate, canView } from "@/lib/server/role-matrix";
 import { buildPayrollEmployeeRows } from "@/lib/server/payroll-row-builder";
 import { getCurrentBranchId } from "@/lib/branch-filter";
+import { employeeBranchFilter } from "@/lib/server/employee-branches";
 import PayrollWorkspace from "@/components/payroll/PayrollWorkspace";
 import HrTabs from "@/components/hr/HrTabs";
 import PageGuide from "@/components/ui/PageGuide";
@@ -80,10 +81,12 @@ export default async function PayrollPage({
   // PayrollRun/PayrollLine chỉ còn là chỗ lưu các khoản cộng/trừ nhập tay của tháng —
   // không còn quy trình tạo/tính/duyệt/khóa nào ở đây. Vẫn cần id của run (nếu có) để
   // lấy đúng các khoản nhập tay của tháng đang xem.
-  const run = await prisma.payrollRun.findFirst({
-    where: { periodName: period, ...(activeBranchId ? { branchId: activeBranchId } : {}) },
-    select: { id: true },
-  });
+  // Xem 1 cơ sở: lấy đúng tháng lương của cơ sở đó. Xem "Tất cả cơ sở": KHÔNG chọn bừa
+  // một cơ sở nào — để null cho buildPayrollEmployeeRows gom khoản nhập tay của mọi cơ
+  // sở trong tháng rồi cộng lại (trước đây lấy findFirst nên chỉ cộng của 1 cơ sở).
+  const run = activeBranchId
+    ? await prisma.payrollRun.findFirst({ where: { periodName: period, branchId: activeBranchId }, select: { id: true } })
+    : null;
 
   const hasTableFilter = Boolean(search) || Boolean(position);
 
@@ -100,7 +103,7 @@ export default async function PayrollPage({
     // Danh sách vai trò cho ô lọc select — lấy KHÔNG lọc theo search/position hiện tại,
     // để dropdown luôn đủ lựa chọn thay vì co lại còn mỗi vai trò đang được lọc.
     prisma.employee.findMany({
-      where: { ...(activeBranchId ? { branchId: activeBranchId } : {}), position: { not: null } },
+      where: { ...employeeBranchFilter(activeBranchId), position: { not: null } },
       select: { position: true },
       distinct: ["position"],
     }),
@@ -109,11 +112,15 @@ export default async function PayrollPage({
     hasTableFilter
       ? prisma.employee.findMany({
           where: {
-            ...(activeBranchId ? { branchId: activeBranchId } : {}),
-            ...(search
-              ? { OR: [{ fullName: { contains: search } }, { employeeCode: { contains: search } }, { position: { contains: search } }] }
-              : {}),
-            ...(position ? { position } : {}),
+            // Cả 2 điều kiện đều dùng `OR` nên phải gộp qua AND, spread chồng lên nhau
+            // thì cái sau xóa mất cái trước.
+            AND: [
+              employeeBranchFilter(activeBranchId),
+              search
+                ? { OR: [{ fullName: { contains: search } }, { employeeCode: { contains: search } }, { position: { contains: search } }] }
+                : {},
+              position ? { position } : {},
+            ],
           },
           select: { id: true },
         })

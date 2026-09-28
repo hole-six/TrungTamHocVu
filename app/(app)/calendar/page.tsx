@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { employeeBranchFilter } from "@/lib/server/employee-branches";
 import { countRosterOnDate } from "@/lib/server/class-roster";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
@@ -256,10 +257,32 @@ export default async function CalendarPage({
         select: { id: true, name: true },
       })
     : [];
+  // Gợi ý phòng cho ô "gán phòng nhanh" ở danh sách: lấy tên phòng đã dùng thật ở cơ
+  // sở này (cả quy tắc lịch của lớp lẫn các buổi đã xếp), khỏi phải nhớ tên phòng.
+  const roomOptions = canBulkAssign
+    ? await (async () => {
+        const [fromSessions, fromRules] = await Promise.all([
+          prisma.classSession.findMany({
+            where: { room: { not: null }, ...(activeBranchId ? { class: { branchId: activeBranchId } } : {}) },
+            select: { room: true },
+            distinct: ["room"],
+          }),
+          prisma.scheduleRule.findMany({
+            where: { room: { not: null }, ...(activeBranchId ? { class: { branchId: activeBranchId } } : {}) },
+            select: { room: true },
+            distinct: ["room"],
+          }),
+        ]);
+        return Array.from(
+          new Set([...fromSessions, ...fromRules].map((item) => (item.room ?? "").trim()).filter(Boolean)),
+        ).sort((a, b) => a.localeCompare(b, "vi"));
+      })()
+    : [];
+
   const [bulkEmployees, bulkClasses] = canBulkAssign
     ? await Promise.all([
         prisma.employee.findMany({
-          where: { workStatus: "ACTIVE", ...(activeBranchId ? { branchId: activeBranchId } : {}) },
+          where: { workStatus: "ACTIVE", ...employeeBranchFilter(activeBranchId) },
           orderBy: { fullName: "asc" },
           select: { id: true, fullName: true, shortName: true, position: true },
         }),
@@ -359,7 +382,14 @@ export default async function CalendarPage({
 
       <div data-tour="calendar-week">
       {view === "list" ? (
-        <CalendarListView rows={sessions} rosterCountBySession={Object.fromEntries(rosterCountBySession)} todayYmd={TODAY_YMD} />
+        <CalendarListView
+          rows={sessions}
+          rosterCountBySession={Object.fromEntries(rosterCountBySession)}
+          todayYmd={TODAY_YMD}
+          employees={bulkEmployees}
+          roomOptions={roomOptions}
+          canEdit={canBulkAssign}
+        />
       ) : (
       <>
       <div className="hidden overflow-x-auto pb-2 md:block [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import { ACTION_CLASS } from "@/components/ui/DetailDrawerParts";
@@ -28,6 +28,27 @@ export default function NewEmployeeForm() {
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Gắn cơ sở ngay lúc tạo: người mới thường đã biết sẽ chạy những cơ sở nào. Cơ sở
+  // chính do hệ thống đặt theo cơ sở đang xem (POST /api/employees), ở đây chỉ chọn
+  // THÊM. Gắn nhiều cơ sở không gộp số liệu — lương vẫn tính riêng từng nơi.
+  const [branchOptions, setBranchOptions] = useState<{ id: string; code: string; name: string }[]>([]);
+  const [extraBranchIds, setExtraBranchIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!open || branchOptions.length > 0) return;
+    let alive = true;
+    fetch("/api/branches")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!alive || !data) return;
+        const items = Array.isArray(data) ? data : (data.items ?? data.branches ?? []);
+        setBranchOptions(items.map((item: { id: string; code: string; name: string }) => ({ id: item.id, code: item.code, name: item.name })));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [open, branchOptions.length]);
 
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -48,7 +69,16 @@ export default function NewEmployeeForm() {
       setError(data.error ?? "Không thể tạo nhân viên.");
       return;
     }
+    // Cơ sở chính đã được gắn ở API; ở đây chỉ bổ sung các cơ sở chọn thêm.
+    if (data.item?.id && extraBranchIds.length > 0) {
+      await fetch(`/api/employees/${data.item.id}/branches`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branchIds: extraBranchIds }),
+      }).catch(() => {});
+    }
     setForm(EMPTY);
+    setExtraBranchIds([]);
     setOpen(false);
     router.refresh();
   }
@@ -144,6 +174,39 @@ export default function NewEmployeeForm() {
               <input className="input" value={form.bankAccountHolder} onChange={(e) => set("bankAccountHolder", e.target.value)} />
             </label>
           </div>
+
+          {branchOptions.length > 1 ? (
+            <div className="space-y-1">
+              <span className="label-sm">Làm thêm ở cơ sở khác</span>
+              <div className="flex flex-wrap gap-2">
+                {branchOptions.map((branch) => {
+                  const checked = extraBranchIds.includes(branch.id);
+                  return (
+                    <button
+                      type="button"
+                      key={branch.id}
+                      onClick={() =>
+                        setExtraBranchIds((current) =>
+                          current.includes(branch.id) ? current.filter((item) => item !== branch.id) : [...current, branch.id],
+                        )
+                      }
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                        checked
+                          ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                          : "border-[#e2e8f0] bg-white text-[#64748b] hover:border-indigo-200"
+                      }`}
+                    >
+                      {branch.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="form-hint">
+                Hồ sơ vẫn thuộc cơ sở đang xem; chọn thêm ở đây chỉ để người này xuất hiện và được tính lương RIÊNG ở
+                những cơ sở đó.
+              </p>
+            </div>
+          ) : null}
 
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
 

@@ -16,6 +16,7 @@
 // Mức cuối cùng do người phụ trách CHỐT (EmployeeMonthlyRating) — hệ thống chỉ đề xuất.
 
 import { prisma } from "@/lib/prisma";
+import { employeeBranchFilter } from "@/lib/server/employee-branches";
 import { monthRange } from "@/lib/server/tuition-rules";
 import { shiftTierPoints, suggestBonusPercent, type RatingSuggestion } from "@/lib/assistant-rating";
 
@@ -177,7 +178,7 @@ export type ScoreboardRow = {
 export async function computeMonthlyScoreboard(params: { branchId: string | null; month: string }) {
   const { branchId, month } = params;
   const { start, end } = monthRange(month);
-  const employeeWhere = branchId ? { branchId, workStatus: "ACTIVE" } : { workStatus: "ACTIVE" };
+  const employeeWhere = { ...employeeBranchFilter(branchId), workStatus: "ACTIVE" };
 
   const employees = await prisma.employee.findMany({
     where: employeeWhere,

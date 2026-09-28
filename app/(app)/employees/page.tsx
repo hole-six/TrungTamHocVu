@@ -6,6 +6,7 @@ import { getUserRoleAndOverride , getAllowedHrTabs } from "@/lib/permissions";
 import { canCreateWithOverride, canUpdateWithOverride, canViewWithOverride } from "@/lib/server/role-matrix";
 import { computeContractStatus } from "@/lib/server/payroll-rules";
 import { getCurrentBranchId } from "@/lib/branch-filter";
+import { employeeBranchFilter } from "@/lib/server/employee-branches";
 import EmployeesTable from "./EmployeesTable";
 import NewEmployeeForm from "@/components/payroll/NewEmployeeForm";
 import HrTabs from "@/components/hr/HrTabs";
@@ -42,17 +43,39 @@ export default async function EmployeesPage() {
   if (!canViewWithOverride("hr", role, override)) return <NoPermission module="Hồ sơ nhân sự" />;
 
   const activeBranchId = await getCurrentBranchId();
-  const employees = await prisma.employee.findMany({
-    where: activeBranchId ? { branchId: activeBranchId } : {},
-    orderBy: { fullName: "asc" },
-    include: { contracts: { orderBy: { signDate: "desc" }, take: 1 } },
-  });
+  // Nhân sự của cơ sở đang xem = hồ sơ ở đây HOẶC được gắn thêm cơ sở này. Một người
+  // gắn nhiều cơ sở vẫn chỉ có MỘT hồ sơ, nhưng phải nhìn thấy được ở mọi nơi họ làm.
+  const [employees, allBranches] = await Promise.all([
+    prisma.employee.findMany({
+      where: employeeBranchFilter(activeBranchId),
+      orderBy: { fullName: "asc" },
+      include: {
+        contracts: { orderBy: { signDate: "desc" }, take: 1 },
+        branch: { select: { id: true, name: true } },
+        branchLinks: { select: { branch: { select: { id: true, name: true } } } },
+      },
+    }),
+    prisma.branch.findMany({ where: { isActive: true }, orderBy: { code: "asc" }, select: { id: true, name: true } }),
+  ]);
 
-  const items = employees.map(({ contracts, ...employee }) => ({
-    ...employee,
-    latestContract: contracts[0] ?? null,
-    contractStatus: computeContractStatus(employee.resignDate, contracts[0]?.expiryDate ?? null),
-  }));
+  const items = employees.map(({ contracts, branch, branchLinks, ...employee }) => {
+    const linked = branchLinks.map((link) => link.branch);
+    const seen = new Set<string>();
+    const branches = [branch, ...linked].filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+    return {
+      ...employee,
+      latestContract: contracts[0] ?? null,
+      contractStatus: computeContractStatus(employee.resignDate, contracts[0]?.expiryDate ?? null),
+      primaryBranchId: branch.id,
+      branches,
+      // "Gắn full cơ sở" hiển thị gọn thành 1 nhãn thay vì liệt kê dài dòng.
+      allBranches: allBranches.length > 1 && branches.length === allBranches.length,
+    };
+  });
 
   const hrTabs = await getAllowedHrTabs(user.id);
 
@@ -72,6 +95,7 @@ export default async function EmployeesPage() {
 
       <EmployeesTable
         initialData={items}
+        branchOptions={allBranches}
         canEdit={canUpdateWithOverride("hr", role, override)}
         canAddTimesheet={canUpdateWithOverride("hr", role, override)}
       />

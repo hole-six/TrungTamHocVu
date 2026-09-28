@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { employeeBranchFilter } from "@/lib/server/employee-branches";
 import { formatEnrollmentCode } from "@/lib/enrollment-code";
 import {
   estimateEndDate,
@@ -335,7 +336,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
 
   const courses = await prisma.course.findMany({ where: { branchId: cls.branchId }, orderBy: { name: "asc" } });
   const employees = canManageClass
-    ? await prisma.employee.findMany({ where: { branchId: cls.branchId, workStatus: "ACTIVE" }, orderBy: { fullName: "asc" } })
+    ? await prisma.employee.findMany({ where: { ...employeeBranchFilter(cls.branchId), workStatus: "ACTIVE" }, orderBy: { fullName: "asc" } })
     : [];
 
   const completedSessions = cls.sessions.filter((s) => s.status === "COMPLETED").length;

@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import SessionDetailDrawer from "@/components/classes/SessionDetailDrawer";
+import { QuickRoomCell, QuickStaffGroup, type QuickEmployee } from "@/components/calendar/CalendarQuickEdit";
 import { SESSION_STATUS_LABEL } from "@/lib/server/class-rules";
 
 export type CalendarListRow = {
@@ -17,7 +20,7 @@ export type CalendarListRow = {
     course?: { name: string } | null;
     _count?: { enrollments: number } | null;
   };
-  assignments: { role: string; employee: { fullName: string; shortName: string | null } }[];
+  assignments: { id: string; role: string; employeeId: string; employee: { fullName: string; shortName: string | null } }[];
 };
 
 const WEEKDAY_SHORT = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -51,13 +54,25 @@ export default function CalendarListView({
   rows,
   rosterCountBySession,
   todayYmd,
+  employees = [],
+  roomOptions = [],
+  canEdit = false,
 }: {
   rows: CalendarListRow[];
   rosterCountBySession?: Record<string, number>;
   /** "YYYY-MM-DD" hôm nay theo giờ VN, do trang lịch tính mỗi request — không tự lấy
    *  new Date() ở trình duyệt/lúc nạp module (lệch múi giờ, đứng yên qua nửa đêm). */
   todayYmd: string;
+  /** Nhân sự có thể xếp vào buổi (đã lọc theo cơ sở đang xem). */
+  employees?: QuickEmployee[];
+  /** Các phòng đã dùng ở cơ sở này — gợi ý sẵn khi gõ, khỏi nhớ tên phòng. */
+  roomOptions?: string[];
+  /** Được sửa lịch hay không (GV/TG chỉ xem). */
+  canEdit?: boolean;
 }) {
+  // Bấm vào dòng là MỞ NGAY buổi học trong ngăn kéo. Trước đây chỉ mỗi tên lớp bấm
+  // được, phần còn lại của dòng bấm vào không có gì xảy ra — nhìn thì tưởng hỏng.
+  const [openSession, setOpenSession] = useState<{ id: string; classId: string } | null>(null);
   if (rows.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-[#cbdcef] bg-[#fcfdff] px-6 py-16 text-center">
@@ -86,12 +101,18 @@ export default function CalendarListView({
           </thead>
           <tbody className="divide-y divide-[#eef3f9]">
             {rows.map((row) => {
-              const teacherNames = row.assignments
-                .filter((a) => a.role === "TEACHER")
-                .map((a) => a.employee.shortName || a.employee.fullName);
-              const assistantNames = row.assignments
-                .filter((a) => a.role !== "TEACHER")
-                .map((a) => a.employee.shortName || a.employee.fullName);
+              const toQuick = (item: CalendarListRow["assignments"][number]) => ({
+                id: item.id,
+                role: item.role,
+                employeeId: item.employeeId,
+                name: item.employee.shortName || item.employee.fullName,
+              });
+              // SỐ GV/TG KHÔNG CỐ ĐỊNH: có buổi 2 giáo viên, có buổi 3 trợ giảng — lấy
+              // nguyên danh sách chứ không cắt lấy người đầu tiên.
+              const teachers = row.assignments.filter((a) => a.role === "TEACHER").map(toQuick);
+              const assistants = row.assignments.filter((a) => a.role !== "TEACHER").map(toQuick);
+              // Buổi đã hủy/đã dời thì API không cho phân công nữa — không mở ô chọn.
+              const locked = row.status === "CANCELLED" || row.status === "RESCHEDULED";
               const enrollmentCount = rosterCountBySession?.[row.id] ?? row.class._count?.enrollments ?? 0;
               // Buổi hôm nay (trừ buổi đã hủy): nền đỏ nhạt, vạch đỏ đậm bên trái, ngày và
               // tên lớp đỏ đậm — nhìn danh sách cả tuần là thấy ngay hôm nay có lớp nào.
@@ -100,7 +121,9 @@ export default function CalendarListView({
               return (
                 <tr
                   key={row.id}
-                  className={`align-top transition ${isToday ? "bg-red-50 shadow-[inset_4px_0_0_0_#dc2626] hover:bg-red-100/70" : weekdayRowClass(row.sessionDate)}`}
+                  onClick={() => setOpenSession({ id: row.id, classId: row.classId })}
+                  title="Bấm vào dòng để mở buổi học"
+                  className={`cursor-pointer align-top transition ${isToday ? "bg-red-50 shadow-[inset_4px_0_0_0_#dc2626] hover:bg-red-100/70" : weekdayRowClass(row.sessionDate)}`}
                 >
                   <td className={`whitespace-nowrap px-5 py-4 ${isToday ? "font-black text-red-700" : "font-semibold text-ink"}`}>
                     <div className="flex items-center gap-2 text-base">
@@ -116,6 +139,8 @@ export default function CalendarListView({
                   <td className="px-5 py-4">
                     <Link
                       href={`/classes/${row.classId}/sessions/${row.id}`}
+                      onClick={(event) => event.stopPropagation()}
+                      title="Mở trang buổi học đầy đủ"
                       className={`cursor-pointer text-base hover:underline ${isToday ? "font-black text-red-700" : "font-bold text-[#0f1729] hover:text-[#1d4ed8]"}`}
                     >
                       {row.class.className}
@@ -126,32 +151,30 @@ export default function CalendarListView({
                     </p>
                   </td>
                   <td className="px-5 py-4">
-                    <span className={row.room ? "text-ink" : "font-semibold text-amber-600"}>{row.room || "Chưa gán phòng"}</span>
+                    <QuickRoomCell sessionId={row.id} room={row.room} roomOptions={roomOptions} canEdit={canEdit && !locked} />
                   </td>
                   {/* Thiếu người thì bôi CAM y như "Chưa gán phòng" — 3 thứ thiếu của một
                       buổi (phòng, GV, TG) phải nhìn ra ngay trên cùng một dòng.
                       Lớp có 2 trợ giảng thì mỗi người một dòng, không dồn 1 dòng dài. */}
                   <td className="px-5 py-4 text-[13px] leading-6 text-ink-muted80">
-                    <p>
-                      <span className="font-semibold text-ink">GV:</span>{" "}
-                      {teacherNames.length > 0 ? (
-                        teacherNames.join(", ")
-                      ) : (
-                        <span className="font-semibold text-amber-600">Chưa có giáo viên</span>
-                      )}
-                    </p>
-                    {assistantNames.length > 0 ? (
-                      assistantNames.map((name, index) => (
-                        <p key={`${row.id}-tg-${index}`}>
-                          <span className="font-semibold text-ink">TG{assistantNames.length > 1 ? ` ${index + 1}` : ""}:</span> {name}
-                        </p>
-                      ))
-                    ) : (
-                      <p>
-                        <span className="font-semibold text-ink">TG:</span>{" "}
-                        <span className="font-semibold text-amber-600">Chưa có trợ giảng</span>
-                      </p>
-                    )}
+                    <QuickStaffGroup
+                      sessionId={row.id}
+                      roleType="TEACHER"
+                      label="GV"
+                      assignments={teachers}
+                      employees={employees}
+                      canEdit={canEdit}
+                      locked={locked}
+                    />
+                    <QuickStaffGroup
+                      sessionId={row.id}
+                      roleType="ASSISTANT"
+                      label="TG"
+                      assignments={assistants}
+                      employees={employees}
+                      canEdit={canEdit}
+                      locked={locked}
+                    />
                   </td>
                   <td className="px-5 py-4 text-center text-base font-bold tabular-nums text-ink">{enrollmentCount}</td>
                   <td className="px-5 py-4 text-right">
@@ -165,6 +188,15 @@ export default function CalendarListView({
           </tbody>
         </table>
       </div>
+
+      {openSession ? (
+        <SessionDetailDrawer
+          sessionId={openSession.id}
+          classId={openSession.classId}
+          isOpen
+          onClose={() => setOpenSession(null)}
+        />
+      ) : null}
     </div>
   );
 }

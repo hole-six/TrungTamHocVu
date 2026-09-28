@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { employeeBranchFilter } from "@/lib/server/employee-branches";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canCreate } from "@/lib/server/role-matrix";
@@ -85,7 +86,8 @@ export async function POST(req: NextRequest) {
   const requestedIds: string[] = Array.isArray(body.employeeIds) ? body.employeeIds.map((item: unknown) => String(item)) : [];
   const employees = await prisma.employee.findMany({
     where: {
-      branchId,
+      // Gồm cả người gắn thêm cơ sở này (không chỉ người có hồ sơ gốc ở đây).
+      ...employeeBranchFilter(branchId),
       workStatus: "ACTIVE",
       ...(requestedIds.length > 0
         ? { id: { in: requestedIds } }
@@ -152,7 +154,9 @@ export async function POST(req: NextRequest) {
       }
 
       const periodId = await ensureTimesheetPeriodForEntry(employee.id, workDate);
-      const data = { checkInAm, checkOutAm, checkInPm, checkOutPm, hours, days, periodId };
+      // Chấm hàng loạt là chấm CHO CƠ SỞ ĐANG XEM — ghi rõ để cơ sở khác của cùng người
+      // không cộng lại chính ngày công này.
+      const data = { checkInAm, checkOutAm, checkInPm, checkOutPm, hours, days, periodId, branchId };
 
       if (existingId) {
         await prisma.timesheetEntry.update({ where: { id: existingId }, data });

@@ -3,6 +3,7 @@
 // vào đó sẽ kéo Prisma Client vào bundle trình duyệt). File này chỉ được gọi từ
 // route handler và scheduler (server-only).
 import { prisma } from "@/lib/prisma";
+import { employeeBranchFilter, timesheetBranchFilter } from "@/lib/server/employee-branches";
 import { canEditPayroll } from "@/lib/server/payroll-rules";
 import { monthRange } from "@/lib/server/tuition-rules";
 
@@ -41,11 +42,14 @@ export async function generatePayrollForRun(runId: string) {
   //   - người ở cơ sở khác nhưng THỰC SỰ có buổi dạy/trợ giảng tại cơ sở này trong tháng.
   // Trước đây chỉ lấy theo biên chế, nên giáo viên cơ sở A chạy sang dạy cơ sở B thì
   // những buổi ở B KHÔNG NẰM TRONG BẢNG LƯƠNG NÀO CẢ — dạy xong không được trả.
+  // "Thuộc cơ sở này" = cơ sở chính HOẶC cơ sở được gắn thêm (một người gắn được nhiều
+  // cơ sở, xem lib/server/employee-branches.ts).
+  const homeFilter = employeeBranchFilter(run.branchId);
   const [homeEmployees, visitingEmployees] = await Promise.all([
-    prisma.employee.findMany({ where: { branchId: run.branchId } }),
+    prisma.employee.findMany({ where: homeFilter }),
     prisma.employee.findMany({
       where: {
-        branchId: { not: run.branchId },
+        NOT: homeFilter,
         sessionAssignments: {
           some: {
             session: { sessionDate: { gte: start, lte: end }, status: "COMPLETED", class: { branchId: run.branchId } },
@@ -89,11 +93,16 @@ export async function generatePayrollForRun(runId: string) {
           },
         },
       }),
-      // Ngày công hành chính thuộc về CƠ SỞ CHỦ QUẢN của người đó — nếu cộng cả ở cơ sở
-      // họ sang dạy nhờ thì một ngày công bị trả lương hai lần.
-      employee.branchId === run.branchId
-        ? prisma.timesheetEntry.findMany({ where: { employeeId: employee.id, workDate: { gte: start, lte: end } } })
-        : Promise.resolve([] as Awaited<ReturnType<typeof prisma.timesheetEntry.findMany>>),
+      // Ngày công hành chính thuộc về CƠ SỞ ĐÃ CHẤM ngày đó (bản ghi cũ chưa ghi cơ sở
+      // thì quy về cơ sở chính). Một người gắn nhiều cơ sở mà không lọc theo đây thì
+      // mỗi cơ sở lại cộng cùng một ngày công → trả lương hai, ba lần cho một ngày.
+      prisma.timesheetEntry.findMany({
+        where: {
+          employeeId: employee.id,
+          workDate: { gte: start, lte: end },
+          ...timesheetBranchFilter(run.branchId),
+        },
+      }),
       // % thưởng/phạt tháng theo QUY CHẾ, gộp toàn bộ cơ sở (1 mức cho mỗi người mỗi
       // tháng — xem lib/server/assistant-score-rules.ts). Nhân với đúng thu nhập theo ca
       // kỳ này để tự ra số tiền, thay vì bắt nhân sự tự quy đổi % ra VNĐ rồi gõ tay.
@@ -240,10 +249,10 @@ export async function ensurePayrollLineForEmployee(employeeId: string, periodNam
     prisma.sessionAssignment.findMany({
       where: { employeeId, role: { in: ["ASSISTANT", "ASSISTANT2"] }, session: sessionScope },
     }),
-    // Ngày công hành chính chỉ thuộc cơ sở chủ quản (xem generatePayrollForRun).
-    employee.branchId === targetBranchId
-      ? prisma.timesheetEntry.findMany({ where: { employeeId, workDate: { gte: start, lte: end } } })
-      : Promise.resolve([] as Awaited<ReturnType<typeof prisma.timesheetEntry.findMany>>),
+    // Ngày công hành chính chỉ thuộc cơ sở đã chấm ngày đó (xem generatePayrollForRun).
+    prisma.timesheetEntry.findMany({
+      where: { employeeId, workDate: { gte: start, lte: end }, ...timesheetBranchFilter(targetBranchId) },
+    }),
     prisma.employeeMonthlyRating.findUnique({
       where: { employeeId_month: { employeeId, month: periodName } },
     }),

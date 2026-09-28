@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { employeeBranchFilter } from "@/lib/server/employee-branches";
 import { auth } from "@/lib/auth";
 import { getAccessibleBranches } from "@/lib/branch-filter";
 
@@ -21,7 +22,8 @@ export async function GET() {
       branches.map(async (branch) => {
         const [users, employees, students, classes] = await Promise.all([
           prisma.user.count({ where: { branchId: branch.id } }),
-          prisma.employee.count({ where: { branchId: branch.id } }),
+          // Đếm cả người có hồ sơ ở cơ sở khác nhưng được gắn làm việc tại đây.
+          prisma.employee.count({ where: employeeBranchFilter(branch.id) }),
           prisma.student.count({ where: { branchId: branch.id } }),
           prisma.class.count({ where: { branchId: branch.id } }),
         ]);

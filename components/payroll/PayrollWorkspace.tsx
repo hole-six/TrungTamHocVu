@@ -184,10 +184,21 @@ export default function PayrollWorkspace({
           row.assistantHours > 0 ? `TG ${formatNumber(row.assistantHours)}` : null,
           row.staffDays > 0 ? `HC ${formatNumber(row.staffDays)} công` : null,
         ].filter(Boolean);
-        return parts.length > 0 ? (
-          <p className="text-sm text-[#475569]">{parts.join(" · ")}</p>
-        ) : (
-          <span className="text-sm text-[#94a3b8]">Chưa có công</span>
+        return (
+          <div>
+            {parts.length > 0 ? (
+              <p className="text-sm text-[#475569]">{parts.join(" · ")}</p>
+            ) : (
+              <span className="text-sm text-[#94a3b8]">Chưa có công</span>
+            )}
+            {/* Xem "Tất cả cơ sở": nói rõ công này đến từ những cơ sở nào — lương vẫn
+                tính riêng từng cơ sở rồi mới cộng lại. */}
+            {row.branchBreakdown && row.branchBreakdown.length > 1 ? (
+              <p className="mt-0.5 text-xs text-[#94a3b8]">
+                {row.branchBreakdown.length} cơ sở: {row.branchBreakdown.map((part) => part.branchName).join(" · ")}
+              </p>
+            ) : null}
+          </div>
         );
       },
     },
@@ -218,6 +229,18 @@ export default function PayrollWorkspace({
       render: (_value, row) => (
         <div>
           <div className="text-base font-black text-[#0f1729]">{formatVnd(row.totalAmount)}</div>
+          {/* Tổng hợp nhiều cơ sở: hiện luôn tiền của từng cơ sở, cộng lại đúng bằng
+              số ở trên — không để ai phải đoán tiền ở đâu ra. */}
+          {row.branchBreakdown && row.branchBreakdown.length > 1 ? (
+            <div className="mt-1 space-y-0.5">
+              {row.branchBreakdown.map((part) => (
+                <div key={part.branchId} className="flex items-center justify-end gap-2 text-xs">
+                  <span className="text-[#94a3b8]">{part.branchName}</span>
+                  <span className="font-bold text-[#475569]">{formatVnd(part.totalAmount)}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div className="mt-0.5 text-xs text-[#94a3b8]">{row.lineId ? "Công thực tế + cộng/trừ tay" : "Theo công thực tế"}</div>
         </div>
       ),

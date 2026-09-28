@@ -9,6 +9,7 @@ import SessionAssignmentForm from "@/components/classes/SessionAssignmentForm";
 import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { prisma } from "@/lib/prisma";
+import { employeeBranchFilter } from "@/lib/server/employee-branches";
 import { getUserRole } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { canUpdate } from "@/lib/server/role-matrix";
@@ -137,7 +138,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
       orderBy: { student: { fullName: "asc" } },
     }),
     prisma.employee.findMany({
-      where: { branchId: session.class.branchId, workStatus: "ACTIVE" },
+      where: { ...employeeBranchFilter(session.class.branchId), workStatus: "ACTIVE" },
       orderBy: { fullName: "asc" },
     }),
   ]);

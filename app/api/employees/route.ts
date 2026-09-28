@@ -4,7 +4,8 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canCreateWithOverride } from "@/lib/server/role-matrix";
 import { computeContractStatus } from "@/lib/server/payroll-rules";
-import { getBranchWhereClause, getValidBranchIdForCreation } from "@/lib/branch-filter";
+import { getCurrentBranchId, getValidBranchIdForCreation } from "@/lib/branch-filter";
+import { employeeBranchFilter, ensurePrimaryBranchLink } from "@/lib/server/employee-branches";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -12,7 +13,8 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const employees = await prisma.employee.findMany({
-    where: await getBranchWhereClause(searchParams.get("branchId")),
+    // Gồm cả người có hồ sơ ở cơ sở khác nhưng được gắn thêm cơ sở đang xem.
+    where: employeeBranchFilter(await getCurrentBranchId(searchParams.get("branchId"))),
     orderBy: { fullName: "asc" },
     include: { contracts: { orderBy: { signDate: "desc" }, take: 1 } },
   });
@@ -80,6 +82,10 @@ export async function POST(req: NextRequest) {
       notes: body.notes || null,
     },
   });
+
+  // Gắn ngay cơ sở chính vào danh sách cơ sở làm việc — mọi màn hình lọc theo danh
+  // sách này, thiếu nó thì người vừa tạo không hiện ở đâu cả.
+  await ensurePrimaryBranchLink(employee.id, branchId);
 
   return NextResponse.json({ item: employee }, { status: 201 });
 }

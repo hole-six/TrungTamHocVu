@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { employeeBranchFilter } from "@/lib/server/employee-branches";
 import { monthRange } from "@/lib/server/tuition-rules";
 import { computeHoursFromTimeRange } from "@/lib/server/payroll-rules";
 import { assignmentRoleType } from "@/lib/assignment-roles";
@@ -114,7 +115,7 @@ export async function computeStaffHours(params: { month: string; branchId: strin
   const { month, branchId } = params;
   const { start, end } = monthRange(month);
   const today = getVietnamToday();
-  const employeeWhere = { workStatus: "ACTIVE", ...(branchId ? { branchId } : {}) };
+  const employeeWhere = { workStatus: "ACTIVE", ...employeeBranchFilter(branchId) };
 
   const [employees, assignments, timesheets, notes] = await Promise.all([
     prisma.employee.findMany({

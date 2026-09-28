@@ -2,6 +2,7 @@ import NoPermission from "@/components/ui/NoPermission";
 import { notFound } from "next/navigation";
 import TimesheetsWorkspace from "@/components/timesheets/TimesheetsWorkspace";
 import { prisma } from "@/lib/prisma";
+import { employeeBranchFilter, timesheetBranchFilter } from "@/lib/server/employee-branches";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole , getAllowedHrTabs } from "@/lib/permissions";
 import { canView, canCreate, canDelete } from "@/lib/server/role-matrix";
@@ -110,14 +111,21 @@ export default async function TimesheetsPage({ searchParams }: { searchParams?: 
   const { start, end } = monthRange(month);
 
   const employees = await prisma.employee.findMany({
-    where: { ...(activeBranchId ? { branchId: activeBranchId } : {}), workStatus: "ACTIVE" },
+    where: { ...employeeBranchFilter(activeBranchId), workStatus: "ACTIVE" },
     include: {
+      // Chỉ công/buổi TẠI CƠ SỞ ĐANG XEM: một người gắn nhiều cơ sở thì màn chấm công
+      // của mỗi cơ sở phải là số của riêng cơ sở đó, khớp với bảng lương cùng cơ sở.
       timesheetEntries: {
-        where: { workDate: { gte: start, lte: end } },
+        where: { ...timesheetBranchFilter(activeBranchId), workDate: { gte: start, lte: end } },
         orderBy: { workDate: "desc" },
       },
       sessionAssignments: {
-        where: { session: { sessionDate: { gte: start, lte: end } } },
+        where: {
+          session: {
+            sessionDate: { gte: start, lte: end },
+            ...(activeBranchId ? { class: { branchId: activeBranchId } } : {}),
+          },
+        },
         include: { session: { select: { sessionDate: true, class: { select: { classCode: true, className: true } } } } },
         orderBy: { id: "desc" },
       },

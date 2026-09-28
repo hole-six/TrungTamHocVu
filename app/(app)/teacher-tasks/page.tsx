@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { employeeBranchFilter } from "@/lib/server/employee-branches";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canView, canUpdate } from "@/lib/server/role-matrix";
@@ -131,7 +132,7 @@ export default async function TeacherTasksPage({ searchParams }: { searchParams:
   ]);
 
   const employees = await prisma.employee.findMany({
-    where: { branchId: activeBranchId ?? undefined, workStatus: "ACTIVE" },
+    where: { ...employeeBranchFilter(activeBranchId), workStatus: "ACTIVE" },
     select: { id: true, fullName: true, employeeCode: true },
     orderBy: { fullName: "asc" },
   });
