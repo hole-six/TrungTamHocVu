@@ -37,6 +37,8 @@ export default function PipelineStackEditorModal({ open, onClose }: { open: bool
   const [error, setError] = useState<string | null>(null);
   const [classes, setClasses] = useState<PipelineClass[]>([]);
   const [draft, setDraft] = useState<Map<string, string | null>>(new Map());
+  const [draftGroup, setDraftGroup] = useState<Map<string, string | null>>(new Map());
+  const [autoSyncGroup, setAutoSyncGroup] = useState(true);
 
   useEffect(() => setMounted(true), []);
 
@@ -50,6 +52,7 @@ export default function PipelineStackEditorModal({ open, onClose }: { open: bool
         const items: PipelineClass[] = data.items ?? [];
         setClasses(items);
         setDraft(new Map(items.map((c) => [c.id, c.nextClassId])));
+        setDraftGroup(new Map(items.map((c) => [c.id, c.classGroup])));
         setLoading(false);
       })
       .catch(() => {
@@ -61,22 +64,24 @@ export default function PipelineStackEditorModal({ open, onClose }: { open: bool
   const groups = useMemo(() => {
     const byGroup = new Map<string, PipelineClass[]>();
     for (const c of classes) {
-      const key = c.classGroup?.trim() || UNGROUPED_KEY;
+      const key = draftGroup.get(c.id)?.trim() || UNGROUPED_KEY;
       byGroup.set(key, [...(byGroup.get(key) ?? []), c]);
     }
     return [...byGroup.entries()].sort(([a], [b]) => (a === UNGROUPED_KEY ? 1 : b === UNGROUPED_KEY ? -1 : a.localeCompare(b, "vi")));
-  }, [classes]);
+  }, [classes, draftGroup]);
 
   // Option cùng classGroup xếp trước (đúng trực giác "trong ngăn xếp"), sau đó tới các
   // lớp khác trong chi nhánh — chuyển trình độ thực tế thường NHẢY ngăn xếp (vd A2→B1),
   // không giới hạn chọn trong đúng 1 ngăn xếp.
   function optionsFor(cls: PipelineClass) {
-    const sameGroup = classes.filter((c) => c.id !== cls.id && c.classGroup === cls.classGroup);
-    const others = classes.filter((c) => c.id !== cls.id && c.classGroup !== cls.classGroup);
+    const group = draftGroup.get(cls.id)?.trim() || null;
+    const sameGroup = classes.filter((c) => c.id !== cls.id && (draftGroup.get(c.id)?.trim() || null) === group);
+    const others = classes.filter((c) => c.id !== cls.id && (draftGroup.get(c.id)?.trim() || null) !== group);
     return [...sameGroup, ...others];
   }
 
   const changedCount = [...draft.entries()].filter(([id, next]) => classes.find((c) => c.id === id)?.nextClassId !== next).length;
+  const groupChangedCount = [...draftGroup.entries()].filter(([id, group]) => (classes.find((c) => c.id === id)?.classGroup ?? null) !== (group?.trim() || null)).length;
   const hasCycle = classes.some((c) => detectsCycle(c.id, draft));
 
   // Toàn bộ chuỗi chuyển tiếp theo bản nháp hiện tại, đi từ lớp ĐẦU chuỗi (không lớp nào
@@ -102,17 +107,43 @@ export default function PipelineStackEditorModal({ open, onClose }: { open: bool
     return result.sort((a, b) => b.length - a.length);
   }, [classes, draft]);
 
+  function setNextClass(classId: string, nextClassId: string | null) {
+    setDraft((current) => new Map(current).set(classId, nextClassId));
+    if (!autoSyncGroup || !nextClassId) return;
+
+    setDraftGroup((current) => {
+      const next = new Map(current);
+      const sourceClass = classes.find((item) => item.id === classId);
+      const stackName = next.get(classId)?.trim() || sourceClass?.classGroup?.trim() || sourceClass?.classCode || null;
+      if (!stackName) return next;
+      next.set(classId, stackName);
+      next.set(nextClassId, stackName);
+
+      let cursor = draft.get(nextClassId) ?? null;
+      const seen = new Set([classId, nextClassId]);
+      while (cursor && !seen.has(cursor)) {
+        next.set(cursor, stackName);
+        seen.add(cursor);
+        cursor = draft.get(cursor) ?? null;
+      }
+      return next;
+    });
+  }
+
   async function save() {
     setSaving(true);
     setError(null);
     const updates = classes
       .filter((c) => draft.get(c.id) !== c.nextClassId)
       .map((c) => ({ classId: c.id, nextClassId: draft.get(c.id) ?? null }));
+    const groupUpdates = classes
+      .filter((c) => (draftGroup.get(c.id)?.trim() || null) !== (c.classGroup ?? null))
+      .map((c) => ({ classId: c.id, classGroup: draftGroup.get(c.id)?.trim() || null }));
 
     const response = await fetch("/api/classes/pipeline", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ updates }),
+      body: JSON.stringify({ updates, groupUpdates }),
     });
     const result = await response.json().catch(() => ({}));
     setSaving(false);
@@ -166,6 +197,20 @@ export default function PipelineStackEditorModal({ open, onClose }: { open: bool
                   </div>
                 </div>
               ) : null}
+              <label className="flex items-start gap-3 rounded-xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3 text-sm text-[#12304a]">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={autoSyncGroup}
+                  onChange={(event) => setAutoSyncGroup(event.target.checked)}
+                />
+                <span>
+                  <span className="block font-bold">Tự đồng bộ hai chiều khi gắn lớp kế</span>
+                  <span className="mt-1 block text-xs leading-5 text-[#64748b]">
+                    Khi chọn A → B, hệ thống tự đưa B vào cùng ngăn với A; nếu B đã nối tiếp lớp khác thì các lớp phía sau cũng đi cùng ngăn.
+                  </span>
+                </span>
+              </label>
               {groups.map(([groupKey, groupClasses]) => (
                 <div key={groupKey}>
                   <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#64748b]">
@@ -186,7 +231,7 @@ export default function PipelineStackEditorModal({ open, onClose }: { open: bool
                             value={draft.get(cls.id) ?? ""}
                             onChange={(event) => {
                               const value = event.target.value || null;
-                              setDraft((current) => new Map(current).set(cls.id, value));
+                              setNextClass(cls.id, value);
                             }}
                           >
                             <option value="">Chưa cấu hình</option>
@@ -196,6 +241,16 @@ export default function PipelineStackEditorModal({ open, onClose }: { open: bool
                               </option>
                             ))}
                           </select>
+                          <input
+                            className="input min-w-[170px] max-w-[220px]"
+                            value={draftGroup.get(cls.id) ?? ""}
+                            onChange={(event) => {
+                              const value = event.target.value.trim() || null;
+                              setDraftGroup((current) => new Map(current).set(cls.id, value));
+                            }}
+                            placeholder="Ngăn xếp"
+                            aria-label={`Ngăn xếp của ${cls.classCode}`}
+                          />
                           {cycle ? <span className="text-xs font-bold text-rose-600">Tạo vòng lặp!</span> : null}
                         </div>
                       );
@@ -213,15 +268,15 @@ export default function PipelineStackEditorModal({ open, onClose }: { open: bool
           <p className={`text-xs ${hasCycle ? "font-bold text-rose-600" : "text-[#64748b]"}`}>
             {hasCycle
               ? "Có vòng lặp — sửa các dòng tô đỏ rồi mới lưu được"
-              : changedCount > 0
-                ? `${changedCount} lớp đã đổi lớp tiếp theo`
+              : changedCount + groupChangedCount > 0
+                ? `${changedCount} lớp đổi lớp tiếp theo · ${groupChangedCount} lớp đổi ngăn`
                 : "Chưa có thay đổi nào"}
           </p>
           <div className="flex gap-3">
             <button type="button" onClick={onClose} className="btn-ghost">
               Hủy
             </button>
-            <button type="button" onClick={save} disabled={saving || changedCount === 0 || hasCycle} className="btn-primary">
+            <button type="button" onClick={save} disabled={saving || changedCount + groupChangedCount === 0 || hasCycle} className="btn-primary">
               {saving ? "Đang lưu..." : "Lưu"}
             </button>
           </div>

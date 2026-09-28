@@ -1,7 +1,7 @@
 "use client";
 
 import { useStudentDrawer } from "@/contexts/StudentDrawerContext";
-import { ReactNode } from "react";
+import { memo, ReactNode, useCallback } from "react";
 
 type StudentLinkProps = {
   studentId: string;
@@ -16,10 +16,10 @@ type StudentLinkProps = {
  * Usage:
  * <StudentLink studentId="123" className="text-primary">Nguyễn Văn A</StudentLink>
  */
-export default function StudentLink({ studentId, children, className, onClick }: StudentLinkProps) {
+function StudentLink({ studentId, children, className, onClick }: StudentLinkProps) {
   const { openDrawer } = useStudentDrawer();
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -28,7 +28,7 @@ export default function StudentLink({ studentId, children, className, onClick }:
     }
     
     openDrawer(studentId);
-  };
+  }, [onClick, openDrawer, studentId]);
 
   return (
     <button
@@ -40,3 +40,5 @@ export default function StudentLink({ studentId, children, className, onClick }:
     </button>
   );
 }
+
+export default memo(StudentLink);

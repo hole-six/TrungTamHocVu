@@ -1,7 +1,7 @@
 "use client";
 
 import { useClassDrawer } from "@/contexts/ClassDrawerContext";
-import { ReactNode } from "react";
+import { memo, ReactNode, useCallback } from "react";
 
 type ClassLinkProps = {
   classId: string;
@@ -16,10 +16,10 @@ type ClassLinkProps = {
  * Usage:
  * <ClassLink classId="123" className="text-primary">Tên lớp A1</ClassLink>
  */
-export default function ClassLink({ classId, children, className, onClick }: ClassLinkProps) {
+function ClassLink({ classId, children, className, onClick }: ClassLinkProps) {
   const { openDrawer } = useClassDrawer();
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -28,7 +28,7 @@ export default function ClassLink({ classId, children, className, onClick }: Cla
     }
     
     openDrawer(classId);
-  };
+  }, [classId, onClick, openDrawer]);
 
   return (
     <button
@@ -40,3 +40,5 @@ export default function ClassLink({ classId, children, className, onClick }: Cla
     </button>
   );
 }
+
+export default memo(ClassLink);

@@ -60,7 +60,7 @@ export default function DataTableRow<T extends Record<string, any>>({
       className={`group bg-white transition-colors ${onClick ? "cursor-pointer hover:bg-[#fafafa]" : "hover:bg-[#fafafa]"} ${selected ? "bg-primary/5" : ""}`}
     >
       {selectable ? (
-        <td className="w-12 px-6 py-3 align-middle">
+        <td className="w-12 px-6 py-4 align-middle">
           <input
             type="checkbox"
             checked={selected}
@@ -80,7 +80,7 @@ export default function DataTableRow<T extends Record<string, any>>({
         return (
           <td
             key={column.key}
-            className={`px-6 py-3 align-middle text-sm ${
+            className={`px-6 py-4 align-middle text-[15px] leading-6 text-[#111827] ${
               column.align === "center"
                 ? "text-center"
                 : column.align === "right"
@@ -95,7 +95,7 @@ export default function DataTableRow<T extends Record<string, any>>({
       })}
 
       {visibleActions.length > 0 || renderExpanded ? (
-        <td data-dt="actions-cell" className="px-6 py-3 text-right align-middle">
+        <td data-dt="actions-cell" className="px-6 py-4 text-right align-middle">
           <div className="flex flex-nowrap items-center justify-end gap-2">
             {renderExpanded ? (
               <button
@@ -104,7 +104,7 @@ export default function DataTableRow<T extends Record<string, any>>({
                   e.stopPropagation();
                   setExpanded((current) => !current);
                 }}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[#d9e3f7] bg-white px-3 py-2 text-xs font-semibold text-ink-muted64 transition-all hover:bg-[#f8fbff]"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[#d9e3f7] bg-white px-3 py-2 text-[13px] font-semibold text-ink-muted64 transition-all hover:bg-[#f8fbff]"
               >
                 {expanded ? "Thu gọn" : "Xem thêm"}
               </button>
@@ -127,7 +127,7 @@ export default function DataTableRow<T extends Record<string, any>>({
                     void handleActionClick(action);
                   }}
                   className={`inline-flex shrink-0 whitespace-nowrap items-center gap-2 rounded-xl border font-semibold transition-all ${
-                    iconOnly ? "p-2" : "px-3 py-2 text-xs"
+                    iconOnly ? "p-2" : "px-3 py-2 text-[13px]"
                   } ${variantClasses[action.variant || "secondary"]}`}
                   title={action.label}
                   aria-label={action.label}

@@ -10,8 +10,21 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
+  const compact = searchParams.get("compact") === "1";
   const books = await prisma.book.findMany({
     where: await getBranchWhereClause(searchParams.get("branchId")),
+    ...(compact
+      ? {
+          select: {
+            id: true,
+            name: true,
+            bookCode: true,
+            category: true,
+            unitPrice: true,
+            quantityOnHand: true,
+          },
+        }
+      : {}),
     orderBy: [{ category: "asc" }, { name: "asc" }],
   });
 

@@ -48,8 +48,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ["var(--font-sans)", "system-ui", "-apple-system", "sans-serif"],
-        text: ["var(--font-sans)", "system-ui", "-apple-system", "sans-serif"],
+        display: ["var(--font-sans)", "Inter", "-apple-system", "BlinkMacSystemFont", "\"Segoe UI\"", "Roboto", "sans-serif"],
+        text: ["var(--font-sans)", "Inter", "-apple-system", "BlinkMacSystemFont", "\"Segoe UI\"", "Roboto", "sans-serif"],
       },
       borderRadius: {
         xs: "5px",

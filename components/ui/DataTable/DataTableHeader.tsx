@@ -101,9 +101,9 @@ export default function DataTableHeader({
         {showCountBadge ? (
           <div
             data-dt="count"
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-3 py-1.5 text-xs font-semibold text-[#4f46e5]"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#dbe7ff] bg-[#f8fbff] px-3 py-1.5 text-[13px] font-semibold text-[#4f46e5]"
           >
-            <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#eef4ff] px-1.5 text-[11px] font-bold">
+            <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#eef4ff] px-1.5 text-xs font-bold">
               {totalCount.toLocaleString()}
             </span>
             bản ghi

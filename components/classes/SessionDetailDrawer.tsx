@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import AttendanceForm from "@/components/classes/AttendanceForm";
@@ -110,13 +110,7 @@ export default function SessionDetailDrawer({
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "attendance" | "journal" | "assignment">("overview");
 
-  useEffect(() => {
-    if (isOpen && sessionId) {
-      fetchSessionData();
-    }
-  }, [isOpen, sessionId]);
-
-  const fetchSessionData = async () => {
+  const fetchSessionData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/sessions/${sessionId}/detail`);
@@ -129,7 +123,13 @@ export default function SessionDetailDrawer({
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (isOpen && sessionId) {
+      fetchSessionData();
+    }
+  }, [fetchSessionData, isOpen, sessionId]);
 
   const handleClose = () => {
     setSessionData(null);
@@ -147,20 +147,19 @@ export default function SessionDetailDrawer({
       open={isOpen}
       onClose={handleClose}
       title={sessionData ? `${sessionData.class.className}` : "Chi tiết buổi học"}
-      widthClassName="max-w-6xl"
+      widthClassName="max-w-5xl"
     >
       {loading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="slideover-form-card flex min-h-[220px] items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
         </div>
       )}
 
       {!loading && sessionData && (
         <div className="space-y-4">
-          {/* Compact Header - 1 row with all key info */}
-          <div className="rounded-xl bg-gradient-to-br from-[#fff7ed] to-[#ffedd5] border border-[#fed7aa] p-3">
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="rounded-2xl border border-[#fed7aa] bg-[#fff7ed] p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
                 <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#f97316] px-2 py-0.5 text-xs font-bold text-white">
                   #{sessionData.sessionNumber}/{sessionData.totalSessions}
                 </span>
@@ -168,28 +167,27 @@ export default function SessionDetailDrawer({
                   {formatDate(sessionData.session.sessionDate)} · {sessionData.session.weekdayLabel}
                 </span>
               </div>
-              <span className={`inline-flex shrink-0 rounded-lg px-2 py-1 text-xs font-bold ${STATUS_COLORS[sessionData.session.status] || "bg-gray-100"}`}>
+              <span className={`inline-flex shrink-0 rounded-full px-3 py-1 text-xs font-bold ${STATUS_COLORS[sessionData.session.status] || "bg-gray-100"}`}>
                 {STATUS_LABELS[sessionData.session.status] || sessionData.session.status}
               </span>
             </div>
-            
-            {/* Quick stats in a compact grid */}
-            <div className="grid grid-cols-4 gap-2 text-xs">
-              <div className="text-center">
+
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+              <div className="rounded-xl bg-white/70 px-3 py-2">
                 <div className="text-[#9a3412] opacity-70">Sĩ số</div>
                 <div className="font-bold text-[#7c2d12]">{sessionData.enrollmentCount}</div>
               </div>
-              <div className="text-center">
+              <div className="rounded-xl bg-white/70 px-3 py-2">
                 <div className="text-[#9a3412] opacity-70">Có mặt</div>
                 <div className="font-bold text-emerald-700">{sessionData.presentCount}</div>
               </div>
-              <div className="text-center">
+              <div className="rounded-xl bg-white/70 px-3 py-2">
                 <div className="text-[#9a3412] opacity-70">Vắng</div>
                 <div className="font-bold text-red-700">{sessionData.absentCount}</div>
               </div>
-              <div className="text-center">
+              <div className="rounded-xl bg-white/70 px-3 py-2">
                 <div className="text-[#9a3412] opacity-70">Giờ học</div>
-                <div className="font-bold text-[#7c2d12] text-[10px]">
+                <div className="text-[11px] font-bold text-[#7c2d12]">
                   {sessionData.session.startTime?.slice(0, 5) || "—"} - {sessionData.session.endTime?.slice(0, 5) || "—"}
                 </div>
               </div>
@@ -203,13 +201,12 @@ export default function SessionDetailDrawer({
             )}
           </div>
 
-          {/* Tabs */}
-          <div className="flex items-center gap-1 border-b border-[#e5eaf7] overflow-x-auto pb-px">
+          <div className="flex items-center gap-1 overflow-x-auto rounded-2xl border border-[#e5eaf7] bg-white p-1 shadow-sm">
             <button
               onClick={() => setActiveTab("overview")}
-              className={`px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
+              className={`rounded-xl px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
                 activeTab === "overview"
-                  ? "text-[#f97316] border-b-2 border-[#f97316]"
+                  ? "bg-[#fff7ed] text-[#f97316]"
                   : "text-[#64748b] hover:text-[#0f1729]"
               }`}
             >
@@ -217,9 +214,9 @@ export default function SessionDetailDrawer({
             </button>
             <button
               onClick={() => setActiveTab("attendance")}
-              className={`px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
+              className={`rounded-xl px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
                 activeTab === "attendance"
-                  ? "text-[#f97316] border-b-2 border-[#f97316]"
+                  ? "bg-[#fff7ed] text-[#f97316]"
                   : "text-[#64748b] hover:text-[#0f1729]"
               }`}
             >
@@ -227,9 +224,9 @@ export default function SessionDetailDrawer({
             </button>
             <button
               onClick={() => setActiveTab("journal")}
-              className={`px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
+              className={`rounded-xl px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
                 activeTab === "journal"
-                  ? "text-[#f97316] border-b-2 border-[#f97316]"
+                  ? "bg-[#fff7ed] text-[#f97316]"
                   : "text-[#64748b] hover:text-[#0f1729]"
               }`}
             >
@@ -237,9 +234,9 @@ export default function SessionDetailDrawer({
             </button>
             <button
               onClick={() => setActiveTab("assignment")}
-              className={`px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
+              className={`rounded-xl px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
                 activeTab === "assignment"
-                  ? "text-[#f97316] border-b-2 border-[#f97316]"
+                  ? "bg-[#fff7ed] text-[#f97316]"
                   : "text-[#64748b] hover:text-[#0f1729]"
               }`}
             >
@@ -247,8 +244,7 @@ export default function SessionDetailDrawer({
             </button>
           </div>
 
-          {/* Tab Content */}
-          <div className="pb-6">
+          <div className="pb-4">
             {activeTab === "overview" && (
               <div className="space-y-3">
                 {/* Roadmap */}

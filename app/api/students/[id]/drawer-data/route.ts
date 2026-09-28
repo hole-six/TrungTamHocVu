@@ -120,13 +120,34 @@ export async function GET(
         creditBalances: { where: { usedAt: null }, orderBy: { createdAt: "asc" } },
         schoolExamScores: { orderBy: { schoolYear: "desc" } },
         bookIssues: {
-          include: { book: true, class: true, charge: { include: { billingPeriod: true } } },
+          select: {
+            id: true,
+            bookId: true,
+            quantity: true,
+            amount: true,
+            issueDate: true,
+            paymentStatus: true,
+            notes: true,
+            chargeId: true,
+            book: { select: { name: true } },
+            class: { select: { className: true } },
+            charge: { select: { billingPeriod: { select: { periodName: true } } } },
+          },
           orderBy: { issueDate: "desc" },
           take: 8,
         },
         bookRequirements: {
-          include: { book: true, class: true },
+          select: {
+            id: true,
+            quantity: true,
+            totalAmount: true,
+            status: true,
+            createdAt: true,
+            book: { select: { name: true } },
+            class: { select: { className: true } },
+          },
           orderBy: { createdAt: "desc" },
+          take: 20,
         },
         attendances: {
           include: {

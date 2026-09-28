@@ -1,37 +1,52 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, ReactNode } from "react";
 
-type ClassDrawerContextType = {
+type ClassDrawerStateContextType = {
   drawerClassId: string | null;
+};
+
+type ClassDrawerActionsContextType = {
   openDrawer: (classId: string) => void;
   closeDrawer: () => void;
 };
 
-const ClassDrawerContext = createContext<ClassDrawerContextType | undefined>(undefined);
+const ClassDrawerStateContext = createContext<ClassDrawerStateContextType | undefined>(undefined);
+const ClassDrawerActionsContext = createContext<ClassDrawerActionsContextType | undefined>(undefined);
 
 export function ClassDrawerProvider({ children }: { children: ReactNode }) {
   const [drawerClassId, setDrawerClassId] = useState<string | null>(null);
 
-  const openDrawer = (classId: string) => {
+  const openDrawer = useCallback((classId: string) => {
     setDrawerClassId(classId);
-  };
+  }, []);
 
-  const closeDrawer = () => {
+  const closeDrawer = useCallback(() => {
     setDrawerClassId(null);
-  };
+  }, []);
+
+  const stateValue = useMemo(() => ({ drawerClassId }), [drawerClassId]);
+  const actionsValue = useMemo(() => ({ openDrawer, closeDrawer }), [openDrawer, closeDrawer]);
 
   return (
-    <ClassDrawerContext.Provider value={{ drawerClassId, openDrawer, closeDrawer }}>
-      {children}
-    </ClassDrawerContext.Provider>
+    <ClassDrawerActionsContext.Provider value={actionsValue}>
+      <ClassDrawerStateContext.Provider value={stateValue}>{children}</ClassDrawerStateContext.Provider>
+    </ClassDrawerActionsContext.Provider>
   );
 }
 
 export function useClassDrawer() {
-  const context = useContext(ClassDrawerContext);
+  const context = useContext(ClassDrawerActionsContext);
   if (context === undefined) {
     throw new Error("useClassDrawer must be used within a ClassDrawerProvider");
+  }
+  return context;
+}
+
+export function useClassDrawerState() {
+  const context = useContext(ClassDrawerStateContext);
+  if (context === undefined) {
+    throw new Error("useClassDrawerState must be used within a ClassDrawerProvider");
   }
   return context;
 }

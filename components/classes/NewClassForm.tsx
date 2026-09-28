@@ -7,6 +7,7 @@ import PickOrCreateSelect from "@/components/ui/PickOrCreateSelect";
 import { useClassDrawer } from "@/contexts/ClassDrawerContext";
 import { formatVnd as formatVndBase } from "@/lib/export-utils";
 import ClassRoadmapEditor, { isAuthoredRoadmapDraft, useRoadmapDrafts, type RoadmapSessionDate } from "@/components/classes/ClassRoadmapEditor";
+import BookBasketPicker, { basketItems, basketTotal, type Basket, type BookOption } from "@/components/inventory/BookBasketPicker";
 
 // Form tạo lớp giữ phần BẮT BUỘC gọn (mã/tên lớp, khóa học, học phí/buổi, tổng số buổi,
 // ngày khai giảng, lịch cố định). Tài liệu học tập theo từng buổi là mục MỞ RỘNG không
@@ -167,7 +168,8 @@ export default function NewClassForm({
   });
   // Không bắt buộc: sách kèm theo của lớp. Có gắn thì học viên vào lớp tự có yêu cầu
   // mua sách và tiền sách vào luôn phiếu học phí, khỏi phải nhập tay từng em.
-  const [bookOptions, setBookOptions] = useState<{ id: string; name: string; unitPrice: number }[]>([]);
+  const [bookOptions, setBookOptions] = useState<BookOption[]>([]);
+  const [bookOptionsLoading, setBookOptionsLoading] = useState(false);
   const [classBooks, setClassBooks] = useState<{ bookId: string; quantity: number }[]>([]);
   const [classGroupOptions, setClassGroupOptions] = useState<string[]>([]);
   useEffect(() => {
@@ -176,10 +178,12 @@ export default function NewClassForm({
       .then((res) => res.json())
       .then((data) => setClassGroupOptions(data.items ?? []))
       .catch(() => {});
-    fetch("/api/books")
+    setBookOptionsLoading(true);
+    fetch("/api/books?compact=1")
       .then((res) => res.json())
       .then((data) => setBookOptions(data.items ?? []))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setBookOptionsLoading(false));
   }, [open]);
   const [scheduleRules, setScheduleRules] = useState<ScheduleRuleDraft[]>([buildEmptyRule()]);
   const [showRoadmap, setShowRoadmap] = useState(false);
@@ -202,10 +206,11 @@ export default function NewClassForm({
   const discountPercent = form.discountPercent === "" ? 0 : Math.min(100, Math.max(0, Number(form.discountPercent) || 0));
   const tuitionAfterDiscount =
     tuitionPerSession != null && tuitionPerSession >= 0 ? Math.round(tuitionPerSession * (1 - discountPercent / 100)) : null;
-  const classBooksTotal = classBooks.reduce((sum, item) => {
-    const book = bookOptions.find((option) => option.id === item.bookId);
-    return sum + (book ? book.unitPrice * item.quantity : 0);
-  }, 0);
+  const classBookBasket = useMemo(
+    () => Object.fromEntries(classBooks.filter((item) => item.bookId && item.quantity > 0).map((item) => [item.bookId, item.quantity])) as Basket,
+    [classBooks],
+  );
+  const classBooksTotal = useMemo(() => basketTotal(classBookBasket, bookOptions), [classBookBasket, bookOptions]);
 
   const estimatedCourseTuition =
     tuitionPerSession != null && totalSessions != null && tuitionPerSession >= 0 && totalSessions >= 0
@@ -453,64 +458,33 @@ export default function NewClassForm({
 
           {!form.isRemedial ? (
             <div className="rounded-xl border border-[#e5eaf7] bg-white p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
                   <span className="text-sm font-semibold text-ink">Sách kèm theo (không bắt buộc)</span>
                   <p className="mt-0.5 text-[11px] text-ink-muted48">
-                    Học viên ghi danh vào lớp sẽ tự có yêu cầu mua các cuốn này, tiền sách vào luôn phiếu học phí. Em nào chuyển lớp thì gỡ sách ra được ở hồ sơ học viên.
+                    Chọn theo danh mục/bộ sách hoặc chọn riêng từng đầu sách. Học viên ghi danh vào lớp sẽ tự có yêu cầu mua sách và tiền sách được tách riêng trong phiếu học phí.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setClassBooks((prev) => [...prev, { bookId: "", quantity: 1 }])}
-                  className="btn-ghost-sm"
-                >
-                  + Thêm sách
-                </button>
+                {classBooksTotal > 0 ? (
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                    {basketItems(classBookBasket, bookOptions).length} đầu sách · {classBooksTotal.toLocaleString("vi-VN")}đ/HV
+                  </span>
+                ) : null}
               </div>
-              {classBooks.length === 0 ? (
-                <p className="mt-3 text-xs text-ink-muted48">Lớp này chưa gắn sách nào.</p>
-              ) : (
-                <div className="mt-3 space-y-2">
-                  {classBooks.map((item, index) => (
-                    <div key={index} className="flex flex-wrap items-center gap-2">
-                      <select
-                        className="input h-9 flex-1 min-w-[200px]"
-                        value={item.bookId}
-                        onChange={(event) =>
-                          setClassBooks((prev) => prev.map((row, i) => (i === index ? { ...row, bookId: event.target.value } : row)))
-                        }
-                      >
-                        <option value="">— chọn sách —</option>
-                        {bookOptions.map((book) => (
-                          <option key={book.id} value={book.id}>
-                            {book.name} · {book.unitPrice.toLocaleString("vi-VN")}đ
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        min={1}
-                        className="input h-9 w-20"
-                        value={item.quantity}
-                        onChange={(event) =>
-                          setClassBooks((prev) =>
-                            prev.map((row, i) => (i === index ? { ...row, quantity: Math.max(1, Number(event.target.value) || 1) } : row)),
-                          )
-                        }
-                      />
-                      <button type="button" onClick={() => setClassBooks((prev) => prev.filter((_, i) => i !== index))} className="btn-ghost-sm">
-                        Bỏ
-                      </button>
-                    </div>
-                  ))}
-                  {classBooksTotal > 0 ? (
-                    <p className="text-xs font-semibold text-ink-muted80">
-                      Tiền sách mỗi học viên: {classBooksTotal.toLocaleString("vi-VN")}đ
-                    </p>
-                  ) : null}
-                </div>
-              )}
+              <div className="mt-3">
+                <BookBasketPicker
+                  books={bookOptions}
+                  basket={classBookBasket}
+                  loading={bookOptionsLoading}
+                  onChange={(next) =>
+                    setClassBooks(
+                      Object.entries(next)
+                        .filter(([, quantity]) => quantity > 0)
+                        .map(([bookId, quantity]) => ({ bookId, quantity })),
+                    )
+                  }
+                />
+              </div>
             </div>
           ) : null}
 

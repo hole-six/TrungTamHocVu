@@ -1,37 +1,52 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, ReactNode } from "react";
 
-type StudentDrawerContextType = {
+type StudentDrawerStateContextType = {
   drawerStudentId: string | null;
+};
+
+type StudentDrawerActionsContextType = {
   openDrawer: (studentId: string) => void;
   closeDrawer: () => void;
 };
 
-const StudentDrawerContext = createContext<StudentDrawerContextType | undefined>(undefined);
+const StudentDrawerStateContext = createContext<StudentDrawerStateContextType | undefined>(undefined);
+const StudentDrawerActionsContext = createContext<StudentDrawerActionsContextType | undefined>(undefined);
 
 export function StudentDrawerProvider({ children }: { children: ReactNode }) {
   const [drawerStudentId, setDrawerStudentId] = useState<string | null>(null);
 
-  const openDrawer = (studentId: string) => {
+  const openDrawer = useCallback((studentId: string) => {
     setDrawerStudentId(studentId);
-  };
+  }, []);
 
-  const closeDrawer = () => {
+  const closeDrawer = useCallback(() => {
     setDrawerStudentId(null);
-  };
+  }, []);
+
+  const stateValue = useMemo(() => ({ drawerStudentId }), [drawerStudentId]);
+  const actionsValue = useMemo(() => ({ openDrawer, closeDrawer }), [openDrawer, closeDrawer]);
 
   return (
-    <StudentDrawerContext.Provider value={{ drawerStudentId, openDrawer, closeDrawer }}>
-      {children}
-    </StudentDrawerContext.Provider>
+    <StudentDrawerActionsContext.Provider value={actionsValue}>
+      <StudentDrawerStateContext.Provider value={stateValue}>{children}</StudentDrawerStateContext.Provider>
+    </StudentDrawerActionsContext.Provider>
   );
 }
 
 export function useStudentDrawer() {
-  const context = useContext(StudentDrawerContext);
+  const context = useContext(StudentDrawerActionsContext);
   if (context === undefined) {
     throw new Error("useStudentDrawer must be used within a StudentDrawerProvider");
+  }
+  return context;
+}
+
+export function useStudentDrawerState() {
+  const context = useContext(StudentDrawerStateContext);
+  if (context === undefined) {
+    throw new Error("useStudentDrawerState must be used within a StudentDrawerProvider");
   }
   return context;
 }

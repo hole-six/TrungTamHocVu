@@ -47,7 +47,7 @@ function TextFilterCell({
       placeholder={placeholder ?? "Lọc..."}
       onChange={(event) => handleChange(event.target.value)}
       onClick={(event) => event.stopPropagation()}
-      className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2.5 py-1.5 text-sm font-normal normal-case text-[#111827] placeholder:text-[#9ca3af] focus:border-primary focus:outline-none"
+      className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-3 py-2 text-[15px] font-medium normal-case text-[#111827] placeholder:text-[#9ca3af] focus:border-primary focus:outline-none"
     />
   );
 }
@@ -70,7 +70,7 @@ function SelectFilterCell({
       value={value}
       onChange={(event) => onChange?.(paramKey, event.target.value || null)}
       onClick={(event) => event.stopPropagation()}
-      className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-2.5 py-1.5 text-sm font-normal normal-case text-[#111827] focus:border-primary focus:outline-none"
+      className="w-full min-w-0 rounded-lg border border-[#d1d5db] bg-white px-3 py-2 text-[15px] font-medium normal-case text-[#111827] focus:border-primary focus:outline-none"
     >
       <option value="">{placeholder ?? "Tất cả"}</option>
       {options.map((option) => (
@@ -165,10 +165,10 @@ export default function DataTableFilterRow<T>({
 
   return (
     <tr className="border-b border-[#e5e7eb] bg-[#fafbfc]">
-      {selectable ? <th className="px-6 py-2" /> : null}
+      {selectable ? <th className="px-6 py-2.5" /> : null}
 
       {columns.map((column) => (
-        <th key={column.key} className="px-2 py-2 text-left align-top">
+        <th key={column.key} className="px-2 py-2.5 text-left align-top">
           {!column.filter ? null : column.filter.type === "text" ? (
             <TextFilterCell
               paramKey={column.filter.paramKey}
@@ -211,7 +211,7 @@ export default function DataTableFilterRow<T>({
         </th>
       ))}
 
-      {hasActionsColumn ? <th className="px-6 py-2" /> : null}
+      {hasActionsColumn ? <th className="px-6 py-2.5" /> : null}
     </tr>
   );
 }

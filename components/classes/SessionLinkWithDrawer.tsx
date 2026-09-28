@@ -29,13 +29,15 @@ export default function SessionLinkWithDrawer({
         {children}
       </button>
 
-      <SessionDetailDrawer
-        sessionId={sessionId}
-        classId={classId}
-        isOpen={isOpen}
-        onClose={() => setIsOpen(false)}
-        returnPath={returnPath}
-      />
+      {isOpen ? (
+        <SessionDetailDrawer
+          sessionId={sessionId}
+          classId={classId}
+          isOpen={isOpen}
+          onClose={() => setIsOpen(false)}
+          returnPath={returnPath}
+        />
+      ) : null}
     </>
   );
 }

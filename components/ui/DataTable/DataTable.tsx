@@ -230,7 +230,7 @@ export default function DataTable<T extends Record<string, any>>({
                 {columns.map((column) => (
                   <th
                     key={column.key}
-                    className={`px-6 py-3 text-left text-xs font-bold uppercase tracking-normal text-[#111827] bg-white ${
+                    className={`px-6 py-3.5 text-left text-[13px] font-extrabold uppercase tracking-normal text-[#111827] bg-white ${
                       column.sortable && sortable ? "cursor-pointer select-none hover:bg-[#fafafa]" : ""
                     } ${column.align === "center" ? "text-center" : column.align === "right" ? "text-right" : ""}`}
                     style={column.width ? { width: column.width } : undefined}
@@ -263,7 +263,7 @@ export default function DataTable<T extends Record<string, any>>({
                 ))}
 
                 {actions.length > 0 || renderExpanded ? (
-                  <th className="w-[220px] px-6 py-3 text-right text-xs font-bold uppercase tracking-normal text-[#111827] bg-white">
+                  <th className="w-[220px] px-6 py-3.5 text-right text-[13px] font-extrabold uppercase tracking-normal text-[#111827] bg-white">
                     Actions
                   </th>
                 ) : null}

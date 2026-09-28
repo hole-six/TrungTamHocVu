@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { AlertTriangle, CheckCircle2, Info, ShieldAlert, X } from "lucide-react";
 
 // Thông báo nổi dùng chung cho toàn hệ thống.
 //
@@ -12,7 +13,7 @@ import { createPortal } from "react-dom";
 // không ăn và bấm lại nhiều lần. Toast "ngăn cấm" phải nổi rõ và tự đứng lại đủ lâu
 // để đọc hết lý do.
 type ToastKind = "error" | "success" | "warning" | "info";
-type ToastItem = { id: number; kind: ToastKind; message: string; title?: string };
+type ToastItem = { id: number; kind: ToastKind; message: string; title?: string; ms: number };
 
 type ToastApi = {
   /** Thao tác bị ngăn vì mâu thuẫn nghiệp vụ — đứng lâu, phải đọc được hết lý do. */
@@ -25,11 +26,35 @@ type ToastApi = {
 
 const ToastContext = createContext<ToastApi | null>(null);
 
-const KIND_STYLE: Record<ToastKind, { box: string; dot: string; label: string }> = {
-  error: { box: "border-rose-300 bg-rose-50 text-rose-900", dot: "bg-rose-500", label: "Không thực hiện được" },
-  warning: { box: "border-amber-300 bg-amber-50 text-amber-900", dot: "bg-amber-500", label: "Cần lưu ý" },
-  success: { box: "border-emerald-300 bg-emerald-50 text-emerald-900", dot: "bg-emerald-500", label: "Đã xong" },
-  info: { box: "border-sky-300 bg-sky-50 text-sky-900", dot: "bg-sky-500", label: "Thông báo" },
+const KIND_STYLE: Record<ToastKind, { box: string; accent: string; iconBox: string; icon: ReactNode; label: string }> = {
+  error: {
+    box: "border-rose-200 text-rose-950",
+    accent: "bg-rose-500",
+    iconBox: "bg-rose-50 text-rose-600",
+    icon: <ShieldAlert className="h-5 w-5" strokeWidth={2.3} />,
+    label: "Không thực hiện được",
+  },
+  warning: {
+    box: "border-amber-200 text-amber-950",
+    accent: "bg-amber-500",
+    iconBox: "bg-amber-50 text-amber-600",
+    icon: <AlertTriangle className="h-5 w-5" strokeWidth={2.3} />,
+    label: "Cần lưu ý",
+  },
+  success: {
+    box: "border-emerald-200 text-emerald-950",
+    accent: "bg-emerald-500",
+    iconBox: "bg-emerald-50 text-emerald-600",
+    icon: <CheckCircle2 className="h-5 w-5" strokeWidth={2.3} />,
+    label: "Đã xong",
+  },
+  info: {
+    box: "border-sky-200 text-sky-950",
+    accent: "bg-sky-500",
+    iconBox: "bg-sky-50 text-sky-600",
+    icon: <Info className="h-5 w-5" strokeWidth={2.3} />,
+    label: "Thông báo",
+  },
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -42,7 +67,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const push = useCallback(
     (kind: ToastKind, message: string, title?: string, ms = 6000) => {
       const id = Date.now() + Math.random();
-      setItems((current) => [...current.slice(-3), { id, kind, message, title }]);
+      setItems((current) => [...current.slice(-3), { id, kind, message, title, ms }]);
       window.setTimeout(() => remove(id), ms);
     },
     [remove],
@@ -52,7 +77,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     () => ({
       // Lỗi do mâu thuẫn nghiệp vụ đứng 10 giây: câu giải thích thường dài (nói rõ vì
       // sao bị chặn và phải làm gì), 3-4 giây không đủ đọc.
-      blocked: (m, t) => push("error", m, t ?? "Thao tác bị ngăn"),
+      blocked: (m, t) => push("error", m, t ?? "Thao tác bị ngăn", 10000),
       error: (m, t) => push("error", m, t),
       success: (m, t) => push("success", m, t, 4000),
       warning: (m, t) => push("warning", m, t),
@@ -66,28 +91,37 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {mounted
         ? createPortal(
-            <div className="pointer-events-none fixed right-4 top-4 z-[200] flex w-[min(420px,calc(100vw-2rem))] flex-col gap-2">
+            <div className="pointer-events-none fixed right-4 top-4 z-[200] flex w-[min(440px,calc(100vw-2rem))] flex-col gap-2">
               {items.map((item) => {
                 const style = KIND_STYLE[item.kind];
                 return (
                   <div
                     key={item.id}
                     role="alert"
-                    className={`pointer-events-auto flex items-start gap-3 rounded-2xl border-2 px-4 py-3 shadow-[0_18px_40px_-20px_rgba(15,23,42,0.35)] ${style.box}`}
+                    className={`pointer-events-auto relative overflow-hidden rounded-2xl border bg-white shadow-[0_20px_50px_-24px_rgba(15,23,42,0.45)] ${style.box}`}
                   >
-                    <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${style.dot}`} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold">{item.title ?? style.label}</p>
-                      <p className="mt-0.5 whitespace-pre-line text-sm leading-5">{item.message}</p>
+                    <div className={`absolute inset-y-0 left-0 w-1 ${style.accent}`} />
+                    <div className="flex items-start gap-3 px-4 py-3 pl-5">
+                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${style.iconBox}`}>{style.icon}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[15px] font-extrabold leading-5">{item.title ?? style.label}</p>
+                        <p className="mt-1 whitespace-pre-line text-sm font-medium leading-5 text-slate-600">{item.message}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => remove(item.id)}
+                        aria-label="Đóng thông báo"
+                        className="shrink-0 rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                      >
+                        <X className="h-4 w-4" strokeWidth={2.5} />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => remove(item.id)}
-                      aria-label="Đóng thông báo"
-                      className="shrink-0 rounded-lg px-2 py-1 text-lg font-bold leading-none opacity-60 hover:opacity-100"
-                    >
-                      ×
-                    </button>
+                    <div className="h-0.5 bg-slate-100">
+                      <div
+                        className={`h-full origin-left ${style.accent}`}
+                        style={{ animation: `toastProgress ${item.ms}ms linear forwards` }}
+                      />
+                    </div>
                   </div>
                 );
               })}

@@ -315,16 +315,10 @@ export default function ClassJournalForm({
 
   return (
     <div className="print-area">
-      <div className="card space-y-5 print:hidden">
-        <FormGuide
-          title="Hướng dẫn nhật ký"
-          summary="Cách ghi nội dung buổi học, chấm điểm và chốt bản gửi phụ huynh."
-          sections={CLASS_JOURNAL_GUIDE_SECTIONS}
-          position="inline"
-          buttonLabel="Guide"
-        />
+      <div className="rounded-2xl border border-[#e5eaf7] bg-white p-4 shadow-sm sm:p-5 print:hidden">
+        <div className="space-y-4">
         {draftRestored ? (
-          <div className="no-print flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
+          <div className="no-print flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
             <span>Đã khôi phục bản nháp chưa lưu trong máy này. Kiểm tra lại rồi bấm lưu để chốt dữ liệu.</span>
             <button type="button" onClick={() => setDraftRestored(false)} className="font-semibold hover:underline">
               Ẩn
@@ -333,68 +327,77 @@ export default function ClassJournalForm({
         ) : null}
 
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Bước 3</p>
             <h2 className="mt-1 font-display text-xl font-semibold tracking-tight">Nhật ký gửi phụ huynh</h2>
             <p className="mt-1 text-sm text-ink-muted48">Ghi bài học, điểm số, nhận xét và dặn dò cuối buổi.</p>
           </div>
-          <div className="no-print flex items-center gap-3">
+          <div className="no-print flex flex-wrap items-center justify-end gap-2">
+            <FormGuide
+              title="Hướng dẫn nhật ký"
+              summary="Cách ghi nội dung buổi học, chấm điểm và chốt bản gửi phụ huynh."
+              sections={CLASS_JOURNAL_GUIDE_SECTIONS}
+              position="inline"
+              buttonLabel="Hướng dẫn"
+            />
             <button
               type="button"
               onClick={() => printPage({ pageSize: "A4 landscape", margin: "8mm" })}
-              className="text-xs font-semibold text-primary hover:underline"
+              className="inline-flex h-9 items-center rounded-full border border-[#dce6f5] bg-white px-3 text-xs font-semibold text-primary shadow-sm hover:bg-[#f8fbff]"
             >
               Lưu PDF phụ huynh
             </button>
             {isPublished ? (
-              <Link href={publishedUrl} target="_blank" className="text-xs font-semibold text-primary">
+              <Link href={publishedUrl} target="_blank" className="inline-flex h-9 items-center rounded-full border border-[#dce6f5] bg-white px-3 text-xs font-semibold text-primary shadow-sm hover:bg-[#f8fbff]">
                 Xem bản gửi phụ huynh
               </Link>
             ) : null}
           </div>
         </div>
 
-        <label className="form-group max-w-[420px]">
-          <span className="label">Unit / Lesson của buổi học</span>
-          <input
-            className="input"
-            placeholder="VD: UNIT 1 - LESSON 1"
-            value={unitLesson}
-            onChange={(event) => {
-              setUnitLesson(event.target.value);
-              setSaved(false);
-            }}
-          />
-        </label>
+        <div className="grid gap-4 lg:grid-cols-[minmax(240px,0.45fr)_1fr]">
+          <label className="form-group">
+            <span className="label">Unit / Lesson của buổi học</span>
+            <input
+              className="input"
+              placeholder="VD: UNIT 1 - LESSON 1"
+              value={unitLesson}
+              onChange={(event) => {
+                setUnitLesson(event.target.value);
+                setSaved(false);
+              }}
+            />
+          </label>
 
-        <label className="form-group">
-          <span className="label">Ghi chú nội bộ</span>
-          <textarea
-            className="input min-h-[110px] resize-y"
-            value={teacherNote}
-            onChange={(event) => {
-              setTeacherNote(event.target.value);
-              setSaved(false);
-            }}
-            placeholder="VD: lớp cần ôn speaking, buổi sau nhắc lại worksheet trang 12..."
-          />
-        </label>
+          <label className="form-group">
+            <span className="label">Ghi chú nội bộ</span>
+            <textarea
+              className="input min-h-[96px] resize-y"
+              value={teacherNote}
+              onChange={(event) => {
+                setTeacherNote(event.target.value);
+                setSaved(false);
+              }}
+              placeholder="VD: lớp cần ôn speaking, buổi sau nhắc lại worksheet trang 12..."
+            />
+          </label>
+        </div>
 
         {plannedRoadmap ? (
-          <details className="rounded-[24px] border border-[#cfe3ff] bg-[#f9fbff] p-4">
+          <details className="rounded-2xl border border-[#cfe3ff] bg-[#f9fbff] p-4">
             <summary className="cursor-pointer list-none text-sm font-semibold text-primary">Xem giáo trình buổi này</summary>
             <div className="mt-3 grid gap-3 md:grid-cols-3">
-              <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
+              <div className="rounded-xl border border-hairline bg-white px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Tên bài</p>
                 <p className="mt-2 text-sm leading-6 text-ink">{plannedRoadmap.title?.trim() || `Buổi ${plannedRoadmap.sessionNumber}`}</p>
               </div>
-              <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
+              <div className="rounded-xl border border-hairline bg-white px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Tài liệu</p>
                 <p className="mt-2 text-sm leading-6 text-ink">
                   {plannedRoadmap.materials?.trim() ? <Linkify text={plannedRoadmap.materials.trim()} /> : "Chưa có tài liệu."}
                 </p>
               </div>
-              <div className="rounded-2xl border border-hairline bg-white px-4 py-3">
+              <div className="rounded-xl border border-hairline bg-white px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted48">Ghi chú GV</p>
                 <p className="mt-2 text-sm leading-6 text-ink">
                   {plannedRoadmap.teacherGuide?.trim() || plannedRoadmap.homeworkGuide?.trim() ? (
@@ -408,9 +411,10 @@ export default function ClassJournalForm({
           </details>
         ) : null}
 
-        <div className="table-container">
-          <table className="w-full min-w-[1160px] text-left text-sm">
-            <thead className="border-b border-hairline bg-[#fafbff] text-xs uppercase tracking-wide text-ink-muted48">
+        <div className="overflow-hidden rounded-2xl border border-[#e5eaf7] bg-white shadow-sm">
+          <div className="max-h-[52vh] overflow-auto">
+          <table className="w-full min-w-[1040px] text-left text-sm">
+            <thead className="sticky top-0 z-10 border-b border-hairline bg-[#fafbff] text-xs uppercase tracking-wide text-ink-muted48">
               <tr>
                 <th className="min-w-[220px] px-3 py-3 font-medium">Học viên</th>
                 {labels.map((label) => (
@@ -446,7 +450,7 @@ export default function ClassJournalForm({
                         {student.fullName}
                         {careAlertSet.has(student.id) ? (
                           <span
-                            className="no-print badge bg-red-100 text-red-700"
+                            className="no-print badge whitespace-nowrap bg-red-100 text-red-700"
                             title="Điểm dưới 7 ở cả 3 buổi gần nhất liên tiếp — cần chăm sóc"
                           >
                             ⚠ Cần chăm sóc
@@ -468,7 +472,7 @@ export default function ClassJournalForm({
                             step="0.25"
                             min="0"
                             max={score?.maxScore ?? 10}
-                            className={`input w-24 ${scoreColorClass}`}
+                            className={`input h-10 w-20 ${scoreColorClass}`}
                             value={score?.score ?? ""}
                             onChange={(event) => updateScore(student.id, label, event.target.value)}
                           />
@@ -480,7 +484,7 @@ export default function ClassJournalForm({
 
                     <td className="px-3 py-3 align-top">
                       <select
-                        className="input"
+                        className="input h-10"
                         value={row.homeworkStatus}
                         onChange={(event) => updateRow(student.id, { homeworkStatus: event.target.value })}
                       >
@@ -494,7 +498,7 @@ export default function ClassJournalForm({
 
                     <td className="px-3 py-3 align-top">
                       <textarea
-                        className="input min-h-[96px] resize-y"
+                        className="input min-h-[84px] resize-y"
                         value={row.comment}
                         onChange={(event) => updateRow(student.id, { comment: event.target.value })}
                         placeholder="VD: Hôm nay tập trung tốt, cần ôn thêm từ vựng..."
@@ -503,7 +507,7 @@ export default function ClassJournalForm({
 
                     <td className="px-3 py-3 align-top">
                       <textarea
-                        className="input min-h-[96px] resize-y"
+                        className="input min-h-[84px] resize-y"
                         value={row.notes}
                         onChange={(event) => updateRow(student.id, { notes: event.target.value })}
                         placeholder="Không gửi phụ huynh"
@@ -522,6 +526,7 @@ export default function ClassJournalForm({
               ) : null}
             </tbody>
           </table>
+          </div>
         </div>
 
         <label className="form-group">
@@ -550,6 +555,7 @@ export default function ClassJournalForm({
               {loading ? "..." : isPublished ? "Cập nhật bản đã gửi" : "Chốt gửi phụ huynh"}
             </button>
           </div>
+        </div>
         </div>
       </div>
 

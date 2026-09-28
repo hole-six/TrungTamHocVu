@@ -62,11 +62,23 @@ export async function PATCH(req: NextRequest) {
         }))
         .filter((item: { classId: string }) => item.classId)
     : [];
-  if (updates.length === 0) return NextResponse.json({ error: "Không có thay đổi nào để lưu." }, { status: 400 });
+  const groupUpdates: { classId: string; classGroup: string | null }[] = Array.isArray(body.groupUpdates)
+    ? body.groupUpdates
+        .map((item: { classId?: string; classGroup?: string | null }) => ({
+          classId: String(item.classId ?? "").trim(),
+          classGroup: item.classGroup ? String(item.classGroup).trim() : null,
+        }))
+        .filter((item: { classId: string }) => item.classId)
+    : [];
+  if (updates.length === 0 && groupUpdates.length === 0) return NextResponse.json({ error: "Không có thay đổi nào để lưu." }, { status: 400 });
 
   const activeBranchId = await getCurrentBranchId();
   const classIds = updates.map((u) => u.classId);
-  const involvedClassIds = new Set([...classIds, ...updates.map((u) => u.nextClassId).filter((id): id is string => !!id)]);
+  const involvedClassIds = new Set([
+    ...classIds,
+    ...groupUpdates.map((u) => u.classId),
+    ...updates.map((u) => u.nextClassId).filter((id): id is string => !!id),
+  ]);
   const involvedClasses = await prisma.class.findMany({
     where: { id: { in: [...involvedClassIds] } },
     select: { id: true, branchId: true, isRemedial: true, status: true, nextClassId: true },
@@ -89,11 +101,21 @@ export async function PATCH(req: NextRequest) {
       }
     }
   }
+  for (const update of groupUpdates) {
+    const current = classById.get(update.classId);
+    if (!current) return NextResponse.json({ error: `Không tìm thấy lớp ${update.classId}.` }, { status: 404 });
+    if (activeBranchId && current.branchId !== activeBranchId) {
+      return NextResponse.json({ error: "Chỉ được sửa lớp trong chi nhánh đang xem." }, { status: 403 });
+    }
+    if (current.isRemedial || current.status !== "ACTIVE") {
+      return NextResponse.json({ error: "Chỉ được sửa ngăn xếp cho lớp chính đang hoạt động." }, { status: 400 });
+    }
+  }
 
   // Vòng lặp phải dò trên TOÀN BỘ chuỗi của cơ sở, không chỉ các lớp trong lần lưu này —
   // xem lib/server/class-pipeline.ts. Trước đây chỉ dựng map từ lớp đang đổi + lớp đích
   // trực tiếp, nên chuỗi dài khép vòng qua lớp không đổi (A1→A2→B1 rồi lần sau B1→A1) lọt.
-  const cycle = await findNextClassCycle(prisma, updates);
+  const cycle = updates.length > 0 ? await findNextClassCycle(prisma, updates) : null;
   if (cycle) {
     return NextResponse.json(
       { error: `Các thay đổi này tạo vòng lặp: ${cycle.classCodes.join(" → ")}. Học xong lớp cuối sẽ bị đề xuất quay lại lớp đầu — kiểm tra lại trước khi lưu.` },
@@ -101,7 +123,10 @@ export async function PATCH(req: NextRequest) {
     );
   }
 
-  await prisma.$transaction(updates.map((update) => prisma.class.update({ where: { id: update.classId }, data: { nextClassId: update.nextClassId } })));
+  await prisma.$transaction([
+    ...updates.map((update) => prisma.class.update({ where: { id: update.classId }, data: { nextClassId: update.nextClassId } })),
+    ...groupUpdates.map((update) => prisma.class.update({ where: { id: update.classId }, data: { classGroup: update.classGroup } })),
+  ]);
 
-  return NextResponse.json({ updated: updates.length });
+  return NextResponse.json({ updated: updates.length, groupUpdated: groupUpdates.length });
 }
