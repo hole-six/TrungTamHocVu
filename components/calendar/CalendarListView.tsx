@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import SessionDetailDrawer from "@/components/classes/SessionDetailDrawer";
+import { useRouter } from "next/navigation";
 import { QuickRoomCell, QuickStaffGroup, type QuickEmployee } from "@/components/calendar/CalendarQuickEdit";
 import { SESSION_STATUS_LABEL } from "@/lib/server/class-rules";
 
@@ -70,9 +69,10 @@ export default function CalendarListView({
   /** Được sửa lịch hay không (GV/TG chỉ xem). */
   canEdit?: boolean;
 }) {
-  // Bấm vào dòng là MỞ NGAY buổi học trong ngăn kéo. Trước đây chỉ mỗi tên lớp bấm
-  // được, phần còn lại của dòng bấm vào không có gì xảy ra — nhìn thì tưởng hỏng.
-  const [openSession, setOpenSession] = useState<{ id: string; classId: string } | null>(null);
+  // Bấm vào dòng là VÀO THẲNG trang chi tiết buổi học, đúng như bấm một thẻ ở dạng
+  // lưới — không mở ngăn kéo. Trước đây chỉ mỗi tên lớp bấm được, phần còn lại của
+  // dòng bấm vào không có gì xảy ra nên nhìn như hỏng.
+  const router = useRouter();
   if (rows.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-[#cbdcef] bg-[#fcfdff] px-6 py-16 text-center">
@@ -121,8 +121,8 @@ export default function CalendarListView({
               return (
                 <tr
                   key={row.id}
-                  onClick={() => setOpenSession({ id: row.id, classId: row.classId })}
-                  title="Bấm vào dòng để mở buổi học"
+                  onClick={() => router.push(`/classes/${row.classId}/sessions/${row.id}`)}
+                  title="Bấm vào dòng để mở chi tiết buổi học"
                   className={`cursor-pointer align-top transition ${isToday ? "bg-red-50 shadow-[inset_4px_0_0_0_#dc2626] hover:bg-red-100/70" : weekdayRowClass(row.sessionDate)}`}
                 >
                   <td className={`whitespace-nowrap px-5 py-4 ${isToday ? "font-black text-red-700" : "font-semibold text-ink"}`}>
@@ -139,8 +139,7 @@ export default function CalendarListView({
                   <td className="px-5 py-4">
                     <Link
                       href={`/classes/${row.classId}/sessions/${row.id}`}
-                      onClick={(event) => event.stopPropagation()}
-                      title="Mở trang buổi học đầy đủ"
+                      title="Mở chi tiết buổi học"
                       className={`cursor-pointer text-base hover:underline ${isToday ? "font-black text-red-700" : "font-bold text-[#0f1729] hover:text-[#1d4ed8]"}`}
                     >
                       {row.class.className}
@@ -188,15 +187,6 @@ export default function CalendarListView({
           </tbody>
         </table>
       </div>
-
-      {openSession ? (
-        <SessionDetailDrawer
-          sessionId={openSession.id}
-          classId={openSession.classId}
-          isOpen
-          onClose={() => setOpenSession(null)}
-        />
-      ) : null}
     </div>
   );
 }
