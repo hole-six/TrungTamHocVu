@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { computeStockBalance } from "@/lib/server/inventory-rules";
@@ -42,6 +41,7 @@ const INVENTORY_PAGE_GUIDE_SECTIONS = [
       "Đây là màn vận hành kho giáo trình: quản lý đầu sách, nhập kho, xuất cho học viên và theo dõi tình trạng thanh toán sách.",
       "Phần trên là danh mục đầu sách và tồn kho hiện tại.",
       "Phần dưới là sổ xuất giáo trình để xem ai đã nhận sách, nhận ngày nào và đã thanh toán hay chưa.",
+      "Các thao tác xuất sách hiện hỗ trợ chọn theo danh mục/bộ sách hoặc chọn lẻ từng đầu sách.",
     ],
     tone: "info" as const,
   },
@@ -50,7 +50,8 @@ const INVENTORY_PAGE_GUIDE_SECTIONS = [
     items: [
       "Thêm đầu sách mới trước khi bắt đầu nhập kho hoặc xuất cho học viên.",
       "Mỗi lần hàng về thì dùng nhập kho để cộng tồn và lưu giá nhập đúng đợt.",
-      "Khi giao sách cho học viên thì dùng xuất cho học viên để trừ tồn và gắn lịch sử phát sách.",
+      "Khi giao sách cho học viên thì dùng xuất cho học viên; chọn cả bộ nếu phát trọn danh mục, hoặc chọn lẻ nếu học viên chỉ lấy một vài cuốn.",
+      "Nếu sách được cộng vào phiếu học phí, tiền sách vẫn theo dõi riêng và không bị chiết khấu tiền mặt.",
       "Dùng sổ xuất phía dưới để lọc, tra cứu và đối chiếu nhanh phần chưa thanh toán.",
     ],
     tone: "success" as const,
@@ -60,6 +61,7 @@ const INVENTORY_PAGE_GUIDE_SECTIONS = [
     items: [
       "Không sửa thông tin đầu sách để cố xử lý tồn kho.",
       "Không xuất sách trước khi giao thực tế.",
+      "Không tạo nhiều dòng cho cùng một cuốn; khi cần thêm cùng sách hãy tăng số lượng để hệ thống cộng gộp đúng.",
       "Không gộp nhiều đợt nhập khác giá thành một lần nhập kho duy nhất nếu muốn giữ lịch sử rõ.",
     ],
     tone: "warning" as const,
@@ -314,12 +316,6 @@ export default async function InventoryPage({
             label: "Danh mục sách",
             content: (
               <div className="space-y-3 sm:space-y-4" data-tour="inventory-books">
-                <div className="flex justify-end">
-                  <Link href="/classes" className="btn-ghost text-xs sm:text-sm px-3 sm:px-4 py-2">
-                    <span className="sm:hidden">Khóa</span>
-                    <span className="hidden sm:inline">Khóa học</span>
-                  </Link>
-                </div>
                 <BooksTable
                   initialData={pagedBookRows}
                   total={bookTotal}
