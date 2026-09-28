@@ -45,8 +45,9 @@ const GUIDE_SECTIONS = [
   {
     title: "Khi nào dùng",
     items: [
-      "Dùng khi cần gán nhanh học viên vào một lớp đang mở.",
+      "Dùng khi cần gán học viên hiện có vào một lớp đang mở.",
       "Phù hợp khi CSO đã chốt lớp với phụ huynh.",
+      "Với data tuyển sinh đã đạt kiểm tra đầu vào, nên gán lớp ngay từ màn Data; thao tác đó tự tạo học viên và ghi danh, không cần chuyển qua Học viên trước.",
       "Lớp bổ trợ chỉ gán khi học viên còn buổi bổ trợ và có nhu cầu học.",
     ],
     tone: "info" as const,
@@ -56,6 +57,7 @@ const GUIDE_SECTIONS = [
     items: [
       "Xem mã lớp, tên lớp, khóa học và số buổi trước khi gán.",
       "Lớp thường kéo theo học phí, lớp bổ trợ không thu riêng như lớp chính.",
+      "Sách gắn sẵn với lớp/khóa sẽ đi theo ghi danh để nhân viên thu hoặc xuất giáo trình đúng bộ.",
       "Nếu học viên đã có lớp, cần biết đang học thêm hay chuyển lớp.",
     ],
     tone: "success" as const,
@@ -68,6 +70,16 @@ const GUIDE_SECTIONS = [
       "Nếu học viên đang học lớp khác, cần xác định học song song hay chuyển lớp.",
     ],
     tone: "warning" as const,
+  },
+  {
+    title: "Giáo trình và phiếu thu khi gán lớp",
+    items: [
+      "Nếu lớp đã cấu hình giáo trình kèm theo, form sẽ hiển thị danh sách sách theo lớp/khóa để chọn ngay lúc ghi danh.",
+      "Có thể chọn nhanh theo bộ/danh mục hoặc bỏ từng đầu sách nếu học viên chưa nhận đủ bộ.",
+      "Tiền sách có thể đi cùng khoản cần thu ban đầu, nhưng luôn được tách riêng với tiền học trong bảng tách khoản và phiếu xác nhận.",
+      "Chiết khấu tiền mặt về sau chỉ áp dụng cho học phí; tiền sách không được giảm và phải được theo dõi riêng khi còn nợ.",
+    ],
+    tone: "success" as const,
   },
 ];
 
@@ -296,7 +308,7 @@ export default function AssignEnrollmentForm({
         widthClassName="max-w-3xl"
         title="Gán học viên vào lớp"
         description="Chọn đúng lớp đang mở để ghi danh cho học viên."
-        guide={<FormGuide title="Hướng dẫn gán lớp" summary="Chọn đúng lớp thường hoặc lớp bổ trợ theo tình trạng hiện tại của học viên." sections={GUIDE_SECTIONS} position="inline" buttonLabel="Guide" />}
+        guide={<FormGuide title="Hướng dẫn gán lớp" summary="Chọn đúng lớp thường hoặc lớp bổ trợ theo tình trạng hiện tại của học viên." sections={GUIDE_SECTIONS} position="inline" />}
       >
         <div className="space-y-5">
           <div className="rounded-[18px] border border-sky-100 bg-sky-50/80 p-4">

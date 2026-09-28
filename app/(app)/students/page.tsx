@@ -42,6 +42,16 @@ const STUDENTS_PAGE_GUIDE_SECTIONS = [
     ],
     tone: "warning" as const,
   },
+  {
+    title: "Ranh giới giữa Data tuyển sinh và Học viên",
+    items: [
+      "Data tuyển sinh chỉ trở thành học viên khi đã đạt kiểm tra đầu vào và được gán lớp thành công.",
+      "Trang Học viên dùng cho hồ sơ đã chính thức nhập học: theo dõi lớp đang học, công nợ, phụ huynh, lịch sử học tập và các lớp phát sinh thêm.",
+      "Không xử lý nhóm data chưa gán lớp ở trang Học viên; nhóm này cần được chăm sóc và chốt lớp ngay tại Data tuyển sinh.",
+      "Khi mở drawer học viên, dùng phần Hướng dẫn drawer để xem rõ ý nghĩa từng nút: thu tiền, gán thêm lớp, bảo lưu, chuyển lớp, sửa hồ sơ và mở hồ sơ đầy đủ.",
+    ],
+    tone: "success" as const,
+  },
 ];
 
 // Trước đây "Cần chuyển"/"Sắp hết"/portal/công nợ trên các ô thống kê chỉ đếm trên
@@ -631,10 +641,10 @@ export default async function StudentsPage({
   return (
     <div className="space-y-4 sm:space-y-6">
       <PageGuide
-        title="Guide học viên"
+        title="Hướng dẫn học viên"
         summary="Giải thích nhanh cách tìm đúng học viên và đi vào hồ sơ để xử lý chuẩn."
         sections={STUDENTS_PAGE_GUIDE_SECTIONS}
-        buttonLabel="Guide học viên"
+        buttonLabel="Hướng dẫn học viên"
       />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>

@@ -80,6 +80,16 @@ const SESSION_PAGE_GUIDE_SECTIONS = [
     ],
     tone: "warning" as const,
   },
+  {
+    title: "Nhật ký, đổi lịch và phân công",
+    items: [
+      "Nhật ký nên tách rõ nội dung học, bài tập, nhận xét gửi phụ huynh và ghi chú nội bộ để người đọc sau không phải đoán ngữ cảnh.",
+      "Nếu buổi cần chuyển sang ngày khác, dùng Đổi lịch của chính buổi đó để tạo buổi thay thế đúng ngày/giờ mới và giữ quan hệ với buổi gốc.",
+      "Phân công giáo viên/trợ giảng trong buổi này là dữ liệu đầu vào cho giờ dự kiến, bảng công và bảng lương.",
+      "Khi có nhiều trợ giảng, mỗi người cần được ghi riêng để không sót công và để phụ trách lớp được nhìn rõ.",
+    ],
+    tone: "success" as const,
+  },
 ];
 
 function attendanceLabel(status: string) {
@@ -212,7 +222,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
         title="Hướng dẫn buổi học"
         summary="Thứ tự nhanh: xem nội dung buổi, điểm danh, rồi viết nhật ký."
         sections={SESSION_PAGE_GUIDE_SECTIONS}
-        buttonLabel="Guide"
+        buttonLabel="Hướng dẫn buổi học"
       />
       <div className="space-y-4">
         <BackButton href={`/classes/${session.classId}`} className="inline-flex items-center gap-2 text-sm font-medium text-primary">

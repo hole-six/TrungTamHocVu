@@ -71,8 +71,8 @@ const CALENDAR_PAGE_GUIDE_SECTIONS = [
     items: [
       "Xem toàn bộ lịch học trong tuần theo dạng danh sách là chính.",
       "Kiểm tra nhanh giờ học, phòng, giáo viên, trợ giảng và trạng thái buổi.",
-      "Mở thẳng vào buổi học khi cần điểm danh, đổi lịch hoặc viết nhật ký.",
-      "Gán giáo viên/trợ giảng cho nhiều buổi cùng lúc bằng nút Phân công hàng loạt (có xem trước, tự bỏ qua buổi trùng lịch).",
+      "Mở thẳng chi tiết buổi học khi cần điểm danh, đổi lịch, viết nhật ký hoặc phân công nhân sự.",
+      "Dùng nút Giờ dự kiến nhân sự để xem nhanh số giờ và chi phí lương dự kiến theo tuần/tháng.",
     ],
     tone: "info" as const,
   },
@@ -82,6 +82,7 @@ const CALENDAR_PAGE_GUIDE_SECTIONS = [
       "Chọn đúng tuần trước, rồi mới tìm theo lớp, phòng hoặc giáo viên.",
       "Dùng lọc sáng, chiều, tối khi một ngày có quá nhiều buổi.",
       "Bấm trực tiếp vào dòng buổi học để mở đúng buổi cần xử lý.",
+      "Phân công hàng loạt vẫn nằm trên lịch tổng; trước khi lưu nên nhìn lại ngày, giờ, lớp, phòng, giáo viên và trợ giảng.",
     ],
     tone: "success" as const,
   },
@@ -90,9 +91,21 @@ const CALENDAR_PAGE_GUIDE_SECTIONS = [
     items: [
       "Lịch tuần chỉ hiện các buổi đã được tạo.",
       "Buổi đổi lịch hoặc hủy sẽ có badge riêng, cần nhìn đúng trước khi thao tác.",
-      "Nếu lọc theo giáo viên mà thiếu buổi, kiểm tra lại phân công trong session đó.",
+      "Nếu cùng khung giờ một nhân sự dạy lớp thứ hai, hệ thống hỏi xác nhận; lớp thứ ba cùng giờ sẽ bị chặn.",
+      "Nếu lọc theo giáo viên mà thiếu buổi, kiểm tra lại phân công trong buổi học đó.",
     ],
     tone: "warning" as const,
+  },
+  {
+    title: "Cách đọc và chỉnh lịch tổng",
+    items: [
+      "Chế độ danh sách là chế độ vận hành chính: mỗi buổi học nằm trên một dòng với ngày, giờ, lớp, phòng, giáo viên, trợ giảng và trạng thái.",
+      "Ngày hiện tại được làm nổi bật; các ngày còn lại được phân tách nhẹ để khi lịch nhiều buổi vẫn dễ quét theo thứ tự thời gian.",
+      "Buổi thiếu phòng, thiếu giáo viên hoặc thiếu trợ giảng được cảnh báo ngay trên dòng để ưu tiên xử lý trước giờ học.",
+      "Tài khoản có quyền sửa lịch có thể chỉnh nhanh giờ, phòng, lớp, giáo viên và trợ giảng ngay trên lịch tổng khi chỉ cần điều chỉnh nhỏ.",
+      "Khu vực Giờ dự kiến nhân sự giúp xem tổng số giờ và chi phí lương dự kiến theo tuần/tháng trước khi chốt lịch làm việc.",
+    ],
+    tone: "success" as const,
   },
 ];
 
@@ -330,9 +343,9 @@ export default async function CalendarPage({
     <div className="space-y-4 sm:space-y-5">
       <PageGuide
         title="Hướng dẫn lịch tổng"
-        summary="Cách đọc lịch tuần, lọc đúng buổi học và mở vào chi tiết session."
+        summary="Cách đọc lịch tuần, lọc đúng buổi học và mở vào chi tiết từng buổi."
         sections={CALENDAR_PAGE_GUIDE_SECTIONS}
-        buttonLabel="Guide"
+        buttonLabel="Hướng dẫn lịch"
       />
       <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-3 sm:gap-4">

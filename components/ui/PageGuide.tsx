@@ -12,7 +12,7 @@ export default function PageGuide({
   title,
   summary,
   sections,
-  buttonLabel = "Guide màn hình",
+  buttonLabel = "Hướng dẫn màn hình",
 }: {
   title: string;
   summary: string;

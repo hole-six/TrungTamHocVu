@@ -45,9 +45,9 @@ const LEADS_PAGE_GUIDE_SECTIONS = [
   {
     title: "Mục tiêu trang này",
     items: [
-      "Theo dõi data tuyển sinh từ lúc mới vào đến khi test, chờ xếp lớp hoặc chuyển thành học viên.",
-      "Nhìn nhanh trạng thái để biết hồ sơ nào còn cần gọi lại, hẹn test hoặc chốt ghi danh.",
-      "Từ danh sách chính có thể đi tiếp vào chi tiết lead để xử lý sâu hơn.",
+      "Theo dõi data tuyển sinh từ lúc mới vào đến khi hẹn kiểm tra đầu vào, đã kiểm tra, đạt/chưa đạt hoặc không còn nhu cầu.",
+      "Trạng thái kiểm tra nằm ngay trong cột Lịch test; không cần thêm một cột trạng thái rời gây rối.",
+      "Lead đã đạt kiểm tra đầu vào thì gán lớp trực tiếp tại Data; khi gán lớp thành công hệ thống tự tạo học viên và ghi danh.",
     ],
     tone: "info" as const,
   },
@@ -55,19 +55,31 @@ const LEADS_PAGE_GUIDE_SECTIONS = [
     title: "Cách thao tác nhanh",
     items: [
       "Dùng tìm kiếm để lọc theo tên, mã lead, số điện thoại hoặc phụ huynh.",
-      "Dùng các dãy trạng thái để gom đúng nhóm cần xử lý trong ngày, ví dụ sắp test hoặc quá hạn.",
-      "Chỉ chuyển trạng thái khi đã xử lý xong bước hiện tại để số liệu tuyển sinh không bị nhiễu.",
+      "Dùng các dãy trạng thái để gom đúng nhóm cần xử lý trong ngày, ví dụ sắp kiểm tra hoặc quá hạn.",
+      "Sau khi cập nhật kết quả kiểm tra là Đạt, bấm Gán lớp để chọn lớp, ngày bắt đầu và khoản cần thu ngay.",
+      "Không cần chuyển lead sang học viên thủ công trước; thao tác gán lớp là bước chuyển đổi chính thức.",
     ],
     tone: "success" as const,
   },
   {
     title: "Lưu ý vận hành",
     items: [
-      "Hồ sơ đã nhập học nên theo dõi ở module học viên, không tiếp tục xử lý như data mới.",
+      "Hồ sơ đã nhập học vẫn có thể tra lại ở Data, nhưng nghiệp vụ học tập và học phí tiếp tục theo dõi ở module học viên.",
       "Các lead trùng số điện thoại cần kiểm tra kỹ trước khi tạo mới hoặc sửa trạng thái.",
-      "Nếu một lead đã có test nhưng chưa rõ kết quả, hãy mở chi tiết để xem lịch test gần nhất trước.",
+      "Không đổi từ Không có nhu cầu sang Đã hẹn/Đã test nếu chưa mở lại nhu cầu thật; hệ thống sẽ chặn các bước kiểm tra sai luồng.",
     ],
     tone: "warning" as const,
+  },
+  {
+    title: "Quy trình sau khi kiểm tra đầu vào",
+    items: [
+      "Data tuyển sinh chưa đạt, chưa kiểm tra hoặc không còn nhu cầu tiếp tục nằm ở pipeline tuyển sinh để CSO chăm sóc và theo dõi.",
+      "Khi kết quả kiểm tra là Đạt, danh sách hiển thị nút Gán lớp; lưu gán lớp thành công sẽ tự tạo hồ sơ học viên và ghi danh vào lớp đã chọn.",
+      "Không cần tạo học viên thủ công trước rồi quay lại gán lớp, vì luồng đó dễ sinh hồ sơ đã là học viên nhưng chưa có lớp.",
+      "Khi đổi trạng thái kiểm tra, đi theo đúng trình tự nghiệp vụ: chưa hẹn, đã hẹn, đã kiểm tra, rồi mới kết luận đạt/chưa đạt hoặc đóng nhu cầu.",
+      "Nếu data đã ở nhóm Không có nhu cầu, chỉ chuyển lại sang luồng kiểm tra khi phụ huynh thật sự mở lại nhu cầu và có lịch hẹn mới.",
+    ],
+    tone: "success" as const,
   },
 ];
 

@@ -559,7 +559,7 @@ export default async function StudentDetailPage({
         title="Hướng dẫn hồ sơ học viên"
         summary="Giải thích nhanh 5 tab chính và nơi xử lý đúng từng việc."
         sections={STUDENT_DETAIL_GUIDE_SECTIONS}
-        buttonLabel="Guide"
+        buttonLabel="Hướng dẫn hồ sơ"
       />
 
       {/* ── HEADER ── */}
@@ -1360,7 +1360,6 @@ export default async function StudentDetailPage({
     </div>
   );
 }
-
 
 
 

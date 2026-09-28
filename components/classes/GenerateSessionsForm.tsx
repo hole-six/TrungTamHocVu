@@ -11,7 +11,7 @@ const GENERATE_SESSIONS_GUIDE_SECTIONS = [
     items: [
       "Dùng để biến lịch chuẩn thành các buổi học thực tế trong một khoảng ngày.",
       "Có thể chạy nhiều lần; hệ thống tự bỏ qua buổi đã tồn tại.",
-      "Cần dạy kéo dài cho học viên học đủ thì sinh thêm buổi ở đây.",
+      "Cần dạy tiếp sau các buổi đã sinh trước đó thì chọn khoảng ngày kế tiếp và sinh thêm ở đây.",
     ],
     tone: "info" as const,
   },
@@ -28,10 +28,21 @@ const GENERATE_SESSIONS_GUIDE_SECTIONS = [
     title: "Cần nhớ",
     items: [
       "Tổng số buổi của lớp chỉ là số buổi dự kiến của lộ trình, không phải trần cứng của lịch.",
+      "Sinh buổi chỉ tạo trong khoảng ngày đang chọn; nếu bỏ qua một thời gian dài rồi sinh lại, buổi mới sẽ nằm theo lịch chuẩn trong khoảng mới đó.",
       "Sửa lịch chuẩn chỉ ảnh hưởng lần sinh buổi mới về sau, không sửa buổi quá khứ.",
       "Buổi học lệch lịch hoặc đổi buổi nên xử lý trên từng session riêng.",
     ],
     tone: "warning" as const,
+  },
+  {
+    title: "Sinh tiếp lịch trong thực tế",
+    items: [
+      "Ví dụ lớp có thời gian học từ 28/09 đến 28/11 nhưng chỉ sinh trước 2 buổi, thời khóa biểu chỉ hiển thị đúng 2 buổi đã sinh.",
+      "Nếu sau đó cần sinh thêm từ ngày 14/11, hãy chọn khoảng sinh bắt đầu từ 14/11; buổi mới sẽ nằm trong khoảng mới theo lịch chuẩn, không tự lấp các tuần đã bỏ qua.",
+      "Một buổi cụ thể cần đổi ngày/giờ thì mở chi tiết buổi học hoặc dùng chức năng Đổi lịch của buổi đó, không sửa lịch chuẩn để kỳ vọng buổi cũ đổi theo.",
+      "Lớp bổ trợ nên sinh đúng số buổi thật sự cần dùng để dễ kiểm soát lịch, nhân sự và công nợ liên quan.",
+    ],
+    tone: "success" as const,
   },
 ];
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import BatchInvoiceView from "@/components/tuition/BatchInvoiceView";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
+import PageGuide from "@/components/ui/PageGuide";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
@@ -44,6 +45,39 @@ const TUITION_TOUR_STEPS: TourStep[] = [
     description:
       "\"Học phí HV\" mở thẳng tab học phí trong hồ sơ học viên đó — dùng khi cần xem toàn bộ lịch sử công nợ nhiều kỳ, không chỉ kỳ đang xem. \"Tải phiếu\" chỉ hiện khi còn nợ, xuất đúng 1 file PDF cho riêng dòng đó. Nút thu tiền nhanh (nếu anh có quyền) mở form nhập số tiền đã thu ngay tại chỗ, số gợi ý sẵn đúng bằng phần còn thiếu — không cần tính tay.",
     placement: "top",
+  },
+];
+
+const TUITION_PAGE_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu trang học phí",
+    items: [
+      "Theo dõi công nợ theo từng kỳ thu, chọn đúng học viên cần xử lý, ghi nhận thanh toán và xuất phiếu gửi phụ huynh.",
+      "Bộ lọc danh sách nên dùng kết hợp: chọn lớp trước, sau đó tìm theo tên hoặc mã học viên để khoanh đúng người cần thu.",
+      "Tab Xuất phiếu sử dụng khổ A5 portrait cho cả phiếu lẻ và file PDF gộp nhiều phiếu.",
+      "Tab Chuyển khoản/QR là cấu hình dùng chung cho các phiếu in từ kỳ đang xem, không phải cấu hình riêng từng học viên.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Nguyên tắc thu tiền",
+    items: [
+      "Khoản thu có cả học phí và giáo trình phải hiển thị rõ Tiền học, Sách, Chiết khấu, Còn nợ hoặc Đóng trước trước khi xác nhận.",
+      "Chiết khấu tiền mặt chỉ tính trên phần học phí còn nợ; tiền sách không được giảm dù phụ huynh thanh toán bằng tiền mặt hay chuyển khoản.",
+      "Nếu học viên nhận sách nhưng chưa thanh toán đủ, tiền sách vẫn được theo dõi là công nợ riêng trong phiếu và sổ xuất giáo trình.",
+      "Số tiền thực thu phải là số tiền trung tâm thật sự nhận được; nếu phụ huynh đóng thiếu hoặc đóng thừa, hệ thống sẽ giữ đúng phần còn nợ hoặc đóng trước.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Điểm cần kiểm tra trước khi lưu/in",
+    items: [
+      "Không in phiếu lệch kiểu thu khi học viên đã đổi từ thu theo tháng sang trọn khóa hoặc ngược lại.",
+      "Luôn kiểm tra kỳ thu đang mở, vì mọi bộ lọc, phiếu in và số công nợ trên trang này đều thuộc kỳ đó.",
+      "Không dùng chiết khấu tiền mặt để giảm tiền sách, kể cả khi học phí và sách đang được thu chung trong một lần thanh toán.",
+      "Nếu danh sách dài hoặc có học viên trùng tên, hãy lọc theo lớp rồi tìm theo tên/mã học viên để tránh chọn nhầm phiếu.",
+    ],
+    tone: "warning" as const,
   },
 ];
 
@@ -154,6 +188,11 @@ export default async function TuitionPage({
         charges={batchView.charges}
         canManageTuition={canManageTuition}
         embedded
+      />
+      <PageGuide
+        title="Hướng dẫn trang học phí"
+        summary="Trang này dùng để lọc danh sách cần thu, xuất phiếu A5, ghi nhận tiền đã thu và đối soát học phí/tiền sách theo đúng kỳ."
+        sections={TUITION_PAGE_GUIDE_SECTIONS}
       />
     </div>
   );

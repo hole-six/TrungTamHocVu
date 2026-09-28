@@ -55,6 +55,16 @@ const GUIDE_SECTIONS = [
     ],
     tone: "warning" as const,
   },
+  {
+    title: "Giáo trình đi kèm lúc nhập học",
+    items: [
+      "Khi lớp có giáo trình kèm theo, form ghi danh sẽ hiển thị sách ngay trong bước nhập học để nhân viên chọn cùng lúc.",
+      "Có thể chọn nhanh cả bộ/danh mục hoặc chọn lẻ từng đầu sách, giúp tránh sót giáo trình khi học viên mua ngay lúc vào lớp.",
+      "Tiền sách được ghi riêng trong khoản thu; dù phụ huynh trả tiền mặt hay chuyển khoản cũng không áp dụng chiết khấu cho tiền sách.",
+      "Nếu chọn lại cùng một đầu sách, hệ thống cộng/gộp số lượng vào dòng hiện có thay vì tạo dòng trùng.",
+    ],
+    tone: "success" as const,
+  },
 ];
 
 export default function EnrollStudentForm({

@@ -284,10 +284,10 @@ export default async function InventoryPage({
   return (
     <div className="space-y-4 sm:space-y-6">
       <PageGuide
-        title="Guide vận hành kho giáo trình"
+        title="Hướng dẫn vận hành kho giáo trình"
         summary="Đây là màn quản lý đầu sách, tồn kho và lịch sử xuất sách. Người mới chỉ cần phân biệt rõ ba việc: thêm đầu sách, nhập kho và xuất cho học viên."
         sections={INVENTORY_PAGE_GUIDE_SECTIONS}
-        buttonLabel="Guide kho sách"
+        buttonLabel="Hướng dẫn kho sách"
       />
       <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>

@@ -358,6 +358,7 @@ const SESSION_ASSIGNMENT_GUIDE_SECTIONS = [
       "Phân công bình thường thì chọn đúng người và đúng vai trò.",
       "Có dạy thay thì dùng nút Nhờ dạy thay.",
       "Cần chỉnh công riêng buổi này thì dùng Chỉnh công.",
+      "Khi phân công từ lịch tổng, kiểm tra lại khung giờ, lớp, phòng, giáo viên và trợ giảng ngay trên danh sách trước khi lưu hàng loạt.",
     ],
     tone: "success" as const,
   },
@@ -366,9 +367,20 @@ const SESSION_ASSIGNMENT_GUIDE_SECTIONS = [
     items: [
       "Xóa phân công sẽ ảnh hưởng tới công của nhân sự.",
       "Dạy thay sẽ đổi người được tính công.",
+      "Nếu một giáo viên/trợ giảng bị xếp cùng khung giờ: lớp thứ hai sẽ hỏi xác nhận, lớp thứ ba sẽ bị chặn.",
       "Check-in và check-out nên bấm đúng thực tế.",
     ],
     tone: "warning" as const,
+  },
+  {
+    title: "Ảnh hưởng tới giờ công và lương",
+    items: [
+      "Phân công đúng giáo viên/trợ giảng và đúng vai trò để giờ dự kiến, bảng công và bảng lương tính cùng một nguồn dữ liệu.",
+      "Nếu một buổi có nhiều trợ giảng, mỗi người cần được ghi nhận riêng để không thiếu công hoặc nhầm vai trò.",
+      "Khi dùng dạy thay, kiểm tra lại lớp, ngày và khung giờ vì người được tính công sẽ thay đổi theo phân công đã lưu.",
+      "Nếu nhân sự chưa có đơn giá, màn hình giờ dự kiến và bảng lương sẽ cảnh báo hoặc hiển thị chi phí chưa đủ; cần bổ sung ở hồ sơ nhân sự trước khi chốt.",
+    ],
+    tone: "success" as const,
   },
 ];
 
@@ -434,7 +446,7 @@ export default function SessionAssignmentForm({
         summary="Cách gán GV/TG, xử lý dạy thay và chỉnh công của buổi này."
         sections={SESSION_ASSIGNMENT_GUIDE_SECTIONS}
         position="inline"
-        buttonLabel="Guide"
+        buttonLabel="Hướng dẫn phân công"
       />
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted48">Bước 2</p>

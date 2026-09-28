@@ -30,6 +30,16 @@ const TIMESHEETS_GUIDE_SECTIONS = [
     ],
     tone: "warning" as const,
   },
+  {
+    title: "Đọc số giờ dự kiến và thực tế",
+    items: [
+      "Giờ dự kiến lấy từ thời khóa biểu và phân công giáo viên/trợ giảng, dùng để ước lượng khối lượng làm việc trước khi chốt tháng.",
+      "Giờ thực tế lấy từ buổi đã dạy, check-in/check-out và các điều chỉnh công đã được lưu.",
+      "Nếu một nhân sự bị xếp nhiều lớp cùng khung giờ, cần quay lại lịch tổng hoặc chi tiết buổi học để xử lý trước khi chốt công.",
+      "Nếu thiếu đơn giá, bổ sung ở hồ sơ nhân sự để bảng giờ dự kiến, bảng công và bảng lương hiển thị đúng chi phí.",
+    ],
+    tone: "success" as const,
+  },
 ];
 
 // Tháng và "hôm nay" theo giờ Việt Nam — máy chủ chạy UTC thì new Date() lệch ngày
@@ -138,7 +148,7 @@ export default async function TimesheetsPage({ searchParams }: { searchParams?: 
   return (
     <div className="space-y-4">
       <PageGuide
-        title="Guide chấm công"
+        title="Hướng dẫn chấm công"
         summary="Cách đọc bảng công theo tuần/tháng và xử lý chênh lệch giờ."
         sections={TIMESHEETS_GUIDE_SECTIONS}
         buttonLabel="Hướng dẫn"

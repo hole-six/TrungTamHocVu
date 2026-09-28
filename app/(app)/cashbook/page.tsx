@@ -65,6 +65,16 @@ const CASHBOOK_PAGE_GUIDE_SECTIONS = [
     ],
     tone: "warning" as const,
   },
+  {
+    title: "Đối soát học phí và tiền sách",
+    items: [
+      "Phiếu thu học phí sinh tự động từ màn thu tiền sẽ đi vào sổ quỹ theo đúng số tiền thực thu.",
+      "Nếu khoản thu gồm cả học phí và giáo trình, sổ quỹ ghi nhận dòng tiền tổng; phần diễn giải trên phiếu gốc phải tách rõ Tiền học và Sách.",
+      "Chiết khấu tiền mặt chỉ làm giảm phần học phí, không làm giảm tiền sách; khi đối soát cần xem bảng tách khoản của phiếu thu gốc.",
+      "Không sửa tay giao dịch tự động ở sổ quỹ để bù sai học phí hoặc tiền sách; hãy sửa/hủy từ nghiệp vụ gốc để công nợ, kho sách và sổ quỹ cùng khớp.",
+    ],
+    tone: "success" as const,
+  },
 ];
 
 function toYmd(date: Date) {
@@ -356,10 +366,10 @@ export default async function CashbookPage({
   return (
     <div className="space-y-6">
       <PageGuide
-        title="Guide sổ quỹ"
+        title="Hướng dẫn sổ quỹ"
         summary="Cách đọc số dư, lọc giao dịch và đối soát thu chi một cách dễ hiểu."
         sections={CASHBOOK_PAGE_GUIDE_SECTIONS}
-        buttonLabel="Guide sổ quỹ"
+        buttonLabel="Hướng dẫn sổ quỹ"
       />
       <div className="flex flex-col gap-4 rounded-[28px] border border-hairline bg-white px-5 py-4 shadow-[0_18px_45px_rgba(15,23,41,0.06)] xl:flex-row xl:items-start xl:justify-between" data-tour="cashbook-header">
         <div>

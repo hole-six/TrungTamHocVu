@@ -322,6 +322,16 @@ export function QuickStaffGroup({
               </button>
             </>
           )}
+          {index === assignments.length - 1 && editing !== "add" ? (
+            <button
+              type="button"
+              onClick={() => setEditing("add")}
+              title={`Xếp thêm ${fullLabel} vào buổi này`}
+              className="ml-1 rounded-lg px-1.5 py-0.5 text-xs font-bold text-[#7c8ca1] transition hover:bg-[#eef4fb] hover:text-[#1d4ed8]"
+            >
+              + Thêm {label}
+            </button>
+          ) : null}
         </p>
       ))}
 
@@ -344,17 +354,11 @@ export function QuickStaffGroup({
           )}
         </p>
       ) : editing === "add" ? (
-        <p className="mt-0.5">{picker(null)}</p>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setEditing("add")}
-          title={`Xếp thêm ${fullLabel} vào buổi này`}
-          className="mt-0.5 rounded-lg px-1.5 py-0.5 text-xs font-bold text-[#7c8ca1] transition hover:bg-[#eef4fb] hover:text-[#1d4ed8]"
-        >
-          + Thêm {label}
-        </button>
-      )}
+        <p className="flex flex-wrap items-center gap-1">
+          <span className="font-semibold text-ink">{label}:</span>
+          {picker(null)}
+        </p>
+      ) : null}
 
       {error ? <p className="text-xs font-semibold text-rose-600">{error}</p> : null}
     </div>

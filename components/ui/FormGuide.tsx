@@ -41,7 +41,7 @@ export default function FormGuide({
   summary,
   sections,
   position = "floating",
-  buttonLabel = "Guide",
+  buttonLabel = "Hướng dẫn",
 }: {
   title: string;
   summary: string;

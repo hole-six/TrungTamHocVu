@@ -168,19 +168,32 @@ const CLASS_DETAIL_GUIDE_SECTIONS = [
     title: "Cách dùng nhanh",
     items: [
       "Tab Tổng quan để xem sĩ số, tiến độ lớp, ngày kết thúc dự kiến và các cảnh báo quan trọng.",
-      "Tab Buổi học để đổi lịch, thêm buổi bù, điểm danh và đi vào nhật ký từng session.",
+      "Tab Buổi học để sinh thêm buổi theo lịch chuẩn, đổi lịch, điểm danh và đi vào nhật ký từng session.",
       "Tab Học viên để ghi danh, rút lớp, xem trạng thái và xử lý đúng từng học viên trong lớp.",
+      "Sách kèm theo của lớp nên được kiểm tra trước khi ghi danh để học viên vào lớp có đúng bộ giáo trình cần thu.",
     ],
     tone: "success" as const,
   },
   {
     title: "Lưu ý vận hành",
     items: [
-      "Khi thêm buổi bù hoặc đổi lịch, ngày kết thúc dự kiến của lớp là mốc động và có thể thay đổi.",
+      "Lịch tuần chỉ hiện các buổi đã sinh; nếu tạo lớp xong chưa thấy trên thời khóa biểu thì cần sinh buổi học theo khoảng ngày.",
+      "Sửa lịch chuẩn chỉ ảnh hưởng các lần sinh buổi mới, không tự sửa buổi đã có.",
       "Rút lớp có thể kéo theo buổi bổ trợ, credit và ảnh hưởng học phí nên không nên thao tác vội.",
       "Roadmap, giáo trình buổi học và phân công GV/TG nên được cập nhật đồng bộ để giáo viên dùng ngay.",
     ],
     tone: "warning" as const,
+  },
+  {
+    title: "Sinh buổi, giáo trình và nối lớp",
+    items: [
+      "Tạo lớp chỉ lưu lịch chuẩn, học phí và cấu hình lớp; thời khóa biểu chỉ hiển thị những buổi học đã được sinh thành session thật.",
+      "Có thể sinh trước một phần lịch rồi sinh tiếp sau trong khoảng ngày mới; hệ thống bám theo lịch chuẩn ở khoảng được chọn và bỏ qua buổi đã tồn tại.",
+      "Nút Mở ở danh sách buổi học đưa tới chi tiết đúng buổi đó để điểm danh, viết nhật ký, đổi lịch và phân công giáo viên/trợ giảng.",
+      "Giáo trình kèm theo lớp nên chọn theo bộ/danh mục trước khi ghi danh để phiếu thu và xuất sách của học viên có đủ đầu sách cần thiết.",
+      "Lớp tiếp theo và nhóm lớp cần được kiểm tra trong ngăn xếp lớp để khi chuyển/nối lớp không bị đứt mạch học của học viên.",
+    ],
+    tone: "success" as const,
   },
 ];
 
@@ -487,10 +500,10 @@ export default async function ClassDetailPage({ params }: { params: { id: string
   return (
     <div className="space-y-3 sm:space-y-5 pb-16 sm:pb-20">
       <PageGuide
-        title="Guide chi tiết lớp"
+        title="Hướng dẫn chi tiết lớp"
         summary="Giải thích nhanh các tab điều hành lớp, nơi đổi lịch, điểm danh và quản lý học viên."
         sections={CLASS_DETAIL_GUIDE_SECTIONS}
-        buttonLabel="Guide lớp"
+        buttonLabel="Hướng dẫn lớp"
       />
 
       {/* ── HEADER ── */}

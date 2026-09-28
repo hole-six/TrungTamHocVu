@@ -29,6 +29,16 @@ const PAYROLL_GUIDE_SECTIONS = [
     ],
     tone: "warning" as const,
   },
+  {
+    title: "Đối chiếu với giờ dự kiến",
+    items: [
+      "Giờ dự kiến trên lịch tổng dùng để ước lượng chi phí trước khi tháng kết thúc; bảng lương là số liệu chốt theo buổi đã dạy, bảng công và các điều chỉnh hợp lệ.",
+      "Nếu chi phí dự kiến lệch nhiều so với bảng lương, kiểm tra lại phân công, dạy thay, check-in/check-out, phụ cấp/phạt và đơn giá nhân sự.",
+      "Nhân sự thiếu đơn giá có thể làm lương dự kiến hoặc lương thực tế hiển thị 0đ; cần sửa ở hồ sơ nhân sự trước khi khóa lương.",
+      "Sau khi khóa tháng, chỉ mở khóa khi thật sự cần điều chỉnh và phải đối chiếu lại toàn bộ thay đổi phát sinh trước khi khóa lại.",
+    ],
+    tone: "success" as const,
+  },
 ];
 
 function currentMonthString() {
@@ -154,7 +164,7 @@ export default async function PayrollPage({
   return (
     <div className="space-y-4">
       <PageGuide
-        title="Guide bảng lương"
+        title="Hướng dẫn bảng lương"
         summary="Cách sinh bảng lương theo tháng, soát từng dòng và chốt lương."
         sections={PAYROLL_GUIDE_SECTIONS}
         buttonLabel="Hướng dẫn"

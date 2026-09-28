@@ -34,8 +34,9 @@ const ISSUE_BOOK_GUIDE_SECTIONS = [
     title: "Cách thao tác đúng",
     items: [
       "Tìm đúng học viên theo tên, mã học viên, lớp hoặc số điện thoại.",
-      "Chọn cả bộ sách cần giao (nhiều đầu sách, nhiều danh mục) rồi ghi nhận một lần.",
-      "Chọn đã thu tiền ngay hay cộng vào học phí kỳ này để thu chung.",
+      "Chọn nhanh theo danh mục/bộ sách nếu phát trọn bộ; vẫn có thể chọn riêng từng đầu sách nếu học viên chỉ lấy vài cuốn.",
+      "Nếu chọn lại cùng một cuốn, hệ thống cộng/gộp số lượng thay vì tạo dòng trùng.",
+      "Chọn rõ đã thu tiền ngay hay cộng vào phiếu học phí kỳ này để thu chung.",
     ],
     tone: "success" as const,
   },
@@ -43,10 +44,21 @@ const ISSUE_BOOK_GUIDE_SECTIONS = [
     title: "Lỗi dễ gặp",
     items: [
       "Xuất nhầm cho học viên trùng tên mà không nhìn mã học viên.",
-      "Xuất sai số lượng làm lệch tồn kho.",
+      "Xuất sai số lượng hoặc sót cuốn trong bộ làm lệch tồn kho và công nợ tiền sách.",
       "Bấm xuất trước khi giao sách thật sẽ làm kho và thực tế bị lệch nhau.",
     ],
     tone: "warning" as const,
+  },
+  {
+    title: "Chọn giáo trình theo bộ hoặc từng đầu sách",
+    items: [
+      "Danh mục/bộ sách dùng để chọn nhanh toàn bộ đầu sách thuộc cùng một nhóm giáo trình.",
+      "Nếu học viên chỉ nhận một phần bộ, mở đúng nhóm rồi chọn riêng từng đầu sách cần xuất.",
+      "Khi chọn lại cùng một đầu sách, hệ thống cộng số lượng vào dòng đã có thay vì tạo thêm dòng trùng.",
+      "Nếu tiền sách được cộng vào phiếu học phí, màn xác nhận thu tiền vẫn phải tách rõ Tiền học và Sách.",
+      "Xuất sách là thao tác ảnh hưởng tồn kho, chỉ lưu khi sách đã được giao hoặc chắc chắn sẽ bàn giao ngay.",
+    ],
+    tone: "success" as const,
   },
 ];
 

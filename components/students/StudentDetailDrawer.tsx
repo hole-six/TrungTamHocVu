@@ -255,12 +255,149 @@ const ENROLLMENT_ENDED_LABEL: Record<string, string> = {
   COMPLETED: "Đã học xong",
 };
 
+const STUDENT_DRAWER_ACTION_GUIDES = [
+  {
+    title: "Thu tiền",
+    body: "Ghi nhận khoản tiền trung tâm đã thực nhận từ phụ huynh. Khi phiếu có cả học phí và giáo trình, hệ thống tách rõ từng phần trước khi xác nhận.",
+    note: "Chỉ hiện khi học viên còn công nợ và tài khoản có quyền học phí; chiết khấu tiền mặt chỉ giảm học phí, không giảm tiền sách.",
+  },
+  {
+    title: "Gán nhập học / Gán thêm lớp",
+    body: "Đưa học viên vào một lớp đang mở. Với hồ sơ chưa có lớp, đây là bước nhập học; với học viên đã học, đây là thao tác gán thêm lớp phát sinh.",
+    note: "Có thể kéo theo phiếu học phí, giáo trình kèm lớp và buổi bổ trợ nếu form ghi danh yêu cầu.",
+  },
+  {
+    title: "Bảo lưu",
+    body: "Tạm dừng việc học theo trạng thái ghi danh hiện tại để giáo vụ theo dõi học viên đang nghỉ có lý do.",
+    note: "Dùng khi học viên vẫn còn hồ sơ/lớp nhưng chưa tiếp tục học ngay.",
+  },
+  {
+    title: "Rút lớp / đi học lại / hoàn tất",
+    body: "Nhóm nút xử lý trạng thái ghi danh của lớp hiện tại, ví dụ rút lớp, cho đi học lại hoặc đánh dấu hoàn tất.",
+    note: "Tên nút thay đổi theo trạng thái hiện tại; cần kiểm tra công nợ, buổi còn lại và buổi bổ trợ trước khi lưu.",
+  },
+  {
+    title: "Chuyển lớp",
+    body: "Chuyển học viên sang lớp khác hoặc lớp kế tiếp, đồng thời giữ thông tin cần thiết về số buổi còn lại, ví buổi học và kiểu thu.",
+    note: "Chỉ hiện khi ghi danh còn hiệu lực và đủ điều kiện chuyển; nên kiểm tra lớp tiếp theo trước khi xác nhận.",
+  },
+  {
+    title: "Sửa hồ sơ",
+    body: "Mở nhanh form sửa thông tin cá nhân, số điện thoại, địa chỉ, đánh giá, ghi chú và lý do nghỉ nếu có.",
+    note: "Lưu xong drawer tự tải lại dữ liệu mới.",
+  },
+  {
+    title: "Mở hồ sơ đầy đủ",
+    body: "Đi tới trang chi tiết học viên để xem đầy đủ lịch sử học tập, phiếu thu, chuyển lớp, phụ huynh và các dữ liệu dài.",
+    note: "Dùng khi cần đối soát sâu hơn những thông tin drawer chỉ tóm tắt.",
+  },
+];
+
+const STUDENT_DRAWER_INFO_GUIDES = [
+  {
+    title: "Mã học viên, lớp, trạng thái",
+    body: "Dòng đầu cho biết mã học viên, lớp gần nhất/đang học và trạng thái tổng. Bấm mã học viên để copy nhanh.",
+  },
+  {
+    title: "Ví buổi học hoặc buổi đã học",
+    body: "Lớp thu theo tháng hiển thị số buổi còn trong ví; lớp trọn khóa hiển thị số buổi đã học trên tổng số buổi đã mua.",
+  },
+  {
+    title: "Còn nợ",
+    body: "Tổng công nợ hiện tại của học viên. Nếu có khoản đến hạn, hệ thống ghi rõ cần thu ngay bao nhiêu.",
+  },
+  {
+    title: "Học và vắng theo từng lớp",
+    body: "Chỉ hiện khi học viên từng đi qua nhiều lớp, giúp biết vắng ở lớp nào để xếp học bù đúng chỗ.",
+  },
+  {
+    title: "Lớp & tiến độ",
+    body: "Tổng hợp lịch học, ngày bắt đầu, cách thu, số buổi còn lại, lớp kế tiếp và các cảnh báo cần xử lý.",
+  },
+  {
+    title: "Học phí & thanh toán",
+    body: "Xem phiếu học phí, tiền sách, lịch sử thu, xuất giáo trình và các điều chỉnh học phí nếu tài khoản có quyền.",
+  },
+  {
+    title: "Lịch sử học tập",
+    body: "Theo dõi điểm nhật ký từng buổi, điểm trung bình và quá trình học để tư vấn phụ huynh chính xác hơn.",
+  },
+  {
+    title: "Phụ huynh và hồ sơ",
+    body: "Lưu liên hệ phụ huynh, ngày sinh, số điện thoại, địa chỉ, đánh giá và ghi chú nội bộ của học viên.",
+  },
+];
+
+function StudentDrawerGuide({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
+  return (
+    <div className="rounded-2xl border border-[#dbe7ff] bg-[#f8fbff] p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Hướng dẫn drawer học viên</p>
+          <h3 className="mt-1 text-base font-black text-[#0f1729]">Giải thích nút bấm và thông tin trên hồ sơ nhanh</h3>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-[#64748b]">
+            Mở rộng mục này để xem từng nút dùng trong trường hợp nào, tác động tới dữ liệu nào và các chỉ số chính trong drawer nên đọc ra sao.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          className="shrink-0 rounded-full border border-[#bfdbfe] bg-white px-4 py-2 text-sm font-black text-[#1d4ed8] shadow-sm transition hover:border-[#2563eb] hover:bg-[#eff6ff]"
+        >
+          {expanded ? "Thu gọn hướng dẫn" : "Phóng to hướng dẫn"}
+        </button>
+      </div>
+
+      {expanded ? (
+        <div className="mt-4 space-y-4">
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3 border-b border-[#dbe7ff] pb-2">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#475569]">Các nút thao tác</p>
+              <span className="text-xs font-semibold text-[#64748b]">Nút nào không đủ quyền/điều kiện sẽ tự ẩn</span>
+            </div>
+            <div className="grid gap-2 md:grid-cols-2">
+              {STUDENT_DRAWER_ACTION_GUIDES.map((item) => (
+                <div key={item.title} className="rounded-xl border border-[#e5eaf7] bg-white p-3">
+                  <p className="text-sm font-black text-[#0f1729]">{item.title}</p>
+                  <p className="mt-1 text-sm leading-6 text-[#475569]">{item.body}</p>
+                  <p className="mt-2 rounded-lg bg-[#f8fafc] px-3 py-2 text-xs font-semibold leading-5 text-[#64748b]">{item.note}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 border-b border-[#dbe7ff] pb-2">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#475569]">Các thông tin cần đọc</p>
+            </div>
+            <div className="grid gap-2 md:grid-cols-2">
+              {STUDENT_DRAWER_INFO_GUIDES.map((item) => (
+                <div key={item.title} className="rounded-xl border border-[#e5eaf7] bg-white p-3">
+                  <p className="text-sm font-black text-[#0f1729]">{item.title}</p>
+                  <p className="mt-1 text-sm leading-6 text-[#475569]">{item.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-3 rounded-xl border border-dashed border-[#bfdbfe] bg-white px-3 py-2 text-sm font-semibold leading-6 text-[#475569]">
+          Đang thu gọn. Bấm "Phóng to hướng dẫn" để xem ý nghĩa các nút: Thu tiền, Gán lớp, Bảo lưu, Chuyển lớp, Sửa hồ sơ và các thông tin
+          trong drawer học viên.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function StudentDetailDrawer({ open, onClose, studentId }: StudentDetailDrawerProps) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<StudentData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [assignEnrollmentOpen, setAssignEnrollmentOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
+  const [guideExpanded, setGuideExpanded] = useState(false);
 
   // Dữ liệu drawer nằm trong state của chính nó, KHÔNG phải server component — nên
   // router.refresh() ở các form con không làm nó mới lại được. Mọi thao tác bên trong
@@ -287,6 +424,7 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
     if (!open) return;
     setLoading(true);
     setEditingProfile(false);
+    setGuideExpanded(false);
     void reload(true);
   }, [open, reload]);
 
@@ -451,6 +589,8 @@ export default function StudentDetailDrawer({ open, onClose, studentId }: Studen
               ))}
             </ul>
           ) : null}
+
+          <StudentDrawerGuide expanded={guideExpanded} onToggle={() => setGuideExpanded((current) => !current)} />
 
           {/* Hành động — chỉ những nút thật sự dùng được, xếp theo thứ tự hay dùng */}
           <div className="flex flex-wrap items-center gap-2">

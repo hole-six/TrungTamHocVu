@@ -30,6 +30,16 @@ const EMPLOYEES_GUIDE_SECTIONS = [
     ],
     tone: "warning" as const,
   },
+  {
+    title: "Liên kết với lịch tổng và bảng lương",
+    items: [
+      "Đơn giá giáo viên/trợ giảng trong hồ sơ nhân sự được dùng để tính giờ dự kiến, bảng công và bảng lương.",
+      "Nếu lịch tổng hoặc bảng lương báo thiếu đơn giá, cần quay lại hồ sơ nhân sự để bổ sung trước khi chốt chi phí tháng.",
+      "Nhân sự làm nhiều cơ sở cần được gắn đúng cơ sở để lọc lịch, phân công và bảng công không bị thiếu người.",
+      "Khi nhân sự nghỉ việc, cập nhật trạng thái và ngày nghỉ để hệ thống không tiếp tục xếp người đó vào buổi học sau thời điểm nghỉ.",
+    ],
+    tone: "success" as const,
+  },
 ];
 
 // Trang "NHÂN SỰ" — trước đây hoàn toàn chưa có (chỉ có form thêm/sửa nhân viên
@@ -82,7 +92,7 @@ export default async function EmployeesPage() {
   return (
     <div className="space-y-4">
       <PageGuide
-        title="Guide nhân sự"
+        title="Hướng dẫn nhân sự"
         summary="Cách quản lý hồ sơ nhân sự, đơn giá dạy/trợ giảng và trạng thái làm việc."
         sections={EMPLOYEES_GUIDE_SECTIONS}
         buttonLabel="Hướng dẫn"

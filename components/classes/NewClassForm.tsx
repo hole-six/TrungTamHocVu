@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
+import FormGuide from "@/components/ui/FormGuide";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import PickOrCreateSelect from "@/components/ui/PickOrCreateSelect";
 import { useClassDrawer } from "@/contexts/ClassDrawerContext";
@@ -44,6 +45,46 @@ const WEEKDAY_OPTIONS = [
   { value: "5", label: "Thứ 6" },
   { value: "6", label: "Thứ 7" },
   { value: "0", label: "Chủ nhật" },
+];
+
+const NEW_CLASS_GUIDE_SECTIONS = [
+  {
+    title: "Khi nào dùng",
+    items: [
+      "Dùng để tạo lớp chính hoặc lớp bổ trợ mới trong cơ sở đang xem.",
+      "Lớp chính cần khai báo học phí, tổng số buổi dự kiến, lịch cố định và nếu có thì lớp tiếp theo.",
+      "Lớp bổ trợ chỉ dùng cho học bù/hỗ trợ, không thu học phí riêng như lớp chính.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Sách và học phí",
+    items: [
+      "Sách kèm theo chọn theo danh mục/bộ hoặc chọn lẻ từng đầu sách; số tiền sách sẽ đi cùng học viên khi ghi danh.",
+      "Tiền sách được tách riêng với học phí trên phiếu thu, không bị chiết khấu tiền mặt.",
+      "Chiết khấu cả lớp chỉ là mặc định cho học viên ghi danh từ sau thời điểm lưu, vẫn có thể sửa riêng từng học viên.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Lịch và buổi học",
+    items: [
+      "Lịch cố định là khung để sinh buổi học; tạo lớp xong cần sinh buổi theo khoảng ngày cần dùng.",
+      "Nếu chỉ sinh vài buổi trước, về sau có thể sinh tiếp theo lịch chuẩn trong khoảng ngày mới.",
+      "Sửa lịch chuẩn không tự sửa các buổi đã sinh trong quá khứ; buổi cụ thể thì đổi trong chi tiết buổi học.",
+    ],
+    tone: "warning" as const,
+  },
+  {
+    title: "Kiểm tra trước khi lưu lớp",
+    items: [
+      "Chọn giáo trình kèm theo theo bộ/danh mục nếu lớp yêu cầu học viên mua sách ngay khi nhập học.",
+      "Nếu lớp có lớp tiếp theo, chọn luôn tại đây để sau này chuyển lớp hoặc nối lớp không phải dò lại thủ công.",
+      "Lịch chuẩn chỉ là khung dùng để sinh buổi; sau khi tạo lớp, dùng Sinh buổi học để tạo các buổi thật xuất hiện trên thời khóa biểu.",
+      "Không gắn nhầm giáo trình cho lớp, vì danh sách sách này sẽ đi theo phiếu thu và xuất sách của học viên khi ghi danh.",
+    ],
+    tone: "success" as const,
+  },
 ];
 
 function formatVnd(amount: number | null) {
@@ -362,7 +403,20 @@ export default function NewClassForm({
         <span className="sm:hidden">+ Lớp</span>
       </button>
 
-      <ResponsiveDrawer widthClassName="max-w-3xl" open={open} onClose={() => setOpen(false)} title="Thêm lớp học">
+      <ResponsiveDrawer
+        widthClassName="max-w-3xl"
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Thêm lớp học"
+        guide={
+          <FormGuide
+            title="Hướng dẫn tạo lớp"
+            summary="Tạo lớp chuẩn ngay từ đầu để lịch học, sách kèm theo, học phí và lớp tiếp theo chạy đúng về sau."
+            sections={NEW_CLASS_GUIDE_SECTIONS}
+            position="inline"
+          />
+        }
+      >
         <form onSubmit={handleSubmit} className="space-y-5">
           <label className="mt-0.5 flex items-start gap-3 rounded-xl border border-[#dbe7ff] bg-[#f8fbff] px-4 py-3">
             <input type="checkbox" className="mt-0.5" checked={form.isRemedial} onChange={(event) => patchForm("isRemedial", event.target.checked)} />

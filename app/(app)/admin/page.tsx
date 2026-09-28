@@ -113,10 +113,10 @@ export default async function AdminPage({
   return (
     <div className="min-h-screen space-y-6 pb-20 sm:space-y-8">
       <PageGuide
-        title="Guide quản trị"
+        title="Hướng dẫn quản trị"
         summary="Giải thích nhanh cách dùng khu quản trị để tránh cấp sai user hoặc sai quyền."
         sections={ADMIN_PAGE_GUIDE_SECTIONS}
-        buttonLabel="Guide quản trị"
+        buttonLabel="Hướng dẫn quản trị"
       />
       <section className="rounded-2xl border border-[#dbe7ff] bg-white px-4 py-5 shadow-[0_24px_60px_rgba(15,23,42,0.06)] sm:rounded-[28px] sm:px-6 sm:py-6 md:rounded-[32px] md:px-8">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between sm:gap-6">

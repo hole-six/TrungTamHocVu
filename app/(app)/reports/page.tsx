@@ -28,7 +28,7 @@ export default async function ReportsPage() {
   return (
     <div className="space-y-4">
       <PageGuide
-        title="Guide báo cáo"
+        title="Hướng dẫn báo cáo"
         summary="Cách đọc các số tổng hợp và đối chiếu ngược về dữ liệu gốc."
         sections={REPORTS_GUIDE_SECTIONS}
         buttonLabel="Hướng dẫn"

@@ -208,7 +208,7 @@ export default function AttendanceForm({
         summary="Cách chấm có mặt hoặc vắng và rút lớp ngay trong buổi học."
         sections={ATTENDANCE_FORM_GUIDE_SECTIONS}
         position="inline"
-        buttonLabel="Guide"
+        buttonLabel="Hướng dẫn điểm danh"
       />
       <div className="space-y-4 rounded-[28px] border border-[#dbe7ff] bg-[#f8fbff] p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

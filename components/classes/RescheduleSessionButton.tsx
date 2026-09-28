@@ -34,6 +34,17 @@ const RESCHEDULE_GUIDE_SECTIONS = [
     ],
     tone: "warning" as const,
   },
+  {
+    title: "Kiểm tra sau khi dời lịch",
+    items: [
+      "Sau khi lưu, mở lại lịch tổng để xác nhận buổi mới đã nằm đúng ngày, giờ, phòng và nhân sự.",
+      "Nếu đổi sang khung giờ khác, kiểm tra cảnh báo trùng giáo viên/trợ giảng trước khi xác nhận lịch mới.",
+      "Dời lịch chỉ thay thế một buổi cũ bằng một buổi mới, không làm tăng tổng số buổi của khóa.",
+      "Nếu nhu cầu là học thêm một buổi riêng, không dùng dời lịch; hãy dùng luồng sinh/thêm buổi phù hợp.",
+      "Lý do dời lịch nên ghi đủ để phụ huynh, giáo viên và giáo vụ có thông tin đối chiếu khi cần.",
+    ],
+    tone: "success" as const,
+  },
 ];
 
 export default function RescheduleSessionButton({

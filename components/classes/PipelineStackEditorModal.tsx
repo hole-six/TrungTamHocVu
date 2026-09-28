@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
+import FormGuide from "@/components/ui/FormGuide";
 
 type PipelineClass = {
   id: string;
@@ -14,6 +15,36 @@ type PipelineClass = {
 };
 
 const UNGROUPED_KEY = "__ungrouped__";
+
+const PIPELINE_GUIDE_SECTIONS = [
+  {
+    title: "Mục tiêu",
+    items: [
+      "Sắp chuỗi lớp học để khi học viên hết lớp hiện tại, hệ thống biết lớp kế tiếp cần đề xuất.",
+      "Mỗi lớp chỉ có một lớp tiếp theo, nhưng chuỗi có thể dài nhiều lớp.",
+      "Ngăn xếp giúp gom các lớp thuộc cùng lộ trình để nhìn và lọc dễ hơn.",
+    ],
+    tone: "info" as const,
+  },
+  {
+    title: "Gắn hai chiều",
+    items: [
+      "Khi chọn A → B, nếu bật tự đồng bộ, B sẽ được đưa vào cùng ngăn với A.",
+      "Nếu B đã nối tiếp C, các lớp phía sau cũng đi cùng ngăn để chuỗi không bị rời.",
+      "Vẫn có thể sửa ô Ngăn xếp thủ công nếu muốn tách một lớp sang nhóm khác.",
+    ],
+    tone: "success" as const,
+  },
+  {
+    title: "Không được tạo vòng",
+    items: [
+      "Không nối lớp cuối quay lại lớp đầu, ví dụ A → B → A.",
+      "Nếu có vòng lặp, hệ thống tô đỏ và không cho lưu.",
+      "Chỉ chọn lớp chính đang hoạt động, cùng cơ sở; lớp bổ trợ không nằm trong chuỗi này.",
+    ],
+    tone: "warning" as const,
+  },
+];
 
 // Không có nextClassId nào trong chuỗi các thay đổi NHÁP hiện tại quay lại classId gốc
 // — cảnh báo sớm phía client trước khi bấm Lưu, server (route PATCH) vẫn là nguồn xác
@@ -169,9 +200,17 @@ export default function PipelineStackEditorModal({ open, onClose }: { open: bool
               Chọn lớp tiếp theo cho từng lớp — quyết định học viên học hết lớp này sẽ được đề xuất chuyển sang đâu.
             </p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-xl border border-[#e5eaf7] p-2 text-[#64748b] hover:bg-[#f8faff]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <FormGuide
+              title="Hướng dẫn ngăn xếp"
+              summary="Nối lớp hiện tại với lớp tiếp theo và giữ nhóm lớp đồng bộ để lộ trình chuyển lớp rõ ràng."
+              sections={PIPELINE_GUIDE_SECTIONS}
+              position="inline"
+            />
+            <button type="button" onClick={onClose} className="rounded-xl border border-[#e5eaf7] p-2 text-[#64748b] hover:bg-[#f8faff]">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">

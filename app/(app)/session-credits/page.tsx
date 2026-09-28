@@ -287,7 +287,7 @@ export default async function SessionCreditsPage({ searchParams }: { searchParam
   return (
     <div className="space-y-4">
       <PageGuide
-        title="Guide bổ trợ"
+        title="Hướng dẫn bổ trợ"
         summary="Cách theo dõi buổi bổ trợ của học viên: còn bao nhiêu, đã xếp buổi nào."
         sections={SESSION_CREDITS_GUIDE_SECTIONS}
         buttonLabel="Hướng dẫn"
