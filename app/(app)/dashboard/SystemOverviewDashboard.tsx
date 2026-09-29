@@ -81,7 +81,6 @@ function resolveRange(searchParams: DashboardSearchParams) {
     const next = new Date(year, month, 1);
     return {
       mode,
-      key: source,
       start,
       end,
       label: `Tháng ${month}/${year}`,
@@ -95,7 +94,6 @@ function resolveRange(searchParams: DashboardSearchParams) {
   end.setHours(23, 59, 59, 999);
   return {
     mode,
-    key: weekKey(start),
     start,
     end,
     label: `Tuần ${isoWeekNumber(start)} (${start.toLocaleDateString("vi-VN")} - ${end.toLocaleDateString("vi-VN")})`,
@@ -118,17 +116,16 @@ function formatScore(value: number | null) {
   return value == null ? "-" : value.toFixed(1).replace(".0", "");
 }
 
-function toneByDebt(amount: number) {
-  if (amount <= 0) return "text-emerald-700";
+function debtTone(amount: number) {
+  if (amount <= 0) return "text-slate-700";
   if (amount >= 10_000_000) return "text-red-700";
-  return "text-amber-700";
+  return "text-orange-700";
 }
 
 async function chargeOutstandingByBranch(branchId?: string) {
   const charges = await prisma.charge.findMany({
     where: branchId ? { student: { branchId } } : undefined,
     select: {
-      id: true,
       studentId: true,
       totalAmount: true,
       allocations: {
@@ -174,10 +171,9 @@ async function scoreCareByBranch(range: { start: Date; end: Date }, branchId?: s
   }
 
   const studentAverages = [...scoresByStudent.values()].map((scores) => avg(scores)).filter((value): value is number => value != null);
-  const needCare = studentAverages.filter((score) => score < 7).length;
   return {
     scoredStudents: scoresByStudent.size,
-    studentsNeedCare: needCare,
+    studentsNeedCare: studentAverages.filter((score) => score < 7).length,
     avgScore: avg(studentAverages),
   };
 }
@@ -206,7 +202,10 @@ async function getBranchOverview(range: { start: Date; end: Date }): Promise<Bra
           where: {
             branchId: branch.id,
             status: "ENROLLED",
-            OR: [{ actualEnrollDate: { gte: range.start, lte: range.end } }, { student: { enrollDate: { gte: range.start, lte: range.end } } }],
+            OR: [
+              { actualEnrollDate: { gte: range.start, lte: range.end } },
+              { student: { enrollDate: { gte: range.start, lte: range.end } } },
+            ],
           },
         }),
         prisma.lead.count({ where: { branchId: branch.id, status: "LOST", updatedAt: { gte: range.start, lte: range.end } } }),
@@ -239,32 +238,21 @@ async function getBranchOverview(range: { start: Date; end: Date }): Promise<Bra
   );
 }
 
-function MetricCard({ label, value, note, tone = "slate" }: { label: string; value: string; note: string; tone?: "slate" | "red" | "amber" | "green" }) {
-  const toneClass = {
-    slate: "border-slate-200 bg-white text-slate-950",
-    red: "border-red-200 bg-red-50 text-red-800",
-    amber: "border-amber-200 bg-amber-50 text-amber-800",
-    green: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  }[tone];
+function SummaryCell({ label, value, note, urgent = false }: { label: string; value: string; note: string; urgent?: boolean }) {
   return (
-    <div className={`rounded-xl border px-4 py-3 shadow-sm ${toneClass}`}>
-      <p className="text-xs font-black uppercase tracking-[0.16em] opacity-70">{label}</p>
-      <p className="mt-2 text-2xl font-black tracking-tight">{value}</p>
-      <p className="mt-1 text-xs font-semibold opacity-75">{note}</p>
+    <div className={`min-w-[150px] border-r border-slate-200 px-4 py-3 last:border-r-0 ${urgent ? "bg-orange-50/70" : "bg-white"}`}>
+      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className={`mt-1 text-xl font-black tracking-tight ${urgent ? "text-orange-700" : "text-slate-950"}`}>{value}</p>
+      <p className="mt-0.5 whitespace-nowrap text-xs font-semibold text-slate-500">{note}</p>
     </div>
   );
 }
 
-function WorkLink({ href, label, count, tone }: { href: string; label: string; count: number; tone: "red" | "amber" | "blue" }) {
-  const cls = {
-    red: "border-red-200 bg-red-50 text-red-800",
-    amber: "border-amber-200 bg-amber-50 text-amber-800",
-    blue: "border-sky-200 bg-sky-50 text-sky-800",
-  }[tone];
+function InlineAction({ href, label, value }: { href: string; label: string; value: string }) {
   return (
-    <Link href={href} className={`rounded-xl border px-4 py-3 transition hover:-translate-y-0.5 hover:shadow-md ${cls}`}>
-      <p className="text-2xl font-black">{count}</p>
-      <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em]">{label}</p>
+    <Link href={href} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700 hover:border-slate-950">
+      <span>{label}</span>
+      <span className="text-orange-700">{value}</span>
     </Link>
   );
 }
@@ -286,18 +274,21 @@ export default async function SystemOverviewDashboard({ searchParams }: { search
   const avgReject = branchRows.length ? Math.round(branchRows.reduce((sum, row) => sum + row.rejectRate, 0) / branchRows.length) : 0;
   const systemAvgScore = avg(branchRows.map((row) => row.avgScore).filter((value): value is number => value != null));
   const systemStudentPerClass = totalClasses > 0 ? Math.round((totalStudents / totalClasses) * 10) / 10 : 0;
-  const urgentBranches = [...branchRows].sort((a, b) => (b.dataNeedContact + b.debtorCount + b.studentsNeedCare) - (a.dataNeedContact + a.debtorCount + a.studentsNeedCare)).slice(0, 3);
+  const urgentBranches = [...branchRows]
+    .sort((a, b) => (b.dataNeedContact + b.debtorCount + b.studentsNeedCare) - (a.dataNeedContact + a.debtorCount + a.studentsNeedCare))
+    .slice(0, 3);
+  const urgentBranchText = urgentBranches.length
+    ? urgentBranches.map((row) => `${row.code}: ${row.dataNeedContact} data, ${row.debtorCount} nợ, ${row.studentsNeedCare} chăm sóc`).join(" | ")
+    : "Không có cơ sở cần ưu tiên.";
 
   return (
-    <div className="space-y-5 pb-16">
-      <section className="rounded-2xl border border-slate-200 bg-white px-5 py-5 shadow-sm">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+    <div className="space-y-4 pb-16">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-600">Tổng quan toàn hệ thống</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">Bảng điều hành hôm nay</h1>
-            <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-slate-600">
-              Không tách theo cơ sở đang chọn. Đây là báo cáo chung để nhìn ngay cơ sở nào cần xử lý data, học phí và học viên cần chăm sóc.
-            </p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-600">Tổng quan toàn hệ thống</p>
+            <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">Bảng điều hành</h1>
+            <p className="mt-1 text-sm font-medium text-slate-500">Một màn hình để thấy ngay cơ sở nào cần xử lý data, công nợ và học viên cần chăm sóc.</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -310,33 +301,35 @@ export default async function SystemOverviewDashboard({ searchParams }: { search
         </div>
       </section>
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Cơ sở" value={String(totalBranches)} note="đang hoạt động" />
-        <MetricCard label="Học viên" value={String(totalStudents)} note={`${totalClasses} lớp · ${systemStudentPerClass} HS/lớp`} tone="green" />
-        <MetricCard label="Công nợ" value={formatVnd(totalOutstanding)} note={`${totalDebtors} học viên còn nợ`} tone={totalOutstanding > 0 ? "red" : "green"} />
-        <MetricCard label="Data cần xử lý" value={String(totalDataNeedContact)} note={`${totalUnhandled} hồ sơ chưa có tương tác`} tone={totalDataNeedContact > 0 ? "amber" : "green"} />
-      </section>
-
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Nhập học mới" value={String(totalNewEnrollments)} note={`trong ${range.mode === "week" ? "tuần" : "tháng"} đang xem`} />
-        <MetricCard label="Tỉ lệ nhập học" value={`${avgConversion}%`} note={`từ data trong kỳ · từ chối ${avgReject}%`} tone="green" />
-        <MetricCard label="Cần chăm sóc" value={String(totalNeedCare)} note={`${totalScoredStudents} học viên có điểm · TB ${formatScore(systemAvgScore)}`} tone={totalNeedCare > 0 ? "amber" : "green"} />
-        <MetricCard label="Mật độ lớp" value={`${systemStudentPerClass}`} note="học viên/lớp toàn hệ thống" />
-      </section>
-
-      <section className="grid gap-3 lg:grid-cols-3">
-        <WorkLink href="/leads" label="Data cần liên hệ" count={totalDataNeedContact} tone="amber" />
-        <WorkLink href="/tuition" label="Học viên nợ học phí" count={totalDebtors} tone="red" />
-        <WorkLink href="/students" label="Học viên cần chăm sóc" count={totalNeedCare} tone="blue" />
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <div className="flex min-w-max">
+            <SummaryCell label="Cơ sở" value={String(totalBranches)} note="đang hoạt động" />
+            <SummaryCell label="Học viên" value={String(totalStudents)} note={`${totalClasses} lớp · ${systemStudentPerClass} HS/lớp`} />
+            <SummaryCell label="Công nợ" value={formatVnd(totalOutstanding)} note={`${totalDebtors} học viên nợ`} urgent={totalOutstanding > 0} />
+            <SummaryCell label="Data cần xử lý" value={String(totalDataNeedContact)} note={`${totalUnhandled} chưa tương tác`} urgent={totalDataNeedContact > 0} />
+            <SummaryCell label="Nhập học mới" value={String(totalNewEnrollments)} note={range.mode === "week" ? "trong tuần" : "trong tháng"} />
+            <SummaryCell label="Tỉ lệ nhập học" value={`${avgConversion}%`} note={`từ chối ${avgReject}%`} />
+            <SummaryCell label="Cần chăm sóc" value={String(totalNeedCare)} note={`${totalScoredStudents} có điểm · TB ${formatScore(systemAvgScore)}`} urgent={totalNeedCare > 0} />
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600 lg:flex-row lg:items-center lg:justify-between">
+          <p className="min-w-0 truncate">Ưu tiên: {urgentBranchText}</p>
+          <div className="flex flex-wrap gap-2">
+            <InlineAction href="/leads" label="Xử lý data" value={String(totalDataNeedContact)} />
+            <InlineAction href="/tuition" label="Thu nợ" value={String(totalDebtors)} />
+            <InlineAction href="/students" label="Chăm sóc HS" value={String(totalNeedCare)} />
+          </div>
+        </div>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-lg font-black text-slate-950">Từng cơ sở</h2>
-            <p className="text-sm font-medium text-slate-500">Bố cục theo mẫu họp: mỗi cơ sở một dòng, các chỉ số quan trọng đưa lên trước.</p>
+            <p className="text-sm font-medium text-slate-500">Mỗi cơ sở một dòng. Chỉ giữ số cần đọc nhanh, không tách thành nhiều tag.</p>
           </div>
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Ưu tiên: Data · Công nợ · Chăm sóc</p>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Data · Công nợ · Chăm sóc</p>
         </div>
 
         <div className="overflow-x-auto">
@@ -358,7 +351,7 @@ export default async function SystemOverviewDashboard({ searchParams }: { search
                   <td className="px-3 py-4 text-lg font-black text-slate-950">{row.activeStudents}</td>
                   <td className="px-3 py-4 text-lg font-black text-slate-950">{row.activeClasses}</td>
                   <td className="px-3 py-4 font-black text-slate-800">{row.studentPerClass}</td>
-                  <td className={`px-3 py-4 font-black ${toneByDebt(row.outstanding)}`}>
+                  <td className={`px-3 py-4 font-black ${debtTone(row.outstanding)}`}>
                     {formatVnd(row.outstanding)}
                     <p className="mt-0.5 text-xs font-semibold text-slate-400">{row.debtorCount} HS nợ</p>
                   </td>
@@ -366,45 +359,18 @@ export default async function SystemOverviewDashboard({ searchParams }: { search
                     <Link href={`/leads?branchId=${row.id}`} className="font-black text-orange-700 hover:underline">{row.dataNeedContact}</Link>
                     <p className="mt-0.5 text-xs font-semibold text-slate-400">{row.dataUnhandled} chưa tương tác</p>
                   </td>
-                  <td className="px-3 py-4 text-lg font-black text-emerald-700">{row.newEnrollments}</td>
-                  <td className="px-3 py-4 font-black text-emerald-700">{row.conversionRate}%</td>
-                  <td className="px-3 py-4 font-black text-red-700">{row.rejectRate}%</td>
+                  <td className="px-3 py-4 text-lg font-black text-slate-950">{row.newEnrollments}</td>
+                  <td className="px-3 py-4 font-black text-slate-800">{row.conversionRate}%</td>
+                  <td className="px-3 py-4 font-black text-slate-800">{row.rejectRate}%</td>
                   <td className="px-3 py-4">
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black ${row.studentsNeedCare > 0 ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
-                      {row.studentsNeedCare} HS
-                    </span>
-                    <p className="mt-1 text-xs font-semibold text-slate-400">{row.scoredStudents} HS có điểm</p>
+                    <span className={`font-black ${row.studentsNeedCare > 0 ? "text-orange-700" : "text-slate-800"}`}>{row.studentsNeedCare} HS</span>
+                    <p className="mt-0.5 text-xs font-semibold text-slate-400">{row.scoredStudents} HS có điểm</p>
                   </td>
                   <td className="px-3 py-4 font-black text-slate-800">{formatScore(row.avgScore)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">
-          <h2 className="text-lg font-black text-slate-950">Cơ sở cần ưu tiên</h2>
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
-            {urgentBranches.map((row) => (
-              <div key={row.id} className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <p className="text-sm font-black text-amber-950">{row.code} · {row.name}</p>
-                <p className="mt-2 text-xs font-bold text-amber-800">Data cần xử lý: {row.dataNeedContact}</p>
-                <p className="mt-1 text-xs font-bold text-amber-800">HS nợ học phí: {row.debtorCount}</p>
-                <p className="mt-1 text-xs font-bold text-amber-800">HS cần chăm sóc: {row.studentsNeedCare}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-black text-slate-950">Ghi chú đọc số</h2>
-          <div className="mt-3 space-y-2 text-sm font-medium leading-6 text-slate-600">
-            <p>Data cần xử lý là các hồ sơ chưa nhập học/chưa đóng nhu cầu.</p>
-            <p>Học viên cần chăm sóc là học viên có điểm trung bình trong kỳ dưới 7.</p>
-            <p>Lương nhân viên đã được đưa khỏi báo cáo chính theo yêu cầu họp.</p>
-          </div>
         </div>
       </section>
     </div>
