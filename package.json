@@ -11,6 +11,7 @@
     "pipeline:workbook": "tsx scripts/run_workbook_pipeline.ts",
     "seed:demo": "tsx scripts/seed_demo_erp.ts",
     "seed:qa-master": "tsx scripts/seed_qa_master.ts",
+    "seed:dashboard-overview": "tsx scripts/seed_dashboard_overview_demo.ts",
     "seed:tuition-stress": "tsx scripts/seed_tuition_stress.ts",
     "repair:tuition-balances": "tsx scripts/repair_tuition_balances.ts",
     "check:demo": "tsx scripts/check_demo_erp.ts",

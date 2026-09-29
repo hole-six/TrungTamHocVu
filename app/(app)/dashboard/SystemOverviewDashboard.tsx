@@ -17,8 +17,19 @@ type BranchOverview = {
   studentPerClass: number;
   outstanding: number;
   debtorCount: number;
+  tuitionOutstanding: number;
+  materialsOutstanding: number;
+  topDebtPeriodName: string | null;
+  topDebtPeriodOutstanding: number;
   dataNeedContact: number;
   dataUnhandled: number;
+  unassignedStudents: number;
+  openRemedialItems: number;
+  availableCredits: number;
+  pendingMakeups: number;
+  openBillingPeriods: number;
+  unpaidBookIssues: number;
+  unpaidBookAmount: number;
   conversionRate: number;
   rejectRate: number;
   newEnrollments: number;
@@ -122,12 +133,14 @@ function debtTone(amount: number) {
   return "text-orange-700";
 }
 
-async function chargeOutstandingByBranch(branchId?: string) {
+async function chargeBreakdownByBranch(branchId?: string) {
   const charges = await prisma.charge.findMany({
     where: branchId ? { student: { branchId } } : undefined,
     select: {
       studentId: true,
       totalAmount: true,
+      materialsAmount: true,
+      billingPeriod: { select: { periodName: true } },
       allocations: {
         where: { payment: { status: { notIn: ["VOIDED", "REFUNDED"] } } },
         select: { amount: true },
@@ -136,14 +149,35 @@ async function chargeOutstandingByBranch(branchId?: string) {
   });
 
   const outstandingByStudent = new Map<string, number>();
+  const periodOutstanding = new Map<string, number>();
   let total = 0;
+  let tuitionOutstanding = 0;
+  let materialsOutstanding = 0;
   for (const charge of charges) {
     const paid = charge.allocations.reduce((sum, item) => sum + item.amount, 0);
     const due = Math.max(0, charge.totalAmount - paid);
+    const materialPart = Math.max(0, charge.materialsAmount);
+    const tuitionPart = Math.max(0, charge.totalAmount - materialPart);
+    const tuitionDue = Math.max(0, tuitionPart - paid);
+    const materialDue = Math.max(0, materialPart - Math.max(0, paid - tuitionPart));
     total += due;
+    tuitionOutstanding += tuitionDue;
+    materialsOutstanding += materialDue;
     if (due > 0) outstandingByStudent.set(charge.studentId, (outstandingByStudent.get(charge.studentId) ?? 0) + due);
+    if (due > 0) {
+      const periodName = charge.billingPeriod.periodName;
+      periodOutstanding.set(periodName, (periodOutstanding.get(periodName) ?? 0) + due);
+    }
   }
-  return { total, debtorCount: outstandingByStudent.size };
+  const topPeriod = [...periodOutstanding.entries()].sort((a, b) => b[1] - a[1])[0];
+  return {
+    total,
+    debtorCount: outstandingByStudent.size,
+    tuitionOutstanding,
+    materialsOutstanding,
+    topDebtPeriodName: topPeriod?.[0] ?? null,
+    topDebtPeriodOutstanding: topPeriod?.[1] ?? 0,
+  };
 }
 
 async function scoreCareByBranch(range: { start: Date; end: Date }, branchId?: string) {
@@ -191,6 +225,12 @@ async function getBranchOverview(range: { start: Date; end: Date }): Promise<Bra
         rejectedLeads,
         dataNeedContact,
         dataUnhandled,
+        unassignedStudents,
+        availableCredits,
+        pendingMakeups,
+        openBillingPeriods,
+        unpaidBookIssueAgg,
+        unpaidBookIssueCount,
         newEnrollments,
         debt,
         care,
@@ -211,8 +251,14 @@ async function getBranchOverview(range: { start: Date; end: Date }): Promise<Bra
         prisma.lead.count({ where: { branchId: branch.id, status: "LOST", updatedAt: { gte: range.start, lte: range.end } } }),
         prisma.lead.count({ where: { branchId: branch.id, status: { notIn: ["ENROLLED", "LOST"] } } }),
         prisma.lead.count({ where: { branchId: branch.id, status: "CONTACTING", interactions: { none: {} } } }),
+        prisma.student.count({ where: { branchId: branch.id, status: "ACTIVE", enrollments: { none: { status: "ACTIVE" } } } }),
+        prisma.sessionCredit.count({ where: { status: "AVAILABLE", student: { branchId: branch.id } } }),
+        prisma.makeupRequest.count({ where: { status: { in: ["PENDING", "APPROVED", "SCHEDULED"] }, student: { branchId: branch.id } } }),
+        prisma.billingPeriod.count({ where: { branchId: branch.id, status: { in: ["DRAFT", "GENERATED", "REVIEWED", "POSTED", "REOPENED"] } } }),
+        prisma.bookIssue.aggregate({ where: { paymentStatus: { not: "PAID" }, student: { branchId: branch.id } }, _sum: { amount: true } }),
+        prisma.bookIssue.count({ where: { paymentStatus: { not: "PAID" }, student: { branchId: branch.id } } }),
         prisma.student.count({ where: { branchId: branch.id, enrollDate: { gte: range.start, lte: range.end } } }),
-        chargeOutstandingByBranch(branch.id),
+        chargeBreakdownByBranch(branch.id),
         scoreCareByBranch(range, branch.id),
       ]);
 
@@ -225,8 +271,19 @@ async function getBranchOverview(range: { start: Date; end: Date }): Promise<Bra
         studentPerClass: activeClasses > 0 ? Math.round((activeStudents / activeClasses) * 10) / 10 : 0,
         outstanding: debt.total,
         debtorCount: debt.debtorCount,
+        tuitionOutstanding: debt.tuitionOutstanding,
+        materialsOutstanding: debt.materialsOutstanding,
+        topDebtPeriodName: debt.topDebtPeriodName,
+        topDebtPeriodOutstanding: debt.topDebtPeriodOutstanding,
         dataNeedContact,
         dataUnhandled,
+        unassignedStudents,
+        openRemedialItems: availableCredits + pendingMakeups,
+        availableCredits,
+        pendingMakeups,
+        openBillingPeriods,
+        unpaidBookIssues: unpaidBookIssueCount,
+        unpaidBookAmount: unpaidBookIssueAgg._sum.amount ?? 0,
         conversionRate: pct(convertedLeads, Math.max(leadsInRange, convertedLeads)),
         rejectRate: pct(rejectedLeads, Math.max(leadsInRange, rejectedLeads)),
         newEnrollments,
@@ -265,8 +322,15 @@ export default async function SystemOverviewDashboard({ searchParams }: { search
   const totalClasses = branchRows.reduce((sum, row) => sum + row.activeClasses, 0);
   const totalOutstanding = branchRows.reduce((sum, row) => sum + row.outstanding, 0);
   const totalDebtors = branchRows.reduce((sum, row) => sum + row.debtorCount, 0);
+  const totalTuitionOutstanding = branchRows.reduce((sum, row) => sum + row.tuitionOutstanding, 0);
+  const totalMaterialsOutstanding = branchRows.reduce((sum, row) => sum + row.materialsOutstanding, 0);
   const totalDataNeedContact = branchRows.reduce((sum, row) => sum + row.dataNeedContact, 0);
   const totalUnhandled = branchRows.reduce((sum, row) => sum + row.dataUnhandled, 0);
+  const totalUnassignedStudents = branchRows.reduce((sum, row) => sum + row.unassignedStudents, 0);
+  const totalOpenRemedial = branchRows.reduce((sum, row) => sum + row.openRemedialItems, 0);
+  const totalOpenBillingPeriods = branchRows.reduce((sum, row) => sum + row.openBillingPeriods, 0);
+  const totalUnpaidBookIssues = branchRows.reduce((sum, row) => sum + row.unpaidBookIssues, 0);
+  const totalUnpaidBookAmount = branchRows.reduce((sum, row) => sum + row.unpaidBookAmount, 0);
   const totalNewEnrollments = branchRows.reduce((sum, row) => sum + row.newEnrollments, 0);
   const totalNeedCare = branchRows.reduce((sum, row) => sum + row.studentsNeedCare, 0);
   const totalScoredStudents = branchRows.reduce((sum, row) => sum + row.scoredStudents, 0);
@@ -275,10 +339,10 @@ export default async function SystemOverviewDashboard({ searchParams }: { search
   const systemAvgScore = avg(branchRows.map((row) => row.avgScore).filter((value): value is number => value != null));
   const systemStudentPerClass = totalClasses > 0 ? Math.round((totalStudents / totalClasses) * 10) / 10 : 0;
   const urgentBranches = [...branchRows]
-    .sort((a, b) => (b.dataNeedContact + b.debtorCount + b.studentsNeedCare) - (a.dataNeedContact + a.debtorCount + a.studentsNeedCare))
+    .sort((a, b) => (b.dataNeedContact + b.debtorCount + b.studentsNeedCare + b.openRemedialItems + b.unassignedStudents) - (a.dataNeedContact + a.debtorCount + a.studentsNeedCare + a.openRemedialItems + a.unassignedStudents))
     .slice(0, 3);
   const urgentBranchText = urgentBranches.length
-    ? urgentBranches.map((row) => `${row.code}: ${row.dataNeedContact} data, ${row.debtorCount} nợ, ${row.studentsNeedCare} chăm sóc`).join(" | ")
+    ? urgentBranches.map((row) => `${row.code}: ${row.dataNeedContact} data, ${row.debtorCount} nợ, ${row.openRemedialItems} bổ trợ, ${row.studentsNeedCare} chăm sóc`).join(" | ")
     : "Không có cơ sở cần ưu tiên.";
 
   return (
@@ -307,7 +371,12 @@ export default async function SystemOverviewDashboard({ searchParams }: { search
             <SummaryCell label="Cơ sở" value={String(totalBranches)} note="đang hoạt động" />
             <SummaryCell label="Học viên" value={String(totalStudents)} note={`${totalClasses} lớp · ${systemStudentPerClass} HS/lớp`} />
             <SummaryCell label="Công nợ" value={formatVnd(totalOutstanding)} note={`${totalDebtors} học viên nợ`} urgent={totalOutstanding > 0} />
+            <SummaryCell label="Học phí nợ" value={formatVnd(totalTuitionOutstanding)} note="chưa thu phần học" urgent={totalTuitionOutstanding > 0} />
+            <SummaryCell label="Sách nợ" value={formatVnd(totalMaterialsOutstanding + totalUnpaidBookAmount)} note={`${totalUnpaidBookIssues} dòng xuất sách`} urgent={totalMaterialsOutstanding + totalUnpaidBookAmount > 0} />
             <SummaryCell label="Data cần xử lý" value={String(totalDataNeedContact)} note={`${totalUnhandled} chưa tương tác`} urgent={totalDataNeedContact > 0} />
+            <SummaryCell label="HV chưa lớp" value={String(totalUnassignedStudents)} note="active nhưng chưa có lớp" urgent={totalUnassignedStudents > 0} />
+            <SummaryCell label="Bổ trợ mở" value={String(totalOpenRemedial)} note="credit/yêu cầu chưa xong" urgent={totalOpenRemedial > 0} />
+            <SummaryCell label="Kỳ học phí mở" value={String(totalOpenBillingPeriods)} note="cần rà soát/chốt" urgent={totalOpenBillingPeriods > 0} />
             <SummaryCell label="Nhập học mới" value={String(totalNewEnrollments)} note={range.mode === "week" ? "trong tuần" : "trong tháng"} />
             <SummaryCell label="Tỉ lệ nhập học" value={`${avgConversion}%`} note={`từ chối ${avgReject}%`} />
             <SummaryCell label="Cần chăm sóc" value={String(totalNeedCare)} note={`${totalScoredStudents} có điểm · TB ${formatScore(systemAvgScore)}`} urgent={totalNeedCare > 0} />
@@ -318,6 +387,7 @@ export default async function SystemOverviewDashboard({ searchParams }: { search
           <div className="flex flex-wrap gap-2">
             <InlineAction href="/leads" label="Xử lý data" value={String(totalDataNeedContact)} />
             <InlineAction href="/tuition" label="Thu nợ" value={String(totalDebtors)} />
+            <InlineAction href="/session-credits" label="Xử lý bổ trợ" value={String(totalOpenRemedial)} />
             <InlineAction href="/students" label="Chăm sóc HS" value={String(totalNeedCare)} />
           </div>
         </div>
@@ -327,16 +397,16 @@ export default async function SystemOverviewDashboard({ searchParams }: { search
         <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-lg font-black text-slate-950">Từng cơ sở</h2>
-            <p className="text-sm font-medium text-slate-500">Mỗi cơ sở một dòng. Chỉ giữ số cần đọc nhanh, không tách thành nhiều tag.</p>
+            <p className="text-sm font-medium text-slate-500">Mỗi cơ sở một dòng. Các số là việc tồn cần xử lý, không tách thành nhiều tag.</p>
           </div>
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Data · Công nợ · Chăm sóc</p>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Data · Công nợ · Bổ trợ · Sách · Chăm sóc</p>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-[1120px] w-full border-collapse text-left text-sm">
+          <table className="min-w-[1560px] w-full border-collapse text-left text-sm">
             <thead>
               <tr className="border-y border-slate-200 bg-slate-50">
-                {["Cơ sở", "Tổng HS", "Tổng lớp", "HS/lớp", "Tiền nợ", "Data", "Nhập học", "Chuyển đổi", "Từ chối", "Cần chăm sóc", "Điểm TB"].map((header) => (
+                {["Cơ sở", "Tổng HS", "Tổng lớp", "HS/lớp", "HV chưa lớp", "Data xử lý", "Bổ trợ mở", "Kỳ HP mở", "Tiền nợ", "Tháng nợ nhiều", "Sách chưa thu", "Nhập học", "Chuyển đổi", "Từ chối", "Cần chăm sóc", "Điểm TB"].map((header) => (
                   <th key={header} className="px-3 py-3 text-xs font-black uppercase tracking-[0.12em] text-slate-500">{header}</th>
                 ))}
               </tr>
@@ -351,13 +421,33 @@ export default async function SystemOverviewDashboard({ searchParams }: { search
                   <td className="px-3 py-4 text-lg font-black text-slate-950">{row.activeStudents}</td>
                   <td className="px-3 py-4 text-lg font-black text-slate-950">{row.activeClasses}</td>
                   <td className="px-3 py-4 font-black text-slate-800">{row.studentPerClass}</td>
-                  <td className={`px-3 py-4 font-black ${debtTone(row.outstanding)}`}>
-                    {formatVnd(row.outstanding)}
-                    <p className="mt-0.5 text-xs font-semibold text-slate-400">{row.debtorCount} HS nợ</p>
+                  <td className="px-3 py-4">
+                    <span className={`font-black ${row.unassignedStudents > 0 ? "text-orange-700" : "text-slate-800"}`}>{row.unassignedStudents}</span>
+                    <p className="mt-0.5 text-xs font-semibold text-slate-400">active chưa có lớp</p>
                   </td>
                   <td className="px-3 py-4">
                     <Link href={`/leads?branchId=${row.id}`} className="font-black text-orange-700 hover:underline">{row.dataNeedContact}</Link>
                     <p className="mt-0.5 text-xs font-semibold text-slate-400">{row.dataUnhandled} chưa tương tác</p>
+                  </td>
+                  <td className="px-3 py-4">
+                    <span className={`font-black ${row.openRemedialItems > 0 ? "text-orange-700" : "text-slate-800"}`}>{row.openRemedialItems}</span>
+                    <p className="mt-0.5 text-xs font-semibold text-slate-400">{row.availableCredits} credit · {row.pendingMakeups} yêu cầu</p>
+                  </td>
+                  <td className="px-3 py-4">
+                    <span className={`font-black ${row.openBillingPeriods > 0 ? "text-orange-700" : "text-slate-800"}`}>{row.openBillingPeriods}</span>
+                    <p className="mt-0.5 text-xs font-semibold text-slate-400">DRAFT/POSTED/REOPENED</p>
+                  </td>
+                  <td className={`px-3 py-4 font-black ${debtTone(row.outstanding)}`}>
+                    {formatVnd(row.outstanding)}
+                    <p className="mt-0.5 text-xs font-semibold text-slate-400">{row.debtorCount} HS · học {formatVnd(row.tuitionOutstanding)}</p>
+                  </td>
+                  <td className="px-3 py-4">
+                    <span className="font-black text-slate-800">{row.topDebtPeriodName ?? "-"}</span>
+                    <p className="mt-0.5 text-xs font-semibold text-slate-400">{row.topDebtPeriodOutstanding > 0 ? formatVnd(row.topDebtPeriodOutstanding) : "không có nợ"}</p>
+                  </td>
+                  <td className="px-3 py-4">
+                    <span className={`font-black ${row.materialsOutstanding + row.unpaidBookAmount > 0 ? "text-orange-700" : "text-slate-800"}`}>{formatVnd(row.materialsOutstanding + row.unpaidBookAmount)}</span>
+                    <p className="mt-0.5 text-xs font-semibold text-slate-400">{row.unpaidBookIssues} dòng sách chưa PAID</p>
                   </td>
                   <td className="px-3 py-4 text-lg font-black text-slate-950">{row.newEnrollments}</td>
                   <td className="px-3 py-4 font-black text-slate-800">{row.conversionRate}%</td>
