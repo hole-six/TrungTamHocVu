@@ -11,6 +11,7 @@ import QuickActions from "@/components/dashboard/QuickActions";
 import MonthPicker from "@/components/dashboard/MonthPicker";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { formatVnd } from "@/lib/export-utils";
+import SystemOverviewDashboard from "./SystemOverviewDashboard";
 
 const DASHBOARD_TOUR_STEPS: TourStep[] = [
   {
@@ -275,9 +276,12 @@ function recentMonthOptions(count: number) {
   return options;
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams: { month?: string } }) {
+export default async function DashboardPage({ searchParams }: { searchParams: { month?: string; mode?: string; week?: string } }) {
   const user = await getCurrentUser();
   const role = user ? await getUserRole(user.id) : null;
+  const showExecutiveOverview = !["TEACHER", "TEACHING_ASSISTANT"].includes(String(role));
+  if (showExecutiveOverview) return <SystemOverviewDashboard searchParams={searchParams} />;
+
   const activeBranchId = await getCurrentBranchId();
   const shell = getAppShellConfig(role);
   const stats = await getStats(user, activeBranchId);
