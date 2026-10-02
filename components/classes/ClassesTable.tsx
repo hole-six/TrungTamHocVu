@@ -195,10 +195,9 @@ export default function ClassesTable({
         status: statusConfig(row.status).label,
       })),
       [
-        { key: "classCode", label: "Mã lớp" },
+        { key: "courseName", label: "Tên khóa" },
         { key: "className", label: "Tên lớp" },
         { key: "classGroup", label: "Nhóm lớp" },
-        { key: "courseName", label: "Khóa học" },
         { key: "schedule", label: "Lịch cố định" },
         { key: "nextSession", label: "Buổi kế tiếp" },
         { key: "enrollmentCount", label: "Sĩ số active" },
@@ -214,16 +213,16 @@ export default function ClassesTable({
 
   const columns: Column<Class>[] = [
     {
-      key: "classCode",
-      label: "MÃ LỚP",
-      sortable: true,
-      filter: { type: "text", paramKey: "classCode", placeholder: "Mã lớp..." },
-      render: (value, row) => (
-        <div className="min-w-[120px]">
-          <span className="inline-block rounded-lg bg-primary/10 px-3 py-1.5 text-sm font-bold text-primary">{value}</span>
-          {row.classGroup ? (
-            <span className="mt-1.5 inline-block rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">{row.classGroup}</span>
-          ) : null}
+      key: "course",
+      label: "KHÓA HỌC",
+      filter: courseOptions.length
+        ? { type: "select", paramKey: "courseId", placeholder: "Tất cả", options: courseOptions }
+        : undefined,
+      // Trung tâm gọi theo TÊN KHÓA (Everybody Up 1) và TÊN LỚP (UP1A); mã khóa/mã lớp
+      // chỉ còn chạy ngầm cho phiếu thu, sổ sách và các bản xuất Excel cũ.
+      render: (value) => (
+        <div className="min-w-[180px]">
+          <p className="text-sm font-bold text-[#0f172a]">{value?.name ?? "—"}</p>
         </div>
       ),
     },
@@ -235,22 +234,14 @@ export default function ClassesTable({
       render: (value, row) => (
         <div className="min-w-[200px]">
           <p className="text-sm font-bold text-[#0f172a]">{value}</p>
-          {row.isRemedial ? (
-            <span className="mt-1 inline-block rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">Bổ trợ</span>
-          ) : null}
-        </div>
-      ),
-    },
-    {
-      key: "course",
-      label: "KHÓA HỌC",
-      filter: courseOptions.length
-        ? { type: "select", paramKey: "courseId", placeholder: "Tất cả", options: courseOptions }
-        : undefined,
-      render: (value, row) => (
-        <div className="min-w-[180px]">
-          <p className="text-sm font-semibold text-[#0f172a]">{value?.name ?? "—"}</p>
-          {value?.code ? <p className="mt-0.5 text-xs text-slate-500">{value.code}</p> : null}
+          <div className="mt-1 flex flex-wrap gap-1">
+            {row.classGroup ? (
+              <span className="inline-block rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">{row.classGroup}</span>
+            ) : null}
+            {row.isRemedial ? (
+              <span className="inline-block rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">Bổ trợ</span>
+            ) : null}
+          </div>
         </div>
       ),
     },

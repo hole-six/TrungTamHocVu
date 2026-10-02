@@ -49,6 +49,9 @@ npx prisma generate
 # nên xóa không ảnh hưởng site.
 rm -rf "$ACTIVE/types"
 
+# Kho tài liệu khóa học (COURSE_UPLOAD_DIR, mặc định /var/www/mshangedu-uploads) nằm
+# NGOÀI thư mục dự án nên các lệnh dọn dẹp dưới đây không đụng tới. Nhớ đưa thư mục đó
+# vào lịch sao lưu — mất nó là mất toàn bộ giáo án giáo viên đã tải lên.
 rm -rf "$NEXT_DIST"
 NEXT_DIST_DIR="$NEXT_DIST" npm run build
 

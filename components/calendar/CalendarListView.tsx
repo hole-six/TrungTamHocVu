@@ -144,10 +144,11 @@ export default function CalendarListView({
                     >
                       {row.class.className}
                     </Link>
-                    <p className="mt-1 text-[13px] text-ink-muted48">
-                      {row.class.classCode}
-                      {row.class.course?.name ? ` · ${row.class.course.name}` : ""}
-                    </p>
+                    {/* Dòng phụ là TÊN KHÓA, không phải mã lớp — trung tâm gọi lớp theo
+                        "Everybody Up 1 · UP1A", mã lớp chỉ chạy ngầm cho phiếu thu/sổ sách. */}
+                    {row.class.course?.name ? (
+                      <p className="mt-1 text-[13px] text-ink-muted48">{row.class.course.name}</p>
+                    ) : null}
                   </td>
                   <td className="px-5 py-4">
                     <QuickRoomCell sessionId={row.id} room={row.room} roomOptions={roomOptions} canEdit={canEdit && !locked} />

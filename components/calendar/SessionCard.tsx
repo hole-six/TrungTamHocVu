@@ -105,8 +105,7 @@ export default function SessionCard({
           <div className="flex-1">
             <p className={`text-base font-semibold leading-tight ${classNameTextClass}`}>{session.class.className}</p>
             <p className="mt-1 text-xs text-ink-muted48">
-              {session.class.classCode}
-              {session.class.course?.name ? ` · ${session.class.course.name}` : ""}
+              {session.class.course?.name ?? session.class.classCode}
             </p>
           </div>
           <span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-bold ${statusBadgeClass(session.status)}`}>
