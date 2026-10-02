@@ -5,6 +5,8 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { getCurrentBranchId } from "@/lib/branch-filter";
 import CalendarFilters from "@/components/calendar/CalendarFilters";
+import PeriodNavigator from "@/components/ui/PeriodNavigator";
+import { resolvePeriod } from "@/lib/period-range";
 import SessionCard from "@/components/calendar/SessionCard";
 import CalendarListView from "@/components/calendar/CalendarListView";
 import BulkAssignDrawer, { type BulkSession, type ClassDefaultStaff } from "@/components/calendar/BulkAssignDrawer";
@@ -112,7 +114,7 @@ const CALENDAR_PAGE_GUIDE_SECTIONS = [
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: { week?: string; q?: string; timePreset?: string; view?: string };
+  searchParams: { mode?: string; week?: string; month?: string; q?: string; timePreset?: string; view?: string };
 }) {
   const user = await getCurrentUser();
   const role = user ? await getUserRole(user.id) : null;
@@ -127,13 +129,15 @@ export default async function CalendarPage({
   const timePreset = searchParams.timePreset?.trim() ?? "all";
   // Vận hành đọc thời khóa biểu chủ yếu ở DẠNG DANH SÁCH (mỗi buổi 1 dòng) — nên đó là
   // mặc định; lưới tuần vẫn mở được bằng nút "Lưới".
-  const view = searchParams.view === "grid" ? "grid" : "list";
-  const anchor = searchParams.week ? new Date(searchParams.week) : new Date();
-  const staffHoursHref = `/timesheets/hours?month=${anchor.toISOString().slice(0, 7)}`;
-  const weekStart = startOfWeek(anchor);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
-  weekEnd.setUTCHours(23, 59, 59, 999);
+  // Khoảng thời gian lấy từ THANH THỜI GIAN DÙNG CHUNG (lib/period-range.ts): tuần theo
+  // ISO (có số tuần trong năm) hoặc cả tháng. Hàm đọc nhận cả `week=2026-09-28` kiểu cũ
+  // nên đường dẫn đã chia sẻ trước đây vẫn mở đúng tuần.
+  const period = resolvePeriod({ mode: searchParams.mode, week: searchParams.week, month: searchParams.month });
+  // Lưới 7 cột chỉ hợp với một tuần; xem cả tháng thì luôn dùng dạng danh sách.
+  const view = period.mode === "month" ? "list" : searchParams.view === "grid" ? "grid" : "list";
+  const staffHoursHref = `/timesheets/hours?month=${period.start.toISOString().slice(0, 7)}`;
+  const weekStart = period.start;
+  const weekEnd = period.end;
 
   const teacherScoped = role === "TEACHER" || role === "TEACHING_ASSISTANT";
 
@@ -254,7 +258,9 @@ export default async function CalendarPage({
     };
   });
 
-  const focusDayKey = anchor.toISOString().slice(0, 10);
+  // Ngày được nhấn mạnh trong lưới: hôm nay nếu hôm nay nằm trong khoảng đang xem,
+  // không thì lấy ngày đầu khoảng.
+  const focusDayKey = period.isCurrent ? TODAY_YMD : period.start.toISOString().slice(0, 10);
   const totalSessions = sessions.length;
   const totalCompleted = sessions.filter((session) => session.status === "COMPLETED").length;
   const totalMissingAssignments = sessions.filter((session) => session.assignments.length === 0).length;
@@ -383,10 +389,14 @@ export default async function CalendarPage({
         </div>
       </div>
 
+      {/* Thanh thời gian dùng chung cho toàn hệ thống — xem components/ui/PeriodNavigator.tsx */}
+      <div data-tour="calendar-week-nav">
+        <PeriodNavigator />
+      </div>
+
       <div data-tour="calendar-filters">
         <CalendarFilters
-          key={`${anchor.toISOString().slice(0, 10)}|${q}|${timePreset}|${view}`}
-          initialWeek={anchor.toISOString().slice(0, 10)}
+          key={`${period.key}|${q}|${timePreset}|${view}`}
           initialQuery={q}
           initialTimePreset={timePreset}
           initialView={view}

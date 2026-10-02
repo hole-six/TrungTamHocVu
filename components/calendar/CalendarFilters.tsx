@@ -1,32 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import DatePicker from "@/components/ui/DatePicker";
-
-function toYmd(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function startOfWeek(value: string) {
-  const base = value ? new Date(`${value}T00:00:00`) : new Date();
-  const day = base.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  const next = new Date(base);
-  next.setDate(base.getDate() + diff);
-  return toYmd(next);
-}
-
-function shiftWeek(value: string, days: number) {
-  const base = value ? new Date(`${value}T00:00:00`) : new Date();
-  base.setDate(base.getDate() + days);
-  return toYmd(base);
-}
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
 type CalendarFiltersProps = {
-  initialWeek: string;
   initialQuery: string;
   initialTimePreset: string;
   initialView: string;
@@ -39,15 +18,14 @@ const TIME_PRESET_LABEL: Record<string, string> = {
 };
 
 export default function CalendarFilters({
-  initialWeek,
   initialQuery,
   initialTimePreset,
   initialView,
 }: CalendarFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
-  const [week, setWeek] = useState(initialWeek);
   const [query, setQuery] = useState(initialQuery);
   const [timePreset, setTimePreset] = useState(initialTimePreset || "all");
   const [view, setView] = useState(initialView || "list");
@@ -63,17 +41,21 @@ export default function CalendarFilters({
     [],
   );
 
-  function pushFilters(next: { week?: string; query?: string; timePreset?: string; view?: string }) {
-    const params = new URLSearchParams();
-    const resolvedWeek = next.week ?? week;
+  function pushFilters(next: { query?: string; timePreset?: string; view?: string }) {
+    // GIỮ NGUYÊN các tham số khác đang có trên URL (mode/week/month của thanh thời gian
+    // dùng chung). Trước đây hàm này dựng lại URL từ số 0 nên mỗi lần gõ tìm kiếm là
+    // thổi bay mốc thời gian đang xem.
+    const params = new URLSearchParams(searchParams.toString());
     const resolvedQuery = next.query ?? query;
     const resolvedTimePreset = next.timePreset ?? timePreset;
     const resolvedView = next.view ?? view;
 
-    if (resolvedWeek) params.set("week", startOfWeek(resolvedWeek));
     if (resolvedQuery.trim()) params.set("q", resolvedQuery.trim());
+    else params.delete("q");
     if (resolvedTimePreset && resolvedTimePreset !== "all") params.set("timePreset", resolvedTimePreset);
+    else params.delete("timePreset");
     if (resolvedView && resolvedView !== "list") params.set("view", resolvedView);
+    else params.delete("view");
 
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
@@ -132,56 +114,6 @@ export default function CalendarFilters({
               ×
             </button>
           ) : null}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-          <button
-            type="button"
-            onClick={() => {
-              const next = shiftWeek(week, -7);
-              setWeek(next);
-              pushFilters({ week: next });
-            }}
-            className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] border border-[#dce7f3] bg-white text-xl font-bold text-[#5d7290] transition hover:border-primary/25 hover:text-primary"
-            aria-label="Tuần trước"
-            title="Tuần trước"
-          >
-            &#8249;
-          </button>
-          <div className="w-[170px]">
-            <DatePicker
-              value={week}
-              onChange={(value) => {
-                setWeek(value);
-                pushFilters({ week: value });
-              }}
-              placeholder="Chọn ngày"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              const next = shiftWeek(week, 7);
-              setWeek(next);
-              pushFilters({ week: next });
-            }}
-            className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] border border-[#dce7f3] bg-white text-xl font-bold text-[#5d7290] transition hover:border-primary/25 hover:text-primary"
-            aria-label="Tuần sau"
-            title="Tuần sau"
-          >
-            &#8250;
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const next = toYmd(new Date());
-              setWeek(next);
-              pushFilters({ week: next });
-            }}
-            className="inline-flex h-[42px] shrink-0 items-center justify-center rounded-[11px] border border-[#dce7f3] bg-white px-4 text-sm font-semibold text-[#18304f] transition hover:border-primary/25 hover:text-primary"
-          >
-            Hôm nay
-          </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 xl:justify-end">

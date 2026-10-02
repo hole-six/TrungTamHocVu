@@ -1,4 +1,6 @@
 import Link from "next/link";
+import PeriodNavigator from "@/components/ui/PeriodNavigator";
+import { resolvePeriod } from "@/lib/period-range";
 import { prisma } from "@/lib/prisma";
 import { formatVnd } from "@/lib/export-utils";
 
@@ -37,81 +39,6 @@ type BranchOverview = {
   avgScore: number | null;
   scoredStudents: number;
 };
-
-function startOfIsoWeek(date: Date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay() || 7;
-  d.setDate(d.getDate() - day + 1);
-  return d;
-}
-
-function addDays(date: Date, days: number) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-
-function isoWeekNumber(date: Date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const day = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-}
-
-function parseWeekKey(value: string | undefined) {
-  if (!value || !/^\d{4}-W\d{2}$/.test(value)) return startOfIsoWeek(new Date());
-  const [yearText, weekText] = value.split("-W");
-  const year = Number(yearText);
-  const week = Number(weekText);
-  const jan4 = new Date(year, 0, 4);
-  const start = startOfIsoWeek(jan4);
-  start.setDate(start.getDate() + (week - 1) * 7);
-  return start;
-}
-
-function weekKey(date: Date) {
-  const start = startOfIsoWeek(date);
-  const year = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 3).getFullYear();
-  return `${year}-W${String(isoWeekNumber(start)).padStart(2, "0")}`;
-}
-
-function monthKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function resolveRange(searchParams: DashboardSearchParams) {
-  const mode = searchParams.mode === "month" ? "month" : "week";
-  if (mode === "month") {
-    const source = searchParams.month && /^\d{4}-\d{2}$/.test(searchParams.month) ? searchParams.month : monthKey(new Date());
-    const [year, month] = source.split("-").map(Number);
-    const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
-    const end = new Date(year, month, 0, 23, 59, 59, 999);
-    const prev = new Date(year, month - 2, 1);
-    const next = new Date(year, month, 1);
-    return {
-      mode,
-      start,
-      end,
-      label: `Tháng ${month}/${year}`,
-      prevHref: `/dashboard?mode=month&month=${monthKey(prev)}`,
-      nextHref: `/dashboard?mode=month&month=${monthKey(next)}`,
-    };
-  }
-
-  const start = parseWeekKey(searchParams.week);
-  const end = addDays(start, 6);
-  end.setHours(23, 59, 59, 999);
-  return {
-    mode,
-    start,
-    end,
-    label: `Tuần ${isoWeekNumber(start)} (${start.toLocaleDateString("vi-VN")} - ${end.toLocaleDateString("vi-VN")})`,
-    prevHref: `/dashboard?mode=week&week=${weekKey(addDays(start, -7))}`,
-    nextHref: `/dashboard?mode=week&week=${weekKey(addDays(start, 7))}`,
-  };
-}
 
 function pct(part: number, total: number) {
   if (total <= 0) return 0;
@@ -315,7 +242,9 @@ function InlineAction({ href, label, value }: { href: string; label: string; val
 }
 
 export default async function SystemOverviewDashboard({ searchParams }: { searchParams: DashboardSearchParams }) {
-  const range = resolveRange(searchParams);
+  // Khoảng thời gian lấy từ thanh dùng chung của toàn hệ thống (lib/period-range.ts)
+  // thay cho bản tính tuần/tháng viết riêng cho màn này.
+  const range = resolvePeriod({ mode: searchParams.mode, week: searchParams.week, month: searchParams.month });
   const branchRows = await getBranchOverview(range);
   const totalBranches = branchRows.length;
   const totalStudents = branchRows.reduce((sum, row) => sum + row.activeStudents, 0);
@@ -356,11 +285,7 @@ export default async function SystemOverviewDashboard({ searchParams }: { search
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Link href={range.prevHref} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700 hover:border-slate-950">Trước</Link>
-            <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-black text-orange-700">{range.label}</div>
-            <Link href={range.nextHref} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700 hover:border-slate-950">Sau</Link>
-            <Link href={`/dashboard?mode=week&week=${weekKey(new Date())}`} className={`rounded-xl border px-3 py-2 text-sm font-black ${range.mode === "week" ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-700"}`}>Tuần này</Link>
-            <Link href={`/dashboard?mode=month&month=${monthKey(new Date())}`} className={`rounded-xl border px-3 py-2 text-sm font-black ${range.mode === "month" ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-700"}`}>Tháng này</Link>
+            <PeriodNavigator />
           </div>
         </div>
       </section>
