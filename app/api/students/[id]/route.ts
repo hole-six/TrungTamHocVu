@@ -6,6 +6,8 @@ import { canViewFullWithOverride, canViewWithOverride, canUpdateWithOverride, ca
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { computeOutstandingBalance } from "@/lib/server/balance";
 import { canAccessBranch } from "@/lib/branch-filter";
+import { DuplicateStudentNameError, assertStudentNameNotDuplicated } from "@/lib/server/student-duplicate-name";
+import { StudentDeleteConfirmationError, hardDeleteStudent } from "@/lib/server/student-hard-delete";
 import { PHONE_ERROR, validateOptionalPhone } from "@/lib/phone";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -79,6 +81,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (field === "phone") continue;
     if (field in body) data[field] = body[field] || null;
   }
+  if ("fullName" in body) {
+    const fullName = String(body.fullName ?? "").trim();
+    if (!fullName) return NextResponse.json({ error: "Thiếu họ tên học viên" }, { status: 400 });
+    try {
+      await assertStudentNameNotDuplicated(prisma, { branchId: existing.branchId, fullName, excludeStudentId: existing.id });
+    } catch (error) {
+      if (error instanceof DuplicateStudentNameError) {
+        return NextResponse.json({ error: error.message, duplicates: error.matches, suggestions: error.suggestions }, { status: 409 });
+      }
+      throw error;
+    }
+    data.fullName = fullName;
+  }
   for (const field of ["dob", "enrollDate", "leaveDate"]) {
     if (field in body) data[field] = body[field] ? new Date(body[field]) : null;
   }
@@ -104,38 +119,35 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({ item: updated });
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   const { role, override } = await getUserRoleAndOverride(user.id, "students");
   if (!canDeleteWithOverride("students", role, override)) {
     return NextResponse.json({ error: "Vai trò của bạn không có quyền xóa học viên" }, { status: 403 });
   }
-
-  const existing = await prisma.student.findUnique({ where: { id: params.id }, select: { branchId: true, status: true } });
-  if (!existing) return NextResponse.json({ error: "Khong tim thay hoc vien" }, { status: 404 });
-  if (!(await canAccessBranch(existing.branchId))) return NextResponse.json({ error: "Khong co quyen truy cap co so" }, { status: 403 });
-
-  // UI chỉ hiện nút Xóa khi học viên KHÔNG còn ACTIVE — chặn lại đúng quy tắc này ở
-  // server để không thể xóa học viên đang học chỉ bằng cách gọi thẳng API (bỏ qua UI).
-  if (existing.status === "ACTIVE") {
-    return NextResponse.json(
-      { error: "Học viên đang ở trạng thái Đang học — chuyển sang 'Đã nghỉ' trước khi xóa." },
-      { status: 409 }
-    );
+  if (role !== "SUPER_ADMIN") {
+    return NextResponse.json({ error: "Chỉ SUPER_ADMIN được xóa hẳn học viên." }, { status: 403 });
   }
 
-  const [chargeCount, paymentCount] = await Promise.all([
-    prisma.charge.count({ where: { studentId: params.id } }),
-    prisma.payment.count({ where: { studentId: params.id } }),
-  ]);
-  if (chargeCount > 0 || paymentCount > 0) {
-    return NextResponse.json(
-      { error: "Học viên đã có dữ liệu học phí/thanh toán — chuyển sang trạng thái 'Đã nghỉ' thay vì xóa." },
-      { status: 409 }
-    );
-  }
+  const existing = await prisma.student.findUnique({ where: { id: params.id }, select: { branchId: true } });
+  if (!existing) return NextResponse.json({ error: "Không tìm thấy học viên" }, { status: 404 });
+  if (!(await canAccessBranch(existing.branchId))) return NextResponse.json({ error: "Không có quyền truy cập cơ sở" }, { status: 403 });
 
-  await prisma.student.delete({ where: { id: params.id } });
-  return NextResponse.json({ ok: true });
+  const body = await req.json().catch(() => ({}));
+  try {
+    const result = await hardDeleteStudent({
+      db: prisma,
+      studentId: params.id,
+      confirmationText: String(body.confirmationText ?? ""),
+      userId: user.id,
+    });
+    if (!result) return NextResponse.json({ error: "Không tìm thấy học viên" }, { status: 404 });
+    return NextResponse.json({ ok: true, item: result.preview });
+  } catch (error) {
+    if (error instanceof StudentDeleteConfirmationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    throw error;
+  }
 }

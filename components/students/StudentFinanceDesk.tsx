@@ -178,6 +178,8 @@ export default function StudentFinanceDesk({
   const [bookStatusError, setBookStatusError] = useState<string | null>(null);
   const [updatingBookIssueId, setUpdatingBookIssueId] = useState<string | null>(null);
   const [deletingBookIssueId, setDeletingBookIssueId] = useState<string | null>(null);
+  const [selectedBookIssueIds, setSelectedBookIssueIds] = useState<string[]>([]);
+  const [revokingBookIssues, setRevokingBookIssues] = useState(false);
   const [switchingEnrollmentId, setSwitchingEnrollmentId] = useState<string | null>(null);
   const [billingModeMessage, setBillingModeMessage] = useState<string | null>(null);
   const [updatingRequirementId, setUpdatingRequirementId] = useState<string | null>(null);
@@ -454,6 +456,30 @@ export default function StudentFinanceDesk({
     onChanged?.();
   }
 
+  async function revokeSelectedBookIssues() {
+    if (selectedBookIssueIds.length === 0) return;
+    setRevokingBookIssues(true);
+    setBookStatusError(null);
+    const response = await fetch("/api/book-issues/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ issueIds: selectedBookIssueIds, reason: `Thu hồi sách từ hồ sơ ${studentCode}` }),
+    });
+    const data = await response.json().catch(() => ({}));
+    setRevokingBookIssues(false);
+    if (!response.ok) {
+      setBookStatusError(data.error ?? "Không thể thu hồi các dòng sách đã chọn.");
+      return;
+    }
+    setSelectedBookIssueIds([]);
+    router.refresh();
+    onChanged?.();
+  }
+
+  function toggleBookIssueSelection(issueId: string, checked: boolean) {
+    setSelectedBookIssueIds((current) => (checked ? [...new Set([...current, issueId])] : current.filter((id) => id !== issueId)));
+  }
+
   async function switchBillingMode(enrollmentId: string, classId: string, nextBillingModel: "PERIOD" | "COURSE", className: string) {
     setPendingBillingSwitch({ enrollmentId, classId, className, nextBillingModel });
   }
@@ -709,13 +735,28 @@ export default function StudentFinanceDesk({
             </p>
           </div>
           {canManageInventory ? (
-            <button
-              type="button"
-              onClick={() => setShowIssueComposer((current) => !current)}
-              className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] hover:border-[#0f1729] hover:text-[#0f1729]"
-            >
-              {showIssueComposer ? "Đóng" : "Xuất giáo trình"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {selectedBookIssueIds.length > 0 ? (
+                <ConfirmActionButton
+                  title={`Thu hồi ${selectedBookIssueIds.length} dòng sách đã chọn?`}
+                  description="Hệ thống chỉ thu hồi các dòng sách còn chưa thu tiền, hoàn lại công nợ sách khỏi kỳ thu liên quan và tính lại tồn kho."
+                  confirmLabel="Thu hồi sách"
+                  tone="danger"
+                  disabled={revokingBookIssues}
+                  className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                  onConfirm={revokeSelectedBookIssues}
+                >
+                  Thu hồi sách đã chọn
+                </ConfirmActionButton>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setShowIssueComposer((current) => !current)}
+                className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-bold text-[#0f1729] hover:border-[#0f1729] hover:text-[#0f1729]"
+              >
+                {showIssueComposer ? "Đóng" : "Xuất giáo trình"}
+              </button>
+            </div>
           ) : null}
         </div>
 
@@ -828,6 +869,7 @@ export default function StudentFinanceDesk({
           <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-base">
             <thead>
               <tr className="text-left text-xs font-semibold uppercase tracking-wide text-ink-muted48">
+                <th className="px-3 pb-1">Chọn</th>
                 <th className="px-3 pb-1">Đầu sách</th>
                 <th className="px-3 pb-1">Lớp</th>
                 <th className="px-3 pb-1">SL</th>
@@ -841,6 +883,19 @@ export default function StudentFinanceDesk({
               {bookTableRows.map((row) => (
                 <tr key={row.key} className="bg-[#fbfdff]">
                   <td className="rounded-l-2xl px-3 py-3 align-top">
+                    {row.kind === "issue" && row.issue && row.issue.paymentStatus === "UNPAID" && canManageInventory ? (
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-300 text-[#0f1729]"
+                        checked={selectedBookIssueIds.includes(row.issue.id)}
+                        onChange={(event) => toggleBookIssueSelection(row.issue!.id, event.target.checked)}
+                        aria-label={`Chọn thu hồi ${row.bookName}`}
+                      />
+                    ) : (
+                      <span className="text-xs text-ink-muted48">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-3 align-top">
                     <p className="font-semibold text-ink">{row.bookName}</p>
                     <p className="mt-0.5 text-xs text-ink-muted48">{row.kind === "requirement" ? "Sách chuẩn" : "Phát sinh"}</p>
                   </td>
@@ -937,7 +992,7 @@ export default function StudentFinanceDesk({
               ))}
               {bookTableRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-sm text-ink-muted48">
+                  <td colSpan={8} className="px-3 py-6 text-center text-sm text-ink-muted48">
                     Chưa có sách chuẩn của khóa và chưa xuất giáo trình nào.
                   </td>
                 </tr>

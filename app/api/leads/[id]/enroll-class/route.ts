@@ -10,6 +10,7 @@ import { attachCourseBookRequirements } from "@/lib/server/enrollment-materials"
 import { generatePeriodChargesForNewEnrollment } from "@/lib/server/billing-generation";
 import { issueBooksToStudent } from "@/lib/server/book-issue";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
+import { DuplicateStudentNameError } from "@/lib/server/student-duplicate-name";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -56,8 +57,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Lớp chưa có học phí/buổi hoặc tổng số buổi để gán nhập học nhanh." }, { status: 400 });
   }
 
-  const result = await withStudentCodeRetry(() =>
-    prisma.$transaction(async (tx) => {
+  let result: { studentId: string; enrollmentId: string; createdStudent: boolean };
+  try {
+    result = await withStudentCodeRetry(() =>
+      prisma.$transaction(async (tx) => {
       const ensured = await ensureStudentFromLead(tx, lead.id, enrollDate);
       const existingActive = await tx.enrollment.findFirst({
         where: { studentId: ensured.student.id, classId: cls.id, status: { in: ["PENDING", "ACTIVE", "PAUSED"] } },
@@ -91,8 +94,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       });
       await syncStudentDerivedFields(ensured.student.id, tx);
       return { studentId: ensured.student.id, enrollmentId: enrollment.id, createdStudent: ensured.created };
-    }),
-  );
+      }),
+    );
+  } catch (error) {
+    if (error instanceof DuplicateStudentNameError) {
+      return NextResponse.json({ error: error.message, duplicates: error.matches, suggestions: error.suggestions }, { status: 409 });
+    }
+    throw error;
+  }
 
   const billing = await generatePeriodChargesForNewEnrollment(result.enrollmentId);
   const bookItems = cls.course?.bookRequirements.map((item) => ({ bookId: item.bookId, quantity: item.quantity })) ?? [];

@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { nextStudentCode } from "@/lib/server/student-code";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
+import { assertStudentNameNotDuplicated } from "@/lib/server/student-duplicate-name";
 
 export async function ensureStudentFromLead(
   tx: Prisma.TransactionClient,
@@ -21,6 +22,7 @@ export async function ensureStudentFromLead(
     throw new Error("Chỉ data đã đạt test mới được gán lớp và chuyển thành học viên.");
   }
 
+  await assertStudentNameNotDuplicated(tx, { branchId: lead.branchId, fullName: lead.fullName });
   const studentCode = await nextStudentCode(tx);
   const student = await tx.student.create({
     data: {

@@ -6,6 +6,7 @@ import { getUserRoleAndOverride } from "@/lib/permissions";
 import { canViewFullWithOverride, canViewWithOverride, canCreateWithOverride } from "@/lib/server/role-matrix";
 import { syncStudentDerivedFields } from "@/lib/server/database-sync";
 import { nextStudentCode, withStudentCodeRetry } from "@/lib/server/student-code";
+import { DuplicateStudentNameError, assertStudentNameNotDuplicated } from "@/lib/server/student-duplicate-name";
 import { PHONE_ERROR, validateOptionalPhone } from "@/lib/phone";
 
 export async function GET(req: NextRequest) {
@@ -150,6 +151,14 @@ export async function POST(req: NextRequest) {
   if (!fullName) return NextResponse.json({ error: "Thiếu họ tên học viên" }, { status: 400 });
   const studentPhone = validateOptionalPhone(body.phone);
   if (!studentPhone.ok) return NextResponse.json({ error: PHONE_ERROR }, { status: 400 });
+  try {
+    await assertStudentNameNotDuplicated(prisma, { branchId, fullName });
+  } catch (error) {
+    if (error instanceof DuplicateStudentNameError) {
+      return NextResponse.json({ error: error.message, duplicates: error.matches, suggestions: error.suggestions }, { status: 409 });
+    }
+    throw error;
+  }
 
   // Để trống thì tự cấp mã HV-001, HV-002... — xem lib/server/student-code.ts.
   const manualStudentCode = String(body.studentCode ?? "").trim();

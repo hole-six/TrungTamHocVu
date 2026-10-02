@@ -74,6 +74,27 @@ type Student = {
   } | null;
 };
 
+type StudentDeletePreview = {
+  student: Pick<Student, "id" | "studentCode" | "fullName" | "branchId" | "status" | "dob">;
+  confirmationText: string;
+  summary: {
+    enrollmentCount: number;
+    chargeCount: number;
+    paymentCount: number;
+    attendanceCount: number;
+    bookIssueCount: number;
+    bookIssueQuantity: number;
+    sessionCreditCount: number;
+    journalEntryCount: number;
+    totalCharged: number;
+    totalPaid: number;
+    totalRefunded: number;
+    bookIssueAmount: number;
+    chargedBookAmount: number;
+  };
+  warnings: string[];
+};
+
 type StudentsTableProps = {
   /** "am" | "sap-het" — chip lọc theo Ví buổi học đang bật. */
   walletFilter?: string;
@@ -143,6 +164,11 @@ export default function StudentsTable({
   const [assigningStudent, setAssigningStudent] = useState<Student | null>(null);
   const [drawerStudentId, setDrawerStudentId] = useState<string | null>(null);
   const [addStudentOpen, setAddStudentOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
+  const [deletePreview, setDeletePreview] = useState<StudentDeletePreview | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function updateParams(patch: Record<string, string | null>) {
     const next = new URLSearchParams(searchParams.toString());
@@ -517,7 +543,7 @@ export default function StudentsTable({
     });
   }
 
-  if (canDelete("students", userRole)) {
+  if (canDelete("students", userRole) && userRole === "SUPER_ADMIN") {
     actions.push({
       label: "Xóa",
       iconOnly: true,
@@ -528,13 +554,21 @@ export default function StudentsTable({
         </svg>
       ),
       onClick: async (row) => {
-        await fetch(`/api/students/${row.id}`, { method: "DELETE" });
-        router.refresh();
+        setDeleteTarget(row);
+        setDeletePreview(null);
+        setDeleteConfirmText("");
+        setDeleteError(null);
+        setDeleteLoading(true);
+        const response = await fetch(`/api/students/${row.id}/delete-preview`);
+        const data = await response.json().catch(() => ({}));
+        setDeleteLoading(false);
+        if (!response.ok) {
+          setDeleteError(data.error ?? "Không thể tải cảnh báo xóa học viên.");
+          return;
+        }
+        setDeletePreview(data.item ?? null);
       },
-      confirmTitle: "Xác nhận xóa học viên?",
-      confirmMessage: "Hồ sơ học viên cùng lịch sử ghi danh, điểm danh, học phí liên quan sẽ bị xóa. Thao tác này không thể hoàn tác.",
       variant: "danger",
-      show: (row) => row.status !== "ACTIVE",
     });
   }
 
@@ -544,16 +578,33 @@ export default function StudentsTable({
     bulkActions.push({ label: "Xuất Excel", onClick: async (rows) => exportRows(rows), variant: "primary" });
   }
 
-  if (canDelete("students", userRole)) {
-    bulkActions.push({
-      label: "Xóa",
-      onClick: async (rows) => {
-        await Promise.all(rows.map((row) => fetch(`/api/students/${row.id}`, { method: "DELETE" })));
-        router.refresh();
-      },
-      variant: "danger",
-      confirmMessage: "Bạn có chắc muốn xóa các học viên đã chọn? Thao tác này không thể hoàn tác.",
+  async function confirmHardDeleteStudent() {
+    if (!deleteTarget || !deletePreview) return;
+    setDeleteLoading(true);
+    setDeleteError(null);
+    const response = await fetch(`/api/students/${deleteTarget.id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmationText: deleteConfirmText }),
     });
+    const data = await response.json().catch(() => ({}));
+    setDeleteLoading(false);
+    if (!response.ok) {
+      setDeleteError(data.error ?? "Không thể xóa học viên.");
+      return;
+    }
+    setDeleteTarget(null);
+    setDeletePreview(null);
+    setDeleteConfirmText("");
+    router.refresh();
+  }
+
+  function closeDeleteDialog() {
+    if (deleteLoading) return;
+    setDeleteTarget(null);
+    setDeletePreview(null);
+    setDeleteConfirmText("");
+    setDeleteError(null);
   }
 
   const handleSearch = (query: string) => {
@@ -710,6 +761,86 @@ export default function StudentsTable({
             if (!open) setAssigningStudent(null);
           }}
         />
+      ) : null}
+
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <button type="button" className="absolute inset-0 bg-slate-950/40" onClick={closeDeleteDialog} aria-label="Đóng cảnh báo xóa" />
+          <div className="relative z-[96] w-full max-w-2xl rounded-2xl border border-rose-200 bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.24)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-black text-rose-700">Xóa hẳn học viên</h3>
+                <p className="mt-1 text-sm font-semibold text-[#0f1729]">
+                  {deleteTarget.fullName} ({deleteTarget.studentCode})
+                </p>
+              </div>
+              <button type="button" onClick={closeDeleteDialog} disabled={deleteLoading} className="btn-ghost-sm">
+                Đóng
+              </button>
+            </div>
+
+            {deleteLoading && !deletePreview ? <p className="mt-4 text-sm text-[#64748b]">Đang tải cảnh báo...</p> : null}
+
+            {deletePreview ? (
+              <div className="mt-4 space-y-4">
+                <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                  {[
+                    ["Ghi danh", deletePreview.summary.enrollmentCount],
+                    ["Phiếu thu", deletePreview.summary.chargeCount],
+                    ["Lần đóng tiền", deletePreview.summary.paymentCount],
+                    ["Điểm danh", deletePreview.summary.attendanceCount],
+                    ["Sách đã phát", `${deletePreview.summary.bookIssueQuantity} cuốn`],
+                    ["Buổi bổ trợ", deletePreview.summary.sessionCreditCount],
+                    ["Nhật ký học", deletePreview.summary.journalEntryCount],
+                    ["Đã thu", formatVnd(deletePreview.summary.totalPaid)],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-lg border border-[#e5eaf7] px-3 py-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-[#94a3b8]">{label}</p>
+                      <p className="mt-1 font-black text-[#0f1729]">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+                  <p className="font-black">Thao tác này xóa vĩnh viễn và làm giảm dữ liệu báo cáo cũ.</p>
+                  <p className="mt-1">
+                    Tổng đã tính {formatVnd(deletePreview.summary.totalCharged)} · đã thu {formatVnd(deletePreview.summary.totalPaid)} · đã hoàn{" "}
+                    {formatVnd(deletePreview.summary.totalRefunded)} · tiền sách {formatVnd(deletePreview.summary.bookIssueAmount)}.
+                  </p>
+                  {deletePreview.warnings.map((warning) => (
+                    <p key={warning} className="mt-1">• {warning}</p>
+                  ))}
+                </div>
+
+                <label className="block space-y-1">
+                  <span className="label-sm">Gõ đúng: {deletePreview.confirmationText}</span>
+                  <input
+                    className="input font-mono"
+                    value={deleteConfirmText}
+                    onChange={(event) => setDeleteConfirmText(event.target.value)}
+                    placeholder={deletePreview.confirmationText}
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            {deleteError ? <p className="mt-3 text-sm font-semibold text-rose-700">{deleteError}</p> : null}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={closeDeleteDialog} disabled={deleteLoading} className="btn-ghost">
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmHardDeleteStudent()}
+                disabled={deleteLoading || !deletePreview || deleteConfirmText !== deletePreview.confirmationText}
+                className="btn-danger disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deleteLoading ? "Đang xóa..." : "Xóa hẳn"}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </>
   );
