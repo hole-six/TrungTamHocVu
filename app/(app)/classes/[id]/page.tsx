@@ -592,6 +592,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
               startDate: cls.startDate ? cls.startDate.toISOString() : null,
               expectedEndDate: cls.expectedEndDate ? cls.expectedEndDate.toISOString() : null,
               nextClassId: cls.nextClassId,
+              isRemedial: cls.isRemedial,
               notes: cls.notes,
               roadmapItems: roadmapItems.map((item) => ({
                 sessionNumber: item.sessionNumber,

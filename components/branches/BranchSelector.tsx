@@ -71,7 +71,7 @@ export default function BranchSelector({
         </div>
         <div className="text-left">
           <p className="text-xs text-ink-muted48">Cơ sở</p>
-          <p className="text-sm font-bold text-ink flex items-center gap-1.5">
+          <p className="flex items-center gap-1.5 whitespace-nowrap text-sm font-bold text-ink">
             {currentBranch ? (
               <>
                 <span className="font-mono text-xs text-primary">[{currentBranch.code}]</span>
@@ -97,9 +97,11 @@ export default function BranchSelector({
         </svg>
       </button>
 
-      {/* Dropdown */}
+      {/* Dropdown — rộng theo NỘI DUNG chứ không bó theo bề ngang nút: tên cơ sở dài
+          trước đây bị ép xuống dòng từng chữ, nhìn như vỡ giao diện. min-w bám nút để
+          không hẹp hơn nút, max-w chặn trên để không tràn ra khỏi màn hình. */}
       {open && (
-        <div className="absolute top-full left-0 right-0 mt-2 z-50 rounded-xl border border-[#e8edf5] bg-white shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute top-full left-0 z-50 mt-2 w-max min-w-full max-w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#e8edf5] bg-white shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
           {/* Header */}
           <div className="border-b border-[#e8edf5] bg-gradient-to-r from-[#fafbff] to-white px-4 py-3">
             <p className="text-xs font-bold uppercase tracking-wide text-ink-muted48">
@@ -128,8 +130,8 @@ export default function BranchSelector({
                 </svg>
               </div>
               <div className="flex-1 text-left">
-                <p className={`text-sm font-bold ${currentBranch === null ? "text-primary" : "text-ink"}`}>Tất cả cơ sở</p>
-                <p className={`text-xs ${currentBranch === null ? "text-primary/70" : "text-ink-muted48"}`}>Xem gộp dữ liệu mọi cơ sở</p>
+                <p className={`whitespace-nowrap text-sm font-bold ${currentBranch === null ? "text-primary" : "text-ink"}`}>Tất cả cơ sở</p>
+                <p className={`whitespace-nowrap text-xs ${currentBranch === null ? "text-primary/70" : "text-ink-muted48"}`}>Xem gộp dữ liệu mọi cơ sở</p>
               </div>
               {currentBranch === null && (
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary">
@@ -163,10 +165,10 @@ export default function BranchSelector({
                   </div>
                   
                   <div className="flex-1 text-left">
-                    <p className={`text-sm font-bold ${isSelected ? "text-primary" : "text-ink"}`}>
+                    <p className={`whitespace-nowrap text-sm font-bold ${isSelected ? "text-primary" : "text-ink"}`}>
                       {branch.name}
                     </p>
-                    <p className={`text-xs font-mono ${isSelected ? "text-primary/70" : "text-ink-muted48"}`}>
+                    <p className={`whitespace-nowrap text-xs font-mono ${isSelected ? "text-primary/70" : "text-ink-muted48"}`}>
                       {branch.code}
                     </p>
                   </div>

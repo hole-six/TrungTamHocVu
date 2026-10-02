@@ -44,3 +44,35 @@ export function isEmployeeWorkingOn(
   if (employee.resignDate) return date.getTime() <= employee.resignDate.getTime();
   return employee.workStatus !== "RESIGNED";
 }
+
+// ---------------------------------------------------------------------------------
+// AI ĐƯỢC XẾP VÀO BUỔI HỌC
+//
+// Ô chọn người ở thời khoá biểu/phân công trước đây đổ ra TOÀN BỘ nhân sự — kế toán, lễ
+// tân, Ban Giám Đốc đều hiện ra và xếp nhầm được vào lớp, mà xếp nhầm là vào thẳng bảng
+// lương. Chỉ giữ lại người đứng lớp: Giáo viên và Trợ giảng.
+
+const NO_DIACRITICS = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+/** Vị trí có đứng lớp hay không (bỏ dấu, không phân biệt hoa thường). */
+export function isTeachingStaff(position: string | null | undefined): boolean {
+  if (!position) return false;
+  const normalized = NO_DIACRITICS(position);
+  return normalized.includes("giao vien") || normalized.includes("tro giang");
+}
+
+/**
+ * Lọc danh sách người có thể xếp vào buổi học.
+ *
+ * Hồ sơ chưa khai vị trí thì lọc ra rỗng — lúc đó TRẢ LẠI NGUYÊN DANH SÁCH thay vì để ô
+ * chọn trống trơn không xếp được ai (dữ liệu thiếu không được làm màn hình hỏng).
+ */
+export function filterTeachingStaff<T extends { position: string | null }>(employees: T[]): T[] {
+  const teaching = employees.filter((employee) => isTeachingStaff(employee.position));
+  return teaching.length > 0 ? teaching : employees;
+}

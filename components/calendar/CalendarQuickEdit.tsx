@@ -13,6 +13,7 @@
 // thêm bớt bao nhiêu người cũng được.
 
 import { useRouter } from "next/navigation";
+import { filterTeachingStaff } from "@/lib/assignment-roles";
 import { useEffect, useRef, useState } from "react";
 
 export type QuickEmployee = { id: string; fullName: string; shortName: string | null; position: string | null };
@@ -150,11 +151,15 @@ export function QuickRoomCell({
 
 export type QuickAssignment = { id: string; role: string; employeeId: string; name: string };
 
-/** Người hợp vai trò đứng trước, còn lại giữ nguyên thứ tự tên. */
+/**
+ * Chỉ người đứng lớp (Giáo viên / Trợ giảng) mới hiện ra — kế toán, lễ tân, BGĐ không
+ * xếp vào buổi học được. Trong số đó, người hợp đúng vai trò đang chọn đứng trước.
+ */
 function sortForRole(employees: QuickEmployee[], roleType: "TEACHER" | "ASSISTANT") {
+  const pool = filterTeachingStaff(employees);
   const wanted = roleType === "TEACHER" ? "giáo viên" : "trợ giảng";
   const fits = (employee: QuickEmployee) => (employee.position ?? "").toLowerCase().includes(wanted);
-  return [...employees.filter(fits), ...employees.filter((employee) => !fits(employee))];
+  return [...pool.filter(fits), ...pool.filter((employee) => !fits(employee))];
 }
 
 /**

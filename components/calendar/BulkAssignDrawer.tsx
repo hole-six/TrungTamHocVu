@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { filterTeachingStaff } from "@/lib/assignment-roles";
 import { useRouter } from "next/navigation";
 import ResponsiveDrawer from "@/components/ui/ResponsiveDrawer";
 import { useToast } from "@/components/ui/Toast";
@@ -45,7 +46,9 @@ type PlanItem = {
 };
 /** Nhân sự mặc định của lớp (có thể 2 GV, 2 TG) — để điền nhanh khi chọn buổi của 1 lớp. */
 export type ClassDefaultStaff = Record<string, { teacherIds: string[]; assistantIds: string[] }>;
-const MAX_PER_ROLE = 4;
+// Số GV/TG một buổi KHÔNG cố định (chốt 10/2026) — đây chỉ là trần phòng bấm nhầm hàng
+// loạt, không phải quy định nghiệp vụ. Buổi cần nhiều hơn thì gán thêm ở từng buổi.
+const MAX_PER_ROLE = 6;
 type Plan = { items: PlanItem[]; counts: Record<PlanItem["action"], number> };
 
 const WEEKDAY = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -436,7 +439,7 @@ function StaffListPicker({
             onChange={(e) => onChange(values.map((v, i) => (i === index ? e.target.value : v)))}
           >
             <option value="">{`— ${label} ${index + 1}: không gán —`}</option>
-            {employees.map((e) => (
+            {filterTeachingStaff(employees).map((e) => (
               <option key={e.id} value={e.id} disabled={blocked.includes(e.id) || (values.includes(e.id) && e.id !== value)}>
                 {e.fullName}{e.shortName ? ` (${e.shortName})` : ""}{e.position ? ` · ${e.position}` : ""}
               </option>

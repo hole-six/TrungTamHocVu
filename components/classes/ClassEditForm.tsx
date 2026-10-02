@@ -23,6 +23,7 @@ type ClassProfile = {
   startDate: string | null;
   expectedEndDate: string | null;
   nextClassId?: string | null;
+  isRemedial?: boolean;
   notes: string | null;
   roadmapItems: RoadmapDraft[];
 };
@@ -107,6 +108,7 @@ export default function ClassEditForm({
     startDate: toDateInput(cls.startDate),
     expectedEndDate: toDateInput(cls.expectedEndDate),
     nextClassId: cls.nextClassId ?? "",
+    isRemedial: Boolean(cls.isRemedial),
     notes: cls.notes ?? "",
   });
   const totalSessions = form.totalSessions === "" ? 0 : Number(form.totalSessions);
@@ -249,6 +251,24 @@ export default function ClassEditForm({
         guide={<FormGuide title="Hướng dẫn sửa lớp học" summary="Đây là form chỉnh cấu trúc lõi của lớp. Người vận hành nên rà kỹ học phí, số buổi và lộ trình từng buổi trước khi lưu để tránh ảnh hưởng dây chuyền." sections={CLASS_EDIT_GUIDE_SECTIONS} position="inline" />}
       >
         <form onSubmit={save} className="space-y-6">
+          {/* LỚP BỔ TRỢ sửa được sau khi tạo. Tick nhầm lúc tạo lớp trước đây là không
+              bao giờ sửa lại được. Server vẫn chặn nếu lớp đã phát sinh buổi học bù hoặc
+              phiếu học phí, và báo rõ vướng cái gì. */}
+          <label className="flex items-start gap-3 rounded-xl border border-[#e2e8f0] bg-[#fbfcfe] px-4 py-3">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4"
+              checked={form.isRemedial}
+              onChange={(event) => setForm((current) => ({ ...current, isRemedial: event.target.checked }))}
+            />
+            <span>
+              <span className="label">Lớp bổ trợ (học bù)</span>
+              <span className="form-hint block">
+                Lớp bổ trợ không thu học phí; buổi học trừ vào buổi dư của học viên. Bỏ tick để đưa về lớp thường.
+              </span>
+            </span>
+          </label>
+
           <label className="form-group">
             <span className="label">Tên lớp</span>
             <input required className="input" value={form.className} onChange={(event) => setForm((current) => ({ ...current, className: event.target.value }))} />

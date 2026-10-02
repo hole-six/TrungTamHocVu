@@ -1,3 +1,7 @@
+import type { PrismaClient } from "@prisma/client";
+
+type PrismaPublic = PrismaClient;
+
 // Quy tắc nghiệp vụ Lớp & Lịch — nguồn DSLop/T_DSLop (Master Spec §5 FR liên quan
 // đến NgayKTDuKien, Con lai, SLHVNow). Các giá trị "CALCULATED" trong Excel gốc ở
 // đây được tính động từ ClassSession/Enrollment thay vì lưu cột riêng — tránh lặp
@@ -246,4 +250,80 @@ export function pickCurrentEnrollment<T extends { status: string }>(enrollments:
     enrollments[0] ??
     null
   );
+}
+
+// ---------------------------------------------------------------------------------
+// ĐỔI LỚP BỔ TRỢ ↔ LỚP THƯỜNG
+//
+// Trước đây route sửa lớp bỏ qua cột isRemedial, nên tick nhầm "lớp bổ trợ" lúc tạo là
+// vĩnh viễn không sửa lại được — phải xóa lớp làm lại. Mở cho sửa thì phải có chốt, vì
+// hai loại lớp tính tiền khác hẳn nhau:
+//   - lớp bổ trợ: KHÔNG thu học phí, buổi học trừ vào buổi dư (SessionCredit) của học viên;
+//   - lớp thường: thu học phí theo kỳ/khóa, buổi học trừ ví buổi học của ghi danh.
+// Đổi loại khi đã phát sinh dữ liệu là lệch tiền, nên chặn và nói rõ vướng cái gì thay vì
+// im lặng bỏ qua như cũ.
+
+/** Mô tả lý do KHÔNG cho đổi loại lớp; null = đổi được. Hàm thuần, không đụng CSDL. */
+export function describeRemedialSwitchBlock(params: {
+  from: boolean;
+  to: boolean;
+  /** Số buổi của lớp này đã được dùng làm buổi học bù (SessionCredit đã tiêu). */
+  consumedCreditCount: number;
+  /** Số phiếu học phí đã sinh cho lớp này. */
+  chargeCount: number;
+}): string | null {
+  const { from, to, consumedCreditCount, chargeCount } = params;
+  if (from === to) return null;
+
+  if (from && !to) {
+    if (consumedCreditCount > 0) {
+      return (
+        `Lớp này đã có ${consumedCreditCount} buổi học bù dùng buổi dư của học viên. ` +
+        `Chuyển thành lớp thường thì những buổi đó phải thu học phí, trong khi học viên đã trừ buổi dư rồi — ` +
+        `số liệu sẽ lệch. Nếu thật sự cần đổi, xử lý các buổi học bù đó trước.`
+      );
+    }
+    return null;
+  }
+
+  if (chargeCount > 0) {
+    return (
+      `Lớp này đã có ${chargeCount} phiếu học phí. Lớp bổ trợ không thu học phí, ` +
+      `đổi sang sẽ bỏ lại các phiếu đã sinh mà không ai thu — hủy/chuyển các phiếu đó trước đã.`
+    );
+  }
+  return null;
+}
+
+// Nhận cả prisma lẫn client trong giao dịch. Import CHỈ KIỂU (type-only) nên không kéo
+// Prisma Client vào bundle trình duyệt — file này còn được component client import để
+// lấy nhãn trạng thái.
+type RemedialSwitchDb = Pick<PrismaPublic, "class" | "sessionCredit" | "charge">;
+
+/**
+ * Đếm dữ liệu thật của lớp rồi áp luật ở trên. Trả về lý do chặn, hoặc null nếu đổi được.
+ *
+ * Chỉ đếm buổi học bù THUỘC CHÍNH LỚP NÀY (consumedSession.classId) — đếm theo học viên
+ * hay theo ghi danh sẽ chặn oan những lớp không liên quan.
+ */
+export async function checkRemedialSwitch(
+  db: RemedialSwitchDb,
+  classId: string,
+  nextIsRemedial: boolean,
+): Promise<string | null> {
+  const cls = await db.class.findUnique({ where: { id: classId }, select: { isRemedial: true } });
+  if (!cls) return null;
+  if (cls.isRemedial === nextIsRemedial) return null;
+
+  const [consumedCreditCount, chargeCount] = await Promise.all([
+    db.sessionCredit.count({ where: { status: "CONSUMED", consumedSession: { classId } } }),
+    db.charge.count({ where: { classId } }),
+  ]);
+
+  return describeRemedialSwitchBlock({
+    from: cls.isRemedial,
+    to: nextIsRemedial,
+    consumedCreditCount,
+    chargeCount,
+  });
 }

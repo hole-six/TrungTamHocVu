@@ -197,6 +197,7 @@ export default function ClassDetailDrawer({ open, onClose, classId }: Props) {
                   startDate: data.startDate,
                   expectedEndDate: data.expectedEndDate,
                   nextClassId: data.nextClassId,
+                  isRemedial: data.isRemedial,
                   notes: data.notes,
                   roadmapItems: data.roadmapItems,
                 }}

@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import FormGuide from "@/components/ui/FormGuide";
 import ConfirmActionButton from "@/components/ui/ConfirmActionButton";
+import { filterTeachingStaff } from "@/lib/assignment-roles";
 
-type Employee = { id: string; fullName: string; shortName: string };
+type Employee = { id: string; fullName: string; shortName: string; position?: string | null };
 type Assignment = {
   id: string;
   employeeId: string;
@@ -43,6 +44,10 @@ const ROLE_HINT: Record<string, string> = {
   ASSISTANT: "Hỗ trợ lớp",
   ASSISTANT2: "Hỗ trợ thêm",
 };
+
+/** Chỉ Giáo viên / Trợ giảng mới xếp được vào buổi học — xem lib/assignment-roles.ts. */
+const teachingStaff = (employees: Employee[]) =>
+  filterTeachingStaff(employees.map((employee) => ({ ...employee, position: employee.position ?? null })));
 
 function AssignmentRow({ assignment, isSelf, employees }: { assignment: Assignment; isSelf: boolean; employees: Employee[] }) {
   const router = useRouter();
@@ -226,7 +231,7 @@ function AssignmentRow({ assignment, isSelf, employees }: { assignment: Assignme
                 <span className="label-sm">Người dạy thay</span>
                 <select className="input" value={subEmployeeId} onChange={(event) => setSubEmployeeId(event.target.value)}>
                   <option value="">Chọn nhân sự</option>
-                  {employees
+                  {teachingStaff(employees)
                     .filter((employee) => employee.id !== assignment.employeeId)
                     .map((employee) => (
                       <option key={employee.id} value={employee.id}>
@@ -476,7 +481,7 @@ export default function SessionAssignmentForm({
             <span className="label-sm">Chọn nhân sự</span>
             <select className="input min-w-0" value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}>
               <option value="">Chọn nhân sự</option>
-              {employees.map((employee) => (
+              {teachingStaff(employees).map((employee) => (
                 <option key={employee.id} value={employee.id}>
                   {employee.fullName} ({employee.shortName})
                 </option>

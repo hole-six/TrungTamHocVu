@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canView, canUpdate, canDelete } from "@/lib/server/role-matrix";
 import { canAccessBranch } from "@/lib/branch-filter";
-import { estimateEndDate } from "@/lib/server/class-rules";
+import { checkRemedialSwitch, estimateEndDate } from "@/lib/server/class-rules";
 import { syncClassDerivedFields } from "@/lib/server/database-sync";
 import { ensureClassRoadmapItems, normalizeRoadmapItemsInput } from "@/lib/server/class-roadmap";
 import { normalizeDefaultStaffInput, saveDefaultStaff } from "@/lib/server/class-default-assignments";
@@ -58,6 +58,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (field in body) data[field] = body[field] || null;
   }
   if ("courseId" in body) data.courseId = body.courseId || null;
+  // LỚP BỔ TRỢ sửa được sau khi tạo — trước đây cột này không nằm trong danh sách nên
+  // tick nhầm lúc tạo lớp là không bao giờ sửa lại được. Có chốt an toàn vì hai loại lớp
+  // tính tiền khác hẳn nhau (xem checkRemedialSwitch).
+  if ("isRemedial" in body) {
+    const nextIsRemedial = Boolean(body.isRemedial);
+    const blocked = await checkRemedialSwitch(prisma, params.id, nextIsRemedial);
+    if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
+    data.isRemedial = nextIsRemedial;
+  }
   if ("nextClassId" in body) {
     const nextClassId = body.nextClassId ? String(body.nextClassId).trim() : null;
     if (nextClassId === params.id) {
