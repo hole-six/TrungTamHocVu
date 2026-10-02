@@ -131,6 +131,7 @@ model User {
   auditLogs       AuditLog[]
   moduleOverrides UserModuleOverride[]
   bookIssues      BookIssue[]          @relation("BookIssueIssuedBy")
+  courseMaterials CourseMaterial[]     @relation("CourseMaterialUploadedBy")
 
   @@map("users")
 }
@@ -485,6 +486,10 @@ model Course {
   feePolicies      FeePolicy[]
   bookRequirements CourseBookRequirement[]
   enrollments      Enrollment[]
+  // Khóa học là KHO DÙNG CHUNG: tiến trình + tài liệu soạn một lần ở đây, mọi lớp học
+  // cùng khóa dùng chung, khỏi phải tải lên lại cho từng lớp (chốt 10/2026).
+  roadmapItems     CourseRoadmapItem[]
+  materials        CourseMaterial[]
 
   @@unique([branchId, code])
   @@map("courses")
@@ -536,6 +541,60 @@ model Class {
   @@index([status])
   @@index([nextClassId])
   @@map("classes")
+}
+
+// TIẾN TRÌNH CHUẨN CỦA KHÓA HỌC — soạn một lần, mọi lớp cùng khóa dùng chung.
+// Lớp muốn khác ở buổi nào thì ghi đè đúng buổi đó bằng ClassRoadmapItem; các buổi còn
+// lại vẫn bám theo đây, nên sửa ở khóa là mọi lớp đang chạy đổi theo.
+// Xem lib/server/class-roadmap.ts — resolveClassRoadmap là chỗ duy nhất gộp hai nguồn.
+model CourseRoadmapItem {
+  id                 String   @id @default(uuid())
+  courseId           String   @map("course_id")
+  sessionNumber      Int      @map("session_number")
+  title              String   @default("")
+  objective          String?
+  materials          String?
+  teacherGuide       String?  @map("teacher_guide")
+  homeworkGuide      String?  @map("homework_guide")
+  teacherRequirement String?  @map("teacher_requirement")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, sessionNumber])
+  @@index([courseId, sessionNumber])
+  @@map("course_roadmap_items")
+}
+
+// TÀI LIỆU CỦA KHÓA HỌC: file tải lên hoặc link dán vào, gắn cho cả khóa hoặc đúng một
+// buổi trong tiến trình. Trước đây mỗi khóa chỉ có đúng MỘT ô link (Course.materialsLink)
+// nên tài liệu rời của từng buổi không có chỗ nào để.
+//
+// File tải lên nằm ngoài thư mục mã nguồn (xem lib/server/course-materials.ts) để deploy
+// không xóa mất; cột filePath là đường dẫn tương đối trong kho đó, không phải URL công khai.
+model CourseMaterial {
+  id            String   @id @default(uuid())
+  courseId      String   @map("course_id")
+  // Để trống = tài liệu chung của cả khóa; có số = tài liệu của đúng buổi đó.
+  sessionNumber Int?     @map("session_number")
+  kind          String // FILE | LINK
+  title         String
+  // kind = LINK
+  url           String?
+  // kind = FILE
+  filePath      String?  @map("file_path")
+  fileName      String?  @map("file_name")
+  sizeBytes     Int?     @map("size_bytes")
+  contentType   String?  @map("content_type")
+  uploadedById  String?  @map("uploaded_by_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  course     Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  uploadedBy User?  @relation("CourseMaterialUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([courseId, sessionNumber])
+  @@map("course_materials")
 }
 
 model ClassRoadmapItem {

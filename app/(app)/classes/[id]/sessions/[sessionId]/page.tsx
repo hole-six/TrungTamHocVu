@@ -10,6 +10,7 @@ import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { prisma } from "@/lib/prisma";
 import { employeeBranchFilter } from "@/lib/server/employee-branches";
+import { resolveClassRoadmap } from "@/lib/server/class-roadmap";
 import { getUserRole } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { canUpdate } from "@/lib/server/role-matrix";
@@ -156,8 +157,12 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
   const attendanceByStudent = Object.fromEntries(session.attendances.map((attendance) => [attendance.studentId, attendance.status]));
   const numbering = computeSessionNumbers(session.class.sessions);
   const sessionNumber = numbering.numberById.get(session.id) ?? null;
+  // Nội dung buổi học lấy qua resolveClassRoadmap: buổi nào lớp ghi đè thì theo lớp,
+  // còn lại bám tiến trình chung của khóa (xem lib/server/class-roadmap.ts). Đọc thẳng
+  // bảng của lớp như trước sẽ bỏ sót toàn bộ giáo án soạn ở cấp khóa.
+  const resolvedRoadmap = await resolveClassRoadmap(prisma, session.classId);
   const roadmapItem =
-    sessionNumber != null ? session.class.roadmapItems.find((item) => item.sessionNumber === sessionNumber) ?? null : null;
+    sessionNumber != null ? resolvedRoadmap.find((item) => item.sessionNumber === sessionNumber) ?? null : null;
 
   // Lớp bổ trợ: mỗi lần điểm danh "Có mặt" trừ 1 buổi bổ trợ (xem attendance/route.ts)
   // — giáo viên cần thấy số buổi bổ trợ còn lại của từng học viên NGAY trên form điểm

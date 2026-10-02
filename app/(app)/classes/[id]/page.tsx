@@ -40,7 +40,7 @@ import { isTaskDueOn, computeTaskLogStatus } from "@/lib/server/class-task-rules
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
-import { ensureClassRoadmapItems } from "@/lib/server/class-roadmap";
+import { ensureClassRoadmapItems, resolveClassRoadmap } from "@/lib/server/class-roadmap";
 import { getClassAssignmentRoleType } from "@/lib/server/class-default-assignments";
 import { getEnrollmentLearningSnapshot, enrollmentNeedsTransferOnComplete } from "@/lib/server/enrollment-learning";
 import { getWalletBalance } from "@/lib/server/enrollment-wallet";
@@ -269,7 +269,10 @@ export default async function ClassDetailPage({ params }: { params: { id: string
   const currentUser = await getCurrentUser();
   const role = currentUser ? await getUserRole(currentUser.id) : null;
   const canManageClass = canUpdate("schedule", role);
-  const roadmapItems = await ensureClassRoadmapItems(cls.id, cls.totalSessions);
+  // Vẫn tạo sẵn khung dòng cho lớp (giữ hành vi cũ của lớp chưa gắn khóa), nhưng NỘI
+  // DUNG hiển thị lấy từ bản đã gộp với tiến trình của khóa.
+  await ensureClassRoadmapItems(cls.id, cls.totalSessions);
+  const roadmapItems = await resolveClassRoadmap(prisma, cls.id);
 
   // Danh sách học viên đang có buổi bổ trợ khả dụng (mọi lớp, không chỉ lớp này) —
   // để gán hàng loạt nhiều học viên cùng lúc vào 1 buổi tương lai của lớp bổ trợ, thay
