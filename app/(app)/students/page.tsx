@@ -10,6 +10,7 @@ import { chargeOwnDueAmount } from "@/lib/server/tuition-rules";
 import { getEnrollmentLearningSnapshot } from "@/lib/server/enrollment-learning";
 import { getWalletBalance } from "@/lib/server/enrollment-wallet";
 import StudentsTable from "./StudentsTable";
+import { buildStudentCareMap, describeCare } from "@/lib/server/student-care";
 import TopDateRangeFilter from "@/components/ui/TopDateRangeFilter";
 import PageGuide from "@/components/ui/PageGuide";
 
@@ -183,6 +184,7 @@ export default async function StudentsPage({
     fee?: string;
     enrollFrom?: string;
     enrollTo?: string;
+    care?: string;
   };
 }) {
   const user = await getCurrentUser();
@@ -296,7 +298,10 @@ export default async function StudentsPage({
       : {}),
   };
 
-  const needsComputedFilter = Boolean(continuationStatusFilter || outstandingFrom || outstandingTo || sessionCreditFrom || sessionCreditTo || walletFilter || feeFilter);
+  // Lọc theo "cần chăm sóc" cũng là lọc SAU KHI TÍNH (phải đọc nhật ký của từng em),
+  // nên đi chung đường với các bộ lọc tính toán khác: lấy đủ danh sách rồi mới cắt trang.
+  const careFilter = typeof searchParams?.care === "string" ? searchParams.care : "";
+  const needsComputedFilter = Boolean(continuationStatusFilter || outstandingFrom || outstandingTo || sessionCreditFrom || sessionCreditTo || walletFilter || feeFilter || careFilter);
 
   const [items, grouped, countResult] = await Promise.all([
     prisma.student.findMany({
@@ -620,10 +625,32 @@ export default async function StudentsPage({
     filteredItems = filteredItems.filter((item) => (item.sessionCreditCount ?? 0) <= Number(sessionCreditTo));
   }
 
+  // Có lọc theo "cần chăm sóc" thì phải tính cho CẢ danh sách đã lọc rồi mới cắt trang,
+  // nếu không trang 2 sẽ lọc trên một tập khác trang 1.
+  if (careFilter) {
+    const careAll = await buildStudentCareMap(filteredItems.map((item) => item.id));
+    filteredItems = filteredItems.filter((item) =>
+      careFilter === "YES" ? careAll.get(item.id)?.needsCare : !careAll.get(item.id)?.needsCare,
+    );
+  }
+
   const total = needsComputedFilter ? filteredItems.length : countResult ?? 0;
-  const pageItems = needsComputedFilter
+  const pageItemsRaw = needsComputedFilter
     ? filteredItems.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
     : filteredItems;
+
+  // CẦN CHĂM SÓC — kết luận từ nhật ký học tập của từng em (điểm, bài tập, điểm danh),
+  // không ai tick tay. Chỉ tính cho đúng 20 dòng đang xem để không quét cả trường.
+  const careMap = await buildStudentCareMap(pageItemsRaw.map((item) => item.id));
+  const pageItems = pageItemsRaw.map((item) => {
+    const care = careMap.get(item.id);
+    return {
+      ...item,
+      needsCare: care?.needsCare ?? false,
+      careReason: care ? describeCare(care) : "",
+      careAverage: care?.recentAverage ?? null,
+    };
+  });
 
   const stats = Object.fromEntries(grouped.map((row) => [row.status, row._count._all])) as Record<string, number>;
   const [pausedCount, tempLeaveCount, transferredCount] = await Promise.all([

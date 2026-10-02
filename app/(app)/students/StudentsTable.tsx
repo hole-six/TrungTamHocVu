@@ -14,6 +14,10 @@ import { canCreate, canDelete, canUpdate } from "@/lib/server/role-matrix";
 
 type Student = {
   id: string;
+  /** CẦN CHĂM SÓC — kết luận từ nhật ký học tập, xem lib/server/student-care.ts. */
+  needsCare?: boolean;
+  careReason?: string;
+  careAverage?: number | null;
   studentCode: string;
   fullName: string;
   phone?: string | null;
@@ -190,6 +194,7 @@ export default function StudentsTable({
         discountCount: (row.scholarshipCount ?? 0) + (row.adjustmentCount ?? 0),
         sessionCreditCount: row.sessionCreditCount ?? 0,
         status: row.status !== "ACTIVE" ? "Đã nghỉ" : row.currentEnrollmentStatus === "PAUSED" ? "Bảo lưu" : "Đang học",
+        careReason: row.needsCare ? row.careReason ?? "Cần chăm sóc" : "",
       })),
       [
         { key: "studentCode", label: "Mã HV" },
@@ -224,6 +229,7 @@ export default function StudentsTable({
         { key: "discountCount", label: "Số lần chiết khấu" },
         { key: "sessionCreditCount", label: "Số credit buổi" },
         { key: "status", label: "Trạng thái" },
+        { key: "careReason", label: "Cần chăm sóc" },
       ],
       "hoc-vien-day-du",
       "HocVienDayDu",
@@ -282,6 +288,34 @@ export default function StudentsTable({
           </div>
         </div>
       ),
+    },
+    {
+      // CẦN CHĂM SÓC — hệ thống tự kết luận từ nhật ký học tập (điểm, bài tập, điểm
+      // danh), không ai tick tay. Hiện LÝ DO gọn ngay trên cột để người gọi phụ huynh
+      // biết nói gì, không chỉ biết "cần chăm sóc".
+      key: "needsCare",
+      label: "Cần chăm sóc",
+      width: "230px",
+      filter: {
+        type: "select",
+        paramKey: "care",
+        placeholder: "Tất cả",
+        options: [
+          { label: "Cần chăm sóc", value: "YES" },
+          { label: "Đang ổn", value: "NO" },
+        ],
+      },
+      render: (_value, row) =>
+        row.needsCare ? (
+          <div className="min-w-[200px] rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5">
+            <p className="text-[11px] font-black uppercase tracking-wide text-rose-700">Cần chăm sóc</p>
+            <p className="mt-0.5 text-xs font-semibold leading-snug text-rose-900">{row.careReason}</p>
+          </div>
+        ) : (
+          <span className="text-xs text-ink-muted48">
+            {row.careAverage != null ? `TB ${row.careAverage.toFixed(1)}` : "Chưa có nhật ký"}
+          </span>
+        ),
     },
     {
       key: "enrollDate",
