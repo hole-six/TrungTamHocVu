@@ -57,6 +57,7 @@ export default function CalendarListView({
   roomOptions = [],
   canEdit = false,
   alertBySession = {},
+  metaBySession = {},
 }: {
   rows: CalendarListRow[];
   rosterCountBySession?: Record<string, number>;
@@ -71,6 +72,8 @@ export default function CalendarListView({
   canEdit?: boolean;
   /** CẢNH BÁO CHUYÊN MÔN của buổi: vàng = cần lưu ý, đỏ = bắt buộc có hạn. */
   alertBySession?: Record<string, { level: "YELLOW" | "RED"; note: string | null; sessionNumber: number }>;
+  /** Buoi so may trong lo trinh va tong so buoi cua lop - hien "B17/26" tren dong. */
+  metaBySession?: Record<string, { sessionNumber: number | null; totalSessions: number | null }>;
 }) {
   // Bấm vào dòng là VÀO THẲNG trang chi tiết buổi học, đúng như bấm một thẻ ở dạng
   // lưới — không mở ngăn kéo. Trước đây chỉ mỗi tên lớp bấm được, phần còn lại của
@@ -88,18 +91,17 @@ export default function CalendarListView({
   return (
     <div className="overflow-hidden rounded-[17px] border border-[#dce7f3] bg-white shadow-[0_6px_18px_rgba(45,73,112,0.035)]">
       <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-        <table className="w-full min-w-[1040px] text-left text-[15px]">
+        <table className="w-full min-w-[1040px] text-left text-sm">
           {/* Tiêu đề dính lại khi cuộn — danh sách cả tuần dài, cuộn xuống giữa bảng mà
               mất tiêu đề thì không biết cột nào là cột nào. */}
           <thead className="sticky top-0 z-10 bg-[#f7f9fc] text-[11px] uppercase tracking-[0.12em] text-ink-muted48 shadow-[0_1px_0_0_#e3ecf6]">
             <tr>
-              <th className="px-5 py-3.5">Ngày</th>
-              <th className="px-5 py-3.5">Giờ</th>
-              <th className="px-5 py-3.5">Lớp</th>
-              <th className="px-5 py-3.5">Phòng</th>
-              <th className="px-5 py-3.5">GV / TG</th>
-              <th className="px-5 py-3.5 text-center">Sĩ số</th>
-              <th className="px-5 py-3.5 text-right">Trạng thái</th>
+              <th className="px-4 py-2.5">Ngày · Giờ</th>
+              <th className="px-4 py-2.5">Lớp</th>
+              <th className="px-4 py-2.5">Phòng</th>
+              <th className="px-4 py-2.5">GV / TG</th>
+              <th className="px-4 py-2.5 text-center">Sĩ số</th>
+              <th className="px-4 py-2.5 text-right">Trạng thái</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#eef3f9]">
@@ -123,6 +125,7 @@ export default function CalendarListView({
               // Buổi bị ÉP phải làm việc gì đó: bôi vàng (cần lưu ý) hoặc đỏ (bắt buộc,
               // có hạn). Hôm nay vẫn ưu tiên nền đỏ riêng của hôm nay.
               const alert = row.status === "CANCELLED" ? null : alertBySession[row.id] ?? null;
+              const meta = metaBySession[row.id] ?? null;
 
               return (
                 <tr
@@ -131,7 +134,7 @@ export default function CalendarListView({
                   title="Bấm vào dòng để mở chi tiết buổi học"
                   className={`cursor-pointer align-top transition ${
                     isToday
-                      ? "bg-red-50 shadow-[inset_4px_0_0_0_#dc2626] hover:bg-red-100/70"
+                      ? "bg-red-100/80 shadow-[inset_6px_0_0_0_#dc2626] hover:bg-red-200/70"
                       : alert?.level === "RED"
                         ? "bg-rose-50 shadow-[inset_4px_0_0_0_#e11d48] hover:bg-rose-100/70"
                         : alert?.level === "YELLOW"
@@ -139,71 +142,91 @@ export default function CalendarListView({
                           : weekdayRowClass(row.sessionDate)
                   }`}
                 >
-                  <td className={`whitespace-nowrap px-5 py-4 ${isToday ? "font-black text-red-700" : "font-semibold text-ink"}`}>
-                    <div className="flex items-center gap-2 text-base">
-                      <span>{formatRowDate(row.sessionDate)}</span>
+                  {/* Ngày và giờ gộp MỘT ô một dòng — mục tiêu nhìn thấy ~10 lớp cùng
+                      lúc thay vì phải cuộn. Hôm nay in đậm hẳn lên. */}
+                  <td className={`whitespace-nowrap px-4 py-2 ${isToday ? "text-red-700" : "text-ink"}`}>
+                    <div className="flex items-center gap-2">
+                      <span className={isToday ? "text-[15px] font-black" : "font-bold"}>{formatRowDate(row.sessionDate)}</span>
                       {isToday ? (
-                        <span className="inline-flex rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-black text-white">Hôm nay</span>
+                        <span className="inline-flex rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-black text-white">HÔM NAY</span>
                       ) : null}
+                      <span className={`tabular-nums ${isToday ? "text-[15px] font-black" : "font-semibold text-ink-muted80"}`}>
+                        {row.startTime ?? "?"}<span className="mx-0.5 font-normal text-ink-muted48">–</span>{row.endTime ?? "?"}
+                      </span>
                     </div>
                   </td>
-                  <td className={`whitespace-nowrap px-5 py-4 text-base font-bold tabular-nums ${isToday ? "text-red-700" : "text-ink"}`}>
-                    {row.startTime ?? "?"}<span className="mx-0.5 font-normal text-ink-muted48">–</span>{row.endTime ?? "?"}
-                  </td>
-                  <td className="px-5 py-4">
+                  {/* Tên lớp · buổi số mấy · tên khóa · cảnh báo — tất cả trên MỘT dòng,
+                      tràn thì cắt bớt tên khóa chứ không đẩy hàng cao lên. */}
+                  <td className="px-4 py-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
                     <Link
                       href={`/classes/${row.classId}/sessions/${row.id}`}
                       title="Mở chi tiết buổi học"
-                      className={`cursor-pointer text-base hover:underline ${isToday ? "font-black text-red-700" : "font-bold text-[#0f1729] hover:text-[#1d4ed8]"}`}
+                      className={`cursor-pointer hover:underline ${isToday ? "text-[15px] font-black text-red-700" : "font-bold text-[#0f1729] hover:text-[#1d4ed8]"}`}
                     >
                       {row.class.className}
                     </Link>
+                    {meta?.sessionNumber ? (
+                      <span
+                        className="shrink-0 rounded-md bg-[#eef2f8] px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-[#475569]"
+                        title="Buổi thứ mấy trong lộ trình của lớp"
+                      >
+                        B{meta.sessionNumber}
+                        {meta.totalSessions ? `/${meta.totalSessions}` : ""}
+                      </span>
+                    ) : null}
                     {/* Dòng phụ là TÊN KHÓA, không phải mã lớp — trung tâm gọi lớp theo
                         "Everybody Up 1 · UP1A", mã lớp chỉ chạy ngầm cho phiếu thu/sổ sách. */}
                     {row.class.course?.name ? (
-                      <p className="mt-1 text-[13px] text-ink-muted48">{row.class.course.name}</p>
+                      <span className="max-w-[14rem] truncate text-[12px] text-ink-muted48">{row.class.course.name}</span>
                     ) : null}
                     {alert ? (
-                      <p
-                        className={`mt-1 inline-flex max-w-[22rem] items-start gap-1 rounded-lg px-2 py-1 text-[12px] font-bold ${
+                      <span
+                        className={`inline-flex max-w-[20rem] items-center gap-1 truncate rounded-md px-1.5 py-0.5 text-[11px] font-bold ${
                           alert.level === "RED" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-900"
                         }`}
-                        title="Cảnh báo chuyên môn: buổi này bắt buộc giáo viên phải làm việc đã ghi"
+                        title={`Cảnh báo chuyên môn: ${alert.note?.trim() || "buổi này bắt buộc giáo viên phải làm việc đã ghi"}`}
                       >
-                        <span>{alert.level === "RED" ? "⛔" : "⚠"}</span>
-                        <span>{alert.note?.trim() || "Cảnh báo chuyên môn — xem tiến trình buổi này"}</span>
-                      </p>
+                        {alert.level === "RED" ? "⛔" : "⚠"} {alert.note?.trim() || "Cảnh báo chuyên môn"}
+                      </span>
                     ) : null}
+                    </div>
                   </td>
-                  <td className="px-5 py-4">
+                  <td className="px-4 py-2">
                     <QuickRoomCell sessionId={row.id} room={row.room} roomOptions={roomOptions} canEdit={canEdit && !locked} />
                   </td>
                   {/* Thiếu người thì bôi CAM y như "Chưa gán phòng" — 3 thứ thiếu của một
                       buổi (phòng, GV, TG) phải nhìn ra ngay trên cùng một dòng.
                       Lớp có 2 trợ giảng thì mỗi người một dòng, không dồn 1 dòng dài. */}
-                  <td className="px-5 py-4 text-[13px] leading-6 text-ink-muted80">
-                    <QuickStaffGroup
-                      sessionId={row.id}
-                      roleType="TEACHER"
-                      label="GV"
-                      assignments={teachers}
-                      employees={employees}
-                      canEdit={canEdit}
-                      locked={locked}
-                    />
-                    <QuickStaffGroup
-                      sessionId={row.id}
-                      roleType="ASSISTANT"
-                      label="TG"
-                      assignments={assistants}
-                      employees={employees}
-                      canEdit={canEdit}
-                      locked={locked}
-                    />
+                  <td className="px-4 py-2 text-[13px] leading-5 text-ink-muted80">
+                    {/* GV và TG dồn lên CÙNG một dòng (bản gọn) — số người vẫn không
+                        giới hạn, chỉ khác là nối nhau bằng dấu phẩy thay vì xuống dòng. */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                      <QuickStaffGroup
+                        sessionId={row.id}
+                        roleType="TEACHER"
+                        label="GV"
+                        assignments={teachers}
+                        employees={employees}
+                        canEdit={canEdit}
+                        locked={locked}
+                        compact
+                      />
+                      <QuickStaffGroup
+                        sessionId={row.id}
+                        roleType="ASSISTANT"
+                        label="TG"
+                        assignments={assistants}
+                        employees={employees}
+                        canEdit={canEdit}
+                        locked={locked}
+                        compact
+                      />
+                    </div>
                   </td>
-                  <td className="px-5 py-4 text-center text-base font-bold tabular-nums text-ink">{enrollmentCount}</td>
-                  <td className="px-5 py-4 text-right">
-                    <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-bold ${statusBadgeClass(row.status)}`}>
+                  <td className={`px-4 py-2 text-center font-bold tabular-nums ${isToday ? "text-[15px] text-red-700" : "text-ink"}`}>{enrollmentCount}</td>
+                  <td className="px-4 py-2 text-right">
+                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusBadgeClass(row.status)}`}>
                       {SESSION_STATUS_LABEL[row.status] ?? row.status}
                     </span>
                   </td>

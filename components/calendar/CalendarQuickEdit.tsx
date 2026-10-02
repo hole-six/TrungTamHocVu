@@ -177,6 +177,7 @@ export function QuickStaffGroup({
   employees,
   canEdit,
   locked,
+  compact = false,
 }: {
   sessionId: string;
   roleType: "TEACHER" | "ASSISTANT";
@@ -186,6 +187,8 @@ export function QuickStaffGroup({
   canEdit: boolean;
   /** Buổi đã hủy/đã dời — API không cho phân công nữa, nên không mở ô chọn. */
   locked: boolean;
+  /** Gọn: mọi người nằm trên MỘT dòng, để thời khoá biểu thấy được nhiều lớp cùng lúc. */
+  compact?: boolean;
 }) {
   const refresh = useRefresh();
   // null = không sửa gì; "add" = đang chọn người mới; còn lại = id phân công đang đổi.
@@ -272,8 +275,20 @@ export function QuickStaffGroup({
     );
   }
 
-  // Chỉ xem: liệt kê đủ người, đánh số khi có từ 2 người trở lên.
+  // Chỉ xem: liệt kê đủ người. Gọn thì dồn một dòng, không thì mỗi người một dòng.
   if (!canEdit || locked) {
+    if (compact) {
+      return (
+        <span className="inline-flex flex-wrap items-center gap-1">
+          <span className="font-semibold text-ink">{label}:</span>
+          {assignments.length > 0 ? (
+            <span>{assignments.map((item) => item.name).join(", ")}</span>
+          ) : (
+            <span className="font-semibold text-amber-600">{emptyLabel}</span>
+          )}
+        </span>
+      );
+    }
     return (
       <div>
         {assignments.length > 0 ? (
@@ -293,6 +308,70 @@ export function QuickStaffGroup({
           </p>
         )}
       </div>
+    );
+  }
+
+  // Bản GỌN: tên người nối nhau trên một dòng, vẫn bấm được để đổi/bỏ/thêm.
+  if (compact) {
+    return (
+      <span onClick={stop} className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5">
+        <span className="font-semibold text-ink">{label}:</span>
+        {assignments.map((item, index) => (
+          <span key={item.id} className="inline-flex items-center">
+            {editing === item.id ? (
+              picker(item.id)
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setEditing(item.id)}
+                  title="Bấm để đổi người"
+                  className="rounded px-0.5 text-ink-muted80 transition hover:bg-[#eef4fb] hover:text-[#1d4ed8]"
+                >
+                  {item.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void removeAssignment(item.id).then((ok) => ok && refresh())}
+                  disabled={busy}
+                  title="Bỏ phân công"
+                  className="rounded-full px-0.5 text-[11px] font-bold text-[#c3cedb] transition hover:text-rose-600"
+                >
+                  ×
+                </button>
+              </>
+            )}
+            {index < assignments.length - 1 ? <span className="text-ink-muted48">,</span> : null}
+          </span>
+        ))}
+
+        {assignments.length === 0 ? (
+          editing === "add" ? (
+            picker(null)
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditing("add")}
+              title={`Bấm để xếp ${fullLabel}`}
+              className="rounded px-0.5 font-semibold text-amber-600 transition hover:bg-[#eef4fb] hover:text-amber-700"
+            >
+              {emptyLabel}
+            </button>
+          )
+        ) : editing === "add" ? (
+          picker(null)
+        ) : (
+          <button
+            type="button"
+            onClick={() => setEditing("add")}
+            title={`Xếp thêm ${fullLabel} vào buổi này`}
+            className="rounded px-1 text-[11px] font-black text-[#aebbcc] transition hover:bg-[#eef4fb] hover:text-[#1d4ed8]"
+          >
+            +
+          </button>
+        )}
+        {error ? <span className="text-[11px] font-semibold text-rose-600">{error}</span> : null}
+      </span>
     );
   }
 

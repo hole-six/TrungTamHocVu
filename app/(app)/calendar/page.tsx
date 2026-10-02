@@ -205,36 +205,48 @@ export default async function CalendarPage({
   // CẢNH BÁO CHUYÊN MÔN của từng buổi đang hiện trên lịch: lấy tiến trình đã gộp của
   // từng lớp rồi dóng theo số buổi. Gom một lượt theo lớp, không hỏi từng buổi một.
   const classIdsOnCalendar = [...new Set(sessions.map((item) => item.classId))];
-  const alertBySession = new Map<string, { level: "YELLOW" | "RED"; note: string | null; sessionNumber: number }>();
+  // Thông tin phụ của từng buổi đang hiện: BUỔI SỐ MẤY trong lộ trình và CẢNH BÁO
+  // CHUYÊN MÔN. Số buổi phải tính trên TOÀN BỘ buổi của lớp (buổi bù ăn theo vị trí
+  // buổi gốc — xem lib/session-numbering.ts), không suy được từ riêng tuần đang xem.
+  const metaBySession = new Map<
+    string,
+    { sessionNumber: number | null; totalSessions: number | null; alert: { level: "YELLOW" | "RED"; note: string | null } | null }
+  >();
   if (classIdsOnCalendar.length > 0) {
-    // Số buổi trong lộ trình phải tính trên TOÀN BỘ buổi của lớp (buổi bù ăn theo vị
-    // trí buổi gốc — xem lib/session-numbering.ts), không thể suy từ mỗi tuần đang xem.
-    const allClassSessions = await prisma.classSession.findMany({
-      where: { classId: { in: classIdsOnCalendar } },
-      select: { id: true, classId: true, sessionDate: true, startTime: true, status: true, replacesSessionId: true },
-    });
+    const [allClassSessions, classTotals] = await Promise.all([
+      prisma.classSession.findMany({
+        where: { classId: { in: classIdsOnCalendar } },
+        select: { id: true, classId: true, sessionDate: true, startTime: true, status: true, replacesSessionId: true },
+      }),
+      prisma.class.findMany({ where: { id: { in: classIdsOnCalendar } }, select: { id: true, totalSessions: true } }),
+    ]);
+    const totalByClass = new Map(classTotals.map((item) => [item.id, item.totalSessions]));
     const sessionsByClass = new Map<string, typeof allClassSessions>();
     for (const item of allClassSessions) {
       sessionsByClass.set(item.classId, [...(sessionsByClass.get(item.classId) ?? []), item]);
     }
     for (const classId of classIdsOnCalendar) {
       const roadmap = await resolveClassRoadmap(prisma, classId);
-      if (!roadmap.some((item) => item.alertLevel !== "NONE")) continue;
-      const alertByNumber = new Map(roadmap.filter((item) => item.alertLevel !== "NONE").map((item) => [item.sessionNumber, item]));
+      const alertByNumber = new Map(
+        roadmap.filter((item) => item.alertLevel !== "NONE").map((item) => [item.sessionNumber, item]),
+      );
       const numbering = computeSessionNumbers(sessionsByClass.get(classId) ?? []);
       for (const session of sessionsByClass.get(classId) ?? []) {
-        const number = numbering.numberById.get(session.id);
+        const number = numbering.numberById.get(session.id) ?? null;
         const found = number != null ? alertByNumber.get(number) : null;
-        if (found) {
-          alertBySession.set(session.id, {
-            level: found.alertLevel as "YELLOW" | "RED",
-            note: found.teacherRequirement,
-            sessionNumber: found.sessionNumber,
-          });
-        }
+        metaBySession.set(session.id, {
+          sessionNumber: number,
+          totalSessions: totalByClass.get(classId) ?? null,
+          alert: found ? { level: found.alertLevel as "YELLOW" | "RED", note: found.teacherRequirement } : null,
+        });
       }
     }
   }
+  const alertBySession = new Map(
+    [...metaBySession.entries()]
+      .filter(([, meta]) => meta.alert)
+      .map(([id, meta]) => [id, { level: meta.alert!.level, note: meta.alert!.note, sessionNumber: meta.sessionNumber ?? 0 }]),
+  );
 
   // Sĩ số THẬT của từng buổi: lấy một lượt ghi danh của các lớp đang hiện trên lịch rồi
   // tính trong bộ nhớ theo đúng quy tắc "ai thuộc về buổi ngày đó" (lib/server/class-roster.ts)
@@ -449,6 +461,7 @@ export default async function CalendarPage({
           roomOptions={roomOptions}
           canEdit={canBulkAssign}
           alertBySession={Object.fromEntries(alertBySession)}
+          metaBySession={Object.fromEntries(metaBySession)}
         />
       ) : (
       <>
