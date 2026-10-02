@@ -1,6 +1,7 @@
 import Link from "next/link";
 import PeriodNavigator from "@/components/ui/PeriodNavigator";
 import { resolvePeriod } from "@/lib/period-range";
+import { listProfessionalAlerts } from "@/lib/server/professional-alerts";
 import { prisma } from "@/lib/prisma";
 import { formatVnd } from "@/lib/export-utils";
 
@@ -246,6 +247,10 @@ export default async function SystemOverviewDashboard({ searchParams }: { search
   // thay cho bản tính tuần/tháng viết riêng cho màn này.
   const range = resolvePeriod({ mode: searchParams.mode, week: searchParams.week, month: searchParams.month });
   const branchRows = await getBranchOverview(range);
+  // Buổi bị đánh dấu cảnh báo chuyên môn trong khoảng đang xem — kêu cho tới khi giáo
+  // viên xác nhận đã làm (xem lib/server/professional-alerts.ts).
+  const professionalAlerts = await listProfessionalAlerts({ branchId: null, start: range.start, end: range.end });
+  const pendingAlerts = professionalAlerts.filter((item) => !item.done);
   const totalBranches = branchRows.length;
   const totalStudents = branchRows.reduce((sum, row) => sum + row.activeStudents, 0);
   const totalClasses = branchRows.reduce((sum, row) => sum + row.activeClasses, 0);
@@ -317,6 +322,55 @@ export default async function SystemOverviewDashboard({ searchParams }: { search
           </div>
         </div>
       </section>
+
+      {/* CẢNH BÁO CHUYÊN MÔN — buổi vàng/đỏ chưa ai xác nhận đã làm. Chỉ bôi màu trên
+          thời khoá biểu là chưa đủ: người phụ trách có thể không mở lịch đúng hôm đó. */}
+      {pendingAlerts.length > 0 ? (
+        <section className="rounded-2xl border border-rose-200 bg-rose-50/60 p-4 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-black text-rose-900">Cảnh báo chuyên môn · {range.label}</h2>
+              <p className="text-sm font-medium text-rose-700">
+                {pendingAlerts.length} buổi bắt buộc giáo viên phải làm việc đã ghi, chưa ai xác nhận đã làm.
+              </p>
+            </div>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-rose-400">Quá hạn · Đỏ · Vàng</p>
+          </div>
+          <div className="space-y-1.5">
+            {pendingAlerts.slice(0, 12).map((alert) => (
+              <a
+                key={alert.sessionId}
+                href={`/classes/${alert.classId}/sessions/${alert.sessionId}`}
+                className="flex flex-wrap items-center gap-2 rounded-xl border border-white bg-white px-3 py-2 text-sm transition hover:border-rose-300"
+              >
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-black ${
+                    alert.overdue
+                      ? "bg-rose-600 text-white"
+                      : alert.level === "RED"
+                        ? "bg-rose-100 text-rose-800"
+                        : "bg-amber-100 text-amber-900"
+                  }`}
+                >
+                  {alert.overdue ? "QUÁ HẠN" : alert.level === "RED" ? "ĐỎ" : "VÀNG"}
+                </span>
+                <span className="font-bold text-slate-900">{alert.branchName}</span>
+                <span className="text-slate-400">·</span>
+                <span className="font-semibold text-slate-800">{alert.className}</span>
+                <span className="text-xs text-slate-500">
+                  buổi {alert.sessionNumber} · {alert.sessionDate.toLocaleDateString("vi-VN", { timeZone: "UTC" })}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-slate-600">
+                  {alert.note?.trim() || "Cảnh báo chuyên môn — chưa ghi nội dung việc cần làm"}
+                </span>
+              </a>
+            ))}
+            {pendingAlerts.length > 12 ? (
+              <p className="px-1 pt-1 text-xs font-semibold text-rose-700">… và {pendingAlerts.length - 12} buổi nữa.</p>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">

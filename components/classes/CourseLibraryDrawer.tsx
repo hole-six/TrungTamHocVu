@@ -18,6 +18,7 @@ type RoadmapRow = {
   teacherGuide: string;
   homeworkGuide: string;
   teacherRequirement: string;
+  alertLevel: "NONE" | "YELLOW" | "RED";
 };
 
 type MaterialRow = {
@@ -98,6 +99,7 @@ export default function CourseLibraryDrawer({
         teacherGuide: "",
         homeworkGuide: "",
         teacherRequirement: "",
+        alertLevel: "NONE",
       },
     ]);
   }
@@ -217,6 +219,7 @@ export default function CourseLibraryDrawer({
                     <th className="px-3 py-2">Mục tiêu</th>
                     <th className="px-3 py-2">Tài liệu / học cụ</th>
                     <th className="px-3 py-2">Yêu cầu với giáo viên</th>
+                    <th className="px-3 py-2 w-40">Cảnh báo chuyên môn</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#eef3f9]">
@@ -240,11 +243,31 @@ export default function CourseLibraryDrawer({
                           placeholder="vd: thu bài tập, quay video"
                         />
                       </td>
+                      {/* Bật cảnh báo được ngay cả khi CHƯA biết sẽ phải làm gì — nội
+                          dung điền sau vào ô bên trái. Buổi vàng/đỏ hiện nổi bật ở thời
+                          khoá biểu và còn kêu cho tới khi giáo viên xác nhận đã làm. */}
+                      <td className="px-3 py-2">
+                        <select
+                          className={`input ${
+                            row.alertLevel === "RED"
+                              ? "border-rose-300 bg-rose-50 font-bold text-rose-700"
+                              : row.alertLevel === "YELLOW"
+                                ? "border-amber-300 bg-amber-50 font-bold text-amber-800"
+                                : ""
+                          }`}
+                          value={row.alertLevel}
+                          onChange={(e) => patchRow(row.sessionNumber, "alertLevel", e.target.value)}
+                        >
+                          <option value="NONE">Không</option>
+                          <option value="YELLOW">Vàng · cần lưu ý</option>
+                          <option value="RED">Đỏ · bắt buộc, có hạn</option>
+                        </select>
+                      </td>
                     </tr>
                   ))}
                   {rows.length === 0 && !loading ? (
                     <tr>
-                      <td colSpan={5} className="px-3 py-8 text-center text-sm text-ink-muted48">
+                      <td colSpan={6} className="px-3 py-8 text-center text-sm text-ink-muted48">
                         Khóa này chưa có tiến trình. Bấm “Thêm buổi” để soạn buổi đầu tiên.
                       </td>
                     </tr>

@@ -56,6 +56,7 @@ export default function CalendarListView({
   employees = [],
   roomOptions = [],
   canEdit = false,
+  alertBySession = {},
 }: {
   rows: CalendarListRow[];
   rosterCountBySession?: Record<string, number>;
@@ -68,6 +69,8 @@ export default function CalendarListView({
   roomOptions?: string[];
   /** Được sửa lịch hay không (GV/TG chỉ xem). */
   canEdit?: boolean;
+  /** CẢNH BÁO CHUYÊN MÔN của buổi: vàng = cần lưu ý, đỏ = bắt buộc có hạn. */
+  alertBySession?: Record<string, { level: "YELLOW" | "RED"; note: string | null; sessionNumber: number }>;
 }) {
   // Bấm vào dòng là VÀO THẲNG trang chi tiết buổi học, đúng như bấm một thẻ ở dạng
   // lưới — không mở ngăn kéo. Trước đây chỉ mỗi tên lớp bấm được, phần còn lại của
@@ -117,13 +120,24 @@ export default function CalendarListView({
               // Buổi hôm nay (trừ buổi đã hủy): nền đỏ nhạt, vạch đỏ đậm bên trái, ngày và
               // tên lớp đỏ đậm — nhìn danh sách cả tuần là thấy ngay hôm nay có lớp nào.
               const isToday = new Date(row.sessionDate).toISOString().slice(0, 10) === todayYmd && row.status !== "CANCELLED";
+              // Buổi bị ÉP phải làm việc gì đó: bôi vàng (cần lưu ý) hoặc đỏ (bắt buộc,
+              // có hạn). Hôm nay vẫn ưu tiên nền đỏ riêng của hôm nay.
+              const alert = row.status === "CANCELLED" ? null : alertBySession[row.id] ?? null;
 
               return (
                 <tr
                   key={row.id}
                   onClick={() => router.push(`/classes/${row.classId}/sessions/${row.id}`)}
                   title="Bấm vào dòng để mở chi tiết buổi học"
-                  className={`cursor-pointer align-top transition ${isToday ? "bg-red-50 shadow-[inset_4px_0_0_0_#dc2626] hover:bg-red-100/70" : weekdayRowClass(row.sessionDate)}`}
+                  className={`cursor-pointer align-top transition ${
+                    isToday
+                      ? "bg-red-50 shadow-[inset_4px_0_0_0_#dc2626] hover:bg-red-100/70"
+                      : alert?.level === "RED"
+                        ? "bg-rose-50 shadow-[inset_4px_0_0_0_#e11d48] hover:bg-rose-100/70"
+                        : alert?.level === "YELLOW"
+                          ? "bg-amber-50 shadow-[inset_4px_0_0_0_#f59e0b] hover:bg-amber-100/70"
+                          : weekdayRowClass(row.sessionDate)
+                  }`}
                 >
                   <td className={`whitespace-nowrap px-5 py-4 ${isToday ? "font-black text-red-700" : "font-semibold text-ink"}`}>
                     <div className="flex items-center gap-2 text-base">
@@ -148,6 +162,17 @@ export default function CalendarListView({
                         "Everybody Up 1 · UP1A", mã lớp chỉ chạy ngầm cho phiếu thu/sổ sách. */}
                     {row.class.course?.name ? (
                       <p className="mt-1 text-[13px] text-ink-muted48">{row.class.course.name}</p>
+                    ) : null}
+                    {alert ? (
+                      <p
+                        className={`mt-1 inline-flex max-w-[22rem] items-start gap-1 rounded-lg px-2 py-1 text-[12px] font-bold ${
+                          alert.level === "RED" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-900"
+                        }`}
+                        title="Cảnh báo chuyên môn: buổi này bắt buộc giáo viên phải làm việc đã ghi"
+                      >
+                        <span>{alert.level === "RED" ? "⛔" : "⚠"}</span>
+                        <span>{alert.note?.trim() || "Cảnh báo chuyên môn — xem tiến trình buổi này"}</span>
+                      </p>
                     ) : null}
                   </td>
                   <td className="px-5 py-4">

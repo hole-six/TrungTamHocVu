@@ -7,6 +7,8 @@ import { getCurrentBranchId } from "@/lib/branch-filter";
 import CalendarFilters from "@/components/calendar/CalendarFilters";
 import PeriodNavigator from "@/components/ui/PeriodNavigator";
 import { resolvePeriod } from "@/lib/period-range";
+import { resolveClassRoadmap } from "@/lib/server/class-roadmap";
+import { computeSessionNumbers } from "@/lib/session-numbering";
 import SessionCard from "@/components/calendar/SessionCard";
 import CalendarListView from "@/components/calendar/CalendarListView";
 import BulkAssignDrawer, { type BulkSession, type ClassDefaultStaff } from "@/components/calendar/BulkAssignDrawer";
@@ -199,6 +201,40 @@ export default async function CalendarPage({
     },
     orderBy: [{ sessionDate: "asc" }, { startTime: "asc" }],
   });
+
+  // CẢNH BÁO CHUYÊN MÔN của từng buổi đang hiện trên lịch: lấy tiến trình đã gộp của
+  // từng lớp rồi dóng theo số buổi. Gom một lượt theo lớp, không hỏi từng buổi một.
+  const classIdsOnCalendar = [...new Set(sessions.map((item) => item.classId))];
+  const alertBySession = new Map<string, { level: "YELLOW" | "RED"; note: string | null; sessionNumber: number }>();
+  if (classIdsOnCalendar.length > 0) {
+    // Số buổi trong lộ trình phải tính trên TOÀN BỘ buổi của lớp (buổi bù ăn theo vị
+    // trí buổi gốc — xem lib/session-numbering.ts), không thể suy từ mỗi tuần đang xem.
+    const allClassSessions = await prisma.classSession.findMany({
+      where: { classId: { in: classIdsOnCalendar } },
+      select: { id: true, classId: true, sessionDate: true, startTime: true, status: true, replacesSessionId: true },
+    });
+    const sessionsByClass = new Map<string, typeof allClassSessions>();
+    for (const item of allClassSessions) {
+      sessionsByClass.set(item.classId, [...(sessionsByClass.get(item.classId) ?? []), item]);
+    }
+    for (const classId of classIdsOnCalendar) {
+      const roadmap = await resolveClassRoadmap(prisma, classId);
+      if (!roadmap.some((item) => item.alertLevel !== "NONE")) continue;
+      const alertByNumber = new Map(roadmap.filter((item) => item.alertLevel !== "NONE").map((item) => [item.sessionNumber, item]));
+      const numbering = computeSessionNumbers(sessionsByClass.get(classId) ?? []);
+      for (const session of sessionsByClass.get(classId) ?? []) {
+        const number = numbering.numberById.get(session.id);
+        const found = number != null ? alertByNumber.get(number) : null;
+        if (found) {
+          alertBySession.set(session.id, {
+            level: found.alertLevel as "YELLOW" | "RED",
+            note: found.teacherRequirement,
+            sessionNumber: found.sessionNumber,
+          });
+        }
+      }
+    }
+  }
 
   // Sĩ số THẬT của từng buổi: lấy một lượt ghi danh của các lớp đang hiện trên lịch rồi
   // tính trong bộ nhớ theo đúng quy tắc "ai thuộc về buổi ngày đó" (lib/server/class-roster.ts)
@@ -412,6 +448,7 @@ export default async function CalendarPage({
           employees={bulkEmployees}
           roomOptions={roomOptions}
           canEdit={canBulkAssign}
+          alertBySession={Object.fromEntries(alertBySession)}
         />
       ) : (
       <>
@@ -463,7 +500,7 @@ export default async function CalendarPage({
 
                 <div className="space-y-[10px]">
                   {day.sessions.map((session) => (
-                    <SessionCard key={session.id} session={session} variant="grid" rosterCount={rosterCountBySession.get(session.id) ?? 0} isToday={isToday} />
+                    <SessionCard key={session.id} session={session} variant="grid" rosterCount={rosterCountBySession.get(session.id) ?? 0} isToday={isToday} alert={alertBySession.get(session.id) ?? null} />
                   ))}
 
                   {day.sessions.length === 0 ? (
@@ -544,7 +581,7 @@ export default async function CalendarPage({
               {/* Sessions list */}
               <div className="space-y-3">
                 {day.sessions.map((session) => (
-                  <SessionCard key={session.id} session={session} variant="list" rosterCount={rosterCountBySession.get(session.id) ?? 0} isToday={isToday} />
+                  <SessionCard key={session.id} session={session} variant="list" rosterCount={rosterCountBySession.get(session.id) ?? 0} isToday={isToday} alert={alertBySession.get(session.id) ?? null} />
                 ))}
 
                 {day.sessions.length === 0 && (

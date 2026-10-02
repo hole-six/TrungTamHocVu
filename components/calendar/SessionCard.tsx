@@ -71,6 +71,7 @@ export default function SessionCard({
   variant,
   rosterCount,
   isToday = false,
+  alert = null,
 }: {
   session: SessionCardData;
   variant: "grid" | "list";
@@ -78,6 +79,8 @@ export default function SessionCard({
   /** Buổi của NGÀY HÔM NAY — viền đỏ đậm + tên lớp đỏ đậm để nhìn lịch tuần là thấy ngay
    *  hôm nay đang có lớp nào. Buổi đã hủy thì không tô (lớp không diễn ra). */
   isToday?: boolean;
+  /** CẢNH BÁO CHUYÊN MÔN của buổi — xem lib/server/class-roadmap.ts. */
+  alert?: { level: "YELLOW" | "RED"; note: string | null } | null;
 }) {
   // Buổi trung tâm cho nghỉ: tối màu toàn bộ thẻ + gạch ngang tên lớp, để nhìn lịch
   // tuần là biết ngay hôm đó lớp không diễn ra mà không phải đọc chữ trạng thái.
@@ -92,6 +95,8 @@ export default function SessionCard({
     .filter((assignment) => assignment.role !== "TEACHER")
     .map((assignment) => assignment.employee.shortName || assignment.employee.fullName);
   const enrollmentCount = rosterCount ?? session.class._count?.enrollments ?? 0;
+  // Buổi đã hủy thì không cảnh báo nữa — buổi không diễn ra thì không ai phải làm gì.
+  const activeAlert = isOff ? null : alert;
 
   if (variant === "list") {
     return (
@@ -150,7 +155,11 @@ export default function SessionCard({
       className={`block rounded-[14px] p-3 transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-30px_rgba(14,116,144,0.45)] ${
         highlightToday
           ? "border-2 border-red-500 bg-red-50 shadow-[0_8px_24px_-12px_rgba(220,38,38,0.45)]"
-          : `border border-l-4 border-[#d5e4f3] hover:border-primary/35 ${isOff ? "bg-slate-50" : "bg-white"} ${statusAccentClass(session.status)}`
+          : activeAlert?.level === "RED"
+            ? "border border-l-4 border-rose-300 border-l-rose-500 bg-rose-50"
+            : activeAlert?.level === "YELLOW"
+              ? "border border-l-4 border-amber-300 border-l-amber-500 bg-amber-50"
+              : `border border-l-4 border-[#d5e4f3] hover:border-primary/35 ${isOff ? "bg-slate-50" : "bg-white"} ${statusAccentClass(session.status)}`
       } ${dimClass}`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -165,6 +174,18 @@ export default function SessionCard({
           {SESSION_STATUS_LABEL[session.status] ?? session.status}
         </span>
       </div>
+
+      {/* CẢNH BÁO CHUYÊN MÔN — buổi này ép giáo viên phải làm việc đã ghi. */}
+      {activeAlert ? (
+        <p
+          className={`mt-2 flex items-start gap-1 rounded-[10px] px-2 py-1.5 text-[11px] font-bold leading-snug ${
+            activeAlert.level === "RED" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-900"
+          }`}
+        >
+          <span>{activeAlert.level === "RED" ? "⛔" : "⚠"}</span>
+          <span>{activeAlert.note?.trim() || "Cảnh báo chuyên môn"}</span>
+        </p>
+      ) : null}
 
       <div className="mt-2.5 grid grid-cols-2 gap-2">
         <div className="rounded-[10px] bg-sky-50 p-2">

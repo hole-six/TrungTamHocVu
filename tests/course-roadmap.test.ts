@@ -11,7 +11,7 @@ async function main() {
   prepareTestDatabase();
 
   const { PrismaClient } = await import("@prisma/client");
-  const { resolveClassRoadmap, isRealRoadmapOverride } = await import("@/lib/server/class-roadmap");
+  const { resolveClassRoadmap, isRealRoadmapOverride, normalizeAlertLevel } = await import("@/lib/server/class-roadmap");
   const fixtures = await import("./fixtures");
   const { prisma: sharedClient } = await import("@/lib/prisma");
 
@@ -135,6 +135,41 @@ async function main() {
     const b = await resolveClassRoadmap(db, cls2.id);
     expectEqual(a[0]?.title, "Bản mới", "lớp A chưa ghi đè → đổi theo khóa");
     expectEqual(b[0]?.title, "Lớp B tự soạn", "lớp B đã ghi đè → không bị đổi");
+  });
+
+  // ----------------------------------------------- CẢNH BÁO CHUYÊN MÔN (Gói 3)
+  await test("Mức cảnh báo chỉ nhận 3 giá trị, rác thì coi như không cảnh báo", async () => {
+    expectEqual(normalizeAlertLevel("RED"), "RED", "đỏ");
+    expectEqual(normalizeAlertLevel("yellow"), "YELLOW", "vàng viết thường");
+    expectEqual(normalizeAlertLevel("TIM"), "NONE", "giá trị lạ");
+    expectEqual(normalizeAlertLevel(null), "NONE", "để trống");
+  });
+
+  await test("Cảnh báo của khóa chảy xuống mọi lớp dùng chung", async () => {
+    const { cls, courseId } = await seedCourseClass();
+    await db.courseRoadmapItem.createMany({
+      data: [
+        { courseId, sessionNumber: 1, title: "Presentation", alertLevel: "YELLOW", teacherRequirement: "Chuẩn bị slide cho HS" },
+        { courseId, sessionNumber: 2, title: "Hạn trả kết quả", alertLevel: "RED" },
+      ],
+    });
+    const items = await resolveClassRoadmap(db, cls.id);
+    expectEqual(items[0]?.alertLevel, "YELLOW", "buổi 1 vàng");
+    expectEqual(items[0]?.teacherRequirement, "Chuẩn bị slide cho HS", "kèm nội dung việc cần làm");
+    expectEqual(items[1]?.alertLevel, "RED", "buổi 2 đỏ");
+    expectEqual(items[2]?.alertLevel, "NONE", "buổi không khai thì không cảnh báo");
+  });
+
+  // Bật cảnh báo mà chưa điền nội dung vẫn phải là một quyết định thật của lớp, không
+  // được coi là dòng trống rồi bị tiến trình khóa đè lên.
+  await test("Lớp bật cảnh báo riêng dù chưa điền nội dung vẫn được giữ", async () => {
+    const { cls, courseId } = await seedCourseClass();
+    await db.courseRoadmapItem.create({ data: { courseId, sessionNumber: 1, title: "Bài thường", alertLevel: "NONE" } });
+    await db.classRoadmapItem.create({ data: { classId: cls.id, sessionNumber: 1, title: "Buổi 1", alertLevel: "RED" } });
+
+    const items = await resolveClassRoadmap(db, cls.id);
+    expectEqual(items[0]?.alertLevel, "RED", "giữ cảnh báo của lớp");
+    expectEqual(items[0]?.source, "class", "tính là lớp ghi đè");
   });
 
   const failed = summary();

@@ -63,6 +63,7 @@ export function normalizeRoadmapItemsInput(
   teacherGuide: string | null;
   homeworkGuide: string | null;
   teacherRequirement: string | null;
+  alertLevel: RoadmapAlertLevel;
 }> {
   const normalizedTotal = Number(totalSessions ?? 0);
   if (!Array.isArray(items) || !Number.isInteger(normalizedTotal) || normalizedTotal <= 0) return [];
@@ -80,6 +81,7 @@ export function normalizeRoadmapItemsInput(
         teacherGuide: String(source.teacherGuide ?? "").trim() || null,
         homeworkGuide: String(source.homeworkGuide ?? "").trim() || null,
         teacherRequirement: String(source.teacherRequirement ?? "").trim() || null,
+        alertLevel: normalizeAlertLevel(source.alertLevel),
       };
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
@@ -103,6 +105,20 @@ export function normalizeRoadmapItemsInput(
 
 export type RoadmapSource = "class" | "course" | "empty";
 
+/** Mức CẢNH BÁO CHUYÊN MÔN của một buổi — xem ghi chú ở schema.prisma. */
+export type RoadmapAlertLevel = "NONE" | "YELLOW" | "RED";
+
+export const ROADMAP_ALERT_LABEL: Record<RoadmapAlertLevel, string> = {
+  NONE: "Không cảnh báo",
+  YELLOW: "Cần lưu ý",
+  RED: "Bắt buộc, có hạn",
+};
+
+export function normalizeAlertLevel(value: unknown): RoadmapAlertLevel {
+  const text = String(value ?? "").trim().toUpperCase();
+  return text === "YELLOW" || text === "RED" ? text : "NONE";
+}
+
 export type ResolvedRoadmapItem = {
   sessionNumber: number;
   title: string;
@@ -111,6 +127,8 @@ export type ResolvedRoadmapItem = {
   teacherGuide: string | null;
   homeworkGuide: string | null;
   teacherRequirement: string | null;
+  /** Buổi này có bị ép làm việc gì không, và ở mức nào. */
+  alertLevel: RoadmapAlertLevel;
   /** Nội dung này đến từ đâu — để màn sửa biết buổi nào đang "theo khóa". */
   source: RoadmapSource;
 };
@@ -123,6 +141,7 @@ type RoadmapLike = {
   teacherGuide?: string | null;
   homeworkGuide?: string | null;
   teacherRequirement?: string | null;
+  alertLevel?: string | null;
 };
 
 /**
@@ -140,6 +159,9 @@ export function isRealRoadmapOverride(item: RoadmapLike): boolean {
       (item.homeworkGuide ?? "").trim() ||
       (item.teacherRequirement ?? "").trim(),
   );
+  // Bật cảnh báo chuyên môn cũng là một quyết định của lớp, kể cả khi chưa điền nội
+  // dung — không được coi là dòng trống rồi bị tiến trình khóa đè lên.
+  if (normalizeAlertLevel(item.alertLevel) !== "NONE") return true;
   if (hasContent) return true;
   const title = (item.title ?? "").trim();
   return Boolean(title) && title !== buildDefaultRoadmapTitle(item.sessionNumber);
@@ -199,6 +221,7 @@ export async function resolveClassRoadmap(db: RoadmapDb, classId: string): Promi
       teacherGuide: picked?.teacherGuide ?? null,
       homeworkGuide: picked?.homeworkGuide ?? null,
       teacherRequirement: picked?.teacherRequirement ?? null,
+      alertLevel: normalizeAlertLevel(picked?.alertLevel),
       source,
     });
   }

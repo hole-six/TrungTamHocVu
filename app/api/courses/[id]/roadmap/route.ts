@@ -44,6 +44,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       teacherGuide: found?.teacherGuide ?? "",
       homeworkGuide: found?.homeworkGuide ?? "",
       teacherRequirement: found?.teacherRequirement ?? "",
+      alertLevel: found?.alertLevel ?? "NONE",
     };
   });
 

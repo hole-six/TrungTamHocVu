@@ -436,6 +436,23 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
         ) : null}
       </div>
 
+      {/* CẢNH BÁO CHUYÊN MÔN đặt ngay đầu khu xác nhận: buổi vàng/đỏ phải đập vào mắt
+          giáo viên lúc mở buổi học, kể cả khi người soạn chưa kịp ghi nội dung việc. */}
+      {roadmapItem && roadmapItem.alertLevel !== "NONE" ? (
+        <div
+          className={`rounded-2xl border-2 px-4 py-3 ${
+            roadmapItem.alertLevel === "RED" ? "border-rose-300 bg-rose-50" : "border-amber-300 bg-amber-50"
+          }`}
+        >
+          <p className={`text-sm font-black ${roadmapItem.alertLevel === "RED" ? "text-rose-800" : "text-amber-900"}`}>
+            {roadmapItem.alertLevel === "RED" ? "⛔ Cảnh báo chuyên môn — bắt buộc, có hạn" : "⚠ Cảnh báo chuyên môn — cần lưu ý"}
+          </p>
+          <p className="mt-1 text-sm font-semibold text-ink">
+            {roadmapItem.teacherRequirement?.trim() || "Buổi này được đánh dấu cảnh báo nhưng chưa ghi nội dung việc cần làm — hỏi lại giáo vụ trước khi lên lớp."}
+          </p>
+        </div>
+      ) : null}
+
       {canTeachSession && sessionHappened && roadmapItem?.teacherRequirement?.trim() ? (
         <SessionRequirementForm
           sessionId={session.id}

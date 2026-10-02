@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
-import { inferRoadmapTitle, resolveClassRoadmap } from "@/lib/server/class-roadmap";
+import { inferRoadmapTitle, normalizeAlertLevel, resolveClassRoadmap } from "@/lib/server/class-roadmap";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -92,6 +92,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       teacherGuide: String(body.teacherGuide ?? "").trim() || null,
       homeworkGuide: String(body.homeworkGuide ?? "").trim() || null,
       teacherRequirement: String(body.teacherRequirement ?? "").trim() || null,
+      // Mức cảnh báo chuyên môn của riêng buổi này (ghi đè mức của khóa nếu có).
+      alertLevel: normalizeAlertLevel(body.alertLevel),
     },
   });
 

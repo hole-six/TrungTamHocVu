@@ -557,6 +557,15 @@ model CourseRoadmapItem {
   teacherGuide       String?  @map("teacher_guide")
   homeworkGuide      String?  @map("homework_guide")
   teacherRequirement String?  @map("teacher_requirement")
+  // CẢNH BÁO CHUYÊN MÔN: buổi này ÉP giáo viên phải làm một việc cụ thể (quay video bài
+  // tập, trả kết quả đúng hạn, tổ chức Presentation...). Soạn tiến trình có thể CHƯA
+  // biết sẽ phải làm gì — cứ bật cảnh báo trước, nội dung điền sau ở teacherRequirement.
+  //   NONE   = không cảnh báo
+  //   YELLOW = cần lưu ý (Presentation, Speaking Test...)
+  //   RED    = bắt buộc, có hạn (hạn trả kết quả...)
+  // Buổi vàng/đỏ hiện nổi bật ở cả hai dạng thời khoá biểu và nằm trong khối cảnh báo
+  // của cơ sở cho tới khi giáo viên xác nhận đã làm (xem SessionRequirementCheck).
+  alertLevel         String   @default("NONE") @map("alert_level")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
@@ -610,6 +619,8 @@ model ClassRoadmapItem {
   // trước buổi sau") — để trống = buổi này không có yêu cầu gì, không hiện gì thêm ở
   // trang buổi học. Xem SessionRequirementCheck để biết việc xác nhận đã làm hay chưa.
   teacherRequirement String?  @map("teacher_requirement")
+  // Xem ghi chú ở CourseRoadmapItem.alertLevel — buổi lớp ghi đè thì mức cảnh báo ghi đè theo.
+  alertLevel         String   @default("NONE") @map("alert_level")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
