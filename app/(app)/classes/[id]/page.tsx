@@ -843,8 +843,25 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                                   </>
                                 ) : (
                                   <>
-                                <p className="text-base font-bold text-[#12304a]">
+                                <p className="flex flex-wrap items-center gap-2 text-base font-bold text-[#12304a]">
                                   {roadmapItem?.title?.trim() || `Buổi ${slot.number}`}
+                                  {/* Nội dung buổi này đang lấy từ tiến trình chung của khóa hay
+                                      lớp đã tự soạn riêng — xem lib/server/class-roadmap.ts. */}
+                                  {roadmapItem?.source === "course" ? (
+                                    <span
+                                      title="Nội dung lấy từ tiến trình chung của khóa học. Sửa ở khóa là mọi lớp cùng khóa đổi theo."
+                                      className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-indigo-700"
+                                    >
+                                      Theo khóa
+                                    </span>
+                                  ) : roadmapItem?.source === "class" ? (
+                                    <span
+                                      title="Lớp này đã soạn riêng cho buổi đó, không bám theo tiến trình của khóa."
+                                      className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700"
+                                    >
+                                      Lớp soạn riêng
+                                    </span>
+                                  ) : null}
                                 </p>
                                   <p className="mt-2 text-sm leading-6 text-[#64748b]">
                                     {roadmapItem?.objective?.trim() || "Chưa có mục tiêu hoặc ghi chú dạy cho buổi này."}

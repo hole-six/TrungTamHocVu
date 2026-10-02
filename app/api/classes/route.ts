@@ -167,6 +167,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // GẮN KHÓA LÀ CÓ ĐỦ BỘ SÁCH: form không chọn sách mà lớp có khóa thì lấy luôn bộ sách
+  // chuẩn của khóa. Form CÓ chọn sách thì tôn trọng lựa chọn đó, không tự thêm gì.
+  let booksToCreate = uniqueBooks;
+  if (booksToCreate.length === 0 && body.courseId) {
+    const courseBooks = await prisma.courseBookRequirement.findMany({
+      where: { courseId: String(body.courseId) },
+      orderBy: { sortOrder: "asc" },
+      select: { bookId: true, quantity: true },
+    });
+    booksToCreate = courseBooks.map((item) => ({ bookId: item.bookId, quantity: item.quantity }));
+  }
+
   const created = await prisma.class.create({
     data: {
       branchId,
@@ -183,8 +195,8 @@ export async function POST(req: NextRequest) {
       tuitionPerSession,
       discountPercent,
       notes: body.notes || null,
-      classBooks: uniqueBooks.length
-        ? { create: uniqueBooks.map((item, index) => ({ bookId: item.bookId, quantity: item.quantity, sortOrder: index })) }
+      classBooks: booksToCreate.length
+        ? { create: booksToCreate.map((item, index) => ({ bookId: item.bookId, quantity: item.quantity, sortOrder: index })) }
         : undefined,
       scheduleRules: scheduleRules.length
         ? {

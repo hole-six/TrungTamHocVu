@@ -161,6 +161,17 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
   // còn lại bám tiến trình chung của khóa (xem lib/server/class-roadmap.ts). Đọc thẳng
   // bảng của lớp như trước sẽ bỏ sót toàn bộ giáo án soạn ở cấp khóa.
   const resolvedRoadmap = await resolveClassRoadmap(prisma, session.classId);
+  // Tài liệu của KHÓA: phần dùng chung cả khóa + phần gắn riêng đúng buổi này. Gắn khóa
+  // vào lớp là giáo viên có sẵn tài liệu, không phải đi tìm lại từng buổi.
+  const courseMaterials = session.class.courseId
+    ? await prisma.courseMaterial.findMany({
+        where: {
+          courseId: session.class.courseId,
+          OR: [{ sessionNumber: null }, ...(sessionNumber != null ? [{ sessionNumber }] : [])],
+        },
+        orderBy: [{ sessionNumber: "asc" }, { createdAt: "asc" }],
+      })
+    : [];
   const roadmapItem =
     sessionNumber != null ? resolvedRoadmap.find((item) => item.sessionNumber === sessionNumber) ?? null : null;
 
@@ -310,16 +321,30 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
             <div className="rounded-[24px] border border-[#d7ecff] bg-white/90 px-4 py-4" data-tour="session-roadmap">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted48">Hôm nay dạy gì</p>
-                {session.class.course?.materialsLink ? (
-                  <a
-                    href={session.class.course.materialsLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#e2e8f0] bg-white px-3 py-1 text-xs font-semibold text-[#0f1729] hover:border-[#0f1729]"
-                  >
-                    Mở tài liệu khóa học
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M7 17L17 7M7 7h10v10" /></svg>
-                  </a>
+                {/* Tài liệu của khóa — file tải lên mở qua route có kiểm tra đăng nhập,
+                    link thì mở thẳng. Buổi này có tài liệu riêng thì đánh dấu rõ. */}
+                {courseMaterials.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {courseMaterials.map((material) => (
+                      <a
+                        key={material.id}
+                        href={
+                          material.kind === "FILE"
+                            ? `/api/courses/${session.class.courseId}/materials/${material.id}/download`
+                            : material.url ?? "#"
+                        }
+                        {...(material.kind === "FILE" ? {} : { target: "_blank", rel: "noreferrer" })}
+                        title={material.sessionNumber ? `Tài liệu riêng của buổi ${material.sessionNumber}` : "Tài liệu chung của khóa"}
+                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-semibold hover:border-[#0f1729] ${
+                          material.sessionNumber
+                            ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                            : "border-[#e2e8f0] bg-white text-[#0f1729]"
+                        }`}
+                      >
+                        {material.title}
+                      </a>
+                    ))}
+                  </div>
                 ) : null}
               </div>
               <div className="mt-2 grid gap-3 md:grid-cols-3">
