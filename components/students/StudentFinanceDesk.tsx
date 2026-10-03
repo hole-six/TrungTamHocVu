@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -38,6 +38,10 @@ type BookIssueSummary = {
   paymentStatus: string;
   className?: string | null;
   notes?: string | null;
+  batchId?: string | null;
+  batchIssueDate?: string | null;
+  batchSource?: string | null;
+  batchNotes?: string | null;
   /** Charge mà tiền sách này đã được cộng vào. Null = chưa vào công nợ của ai. */
   chargeId?: string | null;
   chargePeriodName?: string | null;
@@ -275,6 +279,48 @@ export default function StudentFinanceDesk({
     };
   }, [bookIssues]);
 
+  const bookIssueBatches = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        id: string;
+        label: string;
+        className: string;
+        issueDate: string;
+        source: string | null;
+        notes: string | null;
+        issueIds: string[];
+        unpaidIssueIds: string[];
+        quantity: number;
+        amount: number;
+      }
+    >();
+    for (const issue of bookIssues) {
+      const id = issue.batchId ?? `single-${issue.id}`;
+      const dateText = new Date(issue.batchIssueDate ?? issue.issueDate).toLocaleDateString("vi-VN");
+      const current =
+        groups.get(id) ??
+        {
+          id,
+          label: issue.batchId ? `Dot ${issue.batchId.slice(0, 8)}` : "Dong cu",
+          className: issue.className ?? "Chua gan lop",
+          issueDate: dateText,
+          source: issue.batchSource ?? null,
+          notes: issue.batchNotes ?? null,
+          issueIds: [],
+          unpaidIssueIds: [],
+          quantity: 0,
+          amount: 0,
+        };
+      current.issueIds.push(issue.id);
+      if (issue.paymentStatus === "UNPAID") current.unpaidIssueIds.push(issue.id);
+      current.quantity += issue.quantity;
+      current.amount += issue.amount;
+      groups.set(id, current);
+    }
+    return [...groups.values()].sort((left, right) => right.issueDate.localeCompare(left.issueDate, "vi"));
+  }, [bookIssues]);
+
   type BookRow = {
     key: string;
     kind: "requirement" | "issue";
@@ -478,6 +524,10 @@ export default function StudentFinanceDesk({
 
   function toggleBookIssueSelection(issueId: string, checked: boolean) {
     setSelectedBookIssueIds((current) => (checked ? [...new Set([...current, issueId])] : current.filter((id) => id !== issueId)));
+  }
+
+  function selectBookIssueBatch(issueIds: string[]) {
+    setSelectedBookIssueIds((current) => [...new Set([...current, ...issueIds])]);
   }
 
   async function switchBillingMode(enrollmentId: string, classId: string, nextBillingModel: "PERIOD" | "COURSE", className: string) {
@@ -865,6 +915,46 @@ export default function StudentFinanceDesk({
           </form>
         ) : null}
 
+        {canManageInventory && bookIssueBatches.length > 0 ? (
+          <div className="mt-4 rounded-xl border border-[#e2e8f0] bg-white p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-black uppercase tracking-wide text-[#64748b]">Đợt phát gần đây</p>
+              {selectedBookIssueIds.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setSelectedBookIssueIds([])}
+                  className="text-xs font-bold text-[#64748b] hover:text-[#0f1729]"
+                >
+                  Bỏ chọn
+                </button>
+              ) : null}
+            </div>
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              {bookIssueBatches.map((batch) => (
+                <button
+                  key={batch.id}
+                  type="button"
+                  disabled={batch.unpaidIssueIds.length === 0}
+                  onClick={() => selectBookIssueBatch(batch.unpaidIssueIds)}
+                  className="min-w-[220px] rounded-lg border border-[#e2e8f0] bg-[#fbfdff] px-3 py-2 text-left hover:border-[#0f1729] disabled:cursor-not-allowed disabled:opacity-50"
+                  title={batch.notes ?? undefined}
+                >
+                  <span className="block text-xs font-black uppercase text-[#0f1729]">
+                    {batch.label} · {batch.issueDate}
+                  </span>
+                  <span className="mt-1 block truncate text-xs font-semibold text-[#64748b]">{batch.className}</span>
+                  <span className="mt-1 block text-xs text-[#64748b]">
+                    {batch.issueIds.length} dòng · {batch.quantity} cuốn · {formatVnd(batch.amount)}
+                  </span>
+                  <span className={batch.unpaidIssueIds.length > 0 ? "mt-1 block text-xs font-bold text-[#b91c1c]" : "mt-1 block text-xs font-bold text-[#16a34a]"}>
+                    {batch.unpaidIssueIds.length > 0 ? `Chọn ${batch.unpaidIssueIds.length} dòng có thể thu hồi` : "Không còn dòng chưa thu"}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-base">
             <thead>
@@ -898,6 +988,9 @@ export default function StudentFinanceDesk({
                   <td className="px-3 py-3 align-top">
                     <p className="font-semibold text-ink">{row.bookName}</p>
                     <p className="mt-0.5 text-xs text-ink-muted48">{row.kind === "requirement" ? "Sách chuẩn" : "Phát sinh"}</p>
+                    {row.kind === "issue" && row.issue?.batchId ? (
+                      <p className="mt-1 text-[11px] font-semibold text-[#64748b]">Đợt {row.issue.batchId.slice(0, 8)}</p>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3 align-top text-ink-muted80">{row.className}</td>
                   <td className="px-3 py-3 align-top text-ink-muted80">{row.quantity}</td>

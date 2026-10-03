@@ -127,6 +127,9 @@ export default function NewPeriodForm({
       <button type="button" onClick={() => setOpen(false)} className="btn-ghost whitespace-nowrap">
         Đóng
       </button>
+      <p className="basis-full text-xs font-semibold text-ink-muted48">
+        Có thể chọn tháng tương lai, ví dụ tạo kỳ 2026-10 từ cuối tháng 9 rồi bấm sinh học phí trong kỳ đó để thu trước.
+      </p>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {notice ? <p className="text-sm text-emerald-600">{notice}</p> : null}
     </form>

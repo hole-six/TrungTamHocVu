@@ -240,7 +240,7 @@ export default async function StudentDetailPage({
       creditBalances: { where: { usedAt: null }, orderBy: { createdAt: "asc" } },
       schoolExamScores: { orderBy: { schoolYear: "desc" } },
       bookIssues: {
-        include: { book: true, class: true, charge: { include: { billingPeriod: true } } },
+        include: { book: true, class: true, batch: true, charge: { include: { billingPeriod: true } } },
         orderBy: { issueDate: "desc" },
         take: 8,
       },
@@ -1082,6 +1082,10 @@ export default async function StudentDetailPage({
                     paymentStatus: issue.paymentStatus,
                     className: issue.class?.className ?? null,
                     notes: issue.notes,
+                    batchId: issue.batch?.id ?? null,
+                    batchIssueDate: issue.batch?.issueDate?.toISOString() ?? null,
+                    batchSource: issue.batch?.source ?? null,
+                    batchNotes: issue.batch?.notes ?? null,
                     chargeId: issue.chargeId,
                     chargePeriodName: issue.charge?.billingPeriod?.periodName ?? null,
                   }))}
@@ -1360,8 +1364,6 @@ export default async function StudentDetailPage({
     </div>
   );
 }
-
-
 
 
 

@@ -113,6 +113,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         issueDate: enrollDate,
         paidNow: false,
         issuedById: user.id,
+        source: "ENROLLMENT",
         notes: "Tự động gắn sách khi gán lớp từ Data đạt test.",
       })
     : null;

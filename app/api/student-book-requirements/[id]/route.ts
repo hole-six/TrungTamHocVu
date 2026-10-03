@@ -35,8 +35,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       let bookIssueId = requirement.bookIssueId;
 
       if (!requirement.bookIssueId) {
+        const batch = await tx.bookIssueBatch.create({
+          data: {
+            branchId: requirement.student.branchId,
+            classId: requirement.classId,
+            issueDate: new Date(),
+            issuedById: user.id,
+            source: "REQUIREMENT",
+            notes: requirement.notes ?? "Xac nhan sach tu yeu cau giao trinh",
+          },
+        });
         const issue = await tx.bookIssue.create({
           data: {
+            batchId: batch.id,
             bookId: requirement.bookId,
             classId: requirement.classId,
             studentId: requirement.studentId,

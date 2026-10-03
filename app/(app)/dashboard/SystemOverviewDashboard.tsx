@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import PeriodNavigator from "@/components/ui/PeriodNavigator";
 import { resolvePeriod } from "@/lib/period-range";
 import { listProfessionalAlerts } from "@/lib/server/professional-alerts";
 import { prisma } from "@/lib/prisma";
 import { formatVnd } from "@/lib/export-utils";
+import { buildStudentCareMap, describeCare } from "@/lib/server/student-care";
+import { computeJournalRankings, formatJournalAverage } from "@/lib/journal-ranking";
 
 type DashboardSearchParams = {
   mode?: string;
@@ -39,6 +42,10 @@ type BranchOverview = {
   studentsNeedCare: number;
   avgScore: number | null;
   scoredStudents: number;
+  classDetails: { id: string; name: string; activeStudents: number; courseName: string | null }[];
+  careStudents: { id: string; code: string; name: string; reason: string }[];
+  topStudents: { id: string; code: string; name: string; average: number; rank: number }[];
+  weeklyProgress: { id: string; classId: string; className: string; sessionNumber: number | null; lesson: string; date: Date }[];
 };
 
 function pct(part: number, total: number) {
@@ -140,6 +147,106 @@ async function scoreCareByBranch(range: { start: Date; end: Date }, branchId?: s
   };
 }
 
+async function getBranchDetailBlocks(branchId: string, range: { start: Date; end: Date }) {
+  const [classes, students, entries, sessions] = await Promise.all([
+    prisma.class.findMany({
+      where: { branchId, status: "ACTIVE" },
+      select: {
+        id: true,
+        className: true,
+        course: { select: { name: true } },
+        _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
+      },
+      orderBy: [{ className: "asc" }],
+      take: 8,
+    }),
+    prisma.student.findMany({
+      where: { branchId, status: "ACTIVE" },
+      select: { id: true, studentCode: true, fullName: true },
+      orderBy: { fullName: "asc" },
+      take: 300,
+    }),
+    prisma.journalEntry.findMany({
+      where: {
+        student: { branchId, status: "ACTIVE" },
+        journal: { session: { sessionDate: { gte: range.start, lte: range.end } } },
+        scores: { some: { score: { not: null } } },
+      },
+      select: {
+        studentId: true,
+        scores: { select: { score: true, maxScore: true } },
+      },
+    }),
+    prisma.classSession.findMany({
+      where: {
+        class: { branchId },
+        sessionDate: { gte: range.start, lte: range.end },
+        status: { notIn: ["CANCELLED", "RESCHEDULED"] },
+      },
+      select: {
+        id: true,
+        classId: true,
+        sessionDate: true,
+        class: { select: { className: true } },
+        journal: { select: { unitLesson: true } },
+      },
+      orderBy: [{ sessionDate: "desc" }, { startTime: "asc" }],
+      take: 8,
+    }),
+  ]);
+
+  const careMap = await buildStudentCareMap(students.map((student) => student.id));
+  const scoreRows = students.map((student) => ({
+    studentId: student.id,
+    scores: entries
+      .filter((entry) => entry.studentId === student.id)
+      .flatMap((entry) => entry.scores.map((score) => ({ score: score.score, maxScore: score.maxScore }))),
+  }));
+  const rankingByStudent = new Map(computeJournalRankings(scoreRows).map((item) => [item.studentId, item]));
+  const studentById = new Map(students.map((student) => [student.id, student]));
+
+  return {
+    classDetails: classes.map((item) => ({
+      id: item.id,
+      name: item.className,
+      activeStudents: item._count.enrollments,
+      courseName: item.course?.name ?? null,
+    })),
+    careStudents: students
+      .map((student) => ({ student, verdict: careMap.get(student.id) }))
+      .filter((item) => item.verdict?.needsCare)
+      .slice(0, 5)
+      .map(({ student, verdict }) => ({
+        id: student.id,
+        code: student.studentCode,
+        name: student.fullName,
+        reason: verdict ? describeCare(verdict) : "",
+      })),
+    topStudents: [...rankingByStudent.values()]
+      .filter((item) => item.average != null && item.rank != null)
+      .sort((left, right) => (left.rank as number) - (right.rank as number))
+      .slice(0, 5)
+      .map((item) => {
+        const student = studentById.get(item.studentId)!;
+        return {
+          id: student.id,
+          code: student.studentCode,
+          name: student.fullName,
+          average: item.average as number,
+          rank: item.rank as number,
+        };
+      }),
+    weeklyProgress: sessions.map((session) => ({
+      id: session.id,
+      classId: session.classId,
+      className: session.class.className,
+      sessionNumber: null,
+      lesson: session.journal?.unitLesson?.trim() || "Chưa ghi nhật ký",
+      date: session.sessionDate,
+    })),
+  };
+}
+
 async function getBranchOverview(range: { start: Date; end: Date }): Promise<BranchOverview[]> {
   const branches = await prisma.branch.findMany({ where: { isActive: true }, orderBy: { code: "asc" } });
 
@@ -162,6 +269,7 @@ async function getBranchOverview(range: { start: Date; end: Date }): Promise<Bra
         newEnrollments,
         debt,
         care,
+        detailBlocks,
       ] = await Promise.all([
         prisma.student.count({ where: { branchId: branch.id, status: "ACTIVE" } }),
         prisma.class.count({ where: { branchId: branch.id, status: "ACTIVE" } }),
@@ -188,6 +296,7 @@ async function getBranchOverview(range: { start: Date; end: Date }): Promise<Bra
         prisma.student.count({ where: { branchId: branch.id, enrollDate: { gte: range.start, lte: range.end } } }),
         chargeBreakdownByBranch(branch.id),
         scoreCareByBranch(range, branch.id),
+        getBranchDetailBlocks(branch.id, range),
       ]);
 
       return {
@@ -218,6 +327,7 @@ async function getBranchOverview(range: { start: Date; end: Date }): Promise<Bra
         studentsNeedCare: care.studentsNeedCare,
         avgScore: care.avgScore,
         scoredStudents: care.scoredStudents,
+        ...detailBlocks,
       };
     }),
   );
@@ -392,7 +502,8 @@ export default async function SystemOverviewDashboard({ searchParams }: { search
             </thead>
             <tbody>
               {branchRows.map((row) => (
-                <tr key={row.id} className="border-b border-slate-100 align-top hover:bg-slate-50/80">
+                <Fragment key={row.id}>
+                <tr className="border-b border-slate-100 align-top hover:bg-slate-50/80">
                   <td className="px-3 py-4">
                     <p className="font-black text-slate-950">{row.code}</p>
                     <p className="mt-0.5 max-w-[160px] truncate text-xs font-semibold text-slate-500">{row.name}</p>
@@ -437,6 +548,60 @@ export default async function SystemOverviewDashboard({ searchParams }: { search
                   </td>
                   <td className="px-3 py-4 font-black text-slate-800">{formatScore(row.avgScore)}</td>
                 </tr>
+                <tr className="border-b border-slate-200 bg-slate-50/60">
+                  <td colSpan={16} className="px-3 pb-4">
+                    <div className="grid gap-3 lg:grid-cols-4">
+                      <div className="rounded-lg border border-slate-200 bg-white p-3">
+                        <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Lớp & sĩ số</p>
+                        <div className="mt-2 space-y-1.5">
+                          {row.classDetails.length ? row.classDetails.map((item) => (
+                            <Link key={item.id} href={`/classes/${item.id}`} className="flex items-center justify-between gap-2 text-xs font-semibold hover:text-orange-700">
+                              <span className="min-w-0 truncate">{item.name}</span>
+                              <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">{item.activeStudents} HS</span>
+                            </Link>
+                          )) : <p className="text-xs font-semibold text-slate-400">Chưa có lớp đang học.</p>}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
+                        <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-700">Học tốt</p>
+                        <div className="mt-2 space-y-1.5">
+                          {row.topStudents.length ? row.topStudents.map((item) => (
+                            <Link key={item.id} href={`/students/${item.id}`} className="flex items-center justify-between gap-2 text-xs font-semibold text-emerald-900 hover:underline">
+                              <span className="min-w-0 truncate">#{item.rank} {item.name}</span>
+                              <span className="shrink-0">{formatJournalAverage(item.average)}</span>
+                            </Link>
+                          )) : <p className="text-xs font-semibold text-emerald-700/70">Chưa có điểm trong khoảng này.</p>}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-orange-200 bg-orange-50/70 p-3">
+                        <p className="text-xs font-black uppercase tracking-[0.12em] text-orange-700">Cần chăm sóc</p>
+                        <div className="mt-2 space-y-1.5">
+                          {row.careStudents.length ? row.careStudents.map((item) => (
+                            <Link key={item.id} href={`/students/${item.id}`} className="block text-xs font-semibold text-orange-950 hover:underline">
+                              <span className="block truncate">{item.name}</span>
+                              <span className="block truncate text-orange-700">{item.reason}</span>
+                            </Link>
+                          )) : <p className="text-xs font-semibold text-orange-700/70">Không có học viên cần chăm sóc nổi bật.</p>}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-3">
+                        <p className="text-xs font-black uppercase tracking-[0.12em] text-sky-700">Tiến trình tuần</p>
+                        <div className="mt-2 space-y-1.5">
+                          {row.weeklyProgress.length ? row.weeklyProgress.map((item) => (
+                            <Link key={item.id} href={`/classes/${item.classId}`} className="block text-xs font-semibold text-sky-950 hover:underline">
+                              <span className="block truncate">{item.className}</span>
+                              <span className="block truncate text-sky-700">{item.date.toLocaleDateString("vi-VN", { timeZone: "UTC" })} · {item.lesson}</span>
+                            </Link>
+                          )) : <p className="text-xs font-semibold text-sky-700/70">Chưa có buổi trong khoảng đang xem.</p>}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                </Fragment>
               ))}
             </tbody>
           </table>

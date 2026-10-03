@@ -14,7 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const TEST_DB_PATH = path.join(process.cwd(), "prisma", "test.db");
-const TEST_DB_URL = `file:${TEST_DB_PATH.split(String.fromCharCode(92)).join("/")}`;
+const TEST_DB_URL = "file:./test.db";
 
 // Dọn file cũ, trỏ DATABASE_URL sang CSDL test rồi dựng lại bằng đúng migration thật.
 //
@@ -27,6 +27,7 @@ export function prepareTestDatabase(): string {
     const file = TEST_DB_PATH + suffix;
     if (fs.existsSync(file)) fs.unlinkSync(file);
   }
+  fs.closeSync(fs.openSync(TEST_DB_PATH, "w"));
   process.env.DATABASE_URL = TEST_DB_URL;
   execFileSync("npx", ["prisma", "migrate", "deploy"], {
     env: { ...process.env, DATABASE_URL: TEST_DB_URL },

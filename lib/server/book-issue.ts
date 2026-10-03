@@ -12,6 +12,7 @@ export type BookIssueItemInput = { bookId: string; quantity: number };
 
 export type BookIssueResultItem = {
   issueId: string;
+  batchId: string;
   bookId: string;
   bookName: string;
   quantity: number;
@@ -29,6 +30,7 @@ export async function issueBooksToStudent(params: {
   issueDate?: Date;
   notes?: string | null;
   paidNow: boolean;
+  source?: string;
   /** Tài khoản đang thao tác — lưu lại để truy ai đã phát cuốn sách này. */
   issuedById?: string | null;
 }): Promise<{ error: string; status: number } | { items: BookIssueResultItem[]; warnings: string[] }> {
@@ -74,6 +76,16 @@ export async function issueBooksToStudent(params: {
   const issueDate = params.issueDate ?? new Date();
 
   const created = await prisma.$transaction(async (tx) => {
+    const batch = await tx.bookIssueBatch.create({
+      data: {
+        branchId: student.branchId,
+        classId,
+        issueDate,
+        issuedById: params.issuedById ?? null,
+        source: params.source ?? "MANUAL",
+        notes: params.notes || null,
+      },
+    });
     const results: Omit<BookIssueResultItem, "onHand">[] = [];
     for (const book of books) {
       const quantity = merged.get(book.id)!;
@@ -82,6 +94,7 @@ export async function issueBooksToStudent(params: {
       const issue = await tx.bookIssue.create({
         data: {
           bookId: book.id,
+          batchId: batch.id,
           classId,
           studentId,
           quantity,
@@ -139,6 +152,7 @@ export async function issueBooksToStudent(params: {
       await syncBookQuantityOnHand(book.id, tx);
       results.push({
         issueId: issue.id,
+        batchId: batch.id,
         bookId: book.id,
         bookName: book.name,
         quantity,

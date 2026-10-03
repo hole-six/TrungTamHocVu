@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getUserRoleAndOverride } from "@/lib/permissions";
@@ -6,6 +6,12 @@ import { canDeleteWithOverride } from "@/lib/server/role-matrix";
 import { canAccessBranch } from "@/lib/branch-filter";
 import { canEditCharges } from "@/lib/server/tuition-rules";
 import { syncBookQuantityOnHand } from "@/lib/server/database-sync";
+
+function uniqStrings(value: unknown): string[] {
+  return Array.isArray(value)
+    ? [...new Set<string>(value.map((item) => String(item ?? "").trim()).filter((item) => item.length > 0))]
+    : [];
+}
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
@@ -17,24 +23,38 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const issueIds: string[] = Array.isArray(body.issueIds)
-    ? [...new Set<string>(body.issueIds.map((id: unknown) => String(id ?? "").trim()).filter((id: string) => id.length > 0))]
-    : [];
-  if (issueIds.length === 0) return NextResponse.json({ error: "Chưa chọn dòng sách cần thu hồi." }, { status: 400 });
-  if (issueIds.length > 200) return NextResponse.json({ error: "Mỗi lần chỉ thu hồi tối đa 200 dòng sách." }, { status: 400 });
+  const issueIds = uniqStrings(body.issueIds);
+  const batchIds = uniqStrings(body.batchIds);
+  const studentIds = uniqStrings(body.studentIds);
+  const classId = String(body.classId ?? "").trim();
+  const hasSelector = issueIds.length > 0 || batchIds.length > 0 || studentIds.length > 0 || classId.length > 0;
+  if (!hasSelector) {
+    return NextResponse.json({ error: "Chưa chọn dòng, đợt, lớp hoặc học viên cần thu hồi sách." }, { status: 400 });
+  }
+  if (issueIds.length + batchIds.length + studentIds.length > 200) {
+    return NextResponse.json({ error: "Mỗi lần chỉ thu hồi tối đa 200 mã dòng/đợt/học viên." }, { status: 400 });
+  }
 
   const issues = await prisma.bookIssue.findMany({
-    where: { id: { in: issueIds } },
+    where: {
+      ...(issueIds.length > 0 ? { id: { in: issueIds } } : {}),
+      ...(batchIds.length > 0 ? { batchId: { in: batchIds } } : {}),
+      ...(studentIds.length > 0 ? { studentId: { in: studentIds } } : {}),
+      ...(classId ? { classId } : {}),
+    },
     include: {
       book: true,
+      batch: true,
       student: { select: { id: true, branchId: true, studentCode: true, fullName: true } },
       class: { select: { id: true, classCode: true, className: true } },
       charge: { include: { billingPeriod: true } },
     },
   });
-  if (issues.length !== issueIds.length) {
+  if (issueIds.length > 0 && issues.length !== issueIds.length) {
     return NextResponse.json({ error: "Có dòng sách không còn tồn tại. Tải lại danh sách rồi thử lại." }, { status: 404 });
   }
+  if (issues.length === 0) return NextResponse.json({ error: "Không có dòng sách nào khớp điều kiện thu hồi." }, { status: 404 });
+  if (issues.length > 200) return NextResponse.json({ error: "Mỗi lần chỉ thu hồi tối đa 200 dòng sách." }, { status: 400 });
 
   const branchIds = new Set(issues.map((issue) => issue.student.branchId));
   if (branchIds.size !== 1) return NextResponse.json({ error: "Chỉ thu hồi cùng lúc sách trong cùng một cơ sở." }, { status: 400 });
@@ -100,13 +120,13 @@ export async function POST(req: NextRequest) {
         branchId,
         action: "revoke-book-issues",
         entityType: "BookIssue",
-        entityId: issueIds.join(","),
-        before: JSON.stringify(issues),
+        entityId: issues.map((issue) => issue.id).join(","),
+        before: JSON.stringify({ selector: { issueIds, batchIds, studentIds, classId }, issues }),
         reason: String(body.reason ?? "").trim() || "Thu hồi sách đã phát",
       },
     });
 
-    await tx.bookIssue.deleteMany({ where: { id: { in: issueIds } } });
+    await tx.bookIssue.deleteMany({ where: { id: { in: issues.map((issue) => issue.id) } } });
     for (const bookId of bookIds) await syncBookQuantityOnHand(bookId, tx);
   });
 
@@ -117,5 +137,6 @@ export async function POST(req: NextRequest) {
     revokedCount: issues.length,
     totalQuantity: issues.reduce((total, issue) => total + issue.quantity, 0),
     totalAmount: issues.reduce((total, issue) => total + issue.amount, 0),
+    selectors: { issueIds, batchIds, studentIds, classId: classId || null },
   });
 }

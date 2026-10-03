@@ -131,6 +131,7 @@ export async function GET(
             chargeId: true,
             book: { select: { name: true } },
             class: { select: { className: true } },
+            batch: { select: { id: true, issueDate: true, source: true, notes: true } },
             charge: { select: { billingPeriod: { select: { periodName: true } } } },
           },
           orderBy: { issueDate: "desc" },
@@ -696,6 +697,10 @@ export async function GET(
         paymentStatus: issue.paymentStatus,
         className: issue.class?.className ?? null,
         notes: issue.notes,
+        batchId: issue.batch?.id ?? null,
+        batchIssueDate: issue.batch?.issueDate?.toISOString() ?? null,
+        batchSource: issue.batch?.source ?? null,
+        batchNotes: issue.batch?.notes ?? null,
         // Tiền sách chỉ thành công nợ khi lần xuất này được gắn vào 1 Charge (xem
         // app/api/books/[id]/issues/route.ts — chỉ gắn được nếu kỳ thu chứa ngày xuất
         // tồn tại, chưa khóa sổ, và học viên đã có charge của kỳ đó). Trả ra để màn

@@ -103,7 +103,10 @@ export default function InvoiceDocument({
   const transferRemainderAmount = charge.transferRemainderAmount || 0;
 
   return (
-    <div className="mx-auto w-full max-w-[210mm] bg-white p-[8mm] text-black print:min-h-[297mm] print:p-[8mm]">
+    <div
+      className="mx-auto w-full max-w-[210mm] bg-white p-[8mm] text-black print:min-h-[297mm] print:p-[8mm]"
+      style={{ fontFamily: '"Times New Roman", Times, serif' }}
+    >
       <div className="border border-black px-4 py-3">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">

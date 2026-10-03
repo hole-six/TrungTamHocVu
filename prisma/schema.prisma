@@ -46,6 +46,7 @@ model Branch {
   courses                 Course[]
   classes                 Class[]
   books                   Book[]
+  bookIssueBatches        BookIssueBatch[]
   stockLocations          StockLocation[]
   cashTransactions        CashTransaction[]
   payrollRuns             PayrollRun[]
@@ -130,8 +131,9 @@ model User {
   guardian        Guardian?            @relation(fields: [guardianId], references: [id])
   auditLogs       AuditLog[]
   moduleOverrides UserModuleOverride[]
-  bookIssues      BookIssue[]          @relation("BookIssueIssuedBy")
-  courseMaterials CourseMaterial[]     @relation("CourseMaterialUploadedBy")
+  bookIssues       BookIssue[]          @relation("BookIssueIssuedBy")
+  bookIssueBatches BookIssueBatch[]     @relation("BookIssueBatchIssuedBy")
+  courseMaterials  CourseMaterial[]     @relation("CourseMaterialUploadedBy")
 
   @@map("users")
 }
@@ -527,6 +529,7 @@ model Class {
   enrollments        Enrollment[]
   leads              Lead[]
   bookIssues         BookIssue[]
+  bookIssueBatches   BookIssueBatch[]
   bookRequirements   StudentBookRequirement[]
   classBooks         ClassBookRequirement[]
   charges            Charge[]
@@ -1462,6 +1465,7 @@ model StockTransaction {
 
 model BookIssue {
   id            String   @id @default(uuid())
+  batchId       String?  @map("batch_id")
   bookId        String   @map("book_id")
   classId       String?  @map("class_id")
   studentId     String   @map("student_id")
@@ -1477,15 +1481,37 @@ model BookIssue {
   notes         String?
 
   book        Book                    @relation(fields: [bookId], references: [id])
+  batch       BookIssueBatch?         @relation(fields: [batchId], references: [id], onDelete: SetNull)
   class       Class?                  @relation(fields: [classId], references: [id])
   issuedBy    User?                   @relation("BookIssueIssuedBy", fields: [issuedById], references: [id])
   student     Student                 @relation(fields: [studentId], references: [id])
   charge      Charge?                 @relation(fields: [chargeId], references: [id])
   requirement StudentBookRequirement?
 
+  @@index([batchId])
   @@index([chargeId])
   @@index([studentId])
   @@map("book_issues")
+}
+
+model BookIssueBatch {
+  id         String   @id @default(uuid())
+  branchId   String   @map("branch_id")
+  classId    String?  @map("class_id")
+  issuedById String?  @map("issued_by_id")
+  issueDate  DateTime @map("issue_date")
+  source     String   @default("MANUAL")
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  branch   Branch      @relation(fields: [branchId], references: [id])
+  class    Class?      @relation(fields: [classId], references: [id])
+  issuedBy User?       @relation("BookIssueBatchIssuedBy", fields: [issuedById], references: [id])
+  issues   BookIssue[]
+
+  @@index([branchId, issueDate])
+  @@index([classId, issueDate])
+  @@map("book_issue_batches")
 }
 
 // SÁCH KÈM THEO CỦA LỚP — không bắt buộc. Khóa học có bộ sách chuẩn

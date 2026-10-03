@@ -54,7 +54,7 @@
     "test:breakdown": "tsx tests/cash-breakdown.test.ts",
     "test:scoredetail": "tsx tests/score-event-detail.test.ts",
     "test:overlap": "tsx tests/overlap-rule.test.ts",
-    "test": "npm run test:money && npm run test:payroll && npm run test:billing && npm run test:timeline && npm run test:sessions && npm run test:enrollment && npm run test:roadmap && npm run test:history && npm run test:pause && npm run test:codes && npm run test:staff && npm run test:transfer && npm run test:course-transfer && npm run test:grade && npm run test:numbering && npm run test:closure && npm run test:rating && npm run test:scorecard && npm run test:hours && npm run test:discount && npm run test:payment && npm run test:bookpay && npm run test:breakdown && npm run test:scoredetail && npm run test:overlap && npm run test:remedial && npm run test:staffpick && npm run test:period && npm run test:roadmap2 && npm run test:materials && npm run test:care && npm run test:student-duplicate",
+    "test": "npm run test:money && npm run test:payroll && npm run test:billing && npm run test:timeline && npm run test:sessions && npm run test:enrollment && npm run test:roadmap && npm run test:history && npm run test:pause && npm run test:codes && npm run test:staff && npm run test:transfer && npm run test:course-transfer && npm run test:grade && npm run test:numbering && npm run test:closure && npm run test:rating && npm run test:scorecard && npm run test:hours && npm run test:discount && npm run test:payment && npm run test:bookpay && npm run test:breakdown && npm run test:scoredetail && npm run test:overlap && npm run test:remedial && npm run test:staffpick && npm run test:period && npm run test:roadmap2 && npm run test:materials && npm run test:care && npm run test:student-duplicate && npm run test:journal-ranking",
     "check:ui": "node scripts/ui_smoke.mjs",
     "test:remedial": "tsx tests/remedial-switch.test.ts",
     "test:staffpick": "tsx tests/teaching-staff.test.ts",
@@ -62,7 +62,8 @@
     "test:roadmap2": "tsx tests/course-roadmap.test.ts",
     "test:materials": "tsx tests/course-materials.test.ts",
     "test:care": "tsx tests/student-care.test.ts",
-    "test:student-duplicate": "tsx tests/student-duplicate-name.test.ts"
+    "test:student-duplicate": "tsx tests/student-duplicate-name.test.ts",
+    "test:journal-ranking": "tsx tests/journal-ranking.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

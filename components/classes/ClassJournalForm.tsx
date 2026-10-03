@@ -1,9 +1,10 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { printPage } from "@/lib/export-utils";
+import { computeJournalRankings, formatJournalAverage } from "@/lib/journal-ranking";
 import FormGuide from "@/components/ui/FormGuide";
 import Linkify from "@/components/ui/Linkify";
 
@@ -223,6 +224,15 @@ export default function ClassJournalForm({
 
   const printLabels = useMemo(() => normalizePrintOrder(labels), [labels]);
   const homeworkLines = useMemo(() => buildHomeworkLines(homeworkNote), [homeworkNote]);
+  const rankingByStudentId = useMemo(() => {
+    const rankings = computeJournalRankings(
+      roster.map((student) => ({
+        studentId: student.id,
+        scores: rows[student.id]?.scores ?? [],
+      })),
+    );
+    return new Map(rankings.map((item) => [item.studentId, item]));
+  }, [roster, rows]);
 
   function updateRow(studentId: string, patch: Partial<Entry>) {
     setRows((current) => ({ ...current, [studentId]: { ...current[studentId], ...patch } }));
@@ -432,6 +442,8 @@ export default function ClassJournalForm({
                     + Cột điểm
                   </button>
                 </th>
+                <th className="w-20 px-3 py-3 text-center font-medium">TB</th>
+                <th className="w-20 px-3 py-3 text-center font-medium">Hạng</th>
                 <th className="min-w-[180px] px-3 py-3 font-medium">BTVN</th>
                 <th className="min-w-[320px] px-3 py-3 font-medium">Nhận xét phụ huynh</th>
                 <th className="min-w-[220px] px-3 py-3 font-medium">Ghi chú nội bộ</th>
@@ -442,6 +454,7 @@ export default function ClassJournalForm({
               {roster.map((student) => {
                 const row = rows[student.id];
                 if (!row) return null;
+                const ranking = rankingByStudentId.get(student.id);
 
                 return (
                   <tr key={student.id}>
@@ -482,6 +495,34 @@ export default function ClassJournalForm({
 
                     <td className="px-3 py-3 align-top" />
 
+                    <td
+                      className={`px-3 py-3 text-center align-top text-sm font-black ${
+                        ranking?.average == null
+                          ? "text-ink-muted48"
+                          : ranking.average < 7
+                            ? "text-red-600"
+                            : ranking.rank === 1
+                              ? "text-emerald-700"
+                              : "text-ink"
+                      }`}
+                    >
+                      {formatJournalAverage(ranking?.average)}
+                    </td>
+
+                    <td className="px-3 py-3 text-center align-top">
+                      {ranking?.rank ? (
+                        <span
+                          className={`inline-flex min-w-9 justify-center rounded-full px-2 py-1 text-xs font-black ${
+                            ranking.rank === 1 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-700"
+                          }`}
+                        >
+                          #{ranking.rank}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-ink-muted48">—</span>
+                      )}
+                    </td>
+
                     <td className="px-3 py-3 align-top">
                       <select
                         className="input h-10"
@@ -519,7 +560,7 @@ export default function ClassJournalForm({
 
               {roster.length === 0 ? (
                 <tr>
-                  <td colSpan={labels.length + 5} className="px-3 py-6 text-center text-ink-muted48">
+                  <td colSpan={labels.length + 7} className="px-3 py-6 text-center text-ink-muted48">
                     Lớp chưa có học viên đang ghi danh.
                   </td>
                 </tr>
@@ -614,6 +655,12 @@ export default function ClassJournalForm({
                     ĐIỂM
                   </th>
                   <th rowSpan={2} className="border-r border-b border-slate-700 px-1 py-1 text-center font-bold">
+                    TB
+                  </th>
+                  <th rowSpan={2} className="border-r border-b border-slate-700 px-1 py-1 text-center font-bold">
+                    Hạng
+                  </th>
+                  <th rowSpan={2} className="border-r border-b border-slate-700 px-1 py-1 text-center font-bold">
                     BTVN
                   </th>
                   <th rowSpan={2} className="border-r border-b border-slate-700 px-2 py-1 text-center font-bold">
@@ -640,6 +687,7 @@ export default function ClassJournalForm({
                     if (!row) return null;
                     const scoreMap = Object.fromEntries(row.scores.map((score) => [score.label, score.score]));
                     const scoreHeaders = printLabels.filter((label) => label !== "BTVN");
+                    const ranking = rankingByStudentId.get(student.id);
 
                     return (
                       <tr key={student.id} className="align-top">
@@ -660,6 +708,22 @@ export default function ClassJournalForm({
                           </td>
                         ))}
                         <td
+                          className={`border-r border-b border-slate-700 px-1 py-2 text-center text-[14px] font-bold ${
+                            ranking?.average == null
+                              ? "text-slate-400"
+                              : ranking.average < 7
+                                ? "bg-[#fee2e2] text-[#b91c1c]"
+                                : ranking.rank === 1
+                                  ? "bg-[#dcfce7] text-[#15803d]"
+                                  : "text-[#2f5ea6]"
+                          }`}
+                        >
+                          {formatJournalAverage(ranking?.average)}
+                        </td>
+                        <td className="border-r border-b border-slate-700 px-1 py-2 text-center text-[13px] font-bold text-[#2f5ea6]">
+                          {ranking?.rank ? `#${ranking.rank}` : ""}
+                        </td>
+                        <td
                           className={`border-r border-b border-slate-700 px-1 py-2 text-center font-bold ${
                             row.homeworkStatus === "Chưa nộp" ? "text-red-600" : "text-[#2f5ea6]"
                           }`}
@@ -678,7 +742,7 @@ export default function ClassJournalForm({
                 ) : (
                   <tr>
                     <td
-                      colSpan={Math.max(printLabels.filter((label) => label !== "BTVN").length, 1) + 5}
+                      colSpan={Math.max(printLabels.filter((label) => label !== "BTVN").length, 1) + 7}
                       className="border-b border-slate-700 px-3 py-8 text-center text-slate-400"
                     >
                       Chưa có học viên trong lớp này.
