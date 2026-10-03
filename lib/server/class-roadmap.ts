@@ -133,6 +133,21 @@ export type ResolvedRoadmapItem = {
   source: RoadmapSource;
 };
 
+export function getProfessionalAlertText(
+  item: Pick<ResolvedRoadmapItem, "teacherRequirement" | "homeworkGuide" | "teacherGuide" | "title">,
+) {
+  const teacherRequirement = item.teacherRequirement?.trim();
+  if (teacherRequirement) return teacherRequirement;
+
+  const homeworkGuide = item.homeworkGuide?.trim();
+  if (homeworkGuide) return `Bài tập cần xử lý: ${homeworkGuide}`;
+
+  const teacherGuide = item.teacherGuide?.trim();
+  if (teacherGuide) return `Việc giáo viên cần lưu ý: ${teacherGuide}`;
+
+  return `Buổi "${item.title.trim() || "chưa đặt tên"}" được đánh dấu cảnh báo chuyên môn nhưng chưa ghi nội dung việc cần làm.`;
+}
+
 type RoadmapLike = {
   sessionNumber: number;
   title?: string | null;

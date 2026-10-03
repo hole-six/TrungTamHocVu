@@ -11,7 +11,7 @@ async function main() {
   prepareTestDatabase();
 
   const { PrismaClient } = await import("@prisma/client");
-  const { resolveClassRoadmap, isRealRoadmapOverride, normalizeAlertLevel } = await import("@/lib/server/class-roadmap");
+  const { resolveClassRoadmap, isRealRoadmapOverride, normalizeAlertLevel, getProfessionalAlertText } = await import("@/lib/server/class-roadmap");
   const fixtures = await import("./fixtures");
   const { prisma: sharedClient } = await import("@/lib/prisma");
 
@@ -170,6 +170,34 @@ async function main() {
     const items = await resolveClassRoadmap(db, cls.id);
     expectEqual(items[0]?.alertLevel, "RED", "giữ cảnh báo của lớp");
     expectEqual(items[0]?.source, "class", "tính là lớp ghi đè");
+  });
+
+  await test("Cảnh báo chuyên môn có bài tập vẫn tạo việc giáo viên cần xác nhận", async () => {
+    expectEqual(
+      getProfessionalAlertText({
+        title: "Presentation",
+        teacherRequirement: "Quay video bài nói",
+        homeworkGuide: "BTVN trang 12",
+        teacherGuide: "Nhắc phát âm",
+      }),
+      "Quay video bài nói",
+      "ưu tiên yêu cầu giáo viên nhập riêng",
+    );
+    expectEqual(
+      getProfessionalAlertText({
+        title: "Presentation",
+        teacherRequirement: null,
+        homeworkGuide: "Thu bài tập speaking và quay video phần trình bày.",
+        teacherGuide: null,
+      }),
+      "Bài tập cần xử lý: Thu bài tập speaking và quay video phần trình bày.",
+      "không bỏ sót buổi chỉ có bài tập",
+    );
+    expectEqual(
+      getProfessionalAlertText({ title: "Speaking Test", teacherRequirement: null, homeworkGuide: null, teacherGuide: null }),
+      'Buổi "Speaking Test" được đánh dấu cảnh báo chuyên môn nhưng chưa ghi nội dung việc cần làm.',
+      "cảnh báo trống vẫn có câu ép hỏi lại",
+    );
   });
 
   const failed = summary();

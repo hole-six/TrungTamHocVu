@@ -8,7 +8,7 @@
 // "Đã làm" = có SessionRequirementCheck với status SUBMITTED (dùng lại đúng cơ chế xác
 // nhận sẵn có, nên vẫn truy được ai tick, lúc nào, muộn mấy ngày).
 import { prisma } from "@/lib/prisma";
-import { resolveClassRoadmap } from "@/lib/server/class-roadmap";
+import { getProfessionalAlertText, resolveClassRoadmap } from "@/lib/server/class-roadmap";
 import { computeSessionNumbers } from "@/lib/session-numbering";
 
 export type ProfessionalAlert = {
@@ -83,7 +83,7 @@ export async function listProfessionalAlerts(params: {
         sessionDate: session.sessionDate,
         sessionNumber: found.sessionNumber,
         level: found.alertLevel as "YELLOW" | "RED",
-        note: found.teacherRequirement,
+        note: getProfessionalAlertText(found),
         done,
         overdue: !done && found.alertLevel === "RED" && session.sessionDate < today,
       });

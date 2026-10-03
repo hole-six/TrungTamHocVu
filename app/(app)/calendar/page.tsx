@@ -7,7 +7,7 @@ import { getCurrentBranchId } from "@/lib/branch-filter";
 import CalendarFilters from "@/components/calendar/CalendarFilters";
 import PeriodNavigator from "@/components/ui/PeriodNavigator";
 import { resolvePeriod } from "@/lib/period-range";
-import { resolveClassRoadmap } from "@/lib/server/class-roadmap";
+import { getProfessionalAlertText, resolveClassRoadmap } from "@/lib/server/class-roadmap";
 import { computeSessionNumbers } from "@/lib/session-numbering";
 import SessionCard from "@/components/calendar/SessionCard";
 import CalendarListView from "@/components/calendar/CalendarListView";
@@ -237,7 +237,7 @@ export default async function CalendarPage({
         metaBySession.set(session.id, {
           sessionNumber: number,
           totalSessions: totalByClass.get(classId) ?? null,
-          alert: found ? { level: found.alertLevel as "YELLOW" | "RED", note: found.teacherRequirement } : null,
+          alert: found ? { level: found.alertLevel as "YELLOW" | "RED", note: getProfessionalAlertText(found) } : null,
         });
       }
     }
@@ -615,4 +615,3 @@ export default async function CalendarPage({
     </div>
   );
 }
-

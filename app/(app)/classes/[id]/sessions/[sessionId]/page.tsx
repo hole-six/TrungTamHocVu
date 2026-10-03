@@ -10,7 +10,7 @@ import PageGuide from "@/components/ui/PageGuide";
 import SpotlightTour, { type TourStep } from "@/components/ui/GuidedTour/SpotlightTour";
 import { prisma } from "@/lib/prisma";
 import { employeeBranchFilter } from "@/lib/server/employee-branches";
-import { resolveClassRoadmap } from "@/lib/server/class-roadmap";
+import { getProfessionalAlertText, resolveClassRoadmap } from "@/lib/server/class-roadmap";
 import { getUserRole } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { canUpdate } from "@/lib/server/role-matrix";
@@ -174,6 +174,7 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
     : [];
   const roadmapItem =
     sessionNumber != null ? resolvedRoadmap.find((item) => item.sessionNumber === sessionNumber) ?? null : null;
+  const professionalAlertText = roadmapItem && roadmapItem.alertLevel !== "NONE" ? getProfessionalAlertText(roadmapItem) : null;
 
   // Lớp bổ trợ: mỗi lần điểm danh "Có mặt" trừ 1 buổi bổ trợ (xem attendance/route.ts)
   // — giáo viên cần thấy số buổi bổ trợ còn lại của từng học viên NGAY trên form điểm
@@ -448,15 +449,15 @@ export default async function SessionAttendancePage({ params }: { params: { id: 
             {roadmapItem.alertLevel === "RED" ? "⛔ Cảnh báo chuyên môn — bắt buộc, có hạn" : "⚠ Cảnh báo chuyên môn — cần lưu ý"}
           </p>
           <p className="mt-1 text-sm font-semibold text-ink">
-            {roadmapItem.teacherRequirement?.trim() || "Buổi này được đánh dấu cảnh báo nhưng chưa ghi nội dung việc cần làm — hỏi lại giáo vụ trước khi lên lớp."}
+            {professionalAlertText}
           </p>
         </div>
       ) : null}
 
-      {canTeachSession && sessionHappened && roadmapItem?.teacherRequirement?.trim() ? (
+      {canTeachSession && sessionHappened && professionalAlertText ? (
         <SessionRequirementForm
           sessionId={session.id}
-          requirementText={roadmapItem.teacherRequirement.trim()}
+          requirementText={professionalAlertText}
           employeeOptions={[...new Map(session.assignments.map((assignment) => [assignment.employeeId, { id: assignment.employeeId, fullName: assignment.employee.fullName }])).values()]}
           editableToday={computeSessionTiming(session.sessionDate, getVietnamToday()) === "today"}
           existing={

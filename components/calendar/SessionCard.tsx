@@ -140,6 +140,17 @@ export default function SessionCard({
           </div>
         </div>
 
+        {activeAlert ? (
+          <p
+            className={`mt-3 flex items-start gap-1 rounded-[10px] px-2 py-1.5 text-[11px] font-bold leading-snug ${
+              activeAlert.level === "RED" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-900"
+            }`}
+          >
+            <span>{activeAlert.level === "RED" ? "⛔" : "⚠"}</span>
+            <span>{activeAlert.note?.trim() || "Cảnh báo chuyên môn"}</span>
+          </p>
+        ) : null}
+
         <div className="mt-3 space-y-1 rounded-xl bg-canvas-parchment p-3 text-xs">
           <p className="text-ink-muted80">
             <span className="font-semibold text-ink">GV:</span> {teacherNames.length > 0 ? teacherNames.join(", ") : "Chưa có"}

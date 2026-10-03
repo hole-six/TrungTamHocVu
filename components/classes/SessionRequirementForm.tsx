@@ -45,7 +45,7 @@ export default function SessionRequirementForm({
   async function confirm() {
     if (!pendingStatus || !employeeId) return;
     if (pendingStatus === "NOT_SUBMITTED" && !reasonDraft.trim()) {
-      setError("Vui lòng nhập lý do chưa nộp.");
+      setError("Vui lòng nhập lý do chưa làm xong.");
       return;
     }
     setLoading(true);
@@ -84,14 +84,14 @@ export default function SessionRequirementForm({
             existing.status === "SUBMITTED" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"
           }`}
         >
-          {existing.status === "SUBMITTED" ? "Đã nộp" : "Chưa nộp"}
-          {late ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">Nộp muộn</span> : null}
+          {existing.status === "SUBMITTED" ? "Đã làm xong" : "Chưa làm xong"}
+          {late ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">Làm muộn</span> : null}
           {" "}— xác nhận bởi {existing.employee.fullName} lúc{" "}
           {new Date(existing.checkedAt).toLocaleString("vi-VN")}
         </div>
         {existing.reason ? (
           <div className="rounded-2xl border border-[#e5eaf7] bg-white p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted48">Lý do chưa nộp</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted48">Lý do chưa làm xong</p>
             <p className="mt-1 text-sm text-ink-muted80">{existing.reason}</p>
           </div>
         ) : null}
@@ -149,7 +149,7 @@ export default function SessionRequirementForm({
           }}
           className="rounded-lg border border-[#e2e8f0] bg-white px-5 py-2.5 text-sm font-semibold text-[#0f1729] transition hover:border-[#0f1729] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Đã nộp
+          Đã làm xong
         </button>
         <button
           type="button"
@@ -160,7 +160,7 @@ export default function SessionRequirementForm({
           }}
           className="rounded-lg border border-[#e2e8f0] bg-white px-5 py-2.5 text-sm font-semibold text-[#0f1729] transition hover:border-[#0f1729] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Chưa nộp
+          Chưa làm xong
         </button>
         {existing ? (
           <button type="button" onClick={() => setEditing(false)} className="btn-ghost-sm">
@@ -171,7 +171,7 @@ export default function SessionRequirementForm({
 
       <ConfirmDialog
         open={pendingStatus !== null}
-        title={pendingStatus === "SUBMITTED" ? "Xác nhận đã nộp?" : "Xác nhận chưa nộp?"}
+        title={pendingStatus === "SUBMITTED" ? "Xác nhận đã làm xong?" : "Xác nhận chưa làm xong?"}
         description={
           pendingStatus === "SUBMITTED" ? (
             "Xác nhận yêu cầu buổi này đã hoàn thành."
@@ -179,7 +179,7 @@ export default function SessionRequirementForm({
             <div className="space-y-3">
               <p>Xác nhận yêu cầu buổi này CHƯA hoàn thành. Việc có trừ điểm hay không do admin quyết định sau, không phải lúc xác nhận này.</p>
               <label className="block">
-                <span className="mb-1 block text-sm font-semibold text-ink">Lý do chưa nộp</span>
+                <span className="mb-1 block text-sm font-semibold text-ink">Lý do chưa làm xong</span>
                 <textarea
                   className="input min-h-[80px] w-full"
                   value={reasonDraft}

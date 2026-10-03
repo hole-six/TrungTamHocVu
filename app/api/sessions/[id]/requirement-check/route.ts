@@ -5,6 +5,7 @@ import { getUserRole } from "@/lib/permissions";
 import { canUpdate } from "@/lib/server/role-matrix";
 import { computeSessionTiming, getVietnamToday } from "@/lib/server/class-rules";
 import { computeSessionNumbers } from "@/lib/session-numbering";
+import { getProfessionalAlertText, normalizeAlertLevel } from "@/lib/server/class-roadmap";
 
 async function canCheckRequirement(userId: string): Promise<boolean> {
   const role = await getUserRole(userId);
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const sessionNumber = computeSessionNumbers(session.class.sessions).numberById.get(session.id) ?? 0;
   const roadmapItem = session.class.roadmapItems.find((item) => item.sessionNumber === sessionNumber) ?? null;
-  const requirementText = roadmapItem?.teacherRequirement?.trim() || "";
+  const requirementText = roadmapItem && normalizeAlertLevel(roadmapItem.alertLevel) !== "NONE" ? getProfessionalAlertText(roadmapItem) : "";
   if (!requirementText) {
     return NextResponse.json({ error: "Buổi này không có yêu cầu giáo viên nào cần xác nhận." }, { status: 400 });
   }
