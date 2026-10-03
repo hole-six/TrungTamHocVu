@@ -134,7 +134,7 @@ export default function CalendarListView({
                   title="Bấm vào dòng để mở chi tiết buổi học"
                   className={`cursor-pointer align-top transition ${
                     isToday
-                      ? "bg-red-100/80 shadow-[inset_6px_0_0_0_#dc2626] hover:bg-red-200/70"
+                      ? "bg-red-100 shadow-[inset_10px_0_0_0_#b91c1c,0_0_0_2px_rgba(220,38,38,0.24),0_16px_30px_-24px_rgba(185,28,28,0.85)] hover:bg-red-200"
                       : alert?.level === "RED"
                         ? "bg-rose-50 shadow-[inset_4px_0_0_0_#e11d48] hover:bg-rose-100/70"
                         : alert?.level === "YELLOW"
@@ -144,13 +144,13 @@ export default function CalendarListView({
                 >
                   {/* Ngày và giờ gộp MỘT ô một dòng — mục tiêu nhìn thấy ~10 lớp cùng
                       lúc thay vì phải cuộn. Hôm nay in đậm hẳn lên. */}
-                  <td className={`whitespace-nowrap px-4 py-2 ${isToday ? "text-red-700" : "text-ink"}`}>
+                  <td className={`whitespace-nowrap px-4 py-2 ${isToday ? "text-red-950" : "text-ink"}`}>
                     <div className="flex items-center gap-2">
-                      <span className={isToday ? "text-[15px] font-black" : "font-bold"}>{formatRowDate(row.sessionDate)}</span>
+                      <span className={isToday ? "text-[16px] font-black" : "font-bold"}>{formatRowDate(row.sessionDate)}</span>
                       {isToday ? (
-                        <span className="inline-flex rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-black text-white">HÔM NAY</span>
+                        <span className="inline-flex rounded-full bg-red-700 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">HÔM NAY</span>
                       ) : null}
-                      <span className={`tabular-nums ${isToday ? "text-[15px] font-black" : "font-semibold text-ink-muted80"}`}>
+                      <span className={`tabular-nums ${isToday ? "text-[16px] font-black text-red-950" : "font-semibold text-ink-muted80"}`}>
                         {row.startTime ?? "?"}<span className="mx-0.5 font-normal text-ink-muted48">–</span>{row.endTime ?? "?"}
                       </span>
                     </div>
@@ -162,7 +162,7 @@ export default function CalendarListView({
                     <Link
                       href={`/classes/${row.classId}/sessions/${row.id}`}
                       title="Mở chi tiết buổi học"
-                      className={`cursor-pointer hover:underline ${isToday ? "text-[15px] font-black text-red-700" : "font-bold text-[#0f1729] hover:text-[#1d4ed8]"}`}
+                      className={`cursor-pointer hover:underline ${isToday ? "text-[16px] font-black text-red-950" : "font-bold text-[#0f1729] hover:text-[#1d4ed8]"}`}
                     >
                       {row.class.className}
                     </Link>
@@ -224,7 +224,7 @@ export default function CalendarListView({
                       />
                     </div>
                   </td>
-                  <td className={`px-4 py-2 text-center font-bold tabular-nums ${isToday ? "text-[15px] text-red-700" : "text-ink"}`}>{enrollmentCount}</td>
+                  <td className={`px-4 py-2 text-center font-bold tabular-nums ${isToday ? "text-[16px] text-red-950" : "text-ink"}`}>{enrollmentCount}</td>
                   <td className="px-4 py-2 text-right">
                     <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusBadgeClass(row.status)}`}>
                       {SESSION_STATUS_LABEL[row.status] ?? row.status}

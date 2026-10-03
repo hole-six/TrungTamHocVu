@@ -479,7 +479,7 @@ export default async function CalendarPage({
                   day.holidayName
                     ? "border-slate-300 bg-slate-100"
                     : isToday
-                    ? "border-2 border-red-500 bg-red-50/60 shadow-[0_10px_28px_-10px_rgba(220,38,38,0.35)]"
+                    ? "border-[3px] border-red-700 bg-red-100 shadow-[0_0_0_4px_rgba(239,68,68,0.18),0_22px_42px_-24px_rgba(185,28,28,0.85)]"
                     : isFocus
                       ? "border-[#dce7f3] bg-[#fafdff]"
                       : "border-[#dce7f3] bg-[rgba(255,255,255,0.86)]"
@@ -487,16 +487,16 @@ export default async function CalendarPage({
               >
                 <div className="relative mb-3">
                   <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-sky-700/80">{WEEKDAY_SHORT[day.date.getUTCDay()]}</p>
-                  <p className="mt-1 font-display text-2xl font-black tracking-tight text-ink">{formatCompactDate(day.date)}</p>
-                  <p className="mt-1 text-xs font-semibold text-ink-muted48">
+                  <p className={`text-xs font-bold uppercase tracking-[0.16em] ${isToday ? "text-red-800" : "text-sky-700/80"}`}>{WEEKDAY_SHORT[day.date.getUTCDay()]}</p>
+                  <p className={`mt-1 font-display text-2xl font-black tracking-tight ${isToday ? "text-red-950" : "text-ink"}`}>{formatCompactDate(day.date)}</p>
+                  <p className={`mt-1 text-xs font-semibold ${isToday ? "text-red-900" : "text-ink-muted48"}`}>
                     {day.sessions.length} buổi · {day.totalStudents} lượt học viên
                   </p>
                 </div>
                   {day.holidayName ? (
                     <span className="absolute right-0 top-0 rounded-full bg-slate-700 px-2 py-0.5 text-[11px] font-bold text-white">{day.holidayName}</span>
                   ) : null}
-                  {isToday && !day.holidayName ? <span className="absolute right-0 top-0 rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-black text-white">Hôm nay</span> : null}
+                  {isToday && !day.holidayName ? <span className="absolute right-0 top-0 rounded-full bg-red-700 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white shadow-[0_8px_18px_-10px_rgba(185,28,28,0.9)]">Hôm nay</span> : null}
                   {isFocus && !isToday ? <span className="absolute right-0 top-0 rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-700">Đang xem</span> : null}
                 </div>
 
@@ -548,7 +548,7 @@ export default async function CalendarPage({
                   isFocus
                     ? "border-[#0f1729] bg-[#0f1729] text-white shadow-md"
                     : isToday
-                      ? "border-2 border-red-500 bg-red-50 font-black text-red-700"
+                      ? "border-[3px] border-red-700 bg-red-100 font-black text-red-950 shadow-[0_0_0_3px_rgba(239,68,68,0.18)]"
                       : "border-hairline bg-white text-ink hover:border-primary/30"
                 }`}
               >
@@ -568,7 +568,7 @@ export default async function CalendarPage({
           return (
             <div key={iso} className="space-y-4">
               {/* Day header */}
-              <div className={`rounded-2xl p-4 ${isToday ? "border-2 border-red-500 bg-red-50" : "border border-hairline bg-white"}`}>
+              <div className={`rounded-2xl p-4 ${isToday ? "border-[3px] border-red-700 bg-red-100 shadow-[0_0_0_3px_rgba(239,68,68,0.18)]" : "border border-hairline bg-white"}`}>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted48">
@@ -576,7 +576,7 @@ export default async function CalendarPage({
                     </p>
                     <p className="mt-1 text-lg font-bold text-ink">{day.sessions.length} buổi học</p>
                   </div>
-                  {isToday && <span className="rounded-full bg-red-600 px-3 py-1 text-xs font-black text-white">Hôm nay</span>}
+                  {isToday && <span className="rounded-full bg-red-700 px-3 py-1 text-xs font-black uppercase tracking-wide text-white">Hôm nay</span>}
                 </div>
                 
                 <div className="mt-3 grid grid-cols-2 gap-2">

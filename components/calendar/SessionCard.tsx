@@ -87,7 +87,7 @@ export default function SessionCard({
   const isOff = session.status === "CANCELLED";
   const dimClass = isOff ? "opacity-60 grayscale" : "";
   const highlightToday = isToday && !isOff;
-  const classNameTextClass = highlightToday ? "font-black text-red-700" : "text-ink";
+  const classNameTextClass = highlightToday ? "font-black text-red-950" : "text-ink";
   const teacherNames = session.assignments
     .filter((assignment) => assignment.role === "TEACHER")
     .map((assignment) => assignment.employee.shortName || assignment.employee.fullName);
@@ -103,11 +103,18 @@ export default function SessionCard({
       <Link
         href={`/classes/${session.classId}/sessions/${session.id}`}
         className={`block rounded-2xl p-4 transition active:scale-[0.98] active:bg-canvas-parchment ${
-          highlightToday ? "border-2 border-red-500 bg-red-50 shadow-[0_8px_24px_-12px_rgba(220,38,38,0.45)]" : `border border-hairline ${isOff ? "bg-slate-50" : "bg-white"}`
+          highlightToday
+            ? "border-[3px] border-red-700 bg-red-100 shadow-[0_0_0_3px_rgba(239,68,68,0.22),0_18px_36px_-18px_rgba(185,28,28,0.75)]"
+            : `border border-hairline ${isOff ? "bg-slate-50" : "bg-white"}`
         } ${dimClass}`}
       >
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="flex-1">
+            {highlightToday ? (
+              <span className="mb-1 inline-flex rounded-full bg-red-700 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+                HÔM NAY
+              </span>
+            ) : null}
             <p className={`text-base font-semibold leading-tight ${classNameTextClass}`}>{session.class.className}</p>
             <p className="mt-1 text-xs text-ink-muted48">
               {session.class.course?.name ?? session.class.classCode}
@@ -154,7 +161,7 @@ export default function SessionCard({
       href={`/classes/${session.classId}/sessions/${session.id}`}
       className={`block rounded-[14px] p-3 transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-30px_rgba(14,116,144,0.45)] ${
         highlightToday
-          ? "border-2 border-red-500 bg-red-50 shadow-[0_8px_24px_-12px_rgba(220,38,38,0.45)]"
+          ? "border-[3px] border-red-700 bg-red-100 shadow-[0_0_0_3px_rgba(239,68,68,0.22),0_18px_36px_-18px_rgba(185,28,28,0.75)]"
           : activeAlert?.level === "RED"
             ? "border border-l-4 border-rose-300 border-l-rose-500 bg-rose-50"
             : activeAlert?.level === "YELLOW"
@@ -164,6 +171,11 @@ export default function SessionCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
+          {highlightToday ? (
+            <span className="mb-1 inline-flex rounded-full bg-red-700 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+              HÔM NAY
+            </span>
+          ) : null}
           <p className={`text-base font-bold leading-[1.3] ${classNameTextClass}`}>{session.class.className}</p>
           <p className="mt-1 text-xs text-ink-muted48">
             {session.class.classCode}
